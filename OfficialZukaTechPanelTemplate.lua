@@ -327,19 +327,7 @@ end
 
 
 
-Modules.CallumAI = {
-    State = { IsEnabled = true },
-    Config = { API_KEY = "", MODEL = "deepseek/deepseek-chat" }
-}
-function Modules.CallumAI:Initialize()
-    RegisterCommand({
-        Name = "callum",
-        Aliases = {"c"},
-        Description = "AI interface."
-    }, function(args)
-        DoNotif("Callum AI: Shoutout to Zuka!", 2)
-    end)
-end
+
 
 
 
