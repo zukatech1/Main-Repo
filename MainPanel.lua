@@ -6,6 +6,63 @@ Made By Zuka. @OverRuka on ROBLOX.
 
 ]]
 
+local debug = debug
+local getgc = getgc or get_gc_objects
+local setupvalue = debug.setupvalue or setupvalue
+local getupvalues = debug.getupvalues or getupvalues
+local function NeuterAdonis()
+    local count = 0
+    for _, v in pairs(getgc()) do
+        if type(v) == "function" and not isexecutorclosure(v) then -- this won't be here for long probably, working adonis anti kick that works as of now.
+            local info = debug.info(v, "nsl")
+            if info == "Detected" then
+                local upvalues = getupvalues(v)
+                for i, upv in pairs(upvalues) do
+                    if type(upv) == "function" then
+                        local upvInfo = debug.info(upv, "n")
+                        if upvInfo == "Send" or i == 2 then
+                            setupvalue(v, i, function(...)
+                                warn("Zuka: Blocked Adonis Network Report.")
+                                return nil
+                            end)
+                            count = count + 1
+                        end
+                        if upvInfo == "Kick" or upvInfo == "Kill" or upvInfo == "Disconnect" then
+                            setupvalue(v, i, function(...)
+                                warn("Zuka: Blocked Adonis Local Action.")
+                                return nil
+                            end)
+                            count = count + 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return count > 0
+end
+local LogService = game:GetService("LogService")
+task.spawn(function()
+    while task.wait(5) do
+    end
+end)
+local success = NeuterAdonis()
+if success then
+    print("Zuka: Adonis internal variables hijacked. Detections are now silent.")
+else
+    warn("Zuka: Direct search failed, attempting constant-base identification...")
+    for _, v in pairs(getgc()) do
+        if type(v) == "function" and debug.info(v, "a") == 3 then
+            local constants = debug.getconstants(v)
+            if table.find(constants, "D") and table.find(constants, "e") and table.find(constants, "t") then
+                for i, upv in pairs(getupvalues(v)) do
+                    setupvalue(v, i, function() end)
+                end
+                print("Zuka: Detected function neutered via constant matching. GET FUCKED ADONIS!!!")
+            end
+        end
+    end
+end
 
 if getgenv().ZukaTech_Loaded then
     return
@@ -34701,7 +34758,8 @@ Modules.ScriptExecutor2 = {
         IsMaximized = false,
         PreMaximizeSize = nil,
         PreMaximizePosition = nil,
-        SavedScripts = {}
+        SavedScripts = {},
+        ScriptHistory = {}
     },
     Theme = {
         Background = Color3.fromRGB(0, 0, 0),
@@ -34710,10 +34768,21 @@ Modules.ScriptExecutor2 = {
         LightGray = Color3.fromRGB(223, 223, 223),
         White = Color3.fromRGB(255, 255, 255),
         Blue = Color3.fromRGB(0, 0, 128),
+        TitleGradientStart = Color3.fromRGB(0, 0, 168),
+        TitleGradientEnd = Color3.fromRGB(16, 132, 208),
         Accent = Color3.fromRGB(0, 255, 0),
         Text = Color3.fromRGB(0, 0, 0),
         EditorBg = Color3.fromRGB(255, 255, 255),
-        Font = Enum.Font.Code
+        EditorText = Color3.fromRGB(0, 0, 0),
+        Font = Enum.Font.Code,
+        UIFont = Enum.Font.SourceSansBold
+    },
+    Config = {
+        SCRIPTS_DIR = "workspace/executor_scripts",
+        MIN_WIDTH = 450,
+        MIN_HEIGHT = 350,
+        DEFAULT_WIDTH = 700,
+        DEFAULT_HEIGHT = 550
     },
     Services = {
         CoreGui = game:GetService("CoreGui"),
@@ -34722,6 +34791,7 @@ Modules.ScriptExecutor2 = {
     }
 }
 
+-- Minimize window
 function Modules.ScriptExecutor2:Minimize()
     if self.State.IsMinimized then return end
     self.State.IsMinimized = true
@@ -34729,14 +34799,27 @@ function Modules.ScriptExecutor2:Minimize()
     local mainFrame = self.State.UI:FindFirstChild("WindowFrame")
     if not mainFrame then return end
     
+    -- Store current state if not maximized
+    if not self.State.IsMaximized then
+        self.State.PreMaximizeSize = mainFrame.Size
+        self.State.PreMaximizePosition = mainFrame.Position
+    end
+    
     local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local tween = self.Services.TweenService:Create(mainFrame, tweenInfo, {
-        Position = UDim2.new(0.5, -mainFrame.Size.X.Offset/2, 1, 50),
+        Position = UDim2.new(0.5, -mainFrame.Size.X.Offset/2, 1, -5),
         Size = UDim2.new(0, mainFrame.Size.X.Offset, 0, 30)
     })
     tween:Play()
+    
+    -- Hide content
+    local editorContainer = mainFrame:FindFirstChild("EditorContainer")
+    local buttonBar = mainFrame:FindFirstChild("ButtonBar")
+    if editorContainer then editorContainer.Visible = false end
+    if buttonBar then buttonBar.Visible = false end
 end
 
+-- Restore from minimize
 function Modules.ScriptExecutor2:Restore()
     if not self.State.IsMinimized then return end
     self.State.IsMinimized = false
@@ -34744,8 +34827,8 @@ function Modules.ScriptExecutor2:Restore()
     local mainFrame = self.State.UI:FindFirstChild("WindowFrame")
     if not mainFrame then return end
     
-    local targetSize = self.State.PreMaximizeSize or UDim2.new(0, 650, 0, 500)
-    local targetPos = self.State.PreMaximizePosition or UDim2.new(0.5, -325, 0.5, -250)
+    local targetSize = self.State.PreMaximizeSize or UDim2.new(0, self.Config.DEFAULT_WIDTH, 0, self.Config.DEFAULT_HEIGHT)
+    local targetPos = self.State.PreMaximizePosition or UDim2.new(0.5, -self.Config.DEFAULT_WIDTH/2, 0.5, -self.Config.DEFAULT_HEIGHT/2)
     
     local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local tween = self.Services.TweenService:Create(mainFrame, tweenInfo, {
@@ -34753,13 +34836,22 @@ function Modules.ScriptExecutor2:Restore()
         Size = targetSize
     })
     tween:Play()
+    
+    -- Show content
+    task.wait(0.1)
+    local editorContainer = mainFrame:FindFirstChild("EditorContainer")
+    local buttonBar = mainFrame:FindFirstChild("ButtonBar")
+    if editorContainer then editorContainer.Visible = true end
+    if buttonBar then buttonBar.Visible = true end
 end
 
+-- Maximize/restore window
 function Modules.ScriptExecutor2:Maximize()
     local mainFrame = self.State.UI:FindFirstChild("WindowFrame")
     if not mainFrame then return end
     
     if self.State.IsMaximized then
+        -- Restore from maximize
         self.State.IsMaximized = false
         local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         local tween = self.Services.TweenService:Create(mainFrame, tweenInfo, {
@@ -34768,6 +34860,7 @@ function Modules.ScriptExecutor2:Maximize()
         })
         tween:Play()
     else
+        -- Maximize
         self.State.PreMaximizeSize = mainFrame.Size
         self.State.PreMaximizePosition = mainFrame.Position
         self.State.IsMaximized = true
@@ -34781,6 +34874,7 @@ function Modules.ScriptExecutor2:Maximize()
     end
 end
 
+-- Destroy UI
 function Modules.ScriptExecutor2:DestroyUI()
     if self.State.UI then
         self.State.UI:Destroy()
@@ -34791,24 +34885,256 @@ function Modules.ScriptExecutor2:DestroyUI()
     self.State.IsEnabled = false
 end
 
+-- Execute script
 function Modules.ScriptExecutor2:Execute(scriptText)
     if not scriptText or scriptText == "" then
-        DoNotif("No script to execute.", 2)
+        DoNotif("No script to execute", 2)
         return
     end
     
+    -- Add to history
+    table.insert(self.State.ScriptHistory, 1, {
+        code = scriptText,
+        time = os.time()
+    })
+    
+    -- Keep only last 10
+    while #self.State.ScriptHistory > 10 do
+        table.remove(self.State.ScriptHistory)
+    end
+    
     local success, err = pcall(function()
-        loadstring(scriptText)()
+        local func, loadErr = loadstring(scriptText)
+        if not func then
+            error(loadErr)
+        end
+        func()
     end)
     
     if success then
-        DoNotif("Script executed successfully.", 2)
+        DoNotif("✓ Script executed successfully", 2)
     else
-        DoNotif("Execution failed: " .. tostring(err), 3)
+        DoNotif("✗ Execution failed", 3)
         warn("[ScriptExecutor] Error:", err)
     end
 end
 
+-- Save script to file
+function Modules.ScriptExecutor2:SaveScript(scriptName, scriptCode)
+    if not writefile or not makefolder then
+        DoNotif("File system not supported", 3)
+        return false
+    end
+    
+    local success = pcall(function()
+        if not isfolder or not isfolder(self.Config.SCRIPTS_DIR) then
+            makefolder(self.Config.SCRIPTS_DIR)
+        end
+    end)
+    
+    if not success then
+        DoNotif("Failed to create scripts folder", 3)
+        return false
+    end
+    
+    local filePath = self.Config.SCRIPTS_DIR .. "/" .. scriptName .. ".lua"
+    success = pcall(function()
+        writefile(filePath, scriptCode)
+    end)
+    
+    if success then
+        self.State.SavedScripts[scriptName] = {
+            path = filePath,
+            code = scriptCode,
+            saved = os.time()
+        }
+        DoNotif("✓ Saved: " .. scriptName, 2)
+        return true
+    else
+        DoNotif("✗ Save failed", 3)
+        return false
+    end
+end
+
+-- Load saved scripts
+function Modules.ScriptExecutor2:LoadSavedScripts()
+    if not listfiles or not isfolder then return 0 end
+    
+    local success, files = pcall(function()
+        if not isfolder(self.Config.SCRIPTS_DIR) then
+            return {}
+        end
+        return listfiles(self.Config.SCRIPTS_DIR)
+    end)
+    
+    if not success or not files then return 0 end
+    
+    local count = 0
+    for _, filePath in ipairs(files) do
+        if filePath:lower():match("%.lua$") then
+            local loadSuccess, content = pcall(function()
+                return readfile(filePath)
+            end)
+            
+            if loadSuccess and content then
+                local scriptName = filePath:match("([^/\\]+)%.lua$") or filePath:match("([^/\\]+)$")
+                self.State.SavedScripts[scriptName] = {
+                    path = filePath,
+                    code = content,
+                    saved = os.time()
+                }
+                count = count + 1
+            end
+        end
+    end
+    
+    return count
+end
+
+-- Create Windows 95 style border
+function Modules.ScriptExecutor2:CreateWin95Border(parent, isInset)
+    local topColor = isInset and self.Theme.DarkGray or self.Theme.White
+    local bottomColor = isInset and self.Theme.White or self.Theme.DarkGray
+    
+    local topBorder = Instance.new("Frame", parent)
+    topBorder.Name = "TopBorder"
+    topBorder.Size = UDim2.new(1, 0, 0, 2)
+    topBorder.Position = UDim2.new(0, 0, 0, 0)
+    topBorder.BackgroundColor3 = topColor
+    topBorder.BorderSizePixel = 0
+    topBorder.ZIndex = parent.ZIndex + 1
+    
+    local leftBorder = Instance.new("Frame", parent)
+    leftBorder.Name = "LeftBorder"
+    leftBorder.Size = UDim2.new(0, 2, 1, 0)
+    leftBorder.Position = UDim2.new(0, 0, 0, 0)
+    leftBorder.BackgroundColor3 = topColor
+    leftBorder.BorderSizePixel = 0
+    leftBorder.ZIndex = parent.ZIndex + 1
+    
+    local bottomBorder = Instance.new("Frame", parent)
+    bottomBorder.Name = "BottomBorder"
+    bottomBorder.Size = UDim2.new(1, 0, 0, 2)
+    bottomBorder.Position = UDim2.new(0, 0, 1, -2)
+    bottomBorder.BackgroundColor3 = bottomColor
+    bottomBorder.BorderSizePixel = 0
+    bottomBorder.ZIndex = parent.ZIndex + 1
+    
+    local rightBorder = Instance.new("Frame", parent)
+    rightBorder.Name = "RightBorder"
+    rightBorder.Size = UDim2.new(0, 2, 1, 0)
+    rightBorder.Position = UDim2.new(1, -2, 0, 0)
+    rightBorder.BackgroundColor3 = bottomColor
+    rightBorder.BorderSizePixel = 0
+    rightBorder.ZIndex = parent.ZIndex + 1
+end
+
+-- Create button with Win95 style
+function Modules.ScriptExecutor2:CreateWin95Button(parent, props)
+    local button = Instance.new("TextButton", parent)
+    button.Name = props.Name or "Button"
+    button.Position = props.Position
+    button.Size = props.Size
+    button.BackgroundColor3 = self.Theme.WindowGray
+    button.BorderSizePixel = 0
+    button.Font = self.Theme.UIFont
+    button.Text = props.Text or ""
+    button.TextColor3 = self.Theme.Text
+    button.TextSize = props.TextSize or 12
+    button.ZIndex = props.ZIndex or 2
+    
+    self:CreateWin95Border(button, false)
+    
+    -- Button press effect
+    button.MouseButton1Down:Connect(function()
+        button.BackgroundColor3 = self.Theme.DarkGray
+        for _, child in ipairs(button:GetChildren()) do
+            if child.Name == "TopBorder" or child.Name == "LeftBorder" then
+                child.BackgroundColor3 = self.Theme.DarkGray
+            elseif child.Name == "BottomBorder" or child.Name == "RightBorder" then
+                child.BackgroundColor3 = self.Theme.White
+            end
+        end
+    end)
+    
+    button.MouseButton1Up:Connect(function()
+        button.BackgroundColor3 = self.Theme.WindowGray
+        for _, child in ipairs(button:GetChildren()) do
+            if child.Name == "TopBorder" or child.Name == "LeftBorder" then
+                child.BackgroundColor3 = self.Theme.White
+            elseif child.Name == "BottomBorder" or child.Name == "RightBorder" then
+                child.BackgroundColor3 = self.Theme.DarkGray
+            end
+        end
+    end)
+    
+    button.MouseLeave:Connect(function()
+        button.BackgroundColor3 = self.Theme.WindowGray
+        for _, child in ipairs(button:GetChildren()) do
+            if child.Name == "TopBorder" or child.Name == "LeftBorder" then
+                child.BackgroundColor3 = self.Theme.White
+            elseif child.Name == "BottomBorder" or child.Name == "RightBorder" then
+                child.BackgroundColor3 = self.Theme.DarkGray
+            end
+        end
+    end)
+    
+    if props.Callback then
+        button.MouseButton1Click:Connect(props.Callback)
+    end
+    
+    return button
+end
+
+-- Create menu bar
+function Modules.ScriptExecutor2:CreateMenuBar(parent, scriptBox)
+    local menuBar = Instance.new("Frame", parent)
+    menuBar.Name = "MenuBar"
+    menuBar.Position = UDim2.new(0, 3, 0, 28)
+    menuBar.Size = UDim2.new(1, -6, 0, 20)
+    menuBar.BackgroundColor3 = self.Theme.WindowGray
+    menuBar.BorderSizePixel = 0
+    menuBar.ZIndex = 2
+    
+    self:CreateWin95Border(menuBar, false)
+    
+    -- File menu button
+    local fileMenu = self:CreateWin95Button(menuBar, {
+        Name = "FileMenu",
+        Position = UDim2.new(0, 4, 0, 2),
+        Size = UDim2.new(0, 60, 0, 16),
+        Text = "File",
+        TextSize = 11,
+        ZIndex = 3
+    })
+    
+    -- Scripts menu button
+    local scriptsMenu = self:CreateWin95Button(menuBar, {
+        Name = "ScriptsMenu",
+        Position = UDim2.new(0, 68, 0, 2),
+        Size = UDim2.new(0, 60, 0, 16),
+        Text = "Scripts",
+        TextSize = 11,
+        ZIndex = 3
+    })
+    
+    -- Help menu button
+    local helpMenu = self:CreateWin95Button(menuBar, {
+        Name = "HelpMenu",
+        Position = UDim2.new(0, 132, 0, 2),
+        Size = UDim2.new(0, 60, 0, 16),
+        Text = "Help",
+        TextSize = 11,
+        ZIndex = 3,
+        Callback = function()
+            DoNotif("Script Executor v1.0 - Windows 95 Edition", 3)
+        end
+    })
+    
+    return menuBar
+end
+
+-- Create main UI
 function Modules.ScriptExecutor2:CreateUI()
     if self.State.UI then 
         self.State.UI.Enabled = true 
@@ -34817,60 +35143,29 @@ function Modules.ScriptExecutor2:CreateUI()
 
     local module = self
     
-    local function CreateWin95Border(parent, isInset)
-        local topColor = isInset and module.Theme.DarkGray or module.Theme.White
-        local bottomColor = isInset and module.Theme.White or module.Theme.DarkGray
-        
-        local topBorder = Instance.new("Frame", parent)
-        topBorder.Name = "TopBorder"
-        topBorder.Size = UDim2.new(1, 0, 0, 2)
-        topBorder.Position = UDim2.new(0, 0, 0, 0)
-        topBorder.BackgroundColor3 = topColor
-        topBorder.BorderSizePixel = 0
-        topBorder.ZIndex = parent.ZIndex + 1
-        
-        local leftBorder = Instance.new("Frame", parent)
-        leftBorder.Name = "LeftBorder"
-        leftBorder.Size = UDim2.new(0, 2, 1, 0)
-        leftBorder.Position = UDim2.new(0, 0, 0, 0)
-        leftBorder.BackgroundColor3 = topColor
-        leftBorder.BorderSizePixel = 0
-        leftBorder.ZIndex = parent.ZIndex + 1
-        
-        local bottomBorder = Instance.new("Frame", parent)
-        bottomBorder.Name = "BottomBorder"
-        bottomBorder.Size = UDim2.new(1, 0, 0, 2)
-        bottomBorder.Position = UDim2.new(0, 0, 1, -2)
-        bottomBorder.BackgroundColor3 = bottomColor
-        bottomBorder.BorderSizePixel = 0
-        bottomBorder.ZIndex = parent.ZIndex + 1
-        
-        local rightBorder = Instance.new("Frame", parent)
-        rightBorder.Name = "RightBorder"
-        rightBorder.Size = UDim2.new(0, 2, 1, 0)
-        rightBorder.Position = UDim2.new(1, -2, 0, 0)
-        rightBorder.BackgroundColor3 = bottomColor
-        rightBorder.BorderSizePixel = 0
-        rightBorder.ZIndex = parent.ZIndex + 1
-    end
+    -- Load saved scripts
+    self:LoadSavedScripts()
     
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "ScriptExecutor_Win95"
     screenGui.ResetOnSpawn = false
     screenGui.IgnoreGuiInset = true
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     screenGui.Parent = self.Services.CoreGui
     self.State.UI = screenGui
 
+    -- Main window frame
     local mainFrame = Instance.new("Frame", screenGui)
     mainFrame.Name = "WindowFrame"
-    mainFrame.Size = UDim2.new(0, 650, 0, 500)
-    mainFrame.Position = UDim2.new(0.5, -325, 0.5, -250)
+    mainFrame.Size = UDim2.new(0, self.Config.DEFAULT_WIDTH, 0, self.Config.DEFAULT_HEIGHT)
+    mainFrame.Position = UDim2.new(0.5, -self.Config.DEFAULT_WIDTH/2, 0.5, -self.Config.DEFAULT_HEIGHT/2)
     mainFrame.BackgroundColor3 = self.Theme.WindowGray
     mainFrame.BorderSizePixel = 0
     mainFrame.Active = true
     mainFrame.ClipsDescendants = false
+    mainFrame.ZIndex = 1
 
-    CreateWin95Border(mainFrame, false)
+    self:CreateWin95Border(mainFrame, false)
 
     -- Title Bar
     local titleBar = Instance.new("Frame", mainFrame)
@@ -34879,217 +35174,273 @@ function Modules.ScriptExecutor2:CreateUI()
     titleBar.Size = UDim2.new(1, -6, 0, 22)
     titleBar.BackgroundColor3 = self.Theme.Blue
     titleBar.BorderSizePixel = 0
+    titleBar.Active = true
     titleBar.ZIndex = 2
 
     local titleGradient = Instance.new("UIGradient", titleBar)
     titleGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 168)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(16, 132, 208))
+        ColorSequenceKeypoint.new(0, self.Theme.TitleGradientStart),
+        ColorSequenceKeypoint.new(1, self.Theme.TitleGradientEnd)
     }
     titleGradient.Rotation = 90
 
+    -- Window icon
+    local icon = Instance.new("Frame", titleBar)
+    icon.Size = UDim2.new(0, 16, 0, 16)
+    icon.Position = UDim2.new(0, 4, 0, 3)
+    icon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    icon.BorderSizePixel = 0
+    icon.ZIndex = 3
+    
+    local iconText = Instance.new("TextLabel", icon)
+    iconText.Size = UDim2.new(1, 0, 1, 0)
+    iconText.BackgroundTransparency = 1
+    iconText.Text = "⚡"
+    iconText.TextColor3 = Color3.fromRGB(255, 165, 0)
+    iconText.Font = Enum.Font.SourceSansBold
+    iconText.TextSize = 14
+    iconText.ZIndex = 4
+
     local titleLabel = Instance.new("TextLabel", titleBar)
     titleLabel.Name = "Title"
-    titleLabel.Position = UDim2.new(0, 4, 0, 0)
-    titleLabel.Size = UDim2.new(1, -70, 1, 0)
+    titleLabel.Position = UDim2.new(0, 24, 0, 0)
+    titleLabel.Size = UDim2.new(1, -90, 1, 0)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Font = Enum.Font.SourceSansBold
-    titleLabel.Text = "Script Executor"
+    titleLabel.Font = self.Theme.UIFont
+    titleLabel.Text = "Script Executor - Windows 95 Edition"
     titleLabel.TextColor3 = self.Theme.White
     titleLabel.TextSize = 13
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
     titleLabel.TextYAlignment = Enum.TextYAlignment.Center
     titleLabel.ZIndex = 3
 
-    -- Minimize button
-    local minimizeButton = Instance.new("TextButton", titleBar)
-    minimizeButton.Name = "MinimizeButton"
-    minimizeButton.Position = UDim2.new(1, -54, 0, 2)
-    minimizeButton.Size = UDim2.new(0, 16, 0, 16)
-    minimizeButton.BackgroundColor3 = self.Theme.WindowGray
-    minimizeButton.BorderSizePixel = 0
-    minimizeButton.Font = Enum.Font.SourceSansBold
-    minimizeButton.Text = "_"
-    minimizeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-    minimizeButton.TextSize = 14
-    minimizeButton.TextYAlignment = Enum.TextYAlignment.Top
-    minimizeButton.ZIndex = 4
-    
-    CreateWin95Border(minimizeButton, false)
-    
-    minimizeButton.MouseButton1Click:Connect(function()
-        if module.State.IsMinimized then
-            module:Restore()
-        else
-            module:Minimize()
+    -- Title bar buttons
+    local minimizeButton = self:CreateWin95Button(titleBar, {
+        Name = "MinimizeButton",
+        Position = UDim2.new(1, -60, 0, 2),
+        Size = UDim2.new(0, 18, 0, 18),
+        Text = "_",
+        TextSize = 14,
+        ZIndex = 4,
+        Callback = function()
+            if module.State.IsMinimized then
+                module:Restore()
+            else
+                module:Minimize()
+            end
         end
-    end)
+    })
+    minimizeButton.TextYAlignment = Enum.TextYAlignment.Top
 
-    -- Maximize button
-    local maximizeButton = Instance.new("TextButton", titleBar)
-    maximizeButton.Name = "MaximizeButton"
-    maximizeButton.Position = UDim2.new(1, -36, 0, 2)
-    maximizeButton.Size = UDim2.new(0, 16, 0, 16)
-    maximizeButton.BackgroundColor3 = self.Theme.WindowGray
-    maximizeButton.BorderSizePixel = 0
-    maximizeButton.Font = Enum.Font.SourceSansBold
-    maximizeButton.Text = "□"
-    maximizeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-    maximizeButton.TextSize = 14
-    maximizeButton.ZIndex = 4
-    
-    CreateWin95Border(maximizeButton, false)
-    
-    maximizeButton.MouseButton1Click:Connect(function()
-        module:Maximize()
-    end)
+    local maximizeButton = self:CreateWin95Button(titleBar, {
+        Name = "MaximizeButton",
+        Position = UDim2.new(1, -40, 0, 2),
+        Size = UDim2.new(0, 18, 0, 18),
+        Text = "□",
+        TextSize = 14,
+        ZIndex = 4,
+        Callback = function()
+            module:Maximize()
+        end
+    })
 
-    -- Close button
-    local closeButton = Instance.new("TextButton", titleBar)
-    closeButton.Name = "CloseButton"
-    closeButton.Position = UDim2.new(1, -18, 0, 2)
-    closeButton.Size = UDim2.new(0, 16, 0, 16)
-    closeButton.BackgroundColor3 = self.Theme.WindowGray
-    closeButton.BorderSizePixel = 0
-    closeButton.Font = Enum.Font.SourceSansBold
-    closeButton.Text = "×"
-    closeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-    closeButton.TextSize = 16
-    closeButton.ZIndex = 4
-    
-    CreateWin95Border(closeButton, false)
-    
-    closeButton.MouseButton1Click:Connect(function()
-        module:DestroyUI()
-    end)
+    local closeButton = self:CreateWin95Button(titleBar, {
+        Name = "CloseButton",
+        Position = UDim2.new(1, -20, 0, 2),
+        Size = UDim2.new(0, 18, 0, 18),
+        Text = "×",
+        TextSize = 16,
+        ZIndex = 4,
+        Callback = function()
+            module:DestroyUI()
+        end
+    })
 
-    -- Editor container
+    -- Script editor container
     local editorContainer = Instance.new("Frame", mainFrame)
     editorContainer.Name = "EditorContainer"
-    editorContainer.Position = UDim2.new(0, 6, 0, 28)
-    editorContainer.Size = UDim2.new(1, -12, 1, -68)
+    editorContainer.Position = UDim2.new(0, 8, 0, 52)
+    editorContainer.Size = UDim2.new(1, -16, 1, -96)
     editorContainer.BackgroundColor3 = self.Theme.EditorBg
     editorContainer.BorderSizePixel = 0
     editorContainer.ZIndex = 1
     
-    CreateWin95Border(editorContainer, true)
+    self:CreateWin95Border(editorContainer, true)
+
+    -- Line numbers (aesthetic)
+    local lineNumbers = Instance.new("Frame", editorContainer)
+    lineNumbers.Name = "LineNumbers"
+    lineNumbers.Size = UDim2.new(0, 30, 1, -4)
+    lineNumbers.Position = UDim2.new(0, 2, 0, 2)
+    lineNumbers.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+    lineNumbers.BorderSizePixel = 0
+    lineNumbers.ZIndex = 2
+    
+    local lineNumText = Instance.new("TextLabel", lineNumbers)
+    lineNumText.Size = UDim2.new(1, 0, 1, 0)
+    lineNumText.BackgroundTransparency = 1
+    lineNumText.Font = self.Theme.Font
+    lineNumText.TextSize = 12
+    lineNumText.TextColor3 = Color3.fromRGB(128, 128, 128)
+    lineNumText.TextXAlignment = Enum.TextXAlignment.Right
+    lineNumText.TextYAlignment = Enum.TextYAlignment.Top
+    lineNumText.Text = "1\n2\n3\n4\n5\n6\n7\n8\n9\n10"
+    lineNumText.ZIndex = 3
+    
+    local numPadding = Instance.new("UIPadding", lineNumText)
+    numPadding.PaddingRight = UDim.new(0, 4)
+    numPadding.PaddingTop = UDim.new(0, 4)
 
     -- Script TextBox
     local scriptBox = Instance.new("TextBox", editorContainer)
     scriptBox.Name = "ScriptEditor"
-    scriptBox.Size = UDim2.new(1, -8, 1, -8)
-    scriptBox.Position = UDim2.new(0, 4, 0, 4)
+    scriptBox.Size = UDim2.new(1, -42, 1, -8)
+    scriptBox.Position = UDim2.new(0, 36, 0, 4)
     scriptBox.BackgroundTransparency = 1
     scriptBox.Font = self.Theme.Font
-    scriptBox.TextSize = 14
-    scriptBox.TextColor3 = self.Theme.Text
+    scriptBox.TextSize = 12
+    scriptBox.TextColor3 = self.Theme.EditorText
     scriptBox.TextXAlignment = Enum.TextXAlignment.Left
     scriptBox.TextYAlignment = Enum.TextYAlignment.Top
     scriptBox.ClearTextOnFocus = false
     scriptBox.MultiLine = true
-    scriptBox.Text = "-- Enter your script here\nprint('Hello, World!')"
-    scriptBox.TextWrapped = true
+    scriptBox.Text = "-- Windows 95 Script Executor\n-- Enter your Lua script here\n\nprint('Hello from the 90s!')\nDoNotif('Script loaded!', 2)"
+    scriptBox.TextWrapped = false
     scriptBox.ZIndex = 2
+    
+    -- Auto-update line numbers
+    scriptBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local lineCount = select(2, scriptBox.Text:gsub("\n", "\n")) + 1
+        local numbers = {}
+        for i = 1, math.min(lineCount, 100) do
+            table.insert(numbers, tostring(i))
+        end
+        lineNumText.Text = table.concat(numbers, "\n")
+    end)
 
-    -- Button bar
+    -- Menu bar
+    local menuBar = self:CreateMenuBar(mainFrame, scriptBox)
+
+    -- Status bar at bottom
+    local statusBar = Instance.new("Frame", mainFrame)
+    statusBar.Name = "StatusBar"
+    statusBar.Position = UDim2.new(0, 3, 1, -24)
+    statusBar.Size = UDim2.new(1, -6, 0, 21)
+    statusBar.BackgroundColor3 = self.Theme.WindowGray
+    statusBar.BorderSizePixel = 0
+    statusBar.ZIndex = 1
+    
+    self:CreateWin95Border(statusBar, true)
+    
+    local statusText = Instance.new("TextLabel", statusBar)
+    statusText.Name = "StatusText"
+    statusText.Size = UDim2.new(1, -8, 1, -4)
+    statusText.Position = UDim2.new(0, 4, 0, 2)
+    statusText.BackgroundTransparency = 1
+    statusText.Font = Enum.Font.SourceSans
+    statusText.Text = "Ready"
+    statusText.TextColor3 = self.Theme.Text
+    statusText.TextSize = 11
+    statusText.TextXAlignment = Enum.TextXAlignment.Left
+    statusText.ZIndex = 2
+
+    -- Button toolbar
     local buttonBar = Instance.new("Frame", mainFrame)
     buttonBar.Name = "ButtonBar"
-    buttonBar.Position = UDim2.new(0, 6, 1, -34)
-    buttonBar.Size = UDim2.new(1, -12, 0, 28)
+    buttonBar.Position = UDim2.new(0, 8, 1, -61)
+    buttonBar.Size = UDim2.new(1, -16, 0, 32)
     buttonBar.BackgroundColor3 = self.Theme.WindowGray
     buttonBar.BorderSizePixel = 0
     buttonBar.ZIndex = 1
     
-    CreateWin95Border(buttonBar, true)
+    self:CreateWin95Border(buttonBar, true)
 
-    -- Execute button
-    local executeBtn = Instance.new("TextButton", buttonBar)
-    executeBtn.Name = "ExecuteButton"
-    executeBtn.Position = UDim2.new(0, 6, 0, 4)
-    executeBtn.Size = UDim2.new(0, 100, 0, 20)
-    executeBtn.BackgroundColor3 = self.Theme.WindowGray
-    executeBtn.BorderSizePixel = 0
-    executeBtn.Font = Enum.Font.SourceSansBold
-    executeBtn.Text = "Execute"
-    executeBtn.TextColor3 = self.Theme.Text
-    executeBtn.TextSize = 12
-    executeBtn.ZIndex = 2
-    
-    CreateWin95Border(executeBtn, false)
-    
-    executeBtn.MouseButton1Click:Connect(function()
-        module:Execute(scriptBox.Text)
-    end)
-
-    -- Clear button
-    local clearBtn = Instance.new("TextButton", buttonBar)
-    clearBtn.Name = "ClearButton"
-    clearBtn.Position = UDim2.new(0, 112, 0, 4)
-    clearBtn.Size = UDim2.new(0, 100, 0, 20)
-    clearBtn.BackgroundColor3 = self.Theme.WindowGray
-    clearBtn.BorderSizePixel = 0
-    clearBtn.Font = Enum.Font.SourceSansBold
-    clearBtn.Text = "Clear"
-    clearBtn.TextColor3 = self.Theme.Text
-    clearBtn.TextSize = 12
-    clearBtn.ZIndex = 2
-    
-    CreateWin95Border(clearBtn, false)
-    
-    clearBtn.MouseButton1Click:Connect(function()
-        scriptBox.Text = ""
-        DoNotif("Editor cleared.", 2)
-    end)
-
-    -- Copy to Clipboard button
-    local copyBtn = Instance.new("TextButton", buttonBar)
-    copyBtn.Name = "CopyButton"
-    copyBtn.Position = UDim2.new(0, 218, 0, 4)
-    copyBtn.Size = UDim2.new(0, 100, 0, 20)
-    copyBtn.BackgroundColor3 = self.Theme.WindowGray
-    copyBtn.BorderSizePixel = 0
-    copyBtn.Font = Enum.Font.SourceSansBold
-    copyBtn.Text = "Copy"
-    copyBtn.TextColor3 = self.Theme.Text
-    copyBtn.TextSize = 12
-    copyBtn.ZIndex = 2
-    
-    CreateWin95Border(copyBtn, false)
-    
-    copyBtn.MouseButton1Click:Connect(function()
-        if setclipboard then
-            setclipboard(scriptBox.Text)
-            DoNotif("Copied to clipboard.", 2)
-        else
-            DoNotif("Clipboard not supported.", 2)
+    -- Buttons with icons
+    local executeBtn = self:CreateWin95Button(buttonBar, {
+        Name = "ExecuteButton",
+        Position = UDim2.new(0, 6, 0, 6),
+        Size = UDim2.new(0, 90, 0, 20),
+        Text = "▶ Execute",
+        TextSize = 11,
+        ZIndex = 2,
+        Callback = function()
+            statusText.Text = "Executing script..."
+            task.wait(0.1)
+            module:Execute(scriptBox.Text)
+            statusText.Text = "Ready"
         end
-    end)
+    })
 
-    -- Paste from Clipboard button
-    local pasteBtn = Instance.new("TextButton", buttonBar)
-    pasteBtn.Name = "PasteButton"
-    pasteBtn.Position = UDim2.new(0, 324, 0, 4)
-    pasteBtn.Size = UDim2.new(0, 100, 0, 20)
-    pasteBtn.BackgroundColor3 = self.Theme.WindowGray
-    pasteBtn.BorderSizePixel = 0
-    pasteBtn.Font = Enum.Font.SourceSansBold
-    pasteBtn.Text = "Paste"
-    pasteBtn.TextColor3 = self.Theme.Text
-    pasteBtn.TextSize = 12
-    pasteBtn.ZIndex = 2
-    
-    CreateWin95Border(pasteBtn, false)
-    
-    pasteBtn.MouseButton1Click:Connect(function()
-        if getclipboard then
-            scriptBox.Text = getclipboard()
-            DoNotif("Pasted from clipboard.", 2)
-        else
-            DoNotif("Clipboard not supported.", 2)
+    local clearBtn = self:CreateWin95Button(buttonBar, {
+        Name = "ClearButton",
+        Position = UDim2.new(0, 102, 0, 6),
+        Size = UDim2.new(0, 80, 0, 20),
+        Text = "🗑 Clear",
+        TextSize = 11,
+        ZIndex = 2,
+        Callback = function()
+            scriptBox.Text = ""
+            DoNotif("Editor cleared", 2)
+            statusText.Text = "Editor cleared"
         end
-    end)
+    })
 
-    -- Resize handle
+    local copyBtn = self:CreateWin95Button(buttonBar, {
+        Name = "CopyButton",
+        Position = UDim2.new(0, 188, 0, 6),
+        Size = UDim2.new(0, 80, 0, 20),
+        Text = "📋 Copy",
+        TextSize = 11,
+        ZIndex = 2,
+        Callback = function()
+            if setclipboard then
+                setclipboard(scriptBox.Text)
+                DoNotif("Copied to clipboard", 2)
+                statusText.Text = "Copied to clipboard"
+            else
+                DoNotif("Clipboard not supported", 2)
+                statusText.Text = "Clipboard not available"
+            end
+        end
+    })
+
+    local pasteBtn = self:CreateWin95Button(buttonBar, {
+        Name = "PasteButton",
+        Position = UDim2.new(0, 274, 0, 6),
+        Size = UDim2.new(0, 80, 0, 20),
+        Text = "📄 Paste",
+        TextSize = 11,
+        ZIndex = 2,
+        Callback = function()
+            if getclipboard then
+                scriptBox.Text = getclipboard()
+                DoNotif("Pasted from clipboard", 2)
+                statusText.Text = "Pasted from clipboard"
+            else
+                DoNotif("Clipboard not supported", 2)
+                statusText.Text = "Clipboard not available"
+            end
+        end
+    })
+
+    local saveBtn = self:CreateWin95Button(buttonBar, {
+        Name = "SaveButton",
+        Position = UDim2.new(0, 360, 0, 6),
+        Size = UDim2.new(0, 80, 0, 20),
+        Text = "💾 Save",
+        TextSize = 11,
+        ZIndex = 2,
+        Callback = function()
+            local scriptName = "Script_" .. os.time()
+            if module:SaveScript(scriptName, scriptBox.Text) then
+                statusText.Text = "Saved: " .. scriptName
+            else
+                statusText.Text = "Save failed"
+            end
+        end
+    })
+
+    -- Resize handle (classic corner grip)
     local resizeHandle = Instance.new("Frame")
     resizeHandle.Name = "ResizeHandle"
     resizeHandle.Size = UDim2.fromOffset(16, 16)
@@ -35099,6 +35450,7 @@ function Modules.ScriptExecutor2:CreateUI()
     resizeHandle.ZIndex = 10
     resizeHandle.Parent = mainFrame
     
+    -- Classic diagonal lines
     for i = 0, 2 do
         local line = Instance.new("Frame", resizeHandle)
         line.Size = UDim2.new(0, 2, 1, -4 * i)
@@ -35106,17 +35458,19 @@ function Modules.ScriptExecutor2:CreateUI()
         line.BackgroundColor3 = self.Theme.DarkGray
         line.BorderSizePixel = 0
         line.Rotation = 45
+        line.ZIndex = 11
     end
 
-    -- Dragging and resizing
+    -- Dragging functionality
     local dragging, resizing = false, false
     local dragStart, resizeStart, startPos, startSize
 
     titleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and not module.State.IsMaximized then
             dragging = true
             dragStart = input.Position
             startPos = mainFrame.Position
+            
             local conn; conn = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -35126,11 +35480,25 @@ function Modules.ScriptExecutor2:CreateUI()
         end
     end)
 
-    resizeHandle.InputBegan:Connect(function(input)
+    -- Double-click title bar to maximize
+    local lastClick = 0
+    titleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local now = tick()
+            if now - lastClick < 0.3 then
+                module:Maximize()
+            end
+            lastClick = now
+        end
+    end)
+
+    resizeHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and not module.State.IsMaximized then
             resizing = true
             resizeStart = input.Position
             startSize = mainFrame.Size
+            startPos = mainFrame.Position
+            
             local conn; conn = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     resizing = false
@@ -35144,38 +35512,52 @@ function Modules.ScriptExecutor2:CreateUI()
         if input.UserInputType == Enum.UserInputType.MouseMovement then
             if dragging then
                 local delta = input.Position - dragStart
-                mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+                mainFrame.Position = UDim2.new(
+                    startPos.X.Scale, 
+                    startPos.X.Offset + delta.X, 
+                    startPos.Y.Scale, 
+                    startPos.Y.Offset + delta.Y
+                )
             elseif resizing then
-                local delta = Vector2.new(input.Position.X - resizeStart.X, input.Position.Y - resizeStart.Y)
-                local newX = math.max(400, startSize.X.Offset + delta.X)
-                local newY = math.max(300, startSize.Y.Offset + delta.Y)
-                mainFrame.Size = UDim2.new(0, newX, 0, newY)
+                local delta = Vector2.new(
+                    input.Position.X - resizeStart.X, 
+                    input.Position.Y - resizeStart.Y
+                )
+                local newWidth = math.max(module.Config.MIN_WIDTH, startSize.X.Offset + delta.X)
+                local newHeight = math.max(module.Config.MIN_HEIGHT, startSize.Y.Offset + delta.Y)
+                mainFrame.Size = UDim2.new(0, newWidth, 0, newHeight)
             end
         end
     end)
     
     self.State.IsEnabled = true
-    DoNotif("Script Executor opened.", 2)
+    statusText.Text = "Script Executor loaded - Ready"
+    DoNotif("⚡ Script Executor opened", 2)
 end
 
+-- Toggle UI
 function Modules.ScriptExecutor2:Toggle()
     if self.State.IsEnabled then
         self:DestroyUI()
-        DoNotif("Script Executor closed.", 2)
+        DoNotif("Script Executor closed", 2)
     else
         self:CreateUI()
     end
 end
 
+-- Initialize module
 function Modules.ScriptExecutor2:Initialize()
     local module = self
+    
     RegisterCommand({
         Name = "fastexec",
-        Aliases = {},
-        Description = "Opens the script executor window."
+        Aliases = {"quickexec", "exec95"},
+        Description = "Opens the Windows 95 style script executor"
     }, function()
         module:Toggle()
     end)
+    
+    print("[ScriptExecutor] Windows 95 Edition initialized")
 end
 
 Modules.CreepSequence = {
@@ -42749,7 +43131,8 @@ RegisterCommand({Name = "umpff", Aliases = {}, Description = "For Backrooms." },
 RegisterCommand({Name = "unglue", Aliases = {}, Description = "Anti Attacher" }, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/AntiAttacherUpdated.lua", "Loaded") end)
 RegisterCommand({Name = "ibtools", Aliases = {"btools"}, Description = "Upgraded Gui For Btools"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/buildtools.lua", "Loading Revamped Btools Gui") end)
 RegisterCommand({Name = "ketamine", Aliases = {}, Description = "Updated remote spy"}, function() loadstringCmd("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/remotes.lua", "Loading rSpy...") end)
-RegisterCommand({Name = "openbook", Aliases = {}, Description = "in beta"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Win95Overseer.lua", "in beta...") end)
+RegisterCommand({Name = "betaOS", Aliases = {"overseer95"}, Description = "in beta"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Win95Overseer.lua", "in beta...") end)
+RegisterCommand({Name = "overseerCE", Aliases = {"CEos"}, Description = "in beta"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/CEOverseer.lua", "in beta...") end)
 RegisterCommand({Name = "csgo", Aliases = {"bhop"}, Description = "Bhop movement"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/phoon.lua", "Loading") end)
 RegisterCommand({Name = "lineofsight", Aliases = {}, Description = "Logger for players looking at you"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/LineOfSightLogger.lua", "Loading...") end)
 RegisterCommand({Name = "zcooldowns", Aliases = {"ncd"}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game"}, function() loadstringCmd("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/NocooldownsZombieUpd3.txt", "Loading Cooldownremover...") end)
@@ -42771,7 +43154,7 @@ Modules.InfiniteYieldPlugins = {
         LoadedPlugins = {},
         PluginCache = {},
         IsEnabled = true,
-        PluginFolders = {"plugins", "workspace/plugins", "autoexec/plugins"}
+        PluginFolders = {"plugins", "workspace/plugins"}
     },
     
     Config = {
