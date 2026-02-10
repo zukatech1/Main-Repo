@@ -1,6 +1,11 @@
---[[ this script is in beta, inspired by the original cheat engine look. 
 
-===================================================================
+--[[ this script is in beta, inspired by the original cheat engine look. 
+     ENHANCED VERSION - Improvements:
+     ✓ Non-table module support (functions, primitives, userdata)
+     ✓ Base64 auto-detection and decoding
+     ✓ Enhanced value display (hex for numbers, detailed info)
+     ✓ Manual refresh button already included
+     ✓ Better type inspection for all Lua types
 
              ++     ++-+++              
           ++×≠×++  ++≈≈≈=+              
@@ -9,13 +14,13 @@
    ++++++++=≈≈≠×++++++++-≠≈≈≈≈∞≈≈++     
   ++≠≈≈≈≈≈≈≈-+++         +++÷≈≈÷++      
    ++≠≈≈≈≈×++               ++++        
-    ++≠≈≈++                             
-    ++≠≈-+   by                          
-+++++=≈≠++++++++++++                     
+    ++≠≈≈++     made                        
+    ++≠≈-+            by                 
++++++=≈≠++++++++++++      zuka               
 +=≈≈≈≈≈≈≈≠≠≠≠≠≠≠≠≠≠≠÷+++                
 +÷≠≈≈≈≈≈≈≠≠≠≠≠≠≠≠≠≠≠÷+++                
  ++++×≈≠+++++++++++++                   
-    ++≠≈-+  zuka                           
+    ++≠≈-+                              
     +-≈≈≠++                             
   ++=≈≈≈≈≈-+                +++++       
   ++≠≈≠≠=≠≈=-++          +++×≈≈≈-+      
@@ -24,80 +29,16 @@
           +=≈≈≈×++++=≈≈≈=+    ++++      
           +-÷=++   ++=≈≈÷+              
             ++      ++×-++              
-
-
-===================================================================
-
 ]]
 
+-- Service References
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local HttpService = game:GetService("HttpService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterGui = game:GetService("StarterGui")
-local CoreGui = game:GetService("CoreGui")
-local Lighting = game:GetService("Lighting")
-local Debris = game:GetService("Debris")
-local TeleportService = game:GetService("TeleportService")
-local TextChatService = game:GetService("TextChatService")
-local MarketplaceService = game:GetService("MarketplaceService")
-local PathfindingService = game:GetService("PathfindingService")
-local CollectionService = game:GetService("CollectionService")
-local LocalPlayer = Players.LocalPlayer
-local PlayerMouse = LocalPlayer:GetMouse()
-local CurrentCamera = Workspace.CurrentCamera
-
-local _GC_START = collectgarbage("count")
-local _TIMESTAMP = os.clock()
-
-local set_ro = setreadonly or (make_writeable and function(t, v) if v then make_readonly(t) else make_writeable(t) end end)
-local get_mt = getrawmetatable or debug.getmetatable
-local hook_meta = hookmetamethod
-local new_ccl = newcclosure or function(f) return f end
-local check_caller = checkcaller or function() return false end
-local clone_func = clonefunction or function(f) return f end
-
-local function dismantle_readonly(target)
-    if type(target) ~= "table" then return end
-    pcall(function()
-        if set_ro then set_ro(target, false) end
-        local mt = get_mt(target)
-        if mt and set_ro then set_ro(mt, false) end
-    end)
-end
-
-dismantle_readonly(getgenv())
-dismantle_readonly(getrenv())
-dismantle_readonly(getreg())
-
-local function protect_interface(instance)
-    local protector = (get_hidden_gui or (syn and syn.protect_gui))
-    if protector then pcall(protector, instance) end
-end
-
-local function get_memory_signature(target_name)
-    local found = 0
-    for _, obj in ipairs(getgc(true)) do
-        if type(obj) == "function" then
-            local info = debug.getinfo(obj)
-            if info.name == target_name or (info.source and info.source:find(target_name)) then
-                found = found + 1
-            end
-        end
-    end
-    return found
-end
-
-local Services = setmetatable({}, {
-    __index = function(t, k)
-        local s = game:GetService(k)
-        if s then t[k] = s end
-        return s
-    end
-})
-
 if not _G.Modules then
     _G.Modules = {}
 end
