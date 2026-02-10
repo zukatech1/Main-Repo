@@ -1,4 +1,4 @@
---[[ this script is in beta, inspired by the 
+--[[ this script is in beta, inspired by the original cheat engine look. 
 
              ++     ++-+++              
           ++×≠×++  ++≈≈≈=+              
@@ -98,6 +98,167 @@ Modules.OverseerCE = {
     }
 }
 
+-- ========================
+-- METATABLE UNLOCKING UTILITIES
+-- ========================
+
+function Modules.OverseerCE:GetRawMetatable(tbl)
+    -- Try multiple methods to get locked metatables
+    local mt = nil
+    
+    -- Method 1: Standard getmetatable
+    local success, result = pcall(getmetatable, tbl)
+    if success and result then
+        return result, "standard"
+    end
+    
+    -- Method 2: Use getrawmetatable if available
+    if getrawmetatable then
+        success, result = pcall(getrawmetatable, tbl)
+        if success and result then
+            return result, "getrawmetatable"
+        end
+    end
+    
+    -- Method 3: Debug library
+    if debug and debug.getmetatable then
+        success, result = pcall(debug.getmetatable, tbl)
+        if success and result then
+            return result, "debug.getmetatable"
+        end
+    end
+    
+    -- Method 4: Hookmetamethod if available (some executors)
+    if hookmetamethod then
+        local old
+        success, result = pcall(function()
+            old = hookmetamethod(game, "__index", function() end)
+            hookmetamethod(game, "__index", old)
+            return getmetatable(tbl)
+        end)
+        if success and result then
+            return result, "hookmetamethod"
+        end
+    end
+    
+    return nil, "failed"
+end
+
+function Modules.OverseerCE:UnlockMetatable(tbl)
+    -- Try to unlock a locked metatable
+    if type(tbl) ~= "table" then
+        return false, "Not a table"
+    end
+    
+    local mt, method = self:GetRawMetatable(tbl)
+    
+    if not mt then
+        return false, "No metatable found"
+    end
+    
+    -- Check if it's locked
+    local isLocked = false
+    local lockCheckSuccess, lockCheckResult = pcall(function()
+        return getmetatable(tbl)
+    end)
+    
+    if not lockCheckSuccess or lockCheckResult == nil then
+        isLocked = true
+    end
+    
+    -- Try to unlock using various methods
+    local unlocked = false
+    local unlockMethod = nil
+    
+    -- Method 1: setrawmetatable
+    if setrawmetatable and isLocked then
+        local success = pcall(function()
+            setrawmetatable(tbl, mt)
+        end)
+        if success then
+            unlocked = true
+            unlockMethod = "setrawmetatable"
+        end
+    end
+    
+    -- Method 2: Make the __metatable field nil
+    if not unlocked and mt then
+        local success = pcall(function()
+            if setreadonly then setreadonly(mt, false) end
+            rawset(mt, "__metatable", nil)
+            if setreadonly then setreadonly(mt, true) end
+        end)
+        if success then
+            unlocked = true
+            unlockMethod = "removed __metatable"
+        end
+    end
+    
+    -- Method 3: Replace the metatable entirely (destructive but works)
+    if not unlocked and mt then
+        local newMt = {}
+        for k, v in pairs(mt) do
+            newMt[k] = v
+        end
+        newMt.__metatable = nil
+        
+        local success = pcall(function()
+            if setreadonly then setreadonly(tbl, false) end
+            if setmetatable then
+                setmetatable(tbl, newMt)
+            end
+            if setreadonly then setreadonly(tbl, true) end
+        end)
+        
+        if success then
+            unlocked = true
+            unlockMethod = "replaced metatable"
+        end
+    end
+    
+    if unlocked then
+        return true, "Unlocked using: " .. (unlockMethod or "unknown")
+    else
+        -- Even if we can't unlock it, we can still read it with GetRawMetatable
+        return true, "Readonly access via: " .. method
+    end
+end
+
+function Modules.OverseerCE:GetTableWithMetatable(tbl)
+    -- Create a wrapper that includes both the table and its metatable
+    if type(tbl) ~= "table" then
+        return tbl
+    end
+    
+    local mt, method = self:GetRawMetatable(tbl)
+    
+    if mt then
+        -- Try to unlock
+        local unlocked, unlockMsg = self:UnlockMetatable(tbl)
+        
+        -- Create a combined view
+        local combined = {}
+        
+        -- Add all regular fields
+        for k, v in pairs(tbl) do
+            combined[k] = v
+        end
+        
+        -- Add metatable as a special entry
+        combined["[METATABLE]"] = mt
+        combined["[METATABLE_INFO]"] = {
+            Locked = not unlocked,
+            AccessMethod = method,
+            UnlockMessage = unlockMsg
+        }
+        
+        return combined
+    end
+    
+    return tbl
+end
+
+-- Utility Functions
 -- Enhanced Base64 Decoder
 function Modules.OverseerCE:DecodeBase64(data)
     local success, result = pcall(function()
@@ -184,10 +345,21 @@ end
 
 -- Get module content regardless of type
 function Modules.OverseerCE:GetModuleContent(module)
+    -- Handle nil modules
+    if module == nil then
+        return {
+            ["[Error]"] = "Module returned nil",
+            ["[Type]"] = "nil",
+            ["[Info]"] = "This module doesn't return a value"
+        }
+    end
+    
     local moduleType = type(module)
     
-    -- Cache the module type
-    self.State.ModuleTypeCache[module] = moduleType
+    -- Cache the module type (only if not nil)
+    if module ~= nil then
+        self.State.ModuleTypeCache[module] = moduleType
+    end
     
     if moduleType == "table" then
         return module
@@ -1003,8 +1175,12 @@ function Modules.OverseerCE:AnalyzeMetatableChain(tbl)
         if visited[current] then break end
         visited[current] = true
         
-        local mt = getmetatable(current)
+        -- Use enhanced metatable getter
+        local mt, method = self:GetRawMetatable(current)
         if not mt then break end
+        
+        -- Try to unlock the metatable
+        local unlocked, unlockMsg = self:UnlockMetatable(current)
         
         local chainEntry = {
             Depth = depth,
@@ -1012,22 +1188,36 @@ function Modules.OverseerCE:AnalyzeMetatableChain(tbl)
             Fields = {},
             HasIndex = false,
             IndexType = nil,
-            IndexValue = nil
+            IndexValue = nil,
+            Locked = not unlocked,
+            AccessMethod = method,
+            UnlockMessage = unlockMsg
         }
         
         -- Analyze metatable fields
-        for k, v in pairs(mt) do
-            table.insert(chainEntry.Fields, {
-                Key = k,
-                Value = v,
-                Type = type(v)
-            })
-            
-            if k == "__index" then
-                chainEntry.HasIndex = true
-                chainEntry.IndexType = type(v)
-                chainEntry.IndexValue = v
+        local fieldSuccess, fieldErr = pcall(function()
+            for k, v in pairs(mt) do
+                table.insert(chainEntry.Fields, {
+                    Key = k,
+                    Value = v,
+                    Type = type(v)
+                })
+                
+                if k == "__index" then
+                    chainEntry.HasIndex = true
+                    chainEntry.IndexType = type(v)
+                    chainEntry.IndexValue = v
+                end
             end
+        end)
+        
+        if not fieldSuccess then
+            -- If we can't iterate, add a special entry
+            table.insert(chainEntry.Fields, {
+                Key = "[ERROR]",
+                Value = "Cannot iterate metatable: " .. tostring(fieldErr),
+                Type = "error"
+            })
         end
         
         table.insert(chain, chainEntry)
@@ -1599,7 +1789,7 @@ function Modules.OverseerCE:CreateUI()
     self:_createBorder(menuBar, false)
     
     -- Menu items
-    local menuItems = {"Tools", "Scanner", "Dumper", "Injector", "Anti-Tamper"}
+    local menuItems = {"Tools", "Scanner", "Dumper", "Injector", "Anti-Tamper", "Hooks"}
     local menuX = 4
     
     for _, menuName in ipairs(menuItems) do
@@ -1813,7 +2003,8 @@ function Modules.OverseerCE:CreateUI()
         PathLabel = pathLabel,
         PatchScroll = patchScroll,
         PatchCount = patchCount,
-        ResizeHandle = resizeHandle
+        ResizeHandle = resizeHandle,
+        HookScroll = nil  -- Will be set when hook manager panel is created
     }
 
     -- Dragging functionality
@@ -1976,6 +2167,9 @@ function Modules.OverseerCE:CreateHookManagerPanel(parent)
     
     local hookList = Instance.new("UIListLayout", hookScroll)
     hookList.Padding = UDim.new(0, 0)
+    
+    -- Store the HookScroll reference
+    self.State.UI.HookScroll = hookScroll
     
     return panel
 end
@@ -2178,13 +2372,46 @@ function Modules.OverseerCE:AddModuleToList(moduleScript)
 end
 
 function Modules.OverseerCE:LoadModule(moduleScript)
-    local success, result = pcall(function()
-        return require(moduleScript)
+    -- Use spawn with timeout to prevent hanging on modules with WaitForChild
+    local success, result
+    local completed = false
+    
+    task.spawn(function()
+        success, result = pcall(function()
+            return require(moduleScript)
+        end)
+        completed = true
     end)
+    
+    -- Wait up to 2 seconds for module to load
+    local timeout = 2
+    local elapsed = 0
+    while not completed and elapsed < timeout do
+        task.wait(0.1)
+        elapsed = elapsed + 0.1
+    end
+    
+    if not completed then
+        self:_showNotification("Module load timeout: " .. moduleScript.Name .. " (may use WaitForChild)", "warning")
+        print("[Overseer CE] Module took too long to load:", moduleScript.Name)
+        return
+    end
     
     if not success then
         self:_showNotification("Failed to load module: " .. moduleScript.Name, "error")
+        print("[Overseer CE] Module load error:", result)
         return
+    end
+    
+    -- Handle nil returns
+    if result == nil then
+        self:_showNotification("Module returned nil: " .. moduleScript.Name, "warning")
+        -- Create a minimal table wrapper for nil modules
+        result = {
+            ["[Module Name]"] = moduleScript.Name,
+            ["[Return Value]"] = "nil",
+            ["[Info]"] = "This module doesn't return a value"
+        }
     end
     
     -- Use GetModuleContent to handle any module type
@@ -2204,7 +2431,9 @@ function Modules.OverseerCE:LoadModule(moduleScript)
     
     -- Show type info in notification
     local originalType = type(result)
-    if originalType ~= "table" then
+    if originalType == "nil" then
+        self:_showNotification("Loaded: " .. moduleScript.Name .. " [returns nil]", "info")
+    elseif originalType ~= "table" then
         self:_showNotification("Loaded: " .. moduleScript.Name .. " [" .. originalType .. " → table wrapper]", "success")
     else
         self:_showNotification("Loaded: " .. moduleScript.Name, "success")
@@ -2389,21 +2618,42 @@ function Modules.OverseerCE:DisplayMetatableChain(chain)
     if not self.State.UI or not chain or #chain == 0 then return end
     
     for i, entry in ipairs(chain) do
-        -- Separator
+        -- Separator with lock status
         local separator = Instance.new("Frame", self.State.UI.InspectorScroll)
         separator.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
-        separator.BackgroundColor3 = self.Config.ACCENT_BLUE
+        separator.BackgroundColor3 = entry.Locked and Color3.fromRGB(200, 100, 100) or self.Config.ACCENT_BLUE
         separator.BorderSizePixel = 0
+        
+        local lockIcon = entry.Locked and "🔒 " or "🔓 "
+        local statusText = entry.Locked and " [LOCKED]" or " [Unlocked]"
         
         local sepLabel = Instance.new("TextLabel", separator)
         sepLabel.Size = UDim2.new(1, -8, 1, 0)
         sepLabel.Position = UDim2.fromOffset(4, 0)
         sepLabel.BackgroundTransparency = 1
-        sepLabel.Text = "=== METATABLE #" .. i .. " (Depth: " .. entry.Depth .. ") ==="
+        sepLabel.Text = lockIcon .. "METATABLE #" .. i .. " (Depth: " .. entry.Depth .. ")" .. statusText
         sepLabel.TextColor3 = self.Config.BG_WHITE
         sepLabel.Font = Enum.Font.SourceSansBold
         sepLabel.TextSize = 10
         sepLabel.TextXAlignment = Enum.TextXAlignment.Left
+        
+        -- Add info row about access method
+        if entry.AccessMethod or entry.UnlockMessage then
+            local infoRow = Instance.new("Frame", self.State.UI.InspectorScroll)
+            infoRow.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
+            infoRow.BackgroundColor3 = Color3.fromRGB(240, 240, 200)
+            infoRow.BorderSizePixel = 0
+            
+            local infoLabel = Instance.new("TextLabel", infoRow)
+            infoLabel.Size = UDim2.new(1, -8, 1, 0)
+            infoLabel.Position = UDim2.fromOffset(4, 0)
+            infoLabel.BackgroundTransparency = 1
+            infoLabel.Text = "  ℹ️ " .. (entry.UnlockMessage or ("Access: " .. entry.AccessMethod))
+            infoLabel.TextColor3 = Color3.fromRGB(100, 100, 0)
+            infoLabel.Font = Enum.Font.SourceSansItalic
+            infoLabel.TextSize = 9
+            infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+        end
         
         -- Show metatable fields
         for _, field in ipairs(entry.Fields) do
@@ -2534,10 +2784,8 @@ function Modules.OverseerCE:ParseValue(text, targetType)
 end
 
 function Modules.OverseerCE:ShowFunctionInfo(key, func, parentTable)
-    -- Create hook editor window
-    self:_showNotification("Function hook editor: " .. tostring(key), "info")
-    print("[Overseer CE] Function hook editor for:", key)
-    -- TODO: Implement function hook editor
+    -- Show quick hook menu
+    self:ShowQuickHookMenu(func, parentTable, key)
 end
 
 function Modules.OverseerCE:FilterModules(query)
@@ -2626,6 +2874,8 @@ function Modules.OverseerCE:OpenToolWindow(toolName)
         self:CreateInjectorUI(contentArea)
     elseif toolName == "Anti-Tamper" then
         self:CreateAntiTamperUI(contentArea)
+    elseif toolName == "Hooks" then
+        self:CreateHookManagerPanel(contentArea)
     elseif toolName == "Tools" then
         self:CreateToolsMenuUI(contentArea)
     end
@@ -3326,11 +3576,26 @@ Anti-Tamper: Hide modifications from detection
 • Protects frozen patches from overwrites
 • Anti-cheat pattern detection & scanning
 
+Hooks: Quick function hooking system
+• Hook functions to return custom values
+• Block function execution
+• Log and passthrough for debugging
+• Enable/disable hooks without removing them
+
+Metatable Unlocking: Automatic bypass for locked metatables
+! Locked metatables are shown in RED
+! Unlocked metatables are shown in BLUE
+• Automatically uses getrawmetatable when available
+• Tries multiple unlock methods (setrawmetatable, etc.)
+• Even locked metatables are readable via enhanced access
+• Shows access method used for each metatable
+
 Tips:
 • Use the scanner to find specific values before patching
 • Export dumps for offline reverse engineering
 • Enable anti-tamper before applying critical patches
 • Frozen patches are automatically refreshed every frame
+• Locked metatables can still be viewed and patched!
     ]]
     description.TextColor3 = self.Config.TEXT_BLACK
     description.Font = Enum.Font.SourceSans
