@@ -1,4 +1,10 @@
 --[[ this script is in beta, inspired by the original cheat engine look. 
+     ENHANCED VERSION - Improvements:
+     ✓ Non-table module support (functions, primitives, userdata)
+     ✓ Base64 auto-detection and decoding
+     ✓ Enhanced value display (hex for numbers, detailed info)
+     ✓ Manual refresh button already included
+     ✓ Better type inspection for all Lua types
 
              ++     ++-+++              
           ++×≠×++  ++≈≈≈=+              
@@ -65,7 +71,11 @@ Modules.OverseerCE = {
         InjectionHistory = {},
         AntiTamperActive = false,
         OriginalFunctions = {},
-        HookedFunctions = {}
+        HookedFunctions = {},
+        -- Enhanced features
+        Base64DecoderEnabled = true,
+        ShowRawValues = false,
+        ModuleTypeCache = {}
     },
     Config = {
         -- Cheat Engine Color Scheme (Enhanced)
@@ -93,6 +103,154 @@ Modules.OverseerCE = {
         HOVER_BRIGHTNESS = 1.1
     }
 }
+
+-- Utility Functions
+-- Enhanced Base64 Decoder
+function Modules.OverseerCE:DecodeBase64(data)
+    local success, result = pcall(function()
+        local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+        data = string.gsub(data, '[^'..b..'=]', '')
+        return (data:gsub('.', function(x)
+            if x == '=' then return '' end
+            local r,f='',(b:find(x)-1)
+            for i=6,1,-1 do r=r..(f%2^i-f%2^(i-1)>0 and '1' or '0') end
+            return r;
+        end):gsub('%d%d%d?%d?%d?%d?%d?%d?', function(x)
+            if #x ~= 8 then return '' end
+            local c=0
+            for i=1,8 do c=c+(x:sub(i,i)=='1' and 2^(8-i) or 0) end
+            return string.char(c)
+        end))
+    end)
+    
+    if success and result then
+        return result
+    end
+    return nil
+end
+
+-- Check if string is likely base64
+function Modules.OverseerCE:IsBase64(str)
+    if type(str) ~= "string" then return false end
+    if #str < 4 or #str % 4 ~= 0 then return false end
+    return str:match("^[A-Za-z0-9+/]*=*$") ~= nil
+end
+
+-- Enhanced value display with type detection
+function Modules.OverseerCE:GetDisplayValue(value, key)
+    local valueType = type(value)
+    
+    if valueType == "string" then
+        -- Check for base64 encoded data
+        if self.State.Base64DecoderEnabled and self:IsBase64(value) and #value >= 8 then
+            local decoded = self:DecodeBase64(value)
+            if decoded and decoded ~= value then
+                return string.format('"%s" [Base64: %s]', 
+                    value:sub(1, 20)..(#value > 20 and "..." or ""), 
+                    decoded:sub(1, 40)..(#decoded > 40 and "..." or ""))
+            end
+        end
+        return '"' .. tostring(value) .. '"'
+    elseif valueType == "number" then
+        -- Show both decimal and hex for integers
+        if value == math.floor(value) and value >= 0 and value < 2^32 then
+            return string.format("%d (0x%X)", value, value)
+        end
+        return tostring(value)
+    elseif valueType == "boolean" then
+        return tostring(value)
+    elseif valueType == "table" then
+        local size = 0
+        for _ in pairs(value) do size = size + 1 end
+        local mt = getmetatable(value)
+        if mt and mt.__tostring then
+            local success, str = pcall(function() return tostring(value) end)
+            if success and str ~= "table" and not str:find("table: 0x") then
+                return str .. " [table: " .. size .. " entries]"
+            end
+        end
+        return "{table: " .. size .. " entries}"
+    elseif valueType == "function" then
+        local info = debug and debug.getinfo and debug.getinfo(value)
+        if info then
+            local source = info.source or "?"
+            local line = info.linedefined or "?"
+            return string.format("function (%s:%s)", source:sub(1, 20), line)
+        end
+        return "function"
+    elseif valueType == "userdata" then
+        local success, str = pcall(function() return tostring(value) end)
+        if success then
+            return str .. " [userdata]"
+        end
+        return "[userdata]"
+    else
+        return tostring(value)
+    end
+end
+
+-- Get module content regardless of type
+function Modules.OverseerCE:GetModuleContent(module)
+    local moduleType = type(module)
+    
+    -- Cache the module type
+    self.State.ModuleTypeCache[module] = moduleType
+    
+    if moduleType == "table" then
+        return module
+    elseif moduleType == "function" then
+        -- Try to call the function to get its return value
+        local success, result = pcall(module)
+        if success then
+            if type(result) == "table" then
+                return result
+            else
+                -- Return a wrapper table with the result
+                return {
+                    ["[Return Value]"] = result,
+                    ["[Type]"] = type(result),
+                    ["[Function Info]"] = debug and debug.getinfo and debug.getinfo(module) or "unavailable"
+                }
+            end
+        else
+            -- Return error info
+            return {
+                ["[Error]"] = tostring(result),
+                ["[Type]"] = "function (failed to execute)",
+                ["[Function Info]"] = debug and debug.getinfo and debug.getinfo(module) or "unavailable"
+            }
+        end
+    elseif moduleType == "userdata" or moduleType == "string" or moduleType == "number" or moduleType == "boolean" then
+        -- Create a wrapper table for primitive types
+        local wrapper = {
+            ["[Value]"] = module,
+            ["[Type]"] = moduleType,
+            ["[String Representation]"] = tostring(module)
+        }
+        
+        -- Try to get metatable
+        local success, mt = pcall(getmetatable, module)
+        if success and mt then
+            wrapper["[Metatable]"] = mt
+        end
+        
+        -- For strings, try base64 decode
+        if moduleType == "string" and self.State.Base64DecoderEnabled and self:IsBase64(module) then
+            local decoded = self:DecodeBase64(module)
+            if decoded then
+                wrapper["[Base64 Decoded]"] = decoded
+            end
+        end
+        
+        return wrapper
+    else
+        return {
+            ["[Value]"] = tostring(module),
+            ["[Type]"] = moduleType,
+            ["[Raw]"] = module
+        }
+    end
+end
 
 -- Utility Functions
 function Modules.OverseerCE:_createBorder(parent, inset)
@@ -1488,18 +1646,28 @@ function Modules.OverseerCE:LoadModule(moduleScript)
         return
     end
     
-    if type(result) ~= "table" then
-        self:_showNotification("Module did not return a table", "warning")
+    -- Use GetModuleContent to handle any module type
+    local moduleContent = self:GetModuleContent(result)
+    
+    if type(moduleContent) ~= "table" then
+        self:_showNotification("Module could not be displayed as table", "warning")
         return
     end
     
     self.State.SelectedModule = moduleScript
-    self.State.CurrentTable = result
+    self.State.CurrentTable = moduleContent
     self.State.PathStack = {}
     self.State.VisitedTables = {}
     
     self:RefreshInspector()
-    self:_showNotification("Loaded: " .. moduleScript.Name, "success")
+    
+    -- Show type info in notification
+    local originalType = type(result)
+    if originalType ~= "table" then
+        self:_showNotification("Loaded: " .. moduleScript.Name .. " [" .. originalType .. " → table wrapper]", "success")
+    else
+        self:_showNotification("Loaded: " .. moduleScript.Name, "success")
+    end
 end
 
 function Modules.OverseerCE:RefreshInspector()
@@ -1556,18 +1724,8 @@ function Modules.OverseerCE:CreateInspectorRow(key, value, parentTable, isMetata
     if not self.State.UI then return end
     
     local valueType = type(value)
-    local displayValue = tostring(value)
-    
-    if valueType == "string" then
-        displayValue = '"' .. value:sub(1, 50) .. '"'
-        if #value > 50 then
-            displayValue = displayValue .. "..."
-        end
-    elseif valueType == "table" then
-        displayValue = "table: " .. tostring(value):sub(8)
-    elseif valueType == "function" then
-        displayValue = "function"
-    end
+    -- Use the enhanced display function
+    local displayValue = self:GetDisplayValue(value, key)
     
     local row = Instance.new("Frame", self.State.UI.InspectorScroll)
     row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
