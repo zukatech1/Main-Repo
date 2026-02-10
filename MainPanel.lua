@@ -1,6 +1,6 @@
 --[[  This won't be fully functional on xeno or solara. Use a better executor.
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/ZukaTechPanel/refs/heads/main/ZukaSPanel.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/ZukaTechPanel/refs/heads/main/MainPanel.lua"))()
 
 Made By Zuka. @OverRuka on ROBLOX.
 
@@ -42960,3 +42960,4 @@ end
 DoNotif("We're So back. The Best Underground Panel.")
 
 --[[This is open source because I have a disdain for key system or paid scripts. you're all skids.]]
+
