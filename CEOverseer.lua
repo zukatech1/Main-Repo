@@ -1,11 +1,4 @@
-
---[[ this script is in beta, inspired by the original cheat engine look. 
-     ENHANCED VERSION - Improvements:
-     ✓ Non-table module support (functions, primitives, userdata)
-     ✓ Base64 auto-detection and decoding
-     ✓ Enhanced value display (hex for numbers, detailed info)
-     ✓ Manual refresh button already included
-     ✓ Better type inspection for all Lua types
+--[[ this script is in beta, inspired by the 
 
              ++     ++-+++              
           ++×≠×++  ++≈≈≈=+              
@@ -39,6 +32,8 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+
+-- Initialize Modules table
 if not _G.Modules then
     _G.Modules = {}
 end
@@ -103,7 +98,6 @@ Modules.OverseerCE = {
     }
 }
 
--- Utility Functions
 -- Enhanced Base64 Decoder
 function Modules.OverseerCE:DecodeBase64(data)
     local success, result = pcall(function()
