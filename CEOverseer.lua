@@ -1095,6 +1095,361 @@ function Modules.OverseerCE:CreatePatch(tbl, key, newValue, freeze)
     return patchId
 end
 
+-- ========================
+-- QUICK HOOK SYSTEM
+-- ========================
+
+function Modules.OverseerCE:CreateQuickHook(func, parentTable, key, hookType, customValue)
+    if type(func) ~= "function" then
+        self:_showNotification("Can only hook functions", "error")
+        return false
+    end
+    
+    local hookId = self:_generateUID()
+    
+    -- Store original function
+    local originalFunc = func
+    
+    -- Create hook function based on type
+    local hookFunc
+    
+    if hookType == "return_true" then
+        hookFunc = function(...)
+            return true
+        end
+    elseif hookType == "return_false" then
+        hookFunc = function(...)
+            return false
+        end
+    elseif hookType == "return_nil" then
+        hookFunc = function(...)
+            return nil
+        end
+    elseif hookType == "return_zero" then
+        hookFunc = function(...)
+            return 0
+        end
+    elseif hookType == "return_one" then
+        hookFunc = function(...)
+            return 1
+        end
+    elseif hookType == "return_empty_table" then
+        hookFunc = function(...)
+            return {}
+        end
+    elseif hookType == "return_empty_string" then
+        hookFunc = function(...)
+            return ""
+        end
+    elseif hookType == "block" then
+        hookFunc = function(...)
+            -- Do nothing, return nothing
+        end
+    elseif hookType == "log_passthrough" then
+        hookFunc = function(...)
+            local args = {...}
+            print("[Hook Log]", key, "called with", #args, "arguments")
+            for i, arg in ipairs(args) do
+                print("  Arg " .. i .. ":", tostring(arg))
+            end
+            local results = {originalFunc(...)}
+            print("[Hook Log]", key, "returned", #results, "values")
+            for i, result in ipairs(results) do
+                print("  Result " .. i .. ":", tostring(result))
+            end
+            return table.unpack(results)
+        end
+    elseif hookType == "custom" then
+        hookFunc = function(...)
+            return customValue
+        end
+    else
+        self:_showNotification("Unknown hook type", "error")
+        return false
+    end
+    
+    -- Apply hook with proper write access
+    pcall(function()
+        if setreadonly then setreadonly(parentTable, false) 
+        elseif make_writeable then make_writeable(parentTable) end
+    end)
+    
+    rawset(parentTable, key, hookFunc)
+    
+    pcall(function()
+        if setreadonly then setreadonly(parentTable, true) end
+    end)
+    
+    -- Store hook info
+    self.State.HookedFunctions[hookId] = {
+        ID = hookId,
+        Table = parentTable,
+        Key = key,
+        Original = originalFunc,
+        HookFunction = hookFunc,
+        HookType = hookType,
+        CustomValue = customValue,
+        Enabled = true,
+        CallCount = 0,
+        Timestamp = tick()
+    }
+    
+    -- Mark in patches too for visibility
+    self.State.ActivePatches[hookId] = {
+        ID = hookId,
+        Table = parentTable,
+        Key = key,
+        Original = originalFunc,
+        NewValue = hookFunc,
+        Type = "function_hook",
+        Frozen = false,
+        Timestamp = tick(),
+        Active = true,
+        HookType = hookType
+    }
+    
+    self:RefreshPatchList()
+    self:RefreshHookList()
+    
+    local hookName = self:GetHookTypeName(hookType, customValue)
+    self:_showNotification("Hooked: " .. tostring(key) .. " → " .. hookName, "success")
+    
+    return hookId
+end
+
+function Modules.OverseerCE:GetHookTypeName(hookType, customValue)
+    local names = {
+        return_true = "return true",
+        return_false = "return false",
+        return_nil = "return nil",
+        return_zero = "return 0",
+        return_one = "return 1",
+        return_empty_table = "return {}",
+        return_empty_string = 'return ""',
+        block = "block (no return)",
+        log_passthrough = "log & passthrough",
+        custom = "return " .. tostring(customValue)
+    }
+    return names[hookType] or hookType
+end
+
+function Modules.OverseerCE:RemoveHook(hookId)
+    local hook = self.State.HookedFunctions[hookId]
+    if not hook then return false end
+    
+    -- Restore original function
+    pcall(function()
+        if setreadonly then setreadonly(hook.Table, false) 
+        elseif make_writeable then make_writeable(hook.Table) end
+        rawset(hook.Table, hook.Key, hook.Original)
+        if setreadonly then setreadonly(hook.Table, true) end
+    end)
+    
+    self.State.HookedFunctions[hookId] = nil
+    self.State.ActivePatches[hookId] = nil
+    
+    self:RefreshPatchList()
+    self:RefreshHookList()
+    self:_showNotification("Hook removed", "success")
+    
+    return true
+end
+
+function Modules.OverseerCE:ToggleHook(hookId)
+    local hook = self.State.HookedFunctions[hookId]
+    if not hook then return end
+    
+    pcall(function()
+        if setreadonly then setreadonly(hook.Table, false) 
+        elseif make_writeable then make_writeable(hook.Table) end
+    end)
+    
+    if hook.Enabled then
+        -- Disable: restore original
+        rawset(hook.Table, hook.Key, hook.Original)
+        hook.Enabled = false
+    else
+        -- Enable: apply hook
+        rawset(hook.Table, hook.Key, hook.HookFunction)
+        hook.Enabled = true
+    end
+    
+    pcall(function()
+        if setreadonly then setreadonly(hook.Table, true) end
+    end)
+    
+    self:RefreshHookList()
+end
+
+function Modules.OverseerCE:ShowQuickHookMenu(func, parentTable, key, buttonPosition)
+    if not self.State.UI then return end
+    
+    -- Remove existing menu if any
+    local existingMenu = self.State.UI.Main:FindFirstChild("QuickHookMenu")
+    if existingMenu then existingMenu:Destroy() end
+    
+    -- Create menu
+    local menu = Instance.new("Frame", self.State.UI.Main)
+    menu.Name = "QuickHookMenu"
+    menu.Size = UDim2.fromOffset(200, 260)
+    menu.Position = buttonPosition or UDim2.fromOffset(400, 300)
+    menu.BackgroundColor3 = self.Config.BG_PANEL
+    menu.BorderSizePixel = 0
+    menu.ZIndex = 500
+    
+    self:_createBorder(menu, false)
+    
+    -- Title
+    local title = Instance.new("TextLabel", menu)
+    title.Size = UDim2.new(1, -4, 0, 20)
+    title.Position = UDim2.fromOffset(2, 2)
+    title.BackgroundColor3 = self.Config.ACCENT_BLUE
+    title.Text = "Quick Hook: " .. tostring(key)
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Font = Enum.Font.SourceSansBold
+    title.TextSize = 10
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.TextTruncate = Enum.TextTruncate.AtEnd
+    title.BorderSizePixel = 0
+    title.ZIndex = 501
+    
+    local titlePadding = Instance.new("UIPadding", title)
+    titlePadding.PaddingLeft = UDim.new(0, 4)
+    
+    self:_createBorder(title, true)
+    
+    -- Hook options
+    local hookOptions = {
+        {label = "Return true", hookType = "return_true"},
+        {label = "Return false", hookType = "return_false"},
+        {label = "Return nil", hookType = "return_nil"},
+        {label = "Return 0", hookType = "return_zero"},
+        {label = "Return 1", hookType = "return_one"},
+        {label = "Return {}", hookType = "return_empty_table"},
+        {label = 'Return ""', hookType = "return_empty_string"},
+        {label = "Block (no return)", hookType = "block"},
+        {label = "Log & Passthrough", hookType = "log_passthrough"}
+    }
+    
+    local yPos = 26
+    
+    for _, option in ipairs(hookOptions) do
+        local btn = self:_createButton(menu, option.label, UDim2.new(1, -8, 0, 22), UDim2.fromOffset(4, yPos), function()
+            self:CreateQuickHook(func, parentTable, key, option.hookType, nil)
+            menu:Destroy()
+        end)
+        btn.ZIndex = 501
+        btn.TextSize = 10
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local btnPadding = Instance.new("UIPadding", btn)
+        btnPadding.PaddingLeft = UDim.new(0, 4)
+        
+        yPos = yPos + 24
+    end
+    
+    -- Custom input
+    local customLabel = Instance.new("TextLabel", menu)
+    customLabel.Size = UDim2.new(1, -8, 0, 16)
+    customLabel.Position = UDim2.fromOffset(4, yPos)
+    customLabel.BackgroundTransparency = 1
+    customLabel.Text = "Custom Return Value:"
+    customLabel.TextColor3 = self.Config.TEXT_BLACK
+    customLabel.Font = Enum.Font.SourceSansBold
+    customLabel.TextSize = 9
+    customLabel.TextXAlignment = Enum.TextXAlignment.Left
+    customLabel.ZIndex = 501
+    
+    yPos = yPos + 18
+    
+    local customInput = Instance.new("TextBox", menu)
+    customInput.Size = UDim2.new(1, -48, 0, 22)
+    customInput.Position = UDim2.fromOffset(4, yPos)
+    customInput.BackgroundColor3 = self.Config.BG_WHITE
+    customInput.PlaceholderText = "Enter value..."
+    customInput.Text = ""
+    customInput.TextColor3 = self.Config.TEXT_BLACK
+    customInput.Font = Enum.Font.Code
+    customInput.TextSize = 9
+    customInput.TextXAlignment = Enum.TextXAlignment.Left
+    customInput.BorderSizePixel = 0
+    customInput.ClearTextOnFocus = false
+    customInput.ZIndex = 501
+    
+    self:_createBorder(customInput, true)
+    
+    local customBtn = self:_createButton(menu, "OK", UDim2.fromOffset(38, 22), UDim2.new(1, -42, 0, yPos), function()
+        local value = self:ParseValue(customInput.Text, "any")
+        if value ~= nil then
+            self:CreateQuickHook(func, parentTable, key, "custom", value)
+            menu:Destroy()
+        else
+            self:_showNotification("Invalid value", "error")
+        end
+    end)
+    customBtn.ZIndex = 501
+    customBtn.TextSize = 9
+    
+    -- Close on click outside
+    local closeDetector = Instance.new("TextButton", self.State.UI.Main)
+    closeDetector.Size = UDim2.new(1, 0, 1, 0)
+    closeDetector.BackgroundTransparency = 1
+    closeDetector.Text = ""
+    closeDetector.ZIndex = 499
+    closeDetector.MouseButton1Click:Connect(function()
+        menu:Destroy()
+        closeDetector:Destroy()
+    end)
+    
+    -- Make menu draggable
+    local dragging, dragStart, startPos
+    title.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = menu.Position
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            menu.Position = UDim2.fromOffset(startPos.X.Offset + delta.X, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+end
+
+function Modules.OverseerCE:ParseValue(text, expectedType)
+    -- Try to parse string into appropriate value
+    if expectedType == "string" or text:match('^".*"$') or text:match("^'.*'$") then
+        -- Remove quotes if present
+        return text:gsub('^["\']', ''):gsub('["\']$', '')
+    elseif text == "true" then
+        return true
+    elseif text == "false" then
+        return false
+    elseif text == "nil" then
+        return nil
+    elseif text == "{}" then
+        return {}
+    elseif tonumber(text) then
+        return tonumber(text)
+    else
+        -- Try as string for "any" type
+        if expectedType == "any" then
+            return text
+        end
+        return nil
+    end
+end
+
+
 function Modules.OverseerCE:RemovePatch(patchId)
     local patch = self.State.ActivePatches[patchId]
     if not patch then return false end
@@ -1396,6 +1751,8 @@ function Modules.OverseerCE:CreateUI()
     local exportBtn = self:_createButton(patchControls, "Export", UDim2.fromOffset(60, 22), UDim2.fromOffset(74, 2), function()
         self:ExportPatches()
     end)
+	
+	
     
     local patchCount = Instance.new("TextLabel", patchControls)
     patchCount.Size = UDim2.new(1, -140, 1, 0)
@@ -1538,6 +1895,197 @@ function Modules.OverseerCE:CreateUI()
             end)
         end
     end)
+	
+	-- ========================
+-- HOOK MANAGER PANEL (Add to CreateUI after creating the other tabs)
+-- ========================
+
+function Modules.OverseerCE:CreateHookManagerPanel(parent)
+    local panel = self:_createPanel(parent, UDim2.fromOffset(4, 4), UDim2.new(1, -8, 1, -8), "Hook Manager")
+    panel.ZIndex = 100
+    
+    -- Instructions
+    local info = Instance.new("TextLabel", panel)
+    info.Size = UDim2.new(1, -8, 0, 32)
+    info.Position = UDim2.fromOffset(4, 24)
+    info.BackgroundColor3 = Color3.fromRGB(220, 240, 255)
+    info.Text = "Active function hooks. Toggle enabled/disabled or remove hooks below."
+    info.TextColor3 = self.Config.TEXT_BLACK
+    info.Font = Enum.Font.SourceSans
+    info.TextSize = 10
+    info.TextXAlignment = Enum.TextXAlignment.Left
+    info.TextYAlignment = Enum.TextYAlignment.Top
+    info.TextWrapped = true
+    info.BorderSizePixel = 0
+    info.ZIndex = 101
+    
+    local infoPadding = Instance.new("UIPadding", info)
+    infoPadding.PaddingLeft = UDim.new(0, 4)
+    infoPadding.PaddingTop = UDim.new(0, 4)
+    
+    self:_createBorder(info, true)
+    
+    -- Clear all hooks button
+    local clearAllBtn = self:_createButton(panel, "Clear All Hooks", UDim2.fromOffset(120, 24), UDim2.fromOffset(4, 60), function()
+        for hookId in pairs(self.State.HookedFunctions) do
+            self:RemoveHook(hookId)
+        end
+        self:_showNotification("All hooks removed", "success")
+    end)
+    clearAllBtn.ZIndex = 101
+    
+    -- Column headers
+    local headerFrame = Instance.new("Frame", panel)
+    headerFrame.Size = UDim2.new(1, -8, 0, self.Config.ROW_HEIGHT)
+    headerFrame.Position = UDim2.fromOffset(4, 88)
+    headerFrame.BackgroundColor3 = self.Config.BG_DARK
+    headerFrame.BorderSizePixel = 0
+    headerFrame.ZIndex = 101
+    
+    self:_createBorder(headerFrame, true)
+    
+    local headers = {"On", "Function", "Hook Type", "Calls", "Remove"}
+    local headerWidths = {0.08, 0.35, 0.35, 0.12, 0.1}
+    local xPos = 0
+    
+    for i, headerText in ipairs(headers) do
+        local header = Instance.new("TextLabel", headerFrame)
+        header.Size = UDim2.new(headerWidths[i], -2, 1, 0)
+        header.Position = UDim2.new(xPos, 1, 0, 0)
+        header.BackgroundTransparency = 1
+        header.Text = headerText
+        header.TextColor3 = self.Config.TEXT_BLACK
+        header.Font = Enum.Font.SourceSansBold
+        header.TextSize = 10
+        header.TextXAlignment = Enum.TextXAlignment.Left
+        header.ZIndex = 102
+        
+        local headerPadding = Instance.new("UIPadding", header)
+        headerPadding.PaddingLeft = UDim.new(0, 4)
+        
+        xPos = xPos + headerWidths[i]
+    end
+    
+    -- Hook list scroll
+    local hookScroll = Instance.new("ScrollingFrame", panel)
+    hookScroll.Name = "HookScroll"
+    hookScroll.Size = UDim2.new(1, -8, 1, -116)
+    hookScroll.Position = UDim2.fromOffset(4, 108)
+    hookScroll.BackgroundColor3 = self.Config.BG_WHITE
+    hookScroll.BorderSizePixel = 0
+    hookScroll.ScrollBarThickness = 12
+    hookScroll.ScrollBarImageColor3 = self.Config.BG_DARK
+    hookScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    hookScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    hookScroll.ZIndex = 101
+    
+    self:_createBorder(hookScroll, true)
+    
+    local hookList = Instance.new("UIListLayout", hookScroll)
+    hookList.Padding = UDim.new(0, 0)
+    
+    return panel
+end
+
+function Modules.OverseerCE:RefreshHookList()
+    if not self.State.UI or not self.State.UI.HookScroll then return end
+    
+    -- Clear existing
+    for _, child in ipairs(self.State.UI.HookScroll:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+    
+    -- Create rows
+    for hookId, hook in pairs(self.State.HookedFunctions) do
+        self:CreateHookRow(hookId, hook)
+    end
+end
+
+function Modules.OverseerCE:CreateHookRow(hookId, hook)
+    if not self.State.UI or not self.State.UI.HookScroll then return end
+    
+    local row = Instance.new("Frame", self.State.UI.HookScroll)
+    row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
+    row.BackgroundColor3 = hook.Enabled and self.Config.BG_WHITE or Color3.fromRGB(240, 240, 240)
+    row.BorderSizePixel = 0
+    row.ZIndex = 102
+    
+    -- Enabled checkbox
+    local enabledBox = Instance.new("TextButton", row)
+    enabledBox.Size = UDim2.fromOffset(12, 12)
+    enabledBox.Position = UDim2.new(0.04, -6, 0.5, -6)
+    enabledBox.BackgroundColor3 = self.Config.BG_WHITE
+    enabledBox.Text = hook.Enabled and "✓" or ""
+    enabledBox.TextColor3 = self.Config.SUCCESS_GREEN
+    enabledBox.Font = Enum.Font.SourceSansBold
+    enabledBox.TextSize = 10
+    enabledBox.BorderSizePixel = 0
+    enabledBox.AutoButtonColor = false
+    enabledBox.ZIndex = 103
+    
+    self:_createBorder(enabledBox, true)
+    
+    enabledBox.MouseButton1Click:Connect(function()
+        self:ToggleHook(hookId)
+    end)
+    
+    -- Function name
+    local funcLabel = Instance.new("TextLabel", row)
+    funcLabel.Size = UDim2.new(0.35, -4, 1, 0)
+    funcLabel.Position = UDim2.new(0.08, 2, 0, 0)
+    funcLabel.BackgroundTransparency = 1
+    funcLabel.Text = tostring(hook.Key)
+    funcLabel.TextColor3 = self.Config.TEXT_BLACK
+    funcLabel.Font = Enum.Font.Code
+    funcLabel.TextSize = 10
+    funcLabel.TextXAlignment = Enum.TextXAlignment.Left
+    funcLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    funcLabel.ZIndex = 103
+    
+    -- Hook type
+    local hookTypeLabel = Instance.new("TextLabel", row)
+    hookTypeLabel.Size = UDim2.new(0.35, -4, 1, 0)
+    hookTypeLabel.Position = UDim2.new(0.43, 2, 0, 0)
+    hookTypeLabel.BackgroundTransparency = 1
+    hookTypeLabel.Text = self:GetHookTypeName(hook.HookType, hook.CustomValue)
+    hookTypeLabel.TextColor3 = Color3.fromRGB(0, 100, 200)
+    hookTypeLabel.Font = Enum.Font.SourceSans
+    hookTypeLabel.TextSize = 9
+    hookTypeLabel.TextXAlignment = Enum.TextXAlignment.Left
+    hookTypeLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    hookTypeLabel.ZIndex = 103
+    
+    -- Call count
+    local callLabel = Instance.new("TextLabel", row)
+    callLabel.Size = UDim2.new(0.12, -4, 1, 0)
+    callLabel.Position = UDim2.new(0.78, 2, 0, 0)
+    callLabel.BackgroundTransparency = 1
+    callLabel.Text = tostring(hook.CallCount or 0)
+    callLabel.TextColor3 = self.Config.TEXT_GRAY
+    callLabel.Font = Enum.Font.SourceSans
+    callLabel.TextSize = 9
+    callLabel.TextXAlignment = Enum.TextXAlignment.Center
+    callLabel.ZIndex = 103
+    
+    -- Remove button
+    local removeBtn = self:_createButton(row, "×", UDim2.fromOffset(16, 16), UDim2.new(0.90, 2, 0.5, -8), function()
+        self:RemoveHook(hookId)
+    end)
+    removeBtn.ZIndex = 103
+    removeBtn.TextSize = 12
+    
+    -- Hover effect
+    row.MouseEnter:Connect(function()
+        row.BackgroundColor3 = Color3.fromRGB(230, 240, 255)
+    end)
+    
+    row.MouseLeave:Connect(function()
+        row.BackgroundColor3 = hook.Enabled and self.Config.BG_WHITE or Color3.fromRGB(240, 240, 240)
+    end)
+end
+
 
     -- Initial scan
     self:ScanModules()
