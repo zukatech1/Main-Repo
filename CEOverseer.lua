@@ -69,7 +69,15 @@ Modules.OverseerCE = {
         -- Enhanced features
         Base64DecoderEnabled = true,
         ShowRawValues = false,
-        ModuleTypeCache = {}
+        ModuleTypeCache = {},
+        -- NEW: Decompiler features
+        DecompiledFunctions = {},
+        FunctionPatches = {},
+        UpvalueMonitors = {},
+        CallTrackers = {},
+        ReturnHooks = {},
+        ConstantPatches = {},
+        DecompilerCache = {}
     },
     Config = {
         -- Cheat Engine Color Scheme (Enhanced)
@@ -223,6 +231,1117 @@ function Modules.OverseerCE:UnlockMetatable(tbl)
         return true, "Readonly access via: " .. method
     end
 end
+
+-- ========================================
+-- NEW: ADVANCED DECOMPILER FUNCTIONS
+-- ========================================
+
+function Modules.OverseerCE:DecompileFunction(func)
+    if type(func) ~= "function" then
+        return nil, "Not a function"
+    end
+    
+    -- Check cache first
+    local funcStr = tostring(func)
+    if self.State.DecompilerCache[funcStr] then
+        return self.State.DecompilerCache[funcStr]
+    end
+    
+    local decompiled = {
+        Address = funcStr,
+        Info = {},
+        Constants = {},
+        Upvalues = {},
+        Protos = {},
+        SourceCode = nil,
+        AccessMethod = "basic"
+    }
+    
+    -- Get function info
+    if debug and debug.getinfo then
+        local success, info = pcall(debug.getinfo, func)
+        if success then
+            decompiled.Info = {
+                Source = info.source or "?",
+                ShortSource = info.short_src or "?",
+                LineDefined = info.linedefined or -1,
+                LastLineDefined = info.lastlinedefined or -1,
+                NumParams = info.nparams or 0,
+                IsVararg = info.isvararg or false,
+                What = info.what or "?",
+                Name = info.name or "<anonymous>"
+            }
+            decompiled.AccessMethod = "debug.getinfo"
+        end
+    elseif getinfo then
+        local success, info = pcall(getinfo, func)
+        if success then
+            decompiled.Info = info
+            decompiled.AccessMethod = "getinfo"
+        end
+    end
+    
+    -- Get constants
+    if getconstants then
+        local success, constants = pcall(getconstants, func)
+        if success and constants then
+            decompiled.Constants = constants
+        end
+    elseif debug and debug.getconstants then
+        local success, constants = pcall(debug.getconstants, func)
+        if success and constants then
+            decompiled.Constants = constants
+        end
+    end
+    
+    -- Get upvalues
+    if getupvalues then
+        local success, upvalues = pcall(getupvalues, func)
+        if success and upvalues then
+            decompiled.Upvalues = upvalues
+        end
+    elseif debug and debug.getupvalues then
+        local success, upvalues = pcall(debug.getupvalues, func)
+        if success and upvalues then
+            decompiled.Upvalues = upvalues
+        end
+    end
+    
+    -- Get protos (nested functions)
+    if getprotos then
+        local success, protos = pcall(getprotos, func)
+        if success and protos then
+            decompiled.Protos = protos
+        end
+    end
+    
+    -- Attempt decompilation if decompiler available
+    if decompile then
+        local success, source = pcall(decompile, func)
+        if success and source then
+            decompiled.SourceCode = source
+        end
+    end
+    
+    -- Cache the result
+    self.State.DecompilerCache[funcStr] = decompiled
+    
+    return decompiled
+end
+
+function Modules.OverseerCE:PatchFunctionReturn(func, returnValue)
+    if type(func) ~= "function" then
+        return false, "Not a function"
+    end
+    
+    local patchId = tostring(func) .. "_return"
+    
+    if not hookfunction then
+        return false, "hookfunction not available"
+    end
+    
+    local success, originalFunc = pcall(function()
+        return hookfunction(func, function(...)
+            return returnValue
+        end)
+    end)
+    
+    if success then
+        self.State.ReturnHooks[patchId] = {
+            Original = originalFunc,
+            ReturnValue = returnValue,
+            Function = func,
+            Timestamp = os.time()
+        }
+        return true, "Return value hooked"
+    else
+        return false, "Hook failed: " .. tostring(originalFunc)
+    end
+end
+
+function Modules.OverseerCE:PatchFunctionUpvalue(func, upvalueName, newValue)
+    if type(func) ~= "function" then
+        return false, "Not a function"
+    end
+    
+    if not setupvalue then
+        return false, "setupvalue not available"
+    end
+    
+    -- Get current upvalues
+    local upvalues = {}
+    if getupvalues then
+        local success, uvs = pcall(getupvalues, func)
+        if success then upvalues = uvs end
+    end
+    
+    -- Find the upvalue index
+    local uvIndex = nil
+    for i, name in pairs(upvalues) do
+        if name == upvalueName or i == tonumber(upvalueName) then
+            uvIndex = i
+            break
+        end
+    end
+    
+    if not uvIndex then
+        return false, "Upvalue not found: " .. upvalueName
+    end
+    
+    local success, result = pcall(setupvalue, func, uvIndex, newValue)
+    
+    if success then
+        local patchId = tostring(func) .. "_uv_" .. upvalueName
+        self.State.UpvalueMonitors[patchId] = {
+            Function = func,
+            UpvalueName = upvalueName,
+            UpvalueIndex = uvIndex,
+            NewValue = newValue,
+            Timestamp = os.time()
+        }
+        return true, "Upvalue patched"
+    else
+        return false, "Failed to set upvalue"
+    end
+end
+
+function Modules.OverseerCE:PatchFunctionConstant(func, constantIndex, newValue)
+    if type(func) ~= "function" then
+        return false, "Not a function"
+    end
+    
+    if not setconstant then
+        return false, "setconstant not available"
+    end
+    
+    local success, result = pcall(setconstant, func, constantIndex, newValue)
+    
+    if success then
+        local patchId = tostring(func) .. "_const_" .. constantIndex
+        self.State.ConstantPatches[patchId] = {
+            Function = func,
+            ConstantIndex = constantIndex,
+            NewValue = newValue,
+            Timestamp = os.time()
+        }
+        return true, "Constant patched"
+    else
+        return false, "Failed to set constant: " .. tostring(result)
+    end
+end
+
+function Modules.OverseerCE:HookFunctionCalls(func, callback)
+    if type(func) ~= "function" then
+        return false, "Not a function"
+    end
+    
+    if not hookfunction then
+        return false, "hookfunction not available"
+    end
+    
+    local callCount = 0
+    local patchId = tostring(func) .. "_tracker"
+    
+    local success, originalFunc = pcall(function()
+        return hookfunction(func, function(...)
+            callCount = callCount + 1
+            
+            -- Log the call
+            if self.State.CallTrackers[patchId] then
+                table.insert(self.State.CallTrackers[patchId].Calls, {
+                    Timestamp = tick(),
+                    Args = {...}
+                })
+            end
+            
+            -- Call the callback
+            if callback then
+                callback(callCount, ...)
+            end
+            
+            -- Call original
+            return originalFunc(...)
+        end)
+    end)
+    
+    if success then
+        self.State.CallTrackers[patchId] = {
+            Original = originalFunc,
+            Function = func,
+            CallCount = callCount,
+            Calls = {},
+            Callback = callback,
+            Timestamp = os.time()
+        }
+        return true, "Call tracker installed"
+    else
+        return false, "Hook failed"
+    end
+end
+
+function Modules.OverseerCE:ReplaceClosure(oldFunc, newFunc)
+    if type(oldFunc) ~= "function" or type(newFunc) ~= "function" then
+        return false, "Both arguments must be functions"
+    end
+    
+    -- Try replaceclosure first
+    if replaceclosure then
+        local success = pcall(replaceclosure, oldFunc, newFunc)
+        if success then
+            return true, "Closure replaced using replaceclosure"
+        end
+    end
+    
+    -- Fallback to hookfunction
+    if hookfunction then
+        local success = pcall(hookfunction, oldFunc, newFunc)
+        if success then
+            return true, "Closure replaced using hookfunction"
+        end
+    end
+    
+    return false, "No closure replacement method available"
+end
+
+function Modules.OverseerCE:GetFunctionCallstack(func)
+    if type(func) ~= "function" then
+        return nil, "Not a function"
+    end
+    
+    local callstack = {}
+    
+    if debug and debug.traceback then
+        local trace = debug.traceback()
+        for line in trace:gmatch("[^\r\n]+") do
+            table.insert(callstack, line)
+        end
+    end
+    
+    return callstack
+end
+
+-- ========================================
+-- NEW: DECOMPILER UI
+-- ========================================
+
+function Modules.OverseerCE:CreateDecompilerPanel(parent)
+    local panel = self:_createPanel(parent, UDim2.fromOffset(4, 4), UDim2.new(1, -8, 1, -8), "Function Decompiler & Advanced Patcher")
+    panel.ZIndex = 100
+    
+    -- Function selector
+    local selectorLabel = Instance.new("TextLabel", panel)
+    selectorLabel.Size = UDim2.new(0, 100, 0, 20)
+    selectorLabel.Position = UDim2.fromOffset(4, 28)
+    selectorLabel.BackgroundTransparency = 1
+    selectorLabel.Text = "Select Function:"
+    selectorLabel.TextColor3 = self.Config.TEXT_BLACK
+    selectorLabel.Font = Enum.Font.SourceSans
+    selectorLabel.TextSize = 10
+    selectorLabel.TextXAlignment = Enum.TextXAlignment.Left
+    selectorLabel.ZIndex = 101
+    
+    local functionDropdown = Instance.new("TextBox", panel)
+    functionDropdown.Name = "FunctionSelector"
+    functionDropdown.Size = UDim2.new(1, -112, 0, 22)
+    functionDropdown.Position = UDim2.fromOffset(108, 28)
+    functionDropdown.BackgroundColor3 = self.Config.BG_WHITE
+    functionDropdown.PlaceholderText = "Enter function path (e.g., Module.Function)"
+    functionDropdown.Text = ""
+    functionDropdown.TextColor3 = self.Config.TEXT_BLACK
+    functionDropdown.Font = Enum.Font.Code
+    functionDropdown.TextSize = 10
+    functionDropdown.TextXAlignment = Enum.TextXAlignment.Left
+    functionDropdown.ClearTextOnFocus = false
+    functionDropdown.ZIndex = 101
+    
+    self:_createBorder(functionDropdown, true)
+    
+    local funcPadding = Instance.new("UIPadding", functionDropdown)
+    funcPadding.PaddingLeft = UDim.new(0, 4)
+    
+    -- Decompile button
+    local decompileBtn = self:_createButton(panel, "Decompile", UDim2.fromOffset(100, 24), UDim2.fromOffset(4, 54), function()
+        local funcPath = functionDropdown.Text
+        if funcPath == "" then
+            self:_showNotification("Please enter a function path", "warning")
+            return
+        end
+        
+        self:DecompileFunctionFromPath(funcPath, panel)
+    end)
+    decompileBtn.ZIndex = 101
+    decompileBtn.TextSize = 10
+    
+    -- Refresh button
+    local refreshBtn = self:_createButton(panel, "Refresh", UDim2.fromOffset(80, 24), UDim2.fromOffset(108, 54), function()
+        if self.State.CurrentDecompiledFunction then
+            self:RefreshDecompilerView(panel)
+        end
+    end)
+    refreshBtn.ZIndex = 101
+    refreshBtn.TextSize = 10
+    
+    -- Export button
+    local exportBtn = self:_createButton(panel, "Export Info", UDim2.fromOffset(90, 24), UDim2.fromOffset(192, 54), function()
+        if self.State.CurrentDecompiledFunction then
+            self:ExportFunctionInfo(self.State.CurrentDecompiledFunction)
+        else
+            self:_showNotification("No function decompiled", "warning")
+        end
+    end)
+    exportBtn.ZIndex = 101
+    exportBtn.TextSize = 10
+    
+    -- Tab selector for different views
+    local tabContainer = Instance.new("Frame", panel)
+    tabContainer.Size = UDim2.new(1, -8, 0, 26)
+    tabContainer.Position = UDim2.fromOffset(4, 82)
+    tabContainer.BackgroundColor3 = self.Config.BG_DARK
+    tabContainer.BorderSizePixel = 0
+    tabContainer.ZIndex = 101
+    
+    self:_createBorder(tabContainer, true)
+    
+    local tabs = {"Info", "Constants", "Upvalues", "Protos", "Source"}
+    local tabButtons = {}
+    local tabX = 2
+    
+    for _, tabName in ipairs(tabs) do
+        local tabBtn = self:_createButton(tabContainer, tabName, UDim2.fromOffset(75, 22), UDim2.fromOffset(tabX, 2), function()
+            self:SwitchDecompilerTab(tabName, panel)
+            
+            -- Update button colors
+            for _, btn in pairs(tabButtons) do
+                btn.BackgroundColor3 = self.Config.BG_PANEL
+            end
+            tabBtn.BackgroundColor3 = self.Config.ACCENT_BLUE
+            tabBtn.TextColor3 = self.Config.BG_WHITE
+        end)
+        tabBtn.ZIndex = 102
+        tabBtn.TextSize = 9
+        tabButtons[tabName] = tabBtn
+        tabX = tabX + 77
+    end
+    
+    -- Content area for tabs
+    local contentArea = Instance.new("ScrollingFrame", panel)
+    contentArea.Name = "DecompilerContent"
+    contentArea.Size = UDim2.new(1, -8, 1, -188)
+    contentArea.Position = UDim2.fromOffset(4, 112)
+    contentArea.BackgroundColor3 = self.Config.BG_WHITE
+    contentArea.BorderSizePixel = 0
+    contentArea.ScrollBarThickness = 12
+    contentArea.ScrollBarImageColor3 = self.Config.BG_DARK
+    contentArea.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    contentArea.CanvasSize = UDim2.new(0, 0, 0, 0)
+    contentArea.ZIndex = 101
+    
+    self:_createBorder(contentArea, true)
+    
+    -- Action buttons at bottom
+    local actionFrame = Instance.new("Frame", panel)
+    actionFrame.Size = UDim2.new(1, -8, 0, 70)
+    actionFrame.Position = UDim2.new(0, 4, 1, -74)
+    actionFrame.BackgroundColor3 = self.Config.BG_PANEL
+    actionFrame.BorderSizePixel = 0
+    actionFrame.ZIndex = 101
+    
+    self:_createBorder(actionFrame, true)
+    
+    local actionTitle = Instance.new("TextLabel", actionFrame)
+    actionTitle.Size = UDim2.new(1, -8, 0, 18)
+    actionTitle.Position = UDim2.fromOffset(4, 4)
+    actionTitle.BackgroundTransparency = 1
+    actionTitle.Text = "Quick Actions"
+    actionTitle.TextColor3 = self.Config.TEXT_BLACK
+    actionTitle.Font = Enum.Font.SourceSansBold
+    actionTitle.TextSize = 10
+    actionTitle.TextXAlignment = Enum.TextXAlignment.Left
+    actionTitle.ZIndex = 102
+    
+    -- Action buttons
+    local btnY = 24
+    local btnWidth = 110
+    local btnSpacing = 114
+    
+    local hookReturnBtn = self:_createButton(actionFrame, "Hook Return", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4, btnY), function()
+        self:ShowReturnHookDialog(panel)
+    end)
+    hookReturnBtn.ZIndex = 102
+    hookReturnBtn.TextSize = 9
+    
+    local patchUpvalueBtn = self:_createButton(actionFrame, "Patch Upvalue", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4 + btnSpacing, btnY), function()
+        self:ShowUpvaluePatchDialog(panel)
+    end)
+    patchUpvalueBtn.ZIndex = 102
+    patchUpvalueBtn.TextSize = 9
+    
+    local patchConstBtn = self:_createButton(actionFrame, "Patch Constant", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4 + btnSpacing * 2, btnY), function()
+        self:ShowConstantPatchDialog(panel)
+    end)
+    patchConstBtn.ZIndex = 102
+    patchConstBtn.TextSize = 9
+    
+    local trackCallsBtn = self:_createButton(actionFrame, "Track Calls", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4 + btnSpacing * 3, btnY), function()
+        self:ShowCallTrackerDialog(panel)
+    end)
+    trackCallsBtn.ZIndex = 102
+    trackCallsBtn.TextSize = 9
+    
+    btnY = btnY + 24
+    
+    local replaceClosureBtn = self:_createButton(actionFrame, "Replace Closure", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4, btnY), function()
+        self:ShowClosureReplaceDialog(panel)
+    end)
+    replaceClosureBtn.ZIndex = 102
+    replaceClosureBtn.TextSize = 9
+    
+    local viewPatchesBtn = self:_createButton(actionFrame, "View Patches", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4 + btnSpacing, btnY), function()
+        self:ShowFunctionPatchList(panel)
+    end)
+    viewPatchesBtn.ZIndex = 102
+    viewPatchesBtn.TextSize = 9
+    
+    local clearPatchesBtn = self:_createButton(actionFrame, "Clear All", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4 + btnSpacing * 2, btnY), function()
+        self:ClearAllFunctionPatches()
+        self:_showNotification("All function patches cleared", "success")
+    end)
+    clearPatchesBtn.ZIndex = 102
+    clearPatchesBtn.TextSize = 9
+    
+    return panel
+end
+
+function Modules.OverseerCE:DecompileFunctionFromPath(path, panel)
+    -- Parse the path and get the function
+    local func = self:GetValueFromPath(path)
+    
+    if type(func) ~= "function" then
+        self:_showNotification("Path does not point to a function", "error")
+        return
+    end
+    
+    self:_showNotification("Decompiling function...", "info")
+    
+    local decompiled = self:DecompileFunction(func)
+    
+    if not decompiled then
+        self:_showNotification("Decompilation failed", "error")
+        return
+    end
+    
+    self.State.CurrentDecompiledFunction = decompiled
+    self.State.CurrentDecompiledFunctionRef = func
+    self.State.CurrentDecompiledPath = path
+    
+    self:SwitchDecompilerTab("Info", panel)
+    self:_showNotification("Function decompiled successfully", "success")
+end
+
+function Modules.OverseerCE:SwitchDecompilerTab(tabName, panel)
+    local contentArea = panel:FindFirstChild("DecompilerContent")
+    if not contentArea then return end
+    
+    -- Clear content
+    for _, child in ipairs(contentArea:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+    
+    if not self.State.CurrentDecompiledFunction then
+        local emptyLabel = Instance.new("TextLabel", contentArea)
+        emptyLabel.Size = UDim2.new(1, -8, 0, 30)
+        emptyLabel.Position = UDim2.fromOffset(4, 4)
+        emptyLabel.BackgroundTransparency = 1
+        emptyLabel.Text = "No function decompiled yet"
+        emptyLabel.TextColor3 = self.Config.TEXT_GRAY
+        emptyLabel.Font = Enum.Font.SourceSans
+        emptyLabel.TextSize = 11
+        emptyLabel.ZIndex = 102
+        return
+    end
+    
+    local decomp = self.State.CurrentDecompiledFunction
+    
+    if tabName == "Info" then
+        self:ShowDecompilerInfo(contentArea, decomp)
+    elseif tabName == "Constants" then
+        self:ShowDecompilerConstants(contentArea, decomp)
+    elseif tabName == "Upvalues" then
+        self:ShowDecompilerUpvalues(contentArea, decomp)
+    elseif tabName == "Protos" then
+        self:ShowDecompilerProtos(contentArea, decomp)
+    elseif tabName == "Source" then
+        self:ShowDecompilerSource(contentArea, decomp)
+    end
+end
+
+function Modules.OverseerCE:ShowDecompilerInfo(parent, decomp)
+    local yPos = 4
+    
+    local infoText = string.format([[Function Information:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Address: %s
+Access Method: %s
+
+Source: %s
+Short Source: %s
+Line Defined: %d
+Last Line Defined: %d
+Number of Parameters: %d
+Is Vararg: %s
+What: %s
+Name: %s
+
+Constants: %d found
+Upvalues: %d found
+Protos: %d found
+]], 
+        decomp.Address,
+        decomp.AccessMethod,
+        decomp.Info.Source or "?",
+        decomp.Info.ShortSource or "?",
+        decomp.Info.LineDefined or -1,
+        decomp.Info.LastLineDefined or -1,
+        decomp.Info.NumParams or 0,
+        decomp.Info.IsVararg and "Yes" or "No",
+        decomp.Info.What or "?",
+        decomp.Info.Name or "<anonymous>",
+        #decomp.Constants,
+        #decomp.Upvalues,
+        #decomp.Protos
+    )
+    
+    local infoLabel = Instance.new("TextLabel", parent)
+    infoLabel.Size = UDim2.new(1, -8, 0, 280)
+    infoLabel.Position = UDim2.fromOffset(4, yPos)
+    infoLabel.BackgroundColor3 = Color3.fromRGB(250, 250, 250)
+    infoLabel.Text = infoText
+    infoLabel.TextColor3 = self.Config.TEXT_BLACK
+    infoLabel.Font = Enum.Font.Code
+    infoLabel.TextSize = 9
+    infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+    infoLabel.TextYAlignment = Enum.TextYAlignment.Top
+    infoLabel.TextWrapped = true
+    infoLabel.ZIndex = 102
+    
+    self:_createBorder(infoLabel, true)
+    
+    local infoPadding = Instance.new("UIPadding", infoLabel)
+    infoPadding.PaddingLeft = UDim.new(0, 6)
+    infoPadding.PaddingTop = UDim.new(0, 6)
+    infoPadding.PaddingRight = UDim.new(0, 6)
+end
+
+function Modules.OverseerCE:ShowDecompilerConstants(parent, decomp)
+    local yPos = 4
+    
+    local headerLabel = Instance.new("TextLabel", parent)
+    headerLabel.Size = UDim2.new(1, -8, 0, 20)
+    headerLabel.Position = UDim2.fromOffset(4, yPos)
+    headerLabel.BackgroundTransparency = 1
+    headerLabel.Text = string.format("Constants (%d found)", #decomp.Constants)
+    headerLabel.TextColor3 = self.Config.TEXT_BLACK
+    headerLabel.Font = Enum.Font.SourceSansBold
+    headerLabel.TextSize = 11
+    headerLabel.TextXAlignment = Enum.TextXAlignment.Left
+    headerLabel.ZIndex = 102
+    
+    yPos = yPos + 24
+    
+    if #decomp.Constants == 0 then
+        local emptyLabel = Instance.new("TextLabel", parent)
+        emptyLabel.Size = UDim2.new(1, -8, 0, 20)
+        emptyLabel.Position = UDim2.fromOffset(4, yPos)
+        emptyLabel.BackgroundTransparency = 1
+        emptyLabel.Text = "No constants found"
+        emptyLabel.TextColor3 = self.Config.TEXT_GRAY
+        emptyLabel.Font = Enum.Font.SourceSans
+        emptyLabel.TextSize = 10
+        emptyLabel.TextXAlignment = Enum.TextXAlignment.Left
+        emptyLabel.ZIndex = 102
+        return
+    end
+    
+    for i, constant in ipairs(decomp.Constants) do
+        local constFrame = Instance.new("Frame", parent)
+        constFrame.Size = UDim2.new(1, -8, 0, 24)
+        constFrame.Position = UDim2.fromOffset(4, yPos)
+        constFrame.BackgroundColor3 = i % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245, 245, 245)
+        constFrame.BorderSizePixel = 0
+        constFrame.ZIndex = 102
+        
+        self:_createBorder(constFrame, true)
+        
+        local indexLabel = Instance.new("TextLabel", constFrame)
+        indexLabel.Size = UDim2.new(0, 40, 1, 0)
+        indexLabel.Position = UDim2.fromOffset(4, 0)
+        indexLabel.BackgroundTransparency = 1
+        indexLabel.Text = tostring(i)
+        indexLabel.TextColor3 = self.Config.TEXT_GRAY
+        indexLabel.Font = Enum.Font.Code
+        indexLabel.TextSize = 10
+        indexLabel.TextXAlignment = Enum.TextXAlignment.Left
+        indexLabel.ZIndex = 103
+        
+        local typeLabel = Instance.new("TextLabel", constFrame)
+        typeLabel.Size = UDim2.new(0, 60, 1, 0)
+        typeLabel.Position = UDim2.fromOffset(48, 0)
+        typeLabel.BackgroundTransparency = 1
+        typeLabel.Text = type(constant)
+        typeLabel.TextColor3 = self.Config.ACCENT_BLUE
+        typeLabel.Font = Enum.Font.Code
+        typeLabel.TextSize = 10
+        typeLabel.TextXAlignment = Enum.TextXAlignment.Left
+        typeLabel.ZIndex = 103
+        
+        local valueLabel = Instance.new("TextLabel", constFrame)
+        valueLabel.Size = UDim2.new(1, -200, 1, 0)
+        valueLabel.Position = UDim2.fromOffset(112, 0)
+        valueLabel.BackgroundTransparency = 1
+        valueLabel.Text = tostring(constant)
+        valueLabel.TextColor3 = self.Config.TEXT_BLACK
+        valueLabel.Font = Enum.Font.Code
+        valueLabel.TextSize = 9
+        valueLabel.TextXAlignment = Enum.TextXAlignment.Left
+        valueLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        valueLabel.ZIndex = 103
+        
+        local patchBtn = self:_createButton(constFrame, "Patch", UDim2.fromOffset(60, 18), UDim2.new(1, -64, 0, 3), function()
+            self:ShowConstantPatchDialogWithIndex(i, constant)
+        end)
+        patchBtn.ZIndex = 104
+        patchBtn.TextSize = 8
+        
+        yPos = yPos + 26
+    end
+end
+
+function Modules.OverseerCE:ShowDecompilerUpvalues(parent, decomp)
+    local yPos = 4
+    
+    local headerLabel = Instance.new("TextLabel", parent)
+    headerLabel.Size = UDim2.new(1, -8, 0, 20)
+    headerLabel.Position = UDim2.fromOffset(4, yPos)
+    headerLabel.BackgroundTransparency = 1
+    headerLabel.Text = string.format("Upvalues (%d found)", #decomp.Upvalues)
+    headerLabel.TextColor3 = self.Config.TEXT_BLACK
+    headerLabel.Font = Enum.Font.SourceSansBold
+    headerLabel.TextSize = 11
+    headerLabel.TextXAlignment = Enum.TextXAlignment.Left
+    headerLabel.ZIndex = 102
+    
+    yPos = yPos + 24
+    
+    if #decomp.Upvalues == 0 then
+        local emptyLabel = Instance.new("TextLabel", parent)
+        emptyLabel.Size = UDim2.new(1, -8, 0, 20)
+        emptyLabel.Position = UDim2.fromOffset(4, yPos)
+        emptyLabel.BackgroundTransparency = 1
+        emptyLabel.Text = "No upvalues found"
+        emptyLabel.TextColor3 = self.Config.TEXT_GRAY
+        emptyLabel.Font = Enum.Font.SourceSans
+        emptyLabel.TextSize = 10
+        emptyLabel.TextXAlignment = Enum.TextXAlignment.Left
+        emptyLabel.ZIndex = 102
+        return
+    end
+    
+    for name, value in pairs(decomp.Upvalues) do
+        local uvFrame = Instance.new("Frame", parent)
+        uvFrame.Size = UDim2.new(1, -8, 0, 24)
+        uvFrame.Position = UDim2.fromOffset(4, yPos)
+        uvFrame.BackgroundColor3 = yPos % 48 == 4 and self.Config.BG_WHITE or Color3.fromRGB(245, 245, 245)
+        uvFrame.BorderSizePixel = 0
+        uvFrame.ZIndex = 102
+        
+        self:_createBorder(uvFrame, true)
+        
+        local nameLabel = Instance.new("TextLabel", uvFrame)
+        nameLabel.Size = UDim2.new(0, 120, 1, 0)
+        nameLabel.Position = UDim2.fromOffset(4, 0)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = tostring(name)
+        nameLabel.TextColor3 = self.Config.ACCENT_BLUE
+        nameLabel.Font = Enum.Font.Code
+        nameLabel.TextSize = 10
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nameLabel.ZIndex = 103
+        
+        local typeLabel = Instance.new("TextLabel", uvFrame)
+        typeLabel.Size = UDim2.new(0, 60, 1, 0)
+        typeLabel.Position = UDim2.fromOffset(128, 0)
+        typeLabel.BackgroundTransparency = 1
+        typeLabel.Text = type(value)
+        typeLabel.TextColor3 = self.Config.TEXT_GRAY
+        typeLabel.Font = Enum.Font.Code
+        typeLabel.TextSize = 10
+        typeLabel.TextXAlignment = Enum.TextXAlignment.Left
+        typeLabel.ZIndex = 103
+        
+        local valueLabel = Instance.new("TextLabel", uvFrame)
+        valueLabel.Size = UDim2.new(1, -280, 1, 0)
+        valueLabel.Position = UDim2.fromOffset(192, 0)
+        valueLabel.BackgroundTransparency = 1
+        valueLabel.Text = tostring(value)
+        valueLabel.TextColor3 = self.Config.TEXT_BLACK
+        valueLabel.Font = Enum.Font.Code
+        valueLabel.TextSize = 9
+        valueLabel.TextXAlignment = Enum.TextXAlignment.Left
+        valueLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        valueLabel.ZIndex = 103
+        
+        local patchBtn = self:_createButton(uvFrame, "Patch", UDim2.fromOffset(60, 18), UDim2.new(1, -64, 0, 3), function()
+            self:ShowUpvaluePatchDialogWithName(name, value)
+        end)
+        patchBtn.ZIndex = 104
+        patchBtn.TextSize = 8
+        
+        yPos = yPos + 26
+    end
+end
+
+function Modules.OverseerCE:ShowDecompilerProtos(parent, decomp)
+    local yPos = 4
+    
+    local headerLabel = Instance.new("TextLabel", parent)
+    headerLabel.Size = UDim2.new(1, -8, 0, 20)
+    headerLabel.Position = UDim2.fromOffset(4, yPos)
+    headerLabel.BackgroundTransparency = 1
+    headerLabel.Text = string.format("Nested Functions/Protos (%d found)", #decomp.Protos)
+    headerLabel.TextColor3 = self.Config.TEXT_BLACK
+    headerLabel.Font = Enum.Font.SourceSansBold
+    headerLabel.TextSize = 11
+    headerLabel.TextXAlignment = Enum.TextXAlignment.Left
+    headerLabel.ZIndex = 102
+    
+    yPos = yPos + 24
+    
+    if #decomp.Protos == 0 then
+        local emptyLabel = Instance.new("TextLabel", parent)
+        emptyLabel.Size = UDim2.new(1, -8, 0, 20)
+        emptyLabel.Position = UDim2.fromOffset(4, yPos)
+        emptyLabel.BackgroundTransparency = 1
+        emptyLabel.Text = "No nested functions found"
+        emptyLabel.TextColor3 = self.Config.TEXT_GRAY
+        emptyLabel.Font = Enum.Font.SourceSans
+        emptyLabel.TextSize = 10
+        emptyLabel.TextXAlignment = Enum.TextXAlignment.Left
+        emptyLabel.ZIndex = 102
+        return
+    end
+    
+    for i, proto in ipairs(decomp.Protos) do
+        local protoFrame = Instance.new("Frame", parent)
+        protoFrame.Size = UDim2.new(1, -8, 0, 30)
+        protoFrame.Position = UDim2.fromOffset(4, yPos)
+        protoFrame.BackgroundColor3 = i % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245, 245, 245)
+        protoFrame.BorderSizePixel = 0
+        protoFrame.ZIndex = 102
+        
+        self:_createBorder(protoFrame, true)
+        
+        local indexLabel = Instance.new("TextLabel", protoFrame)
+        indexLabel.Size = UDim2.new(0, 40, 1, 0)
+        indexLabel.Position = UDim2.fromOffset(4, 0)
+        indexLabel.BackgroundTransparency = 1
+        indexLabel.Text = "Proto " .. i
+        indexLabel.TextColor3 = self.Config.ACCENT_BLUE
+        indexLabel.Font = Enum.Font.Code
+        indexLabel.TextSize = 10
+        indexLabel.TextXAlignment = Enum.TextXAlignment.Left
+        indexLabel.ZIndex = 103
+        
+        local addrLabel = Instance.new("TextLabel", protoFrame)
+        addrLabel.Size = UDim2.new(1, -140, 1, 0)
+        addrLabel.Position = UDim2.fromOffset(50, 0)
+        addrLabel.BackgroundTransparency = 1
+        addrLabel.Text = tostring(proto)
+        addrLabel.TextColor3 = self.Config.TEXT_BLACK
+        addrLabel.Font = Enum.Font.Code
+        addrLabel.TextSize = 9
+        addrLabel.TextXAlignment = Enum.TextXAlignment.Left
+        addrLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        addrLabel.ZIndex = 103
+        
+        local decompileBtn = self:_createButton(protoFrame, "Decompile", UDim2.fromOffset(80, 20), UDim2.new(1, -84, 0, 5), function()
+            if type(proto) == "function" then
+                local protoDecomp = self:DecompileFunction(proto)
+                if protoDecomp then
+                    self.State.CurrentDecompiledFunction = protoDecomp
+                    self.State.CurrentDecompiledFunctionRef = proto
+                    self:SwitchDecompilerTab("Info", parent:GetParent())
+                    self:_showNotification("Proto decompiled", "success")
+                end
+            end
+        end)
+        decompileBtn.ZIndex = 104
+        decompileBtn.TextSize = 8
+        
+        yPos = yPos + 32
+    end
+end
+
+function Modules.OverseerCE:ShowDecompilerSource(parent, decomp)
+    local yPos = 4
+    
+    local sourceBox = Instance.new("TextBox", parent)
+    sourceBox.Size = UDim2.new(1, -8, 1, -8)
+    sourceBox.Position = UDim2.fromOffset(4, yPos)
+    sourceBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    sourceBox.TextColor3 = Color3.fromRGB(220, 220, 220)
+    sourceBox.Font = Enum.Font.Code
+    sourceBox.TextSize = 9
+    sourceBox.TextXAlignment = Enum.TextXAlignment.Left
+    sourceBox.TextYAlignment = Enum.TextYAlignment.Top
+    sourceBox.TextWrapped = true
+    sourceBox.ClearTextOnFocus = false
+    sourceBox.MultiLine = true
+    sourceBox.ZIndex = 102
+    
+    if decomp.SourceCode then
+        sourceBox.Text = decomp.SourceCode
+    else
+        sourceBox.Text = "-- Source code not available\n-- Decompiler not found or function is native\n\n-- Use the other tabs to view function details"
+    end
+    
+    self:_createBorder(sourceBox, true)
+    
+    local sourcePadding = Instance.new("UIPadding", sourceBox)
+    sourcePadding.PaddingLeft = UDim.new(0, 6)
+    sourcePadding.PaddingTop = UDim.new(0, 6)
+    sourcePadding.PaddingRight = UDim.new(0, 6)
+    sourcePadding.PaddingBottom = UDim.new(0, 6)
+end
+
+-- Dialog functions for patching
+function Modules.OverseerCE:ShowReturnHookDialog(panel)
+    if not self.State.CurrentDecompiledFunctionRef then
+        self:_showNotification("No function selected", "warning")
+        return
+    end
+    
+    self:_showNotification("Return hook feature - Enter value in console", "info")
+    print("[Decompiler] Enter return value to hook:")
+    print("[Decompiler] Example: Modules.OverseerCE:PatchFunctionReturn(<function>, <returnValue>)")
+end
+
+function Modules.OverseerCE:ShowUpvaluePatchDialog(panel)
+    if not self.State.CurrentDecompiledFunctionRef then
+        self:_showNotification("No function selected", "warning")
+        return
+    end
+    
+    self:_showNotification("Upvalue patch feature - See upvalues tab", "info")
+end
+
+function Modules.OverseerCE:ShowUpvaluePatchDialogWithName(name, currentValue)
+    if not self.State.CurrentDecompiledFunctionRef then
+        self:_showNotification("No function selected", "warning")
+        return
+    end
+    
+    local func = self.State.CurrentDecompiledFunctionRef
+    
+    print(string.format("[Decompiler] Patch upvalue '%s'", name))
+    print(string.format("[Decompiler] Current value: %s", tostring(currentValue)))
+    print("[Decompiler] To patch, use:")
+    print(string.format("    Modules.OverseerCE:PatchFunctionUpvalue(<function>, '%s', <newValue>)", name))
+end
+
+function Modules.OverseerCE:ShowConstantPatchDialog(panel)
+    if not self.State.CurrentDecompiledFunctionRef then
+        self:_showNotification("No function selected", "warning")
+        return
+    end
+    
+    self:_showNotification("Constant patch feature - See constants tab", "info")
+end
+
+function Modules.OverseerCE:ShowConstantPatchDialogWithIndex(index, currentValue)
+    if not self.State.CurrentDecompiledFunctionRef then
+        self:_showNotification("No function selected", "warning")
+        return
+    end
+    
+    print(string.format("[Decompiler] Patch constant #%d", index))
+    print(string.format("[Decompiler] Current value: %s", tostring(currentValue)))
+    print("[Decompiler] To patch, use:")
+    print(string.format("    Modules.OverseerCE:PatchFunctionConstant(<function>, %d, <newValue>)", index))
+end
+
+function Modules.OverseerCE:ShowCallTrackerDialog(panel)
+    if not self.State.CurrentDecompiledFunctionRef then
+        self:_showNotification("No function selected", "warning")
+        return
+    end
+    
+    local func = self.State.CurrentDecompiledFunctionRef
+    
+    local success, msg = self:HookFunctionCalls(func, function(count, ...)
+        print(string.format("[Call Tracker] Function called #%d with args:", count))
+        local args = {...}
+        for i, arg in ipairs(args) do
+            print(string.format("  [%d] = %s", i, tostring(arg)))
+        end
+    end)
+    
+    if success then
+        self:_showNotification("Call tracking enabled", "success")
+    else
+        self:_showNotification("Failed to enable tracking: " .. msg, "error")
+    end
+end
+
+function Modules.OverseerCE:ShowClosureReplaceDialog(panel)
+    if not self.State.CurrentDecompiledFunctionRef then
+        self:_showNotification("No function selected", "warning")
+        return
+    end
+    
+    self:_showNotification("Closure replacement - Use console", "info")
+    print("[Decompiler] To replace this function's closure, use:")
+    print("    Modules.OverseerCE:ReplaceClosure(<oldFunc>, <newFunc>)")
+end
+
+function Modules.OverseerCE:ShowFunctionPatchList(panel)
+    print("=== ACTIVE FUNCTION PATCHES ===")
+    print("\n[Return Hooks]")
+    for id, patch in pairs(self.State.ReturnHooks) do
+        print(string.format("  %s -> returns %s", id, tostring(patch.ReturnValue)))
+    end
+    
+    print("\n[Upvalue Patches]")
+    for id, patch in pairs(self.State.UpvalueMonitors) do
+        print(string.format("  %s[%s] = %s", id, patch.UpvalueName, tostring(patch.NewValue)))
+    end
+    
+    print("\n[Constant Patches]")
+    for id, patch in pairs(self.State.ConstantPatches) do
+        print(string.format("  %s[%d] = %s", id, patch.ConstantIndex, tostring(patch.NewValue)))
+    end
+    
+    print("\n[Call Trackers]")
+    for id, tracker in pairs(self.State.CallTrackers) do
+        print(string.format("  %s - %d calls tracked", id, #tracker.Calls))
+    end
+    
+    self:_showNotification("Patch list printed to console", "info")
+end
+
+function Modules.OverseerCE:ClearAllFunctionPatches()
+    -- Clear return hooks
+    for id, patch in pairs(self.State.ReturnHooks) do
+        if patch.Original and hookfunction then
+            pcall(hookfunction, patch.Function, patch.Original)
+        end
+    end
+    self.State.ReturnHooks = {}
+    
+    -- Clear call trackers
+    for id, tracker in pairs(self.State.CallTrackers) do
+        if tracker.Original and hookfunction then
+            pcall(hookfunction, tracker.Function, tracker.Original)
+        end
+    end
+    self.State.CallTrackers = {}
+    
+    -- Clear other patch lists
+    self.State.UpvalueMonitors = {}
+    self.State.ConstantPatches = {}
+    self.State.FunctionPatches = {}
+end
+
+function Modules.OverseerCE:RefreshDecompilerView(panel)
+    if self.State.CurrentDecompiledPath then
+        self:DecompileFunctionFromPath(self.State.CurrentDecompiledPath, panel)
+    end
+end
+
+function Modules.OverseerCE:ExportFunctionInfo(decomp)
+    local export = {
+        Address = decomp.Address,
+        Info = decomp.Info,
+        Constants = {},
+        Upvalues = {},
+        ProtosCount = #decomp.Protos,
+        HasSourceCode = decomp.SourceCode ~= nil,
+        SourceCode = decomp.SourceCode
+    }
+    
+    -- Export constants
+    for i, const in ipairs(decomp.Constants) do
+        export.Constants[i] = {
+            Index = i,
+            Type = type(const),
+            Value = tostring(const)
+        }
+    end
+    
+    -- Export upvalues
+    for name, value in pairs(decomp.Upvalues) do
+        table.insert(export.Upvalues, {
+            Name = tostring(name),
+            Type = type(value),
+            Value = tostring(value)
+        })
+    end
+    
+    local success, exportText = pcall(function()
+        return game:GetService("HttpService"):JSONEncode(export)
+    end)
+    
+    if success then
+        local copied = self:_setClipboard(exportText)
+        if copied then
+            self:_showNotification("Function info exported to clipboard", "success")
+        else
+            print("[Decompiler Export]")
+            print(exportText)
+            self:_showNotification("Export printed to console", "info")
+        end
+    else
+        self:_showNotification("Export failed", "error")
+    end
+end
+
+function Modules.OverseerCE:GetValueFromPath(path)
+    local parts = {}
+    for part in path:gmatch("[^%.]+") do
+        table.insert(parts, part)
+    end
+    
+    if #parts == 0 then return nil end
+    
+    local current = _G
+    
+    -- Try _G first
+    for i, part in ipairs(parts) do
+        if current[part] ~= nil then
+            current = current[part]
+        else
+            -- Try game services
+            current = game
+            for j = i, #parts do
+                local suc, res = pcall(function() return current[parts[j]] end)
+                if suc and res then
+                    current = res
+                else
+                    return nil
+                end
+            end
+            break
+        end
+    end
+    
+    return current
+end
+
+-- ========================
+-- [REST OF ORIGINAL CODE CONTINUES UNCHANGED]
+-- ========================
+-- Everything below this line is the original code from lines 227-3671
 
 function Modules.OverseerCE:GetTableWithMetatable(tbl)
     -- Create a wrapper that includes both the table and its metatable
@@ -1789,7 +2908,7 @@ function Modules.OverseerCE:CreateUI()
     self:_createBorder(menuBar, false)
     
     -- Menu items
-    local menuItems = {"Tools", "Scanner", "Dumper", "Injector", "Anti-Tamper", "Hooks"}
+    local menuItems = {"Tools", "Scanner", "Dumper", "Injector", "Anti-Tamper", "Hooks", "Decompiler"}
     local menuX = 4
     
     for _, menuName in ipairs(menuItems) do
@@ -2876,6 +3995,8 @@ function Modules.OverseerCE:OpenToolWindow(toolName)
         self:CreateAntiTamperUI(contentArea)
     elseif toolName == "Hooks" then
         self:CreateHookManagerPanel(contentArea)
+    elseif toolName == "Decompiler" then
+        self:CreateDecompilerPanel(contentArea)
     elseif toolName == "Tools" then
         self:CreateToolsMenuUI(contentArea)
     end
@@ -3582,6 +4703,15 @@ Hooks: Quick function hooking system
 • Log and passthrough for debugging
 • Enable/disable hooks without removing them
 
+Decompiler: Advanced function analysis & patching
+• Decompile functions to view source code
+• Inspect constants, upvalues, and nested functions
+• Patch function return values
+• Modify upvalues and constants
+• Track function calls with arguments
+• Replace entire closures
+• Export complete function information
+
 Metatable Unlocking: Automatic bypass for locked metatables
 ! Locked metatables are shown in RED
 ! Unlocked metatables are shown in BLUE
@@ -3596,6 +4726,7 @@ Tips:
 • Enable anti-tamper before applying critical patches
 • Frozen patches are automatically refreshed every frame
 • Locked metatables can still be viewed and patched!
+• Use Decompiler for advanced function-level modifications
     ]]
     description.TextColor3 = self.Config.TEXT_BLACK
     description.Font = Enum.Font.SourceSans
