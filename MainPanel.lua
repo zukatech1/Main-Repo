@@ -3137,7 +3137,7 @@ end)
 
 RegisterCommand({
     Name = "autoattack",
-    Aliases = {"aa", "autoclick"},
+    Aliases = {"autoclick"},
     Description = "Toggles auto-click. Usage: ;aa [delay_ms | key key_name]"
 }, function(args)
     local subCommand = args[1] and args[1]:lower()
@@ -12784,20 +12784,404 @@ RegisterCommand({
     DoNotif(string.format("Memory Usage: %.2f KB", current), 2)
 end)
 
+
 Modules.AntiAim = {
     State = {
         IsEnabled = false,
         Connection = nil,
         CharacterConnection = nil,
-        RealVisualizer = nil,   -- Green: Your actual CFrame
-        DesyncVisualizer = nil  -- Red: The one "all over the place"
+        HealthConnection = nil,
+        CameraConnection = nil,
+        CounterAttachConnection = nil,
+        RealVisualizer = nil,
+        DesyncVisualizer = nil,
+        CurrentPattern = nil,
+        PatternStartTime = 0,
+        LastHitTime = 0,
+        HitCount = 0,
+        AdaptiveMode = false,
+        OriginalNeckC0 = nil,
+        InversionActive = false,
+        AttachedPlayers = {}, -- Track who's attaching to us
+        CurrentAttachTarget = nil -- Who we're counter-attached to
     },
     Config = {
+        -- Core settings
         VelocityStrength = 9000,
         SnapBack = true,
-        Visuals = true
+        Visuals = true,
+        
+        -- Advanced settings
+        StrengthVariation = true,
+        MinStrength = 5000,
+        MaxStrength = 15000,
+        
+        SnapBackMode = "random", -- instant, delayed, partial, random
+        SnapBackDelay = 0.05,
+        
+        MultiPartDesync = false,
+        AdaptiveDetection = true,
+        JitterEnabled = true,
+        JitterStrength = 500,
+        
+        -- Inversion settings
+        InversionEnabled = false,
+        InversionOffset = -3.5,
+        RandomInversion = false,
+        CameraCorrection = true,
+        
+        -- Counter-Attach settings
+        CounterAttachEnabled = false,
+        CounterAttachMode = "reverse", -- "reverse", "orbit", "spinattack"
+        CounterAttachDistance = 5,
+        CounterAttachNotify = true
     }
 }
+
+-- Get dynamic strength with variation
+function Modules.AntiAim:_getDynamicStrength()
+    if self.Config.StrengthVariation then
+        return math.random(self.Config.MinStrength, self.Config.MaxStrength)
+    end
+    return self.Config.VelocityStrength
+end
+
+-- Generate desync vector using patterns
+function Modules.AntiAim:_generateDesyncVector()
+    local strength = self:_getDynamicStrength()
+    
+    local patterns = {
+        -- Spiral pattern
+        function(t)
+            return Vector3.new(
+                math.cos(t * 10) * strength,
+                math.sin(t * 5) * strength,
+                math.sin(t * 10) * strength
+            )
+        end,
+        -- Figure-8 pattern
+        function(t)
+            return Vector3.new(
+                math.sin(t * 8) * strength,
+                math.cos(t * 4) * strength * 0.5,
+                math.sin(t * 4) * math.cos(t * 4) * strength
+            )
+        end,
+        -- Chaotic jitter
+        function(t)
+            local noise = math.noise(t * 20, t * 15, t * 10) or 0.5
+            return Vector3.new(
+                math.random(-100, 100) * noise,
+                math.random(-100, 100) * noise,
+                math.random(-100, 100) * noise
+            ).Unit * strength
+        end,
+        -- Burst pattern (rapid direction changes)
+        function(t)
+            local burstIndex = math.floor(t * 30) % 6
+            local directions = {
+                Vector3.new(1, 0, 0),
+                Vector3.new(-1, 0, 0),
+                Vector3.new(0, 1, 0),
+                Vector3.new(0, -1, 0),
+                Vector3.new(0, 0, 1),
+                Vector3.new(0, 0, -1)
+            }
+            return directions[burstIndex + 1] * strength
+        end,
+        -- Random cone pattern
+        function(t)
+            local angle = t * 15
+            return Vector3.new(
+                math.cos(angle) * strength,
+                math.random(-1, 1) * strength * 0.3,
+                math.sin(angle) * strength
+            )
+        end
+    }
+    
+    if not self.State.CurrentPattern or math.random() < 0.15 then
+        self.State.CurrentPattern = patterns[math.random(1, #patterns)]
+        self.State.PatternStartTime = tick()
+    end
+    
+    local baseVector = self.State.CurrentPattern(tick() - self.State.PatternStartTime)
+    
+    if self.Config.JitterEnabled then
+        local jitter = Vector3.new(
+            math.random(-self.Config.JitterStrength, self.Config.JitterStrength),
+            math.random(-self.Config.JitterStrength, self.Config.JitterStrength),
+            math.random(-self.Config.JitterStrength, self.Config.JitterStrength)
+        )
+        baseVector = baseVector + jitter
+    end
+    
+    return baseVector
+end
+
+-- Apply desync to multiple body parts
+function Modules.AntiAim:_applyPartDesync()
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local parts = {
+        character:FindFirstChild("Head"),
+        character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso"),
+        character:FindFirstChild("LeftUpperArm"),
+        character:FindFirstChild("RightUpperArm"),
+        character:FindFirstChild("LeftLowerArm"),
+        character:FindFirstChild("RightLowerArm")
+    }
+    
+    for i, part in ipairs(parts) do
+        if part and part:IsA("BasePart") then
+            local offset = Vector3.new(
+                math.random(-1, 1),
+                math.random(-1, 1),
+                math.random(-1, 1)
+            ).Unit * (self:_getDynamicStrength() * (i * 0.25))
+            
+            part.AssemblyLinearVelocity = self:_generateDesyncVector() + offset
+        end
+    end
+end
+
+-- NEW: Counter-Attach Detection System
+function Modules.AntiAim:_detectAttachers()
+    local myChar = LocalPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    
+    -- Check for players unusually close to us (potential attachers)
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local theirRoot = player.Character:FindFirstChild("HumanoidRootPart")
+            local theirHumanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            
+            if theirRoot and theirHumanoid and theirHumanoid.Health > 0 then
+                local distance = (myRoot.Position - theirRoot.Position).Magnitude
+                
+                -- If they're suspiciously close and following us
+                if distance < 8 and distance > 0.1 then
+                    -- Track their velocity relative to ours
+                    local relativeVel = (theirRoot.AssemblyLinearVelocity - myRoot.AssemblyLinearVelocity).Magnitude
+                    
+                    -- If they're moving with us (low relative velocity = attached)
+                    if relativeVel < 50 then
+                        if not self.State.AttachedPlayers[player.UserId] then
+                            self.State.AttachedPlayers[player.UserId] = {
+                                Player = player,
+                                DetectedTime = tick(),
+                                Confirmed = false
+                            }
+                        else
+                            -- Confirm attach after 0.5 seconds
+                            if tick() - self.State.AttachedPlayers[player.UserId].DetectedTime > 0.5 then
+                                self.State.AttachedPlayers[player.UserId].Confirmed = true
+                                
+                                if self.Config.CounterAttachNotify and not self.State.CurrentAttachTarget then
+                                    DoNotif("🎯 ATTACHER DETECTED: " .. player.Name, 2)
+                                end
+                                
+                                -- Set as counter-attach target
+                                self.State.CurrentAttachTarget = player
+                            end
+                        end
+                    else
+                        -- They moved away, remove from tracking
+                        self.State.AttachedPlayers[player.UserId] = nil
+                    end
+                else
+                    -- Too far, remove from tracking
+                    self.State.AttachedPlayers[player.UserId] = nil
+                    if self.State.CurrentAttachTarget == player then
+                        self.State.CurrentAttachTarget = nil
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- NEW: Counter-Attach Logic
+function Modules.AntiAim:_applyCounterAttach()
+    if not self.State.CurrentAttachTarget then return end
+    
+    local target = self.State.CurrentAttachTarget
+    if not target.Character then
+        self.State.CurrentAttachTarget = nil
+        return
+    end
+    
+    local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+    local myChar = LocalPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    
+    if not targetRoot or not myRoot then
+        self.State.CurrentAttachTarget = nil
+        return
+    end
+    
+    local mode = self.Config.CounterAttachMode
+    local distance = self.Config.CounterAttachDistance
+    
+    if mode == "reverse" then
+        -- Attach ourselves to them (reverse the attach)
+        local offset = Vector3.new(0, 2, distance)
+        myRoot.CFrame = targetRoot.CFrame * CFrame.new(offset)
+        myRoot.AssemblyLinearVelocity = targetRoot.AssemblyLinearVelocity
+        
+    elseif mode == "orbit" then
+        -- Orbit around them rapidly
+        local angle = tick() * 5 -- Speed of orbit
+        local offset = Vector3.new(
+            math.cos(angle) * distance,
+            2,
+            math.sin(angle) * distance
+        )
+        myRoot.CFrame = targetRoot.CFrame * CFrame.new(offset)
+        myRoot.AssemblyLinearVelocity = Vector3.zero
+        
+    elseif mode == "spinattack" then
+        -- Rapidly spin around them while close
+        local angle = tick() * 10 -- Faster spin
+        local offset = Vector3.new(
+            math.cos(angle) * 3,
+            math.sin(angle * 2) * 2, -- Vertical movement too
+            math.sin(angle) * 3
+        )
+        myRoot.CFrame = targetRoot.CFrame * CFrame.new(offset)
+        
+        -- Add chaotic velocity
+        myRoot.AssemblyLinearVelocity = Vector3.new(
+            math.random(-100, 100),
+            math.random(-100, 100),
+            math.random(-100, 100)
+        )
+    end
+end
+
+-- Setup Counter-Attach Loop
+function Modules.AntiAim:_setupCounterAttach()
+    if self.State.CounterAttachConnection then
+        self.State.CounterAttachConnection:Disconnect()
+        self.State.CounterAttachConnection = nil
+    end
+    
+    if not self.Config.CounterAttachEnabled then return end
+    
+    self.State.CounterAttachConnection = RunService.Heartbeat:Connect(function()
+        if not self.State.IsEnabled then return end
+        
+        self:_detectAttachers()
+        
+        if self.State.CurrentAttachTarget then
+            self:_applyCounterAttach()
+        end
+    end)
+end
+
+-- Camera Correction System
+function Modules.AntiAim:_setupCameraCorrection()
+    if self.State.CameraConnection then
+        self.State.CameraConnection:Disconnect()
+        self.State.CameraConnection = nil
+    end
+    
+    if not self.Config.CameraCorrection then return end
+    
+    self.State.CameraConnection = RunService.RenderStepped:Connect(function()
+        if not self.State.IsEnabled or not self.Config.InversionEnabled then return end
+        
+        local camera = workspace.CurrentCamera
+        local character = LocalPlayer.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        
+        if not camera or not humanoid then return end
+        
+        if self.State.InversionActive then
+            local currentCF = camera.CFrame
+            local pos = currentCF.Position
+            local lookVector = currentCF.LookVector
+            local upVector = Vector3.new(0, 1, 0)
+            
+            local rightVector = lookVector:Cross(upVector).Unit
+            upVector = rightVector:Cross(lookVector).Unit
+            
+            camera.CFrame = CFrame.fromMatrix(pos, rightVector, upVector, -lookVector)
+        end
+    end)
+end
+
+-- Character Inversion System
+function Modules.AntiAim:_applyInversion()
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local root = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    
+    if not root or not humanoid then return end
+    
+    if self.Config.RandomInversion and math.random() < 0.05 then
+        self.State.InversionActive = not self.State.InversionActive
+    end
+    
+    if self.State.InversionActive then
+        local currentCF = root.CFrame
+        local invertedCF = currentCF * CFrame.Angles(math.pi, 0, 0)
+        invertedCF = invertedCF + Vector3.new(0, self.Config.InversionOffset, 0)
+        
+        root.CFrame = invertedCF
+        
+        if humanoid.Sit then
+            humanoid.Sit = false
+        end
+    end
+end
+
+-- Detect if being tracked by aimbot
+function Modules.AntiAim:_setupAdaptiveDetection()
+    if not self.Config.AdaptiveDetection then return end
+    
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    
+    if humanoid and not self.State.HealthConnection then
+        self.State.HealthConnection = humanoid.HealthChanged:Connect(function(health)
+            if not self.State.IsEnabled then return end
+            
+            local now = tick()
+            if now - self.State.LastHitTime < 2 then
+                self.State.HitCount += 1
+                
+                if self.State.HitCount >= 3 and not self.State.AdaptiveMode then
+                    self.State.AdaptiveMode = true
+                    local oldStrength = self.Config.VelocityStrength
+                    self.Config.VelocityStrength = math.min(oldStrength * 2.5, 25000)
+                    
+                    if self.Config.InversionEnabled and not self.State.InversionActive then
+                        self.State.InversionActive = true
+                    end
+                    
+                    DoNotif("⚠️ TRACKING DETECTED - ADAPTIVE AA ENGAGED", 2)
+                    
+                    task.delay(5, function()
+                        if self.State.IsEnabled then
+                            self.State.AdaptiveMode = false
+                            self.Config.VelocityStrength = oldStrength
+                            self.State.HitCount = 0
+                            DoNotif("Adaptive AA: [RESET]", 1.5)
+                        end
+                    end)
+                end
+            else
+                self.State.HitCount = 1
+            end
+            self.State.LastHitTime = now
+        end)
+    end
+end
 
 -- Internal function to manage visualizers
 function Modules.AntiAim:_updateVisualizer()
@@ -12805,11 +13189,10 @@ function Modules.AntiAim:_updateVisualizer()
     local root = character and character:FindFirstChild("HumanoidRootPart")
 
     if self.State.IsEnabled and self.Config.Visuals and root then
-        -- 1. Real Hitbox Visualizer (Green)
         if not self.State.RealVisualizer then
             local sb = Instance.new("SelectionBox")
             sb.Name = "AA_Real_Visualizer"
-            sb.Color3 = Color3.fromRGB(0, 255, 0) -- Green
+            sb.Color3 = Color3.fromRGB(0, 255, 0)
             sb.LineThickness = 0.05
             sb.Adornee = root
             sb.Parent = root
@@ -12819,7 +13202,6 @@ function Modules.AntiAim:_updateVisualizer()
             self.State.RealVisualizer.Parent = root
         end
 
-        -- 2. Desync Ghost Visualizer (Red Neon Part)
         if not self.State.DesyncVisualizer then
             local ghost = Instance.new("Part")
             ghost.Name = "AA_Desync_Ghost"
@@ -12828,21 +13210,20 @@ function Modules.AntiAim:_updateVisualizer()
             ghost.CanQuery = false
             ghost.Anchored = true
             ghost.Size = root.Size
-            ghost.Color = Color3.fromRGB(255, 0, 0) -- Red
+            ghost.Color = Color3.fromRGB(255, 0, 0)
             ghost.Material = Enum.Material.Neon
             ghost.Transparency = 0.6
-            ghost.Parent = workspace.Terrain -- Parent to terrain to avoid physics interference
+            ghost.Parent = workspace.Terrain
             
-            -- Add an outline to the ghost for better visibility
             local outline = Instance.new("SelectionBox")
             outline.Color3 = Color3.fromRGB(255, 255, 255)
+            outline.LineThickness = 0.03
             outline.Adornee = ghost
             outline.Parent = ghost
             
             self.State.DesyncVisualizer = ghost
         end
     else
-        -- Cleanup if disabled
         if self.State.RealVisualizer then
             self.State.RealVisualizer:Destroy()
             self.State.RealVisualizer = nil
@@ -12859,33 +13240,70 @@ function Modules.AntiAim:_onHeartbeat()
     local root = character and character:FindFirstChild("HumanoidRootPart")
     
     if not root or not self.State.IsEnabled then return end
+    
+    -- Skip normal AA logic if counter-attaching
+    if self.Config.CounterAttachEnabled and self.State.CurrentAttachTarget then
+        return -- Counter-attach handles positioning
+    end
 
     local oldCFrame = root.CFrame
     local oldVelocity = root.AssemblyLinearVelocity
 
-    -- Apply massive velocity to desync the server-side hitbox
-    local desyncVector = Vector3.new(
-        math.random(-1, 1),
-        math.random(-1, 1),
-        math.random(-1, 1)
-    ).Unit * self.Config.VelocityStrength
+    if self.Config.InversionEnabled then
+        self:_applyInversion()
+        oldCFrame = root.CFrame
+    end
 
-    root.AssemblyLinearVelocity = desyncVector
+    if self.Config.MultiPartDesync then
+        self:_applyPartDesync()
+    else
+        root.AssemblyLinearVelocity = self:_generateDesyncVector()
+    end
 
-    -- Wait for the physics engine to simulate the movement
-    RunService.RenderStepped:Wait()
+    local snapMode = self.Config.SnapBackMode
+    if snapMode == "random" then
+        local modes = {"instant", "delayed", "partial"}
+        snapMode = modes[math.random(1, #modes)]
+    end
 
-    if root and root.Parent and self.State.IsEnabled then
-        -- Update the RED visualizer to the "distorted" position before we snap back
-        if self.Config.Visuals and self.State.DesyncVisualizer then
-            self.State.DesyncVisualizer.CFrame = root.CFrame
+    if snapMode == "instant" then
+        RunService.RenderStepped:Wait()
+        if root and root.Parent and self.State.IsEnabled then
+            if self.Config.Visuals and self.State.DesyncVisualizer then
+                self.State.DesyncVisualizer.CFrame = root.CFrame
+            end
+            if self.Config.SnapBack then
+                root.CFrame = oldCFrame
+            end
+            root.AssemblyLinearVelocity = oldVelocity
         end
-
-        -- Snap the local CFrame back so you don't actually fly away on your screen
-        if self.Config.SnapBack then
-            root.CFrame = oldCFrame
+        
+    elseif snapMode == "delayed" then
+        RunService.RenderStepped:Wait()
+        local desyncedCFrame = root.CFrame
+        task.wait(self.Config.SnapBackDelay)
+        if root and root.Parent and self.State.IsEnabled then
+            if self.Config.Visuals and self.State.DesyncVisualizer then
+                self.State.DesyncVisualizer.CFrame = desyncedCFrame
+            end
+            if self.Config.SnapBack then
+                root.CFrame = oldCFrame
+            end
+            root.AssemblyLinearVelocity = oldVelocity
         end
-        root.AssemblyLinearVelocity = oldVelocity
+        
+    elseif snapMode == "partial" then
+        RunService.RenderStepped:Wait()
+        if root and root.Parent and self.State.IsEnabled then
+            local desyncedCFrame = root.CFrame
+            if self.Config.Visuals and self.State.DesyncVisualizer then
+                self.State.DesyncVisualizer.CFrame = desyncedCFrame
+            end
+            if self.Config.SnapBack then
+                root.CFrame = oldCFrame:Lerp(desyncedCFrame, 0.3)
+            end
+            root.AssemblyLinearVelocity = oldVelocity
+        end
     end
 end
 
@@ -12903,11 +13321,22 @@ function Modules.AntiAim:Enable()
         task.wait(1)
         if self.State.IsEnabled then
             self:_updateVisualizer()
+            self:_setupAdaptiveDetection()
+            self:_setupCameraCorrection()
+            self:_setupCounterAttach()
+            self.State.OriginalNeckC0 = nil
         end
     end)
 
     self:_updateVisualizer()
-    DoNotif("Anti-Aim: [ENABLED] | Visualizing Desync", 2)
+    self:_setupAdaptiveDetection()
+    self:_setupCameraCorrection()
+    self:_setupCounterAttach()
+    
+    local mode = self.Config.SnapBackMode == "random" and "RANDOM" or self.Config.SnapBackMode:upper()
+    local invStatus = self.Config.InversionEnabled and " | INVERTED" or ""
+    local caStatus = self.Config.CounterAttachEnabled and " | CA" or ""
+    DoNotif("Anti-Aim: [ENABLED] | Mode: " .. mode .. invStatus .. caStatus, 2)
 end
 
 function Modules.AntiAim:Disable(silent)
@@ -12922,6 +13351,28 @@ function Modules.AntiAim:Disable(silent)
         self.State.CharacterConnection:Disconnect()
         self.State.CharacterConnection = nil
     end
+    
+    if self.State.HealthConnection then
+        self.State.HealthConnection:Disconnect()
+        self.State.HealthConnection = nil
+    end
+    
+    if self.State.CameraConnection then
+        self.State.CameraConnection:Disconnect()
+        self.State.CameraConnection = nil
+    end
+    
+    if self.State.CounterAttachConnection then
+        self.State.CounterAttachConnection:Disconnect()
+        self.State.CounterAttachConnection = nil
+    end
+
+    workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+    
+    self.State.InversionActive = false
+    self.State.OriginalNeckC0 = nil
+    self.State.AttachedPlayers = {}
+    self.State.CurrentAttachTarget = nil
 
     self:_updateVisualizer()
 
@@ -12943,7 +13394,7 @@ function Modules.AntiAim:Initialize()
     
     RegisterCommand({
         Name = "antiaim",
-        Aliases = {},
+        Aliases = {"aa"},
         Description = "Toggles velocity-based Anti-Aim."
     }, function(args)
         local strength = tonumber(args[1])
@@ -12971,8 +13422,185 @@ function Modules.AntiAim:Initialize()
         module:_updateVisualizer()
         DoNotif("AA Visuals: " .. (module.Config.Visuals and "ON" or "OFF"), 2)
     end)
+    
+    RegisterCommand({
+        Name = "aamode",
+        Description = "Sets snapback mode: instant, delayed, partial, random"
+    }, function(args)
+        local modes = {instant = true, delayed = true, partial = true, random = true}
+        local mode = string.lower(args[1] or "")
+        if modes[mode] then
+            module.Config.SnapBackMode = mode
+            DoNotif("AA Mode: " .. mode:upper(), 2)
+        else
+            DoNotif("Valid modes: instant, delayed, partial, random", 2)
+        end
+    end)
+    
+    RegisterCommand({
+        Name = "aavary",
+        Aliases = {"aavariation"},
+        Description = "Toggles strength variation"
+    }, function()
+        module.Config.StrengthVariation = not module.Config.StrengthVariation
+        DoNotif("Strength Variation: " .. (module.Config.StrengthVariation and "ON" or "OFF"), 2)
+    end)
+    
+    RegisterCommand({
+        Name = "aamulti",
+        Description = "Toggles multi-part desync"
+    }, function()
+        module.Config.MultiPartDesync = not module.Config.MultiPartDesync
+        DoNotif("Multi-Part Desync: " .. (module.Config.MultiPartDesync and "ON" or "OFF"), 2)
+    end)
+    
+    RegisterCommand({
+        Name = "aajitter",
+        Description = "Toggles micro-jitter"
+    }, function()
+        module.Config.JitterEnabled = not module.Config.JitterEnabled
+        DoNotif("Jitter: " .. (module.Config.JitterEnabled and "ON" or "OFF"), 2)
+    end)
+    
+    RegisterCommand({
+        Name = "aaadaptive",
+        Description = "Toggles adaptive tracking detection"
+    }, function()
+        module.Config.AdaptiveDetection = not module.Config.AdaptiveDetection
+        DoNotif("Adaptive Detection: " .. (module.Config.AdaptiveDetection and "ON" or "OFF"), 2)
+    end)
+    
+    RegisterCommand({
+        Name = "aainvert",
+        Aliases = {"aaflip"},
+        Description = "Toggles character inversion (upside down)"
+    }, function()
+        module.Config.InversionEnabled = not module.Config.InversionEnabled
+        if module.Config.InversionEnabled then
+            module.State.InversionActive = true
+            module:_setupCameraCorrection()
+        else
+            module.State.InversionActive = false
+        end
+        DoNotif("Inversion: " .. (module.Config.InversionEnabled and "ON 🙃" or "OFF"), 2)
+    end)
+    
+    RegisterCommand({
+        Name = "aaoffset",
+        Description = "Sets inversion ground offset (negative = lower)"
+    }, function(args)
+        local offset = tonumber(args[1])
+        if offset then
+            module.Config.InversionOffset = offset
+            DoNotif("Inversion Offset: " .. offset, 2)
+        else
+            DoNotif("Current Offset: " .. module.Config.InversionOffset, 2)
+        end
+    end)
+    
+    RegisterCommand({
+        Name = "aarandom",
+        Description = "Toggles random inversion flipping"
+    }, function()
+        module.Config.RandomInversion = not module.Config.RandomInversion
+        DoNotif("Random Inversion: " .. (module.Config.RandomInversion and "ON" or "OFF"), 2)
+    end)
+    
+    RegisterCommand({
+        Name = "aacamera",
+        Description = "Toggles camera correction for inversion"
+    }, function()
+        module.Config.CameraCorrection = not module.Config.CameraCorrection
+        if module.Config.CameraCorrection then
+            module:_setupCameraCorrection()
+        else
+            if module.State.CameraConnection then
+                module.State.CameraConnection:Disconnect()
+                module.State.CameraConnection = nil
+            end
+        end
+        DoNotif("Camera Correction: " .. (module.Config.CameraCorrection and "ON" or "OFF"), 2)
+    end)
+    
+    -- NEW COUNTER-ATTACH COMMANDS
+    RegisterCommand({
+        Name = "aacounter",
+        Aliases = {"aaca"},
+        Description = "Toggles counter-attach system"
+    }, function()
+        module.Config.CounterAttachEnabled = not module.Config.CounterAttachEnabled
+        if module.Config.CounterAttachEnabled then
+            module:_setupCounterAttach()
+        else
+            if module.State.CounterAttachConnection then
+                module.State.CounterAttachConnection:Disconnect()
+                module.State.CounterAttachConnection = nil
+            end
+            module.State.AttachedPlayers = {}
+            module.State.CurrentAttachTarget = nil
+        end
+        DoNotif("Counter-Attach: " .. (module.Config.CounterAttachEnabled and "ON 🎯" or "OFF"), 2)
+    end)
+    
+    RegisterCommand({
+        Name = "aacamode",
+        Description = "Sets counter-attach mode: reverse, orbit, spinattack"
+    }, function(args)
+        local modes = {reverse = true, orbit = true, spinattack = true}
+        local mode = string.lower(args[1] or "")
+        if modes[mode] then
+            module.Config.CounterAttachMode = mode
+            DoNotif("Counter-Attach Mode: " .. mode:upper(), 2)
+        else
+            DoNotif("Valid modes: reverse, orbit, spinattack", 2)
+        end
+    end)
+    
+    RegisterCommand({
+        Name = "aacadist",
+        Description = "Sets counter-attach distance"
+    }, function(args)
+        local dist = tonumber(args[1])
+        if dist then
+            module.Config.CounterAttachDistance = dist
+            DoNotif("Counter-Attach Distance: " .. dist, 2)
+        else
+            DoNotif("Current Distance: " .. module.Config.CounterAttachDistance, 2)
+        end
+    end)
+    
+    RegisterCommand({
+        Name = "aacatarget",
+        Description = "Shows current counter-attach target"
+    }, function()
+        if module.State.CurrentAttachTarget then
+            DoNotif("Current Target: " .. module.State.CurrentAttachTarget.Name, 2)
+        else
+            DoNotif("No active counter-attach target", 2)
+        end
+    end)
+    
+    RegisterCommand({
+        Name = "aaconfig",
+        Aliases = {"aastatus"},
+        Description = "Shows current AA configuration"
+    }, function()
+        local config = string.format(
+            "AA CONFIG:\nStrength: %d\nMode: %s\nVariation: %s\nMulti-Part: %s\nJitter: %s\nAdaptive: %s\nInversion: %s\nCamera Fix: %s\nCounter-Attach: %s (%s)",
+            module.Config.VelocityStrength,
+            module.Config.SnapBackMode:upper(),
+            module.Config.StrengthVariation and "ON" or "OFF",
+            module.Config.MultiPartDesync and "ON" or "OFF",
+            module.Config.JitterEnabled and "ON" or "OFF",
+            module.Config.AdaptiveDetection and "ON" or "OFF",
+            module.Config.InversionEnabled and "ON" or "OFF",
+            module.Config.CameraCorrection and "ON" or "OFF",
+            module.Config.CounterAttachEnabled and "ON" or "OFF",
+            module.Config.CounterAttachMode:upper()
+        )
+        DoNotif(config, 6)
+    end)
 end
-
 
 
 Modules.Overseer = {
@@ -28729,6 +29357,7 @@ end})
 		if presentClasses["ModuleScript"] then
 			context:AddRegistered("GENERATE_POISON_PATCH")
             context:AddRegistered("GENERATE_POISON_PATCH2")
+            context:AddRegistered("GENERATE_UNIVERSAL_POISON")
             context:AddRegistered("DUMP_FUNCTIONS")
 		end
 
@@ -29698,7 +30327,7 @@ context:Register("GENERATE_POISON_PATCH",{
         end
         
         -- ============================================================================
-        -- UNIVERSAL POISON VALUE GENERATOR
+        -- UNIVERSAL POISON VALUE GENERATOR (FIXED)
         -- ============================================================================
         local function getPoisonValue(name, currentVal, architecture)
             local n = tostring(name)
@@ -29709,7 +30338,7 @@ context:Register("GENERATE_POISON_PATCH",{
             if typeV == "boolean" then
                 -- Toggle booleans related to restrictions/limits
                 if lowerN:find("limit") or lowerN:find("restrict") or lowerN:find("enabled") or 
-                   lowerN:find("lock") or lowerN:find("cooldown") or lowerN:find("delay") then
+                   lowerN:find("lock") or lowerN:find("delay") then
                     return false
                 elseif lowerN:find("auto") or lowerN:find("infinite") or lowerN:find("unlimited") then
                     return true
@@ -29718,12 +30347,18 @@ context:Register("GENERATE_POISON_PATCH",{
             
             -- NUMERICAL BOOST PATTERNS
             if typeV == "number" then
-                -- Minimize (timers, delays, costs)
-                if lowerN:find("time") or lowerN:find("delay") or lowerN:find("cooldown") or 
-                   lowerN:find("reload") or lowerN:find("equip") or lowerN:find("cost") or 
-                   lowerN:find("price") or lowerN:find("recoil") or lowerN:find("spread") then
+                -- Minimize (costs, recoil, spread) - TRUE ZEROS
+                if lowerN:find("cost") or lowerN:find("price") or 
+                   lowerN:find("recoil") or lowerN:find("spread") then
                     return 0
                 end
+                
+                -- Minimize timers but keep SMALL values to prevent breakage
+                if lowerN:find("reload") or lowerN:find("equip") then
+                    return 0.05 -- 50ms minimum
+                end
+                
+                -- DON'T touch FireRate/Cooldown here - handle per-architecture
                 
                 -- Maximize (damage, speed, range, ammo)
                 if lowerN:find("damage") or lowerN:find("speed") or lowerN:find("range") or 
@@ -29734,20 +30369,23 @@ context:Register("GENERATE_POISON_PATCH",{
             end
             
             -- ============================================================================
-            -- ARCHITECTURE-SPECIFIC OVERRIDES
+            -- ARCHITECTURE-SPECIFIC OVERRIDES (FIXED)
             -- ============================================================================
             
             -- 1 ENGINE (Phantom Forces, etc)
             if architecture == "1_ENGINE" then
                 if n == "BaseDamage" or lowerN:find("damage") then return 999999
                 elseif n == "HeadshotDamageMultiplier" then return 100
-                elseif n == "FireRate" or n == "BurstRate" then return 0
-                elseif n == "ReloadTime" or n == "TacticalReloadTime" then return 0
-                elseif n == "AmmoPerMag" then return 999999
-                elseif n == "Auto" then return true
-                elseif n == "Recoil" or n == "Spread" then return 0
-                elseif n == "BulletSpeed" or n == "Range" then return 90000
-                elseif n == "BulletPerShot" then return 15
+                elseif n == "FireRate" or n == "BurstRate" then return 0.01 -- CRITICAL FIX: minimum 10ms
+                elseif n == "ReloadTime" or n == "TacticalReloadTime" then return 0.05
+                elseif n == "EquipTime" or n == "UnequipTime" then return 0.01
+                elseif n == "AmmoPerMag" or n == "MagSize" then return 999999
+                elseif n == "Auto" or n == "Automatic" then return true
+                elseif n == "Recoil" or n == "Spread" or n == "HipFireSpread" then return 0
+                elseif n == "BulletSpeed" or n == "Range" or n == "MaxRange" then return 90000
+                elseif n == "BulletPerShot" then 
+                    -- Only boost if it's already > 1 (shotgun detection)
+                    return currentVal > 1 and 15 or currentVal 
                 elseif n == "FriendlyFire" then return true
                 elseif lowerN:find("enabled") and lowerN:find("limit") then return false
                 elseif n == "Lifesteal" then return 99999
@@ -29758,19 +30396,36 @@ context:Register("GENERATE_POISON_PATCH",{
             -- PRISON LIFE
             elseif architecture == "PRISON_LIFE" then
                 if n == "Damage" then return 999999
-                elseif n == "FireRate" then return 0
+                elseif n == "FireRate" then return 0.01 -- FIXED
                 elseif n == "MagSize" then return 999999
                 elseif n == "Automatic" then return true
-                elseif n == "ReloadTime" then return 0
+                elseif n == "ReloadTime" then return 0.05 -- FIXED
                 end
             
             -- ARSENAL
             elseif architecture == "ARSENAL" then
                 if n == "damagemin" or n == "damagemax" then return 999999
-                elseif n == "firerate" then return 0.001
+                elseif n == "firerate" then return 0.01 -- FIXED from 0.001
                 elseif n == "range" then return 99999
                 elseif n == "penetration" then return 99999
                 elseif n == "recoilx" or n == "recoily" then return 0
+                elseif n == "reloadtime" then return 0.05
+                end
+            
+            -- COUNTER BLOX
+            elseif architecture == "COUNTER_BLOX" then
+                if n == "damage" then return 999999
+                elseif n == "firerate" then return 0.01 -- FIXED
+                elseif n == "recoil" then return 0
+                elseif n == "accuracy" then return 100
+                end
+            
+            -- GENERIC FPS
+            elseif architecture == "GENERIC_FPS" then
+                if n == "Damage" then return 999999
+                elseif n == "RPM" then return 6000 -- 100 rounds/sec = safe max
+                elseif n == "Magazine" then return 999999
+                elseif n == "Reload" then return 0.05
                 end
             
             -- TOWER DEFENSE GAMES
@@ -29778,7 +30433,7 @@ context:Register("GENERATE_POISON_PATCH",{
                 if n == "Cost" or n == "Price" then return 0
                 elseif n == "Damage" then return 999999
                 elseif n == "Range" then return 99999
-                elseif n == "Cooldown" or n == "FireRate" then return 0
+                elseif n == "Cooldown" or n == "FireRate" then return 0.01 -- FIXED
                 elseif n == "MaxLevel" then return 999
                 end
             
@@ -29787,12 +30442,13 @@ context:Register("GENERATE_POISON_PATCH",{
                 if n == "Cost" or n == "Price" then return 0
                 elseif n == "Multiplier" or n == "Boost" then return 999999
                 elseif n == "Rate" or n == "Speed" then return 999999
-                elseif n == "Cooldown" then return 0
+                elseif n == "Cooldown" then return 0.01 -- FIXED
                 end
             
             -- STATS MODULES
             elseif architecture == "STATS_MODULE" then
                 if n == "Health" or n == "MaxHealth" then return 999999
+                elseif n == "Speed" or n == "WalkSpeed" then return 200 -- Sane cap
                 end
             
             -- SHOP MODULES
@@ -29874,7 +30530,7 @@ context:Register("GENERATE_POISON_PATCH",{
         
         local function generatePatchCode(tbl, parentPath, depth)
             depth = depth or 0
-            if depth > 3 then return "" end -- Prevent deep recursion
+            if depth > 3 then return "" end
             
             local code = ""
             
@@ -29883,7 +30539,6 @@ context:Register("GENERATE_POISON_PATCH",{
                 local valueType = type(v)
                 
                 if valueType == "table" then
-                    -- Recursive table patching
                     code = code .. generatePatchCode(v, keyPath, depth + 1)
                     
                 elseif valueType ~= "function" and valueType ~= "userdata" then
@@ -29915,7 +30570,7 @@ context:Register("GENERATE_POISON_PATCH",{
         output = output .. "    Path:          " .. path .. "\n"
         output = output .. "    Architecture:  " .. detectedArch .. " (" .. confidence .. "% confidence)\n"
         output = output .. "    Generated:     " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
-        output = output .. "    Engine:        ZukaTech Poison++ v2.0\n"
+        output = output .. "    Engine:        ZukaTech Poison++ v2.1 (Stability Fix)\n"
         output = output .. "--]]\n\n"
         
         if not success then
@@ -29964,8 +30619,8 @@ context:Register("GENERATE_POISON_PATCH",{
             function() setclipboard(output) end,
             function() env.setclipboard(output) end,
             function() getgenv().setclipboard(output) end,
-            function() syn.write_clipboard(output) end, -- Synapse
-            function() Clipboard.set(output) end, -- Some executors
+            function() syn.write_clipboard(output) end,
+            function() Clipboard.set(output) end,
         }
         
         for _, func in ipairs(clipboardFunctions) do
@@ -29980,6 +30635,405 @@ context:Register("GENERATE_POISON_PATCH",{
                 getgenv().DoNotif("✓ Poison++ patch copied! (" .. patchedCount .. " patches)", 3)
             else
                 getgenv().DoNotif("⚠ Patch generated but clipboard failed", 3)
+            end
+        end
+    end
+})
+
+
+context:Register("GENERATE_UNIVERSAL_POISON",{
+    Name = "[ZEX] Universal Module Poison", 
+    IconMap = Explorer.MiscIcons, 
+    Icon = "Zap", 
+    OnClick = function()
+        local node = selection.List[1]
+        if not node or not node.Obj:IsA("ModuleScript") then 
+            if getgenv().DoNotif then 
+                getgenv().DoNotif("⚠ Select a ModuleScript first!", 2) 
+            end
+            return 
+        end
+        
+        local module = node.Obj
+        local path = Explorer.GetInstancePath(module)
+        local success, result = pcall(require, module)
+        
+        -- ============================================================================
+        -- UNIVERSAL MODULE TYPE DETECTION
+        -- ============================================================================
+        local detectedTypes = {} -- Can be multiple types
+        local confidence = {}
+        
+        local function detectModuleTypes(tbl)
+            if type(tbl) ~= "table" then return end
+            
+            local signatures = {
+                -- Economy
+                ["SHOP"] = {"Price", "Cost", "Currency", "BuyPrice", "SellPrice"},
+                ["CURRENCY"] = {"Coins", "Cash", "Money", "Gems", "Credits"},
+                ["REWARDS"] = {"Reward", "Prize", "Loot", "Drop", "XP"},
+                
+                -- Character/Player
+                ["STATS"] = {"Health", "MaxHealth", "Speed", "WalkSpeed", "JumpPower"},
+                ["ABILITIES"] = {"Cooldown", "ManaCost", "Duration", "Power"},
+                ["INVENTORY"] = {"MaxSlots", "Capacity", "Weight", "Limit"},
+                
+                -- Vehicles
+                ["VEHICLE"] = {"Speed", "Acceleration", "Handling", "TopSpeed", "Fuel"},
+                ["BOAT"] = {"MaxSpeed", "TurnSpeed", "Buoyancy"},
+                ["AIRCRAFT"] = {"ThrustPower", "LiftForce", "MaxAltitude"},
+                
+                -- Pets/Companions
+                ["PET"] = {"Damage", "CollectionRadius", "SpawnRate", "Rarity", "Level"},
+                ["COMPANION"] = {"FollowDistance", "AttackDamage", "Health"},
+                
+                -- Building/Tycoon
+                ["TYCOON"] = {"Income", "BuildTime", "UpgradeCost", "ProductionRate"},
+                ["BUILDING"] = {"Cost", "BuildDuration", "Material", "Requirement"},
+                
+                -- Farming/Simulator
+                ["FARMING"] = {"GrowthTime", "YieldAmount", "WaterNeeded", "HarvestValue"},
+                ["MINING"] = {"HardnessLevel", "OreValue", "RespawnTime", "Durability"},
+                ["SIMULATOR"] = {"Multiplier", "Boost", "Rate", "ClickPower"},
+                
+                -- Game Mechanics
+                ["CRAFTING"] = {"CraftTime", "MaterialCost", "Recipe", "Ingredients"},
+                ["REBIRTH"] = {"Requirement", "Multiplier", "ResetValue", "Level"},
+                ["UPGRADE"] = {"Level", "MaxLevel", "UpgradeCost", "Effect"},
+                ["TELEPORT"] = {"Cooldown", "Destination", "RequiredLevel", "Cost"},
+                
+                -- Restrictions
+                ["GAMEPASS"] = {"GamepassId", "GamepassRequired", "Premium", "VIP"},
+                ["RESTRICTIONS"] = {"MinLevel", "MaxLevel", "RequiredItem", "Locked"},
+                ["COOLDOWNS"] = {"GlobalCooldown", "ActionDelay", "RateLimit"},
+                
+                -- Environmental
+                ["ZONE"] = {"Radius", "DamagePerSecond", "SafeZone", "Boundary"},
+                ["DOOR"] = {"Keycard", "AccessLevel", "Permission", "RequiredRank"},
+                ["EVENT"] = {"SpawnRate", "Duration", "Frequency", "Chance"},
+            }
+            
+            for moduleType, keys in pairs(signatures) do
+                local matches = 0
+                for _, key in ipairs(keys) do
+                    if tbl[key] ~= nil then
+                        matches = matches + 1
+                    end
+                end
+                
+                local matchPercent = (matches / #keys) * 100
+                if matchPercent >= 30 then -- 30% threshold for multi-detection
+                    table.insert(detectedTypes, moduleType)
+                    confidence[moduleType] = matchPercent
+                end
+            end
+            
+            -- Sort by confidence
+            table.sort(detectedTypes, function(a, b)
+                return confidence[a] > confidence[b]
+            end)
+        end
+        
+        if success and type(result) == "table" then
+            detectModuleTypes(result)
+        end
+        
+        -- ============================================================================
+        -- UNIVERSAL POISON LOGIC
+        -- ============================================================================
+        local function getPoisonValue(name, currentVal, types)
+            local n = tostring(name)
+            local lowerN = n:lower()
+            local typeV = type(currentVal)
+            
+            -- Skip if value is a table or function
+            if typeV == "table" or typeV == "function" or typeV == "userdata" then
+                return currentVal
+            end
+            
+            -- ============================================================================
+            -- BOOLEAN PATTERNS
+            -- ============================================================================
+            if typeV == "boolean" then
+                -- Disable restrictions
+                if lowerN:find("lock") or lowerN:find("restrict") or lowerN:find("limit") or 
+                   lowerN:find("required") or lowerN:find("enabled") or lowerN:find("disabled") or
+                   lowerN:find("vip") or lowerN:find("premium") or lowerN:find("gamepass") then
+                    return false
+                end
+                
+                -- Enable beneficial features
+                if lowerN:find("auto") or lowerN:find("infinite") or lowerN:find("unlimited") or
+                   lowerN:find("collect") or lowerN:find("free") then
+                    return true
+                end
+            end
+            
+            -- ============================================================================
+            -- NUMBER PATTERNS (MINIMIZE)
+            -- ============================================================================
+            if typeV == "number" then
+                -- Costs & Prices → 0
+                if lowerN:find("cost") or lowerN:find("price") or lowerN:find("expense") or
+                   lowerN:find("fee") or lowerN:find("tax") then
+                    return 0
+                end
+                
+                -- Cooldowns & Delays → 0.01 (safe minimum)
+                if lowerN:find("cooldown") or lowerN:find("delay") or lowerN:find("wait") or
+                   lowerN:find("ratelimit") then
+                    return 0.01
+                end
+                
+                -- Time-based (growth, craft, respawn) → 0.01
+                if lowerN:find("time") or lowerN:find("duration") or lowerN:find("respawn") or
+                   lowerN:find("growth") or lowerN:find("craft") or lowerN:find("build") then
+                    return 0.01
+                end
+                
+                -- Requirements & Thresholds → 0
+                if lowerN:find("requirement") or lowerN:find("needed") or lowerN:find("minlevel") or
+                   lowerN:find("threshold") then
+                    return 0
+                end
+                
+                -- Negative effects → 0
+                if lowerN:find("damage") and (lowerN:find("take") or lowerN:find("received")) then
+                    return 0
+                end
+                if lowerN:find("decay") or lowerN:find("drain") or lowerN:find("loss") then
+                    return 0
+                end
+            end
+            
+            -- ============================================================================
+            -- NUMBER PATTERNS (MAXIMIZE)
+            -- ============================================================================
+            if typeV == "number" then
+                -- Damage output → 999999
+                if (lowerN:find("damage") and not lowerN:find("take")) or lowerN:find("attack") or
+                   lowerN:find("power") or lowerN:find("strength") then
+                    return 999999
+                end
+                
+                -- Speed/Movement → 500 (sane cap to prevent physics breaks)
+                if lowerN:find("speed") or lowerN:find("velocity") or lowerN:find("acceleration") then
+                    return 500
+                end
+                
+                -- Ranges/Radius → 99999
+                if lowerN:find("range") or lowerN:find("radius") or lowerN:find("distance") or
+                   lowerN:find("reach") then
+                    return 99999
+                end
+                
+                -- Health/Defense → 999999
+                if lowerN:find("health") or lowerN:find("hp") or lowerN:find("defense") or
+                   lowerN:find("armor") or lowerN:find("shield") then
+                    return 999999
+                end
+                
+                -- Resources (ammo, capacity, slots) → 999999
+                if lowerN:find("ammo") or lowerN:find("mag") or lowerN:find("capacity") or
+                   lowerN:find("slot") or lowerN:find("limit") or lowerN:find("max") then
+                    return 999999
+                end
+                
+                -- Multipliers/Boosts → 999999
+                if lowerN:find("multi") or lowerN:find("boost") or lowerN:find("bonus") or
+                   lowerN:find("modifier") or lowerN:find("rate") then
+                    return 999999
+                end
+                
+                -- Income/Rewards → 999999
+                if lowerN:find("income") or lowerN:find("reward") or lowerN:find("yield") or
+                   lowerN:find("value") or lowerN:find("worth") or lowerN:find("profit") then
+                    return 999999
+                end
+                
+                -- Chances/Probability → 100 (max probability)
+                if lowerN:find("chance") or lowerN:find("probability") or lowerN:find("rate") and
+                   currentVal <= 1 then -- Only if it's a 0-1 probability
+                    return 1
+                elseif lowerN:find("chance") or lowerN:find("drop") then
+                    return 100
+                end
+            end
+            
+            -- No match found - return original
+            return currentVal
+        end
+        
+        -- ============================================================================
+        -- SERIALIZER (same as before)
+        -- ============================================================================
+        local function serialize(v, depth)
+            depth = depth or 0
+            if depth > 5 then return "nil --[[MAX_DEPTH]]" end
+            
+            local t = typeof(v)
+            
+            if t == "string" then 
+                return '"' .. v:gsub('"', '\\"'):gsub("\n", "\\n") .. '"'
+            elseif t == "number" then 
+                if v == math.huge then return "math.huge"
+                elseif v == -math.huge then return "-math.huge"
+                elseif v ~= v then return "0/0"
+                else return tostring(v) end
+            elseif t == "boolean" then 
+                return tostring(v)
+            elseif t == "nil" then 
+                return "nil"
+            elseif t == "Vector3" then 
+                return string.format("Vector3.new(%.2f, %.2f, %.2f)", v.X, v.Y, v.Z)
+            elseif t == "Vector2" then 
+                return string.format("Vector2.new(%.2f, %.2f)", v.X, v.Y)
+            elseif t == "Color3" then 
+                return string.format("Color3.fromRGB(%d, %d, %d)", 
+                    math.floor(v.R*255), math.floor(v.G*255), math.floor(v.B*255))
+            elseif t == "CFrame" then 
+                local components = {v:GetComponents()}
+                return "CFrame.new(" .. table.concat(components, ", ") .. ")"
+            elseif t == "EnumItem" then 
+                return tostring(v)
+            elseif t == "table" then
+                local items = {}
+                for k, val in pairs(v) do
+                    if type(k) == "string" then
+                        table.insert(items, '["' .. k .. '"] = ' .. serialize(val, depth + 1))
+                    else
+                        table.insert(items, '[' .. k .. '] = ' .. serialize(val, depth + 1))
+                    end
+                end
+                return "{" .. table.concat(items, ", ") .. "}"
+            end
+            
+            return "nil --[[UNSUPPORTED:" .. t .. "]]"
+        end
+        
+        -- ============================================================================
+        -- RECURSIVE PATCHER
+        -- ============================================================================
+        local patchedCount = 0
+        local skippedCount = 0
+        local patchDetails = {}
+        
+        local function generatePatchCode(tbl, parentPath, depth)
+            depth = depth or 0
+            if depth > 4 then return "" end
+            
+            local code = ""
+            
+            for k, v in pairs(tbl) do
+                local keyPath = parentPath .. "." .. tostring(k)
+                local valueType = type(v)
+                
+                if valueType == "table" then
+                    code = code .. generatePatchCode(v, keyPath, depth + 1)
+                    
+                elseif valueType ~= "function" and valueType ~= "userdata" then
+                    local pVal = getPoisonValue(tostring(k), v, detectedTypes)
+                    
+                    if pVal ~= v then
+                        local pValSerialized = serialize(pVal)
+                        code = code .. keyPath .. " = " .. pValSerialized .. " -- " .. tostring(v) .. " → " .. tostring(pVal) .. "\n"
+                        patchedCount = patchedCount + 1
+                        table.insert(patchDetails, {key = k, old = v, new = pVal})
+                    else
+                        skippedCount = skippedCount + 1
+                    end
+                end
+            end
+            
+            return code
+        end
+        
+        -- ============================================================================
+        -- OUTPUT GENERATION
+        -- ============================================================================
+        local typesList = #detectedTypes > 0 and table.concat(detectedTypes, ", ") or "GENERIC"
+        
+        local output = ""
+        output = output .. "--[[\n"
+        output = output .. "    ╔═══════════════════════════════════════════════════════╗\n"
+        output = output .. "    ║      UNIVERSAL MODULE POISON                          ║\n"
+        output = output .. "    ╚═══════════════════════════════════════════════════════╝\n"
+        output = output .. "    \n"
+        output = output .. "    Target:        " .. module.Name .. "\n"
+        output = output .. "    Path:          " .. path .. "\n"
+        output = output .. "    Detected:      " .. typesList .. "\n"
+        
+        if #detectedTypes > 0 then
+            for _, mType in ipairs(detectedTypes) do
+                output = output .. "                   - " .. mType .. " (" .. math.floor(confidence[mType]) .. "%)\n"
+            end
+        end
+        
+        output = output .. "    Generated:     " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
+        output = output .. "    Engine:        ZukaTech Universal Poisoner v1.0\n"
+        output = output .. "--]]\n\n"
+        
+        if not success then
+            output = output .. "-- [ERROR]: Failed to require module\n"
+            output = output .. "-- Reason: " .. tostring(result) .. "\n"
+            
+        elseif type(result) ~= "table" then
+            output = output .. "-- [INFO]: Module returns " .. type(result) .. "\n"
+            output = output .. "-- Cannot poison non-table modules\n"
+            
+        else
+            output = output .. "local targetModule = require(" .. path .. ")\n"
+            output = output .. "assert(type(targetModule) == 'table', 'Module must return a table')\n\n"
+            
+            output = output .. "-- Disable protections\n"
+            output = output .. "if setreadonly then pcall(setreadonly, targetModule, false) end\n"
+            output = output .. "if make_writeable then pcall(make_writeable, targetModule) end\n\n"
+            
+            output = output .. "-- Apply universal patches\n"
+            local patchCode = generatePatchCode(result, "targetModule", 0)
+            output = output .. patchCode
+            
+            output = output .. "\n-- Re-enable protections\n"
+            output = output .. "if setreadonly then pcall(setreadonly, targetModule, true) end\n\n"
+            output = output .. "print('[Universal Poison] " .. module.Name .. " poisoned (" .. patchedCount .. " patches)')\n"
+            output = output .. "return targetModule\n"
+        end
+        
+        -- ============================================================================
+        -- CONSOLE OUTPUT
+        -- ============================================================================
+        print("\n" .. string.rep("=", 70))
+        print("[ZUKATECH UNIVERSAL POISONER]")
+        print(string.rep("=", 70))
+        print("Module: " .. module.Name)
+        print("Types:  " .. typesList)
+        print(string.rep("-", 70))
+        print(output)
+        print(string.rep("=", 70))
+        print("Stats: " .. patchedCount .. " patched, " .. skippedCount .. " unchanged")
+        print(string.rep("=", 70) .. "\n")
+        
+        -- Clipboard
+        local clipboardSuccess = false
+        local clipboardFuncs = {
+            function() setclipboard(output) end,
+            function() env.setclipboard(output) end,
+            function() getgenv().setclipboard(output) end,
+            function() syn.write_clipboard(output) end,
+        }
+        
+        for _, func in ipairs(clipboardFuncs) do
+            if pcall(func) then
+                clipboardSuccess = true
+                break
+            end
+        end
+        
+        if getgenv().DoNotif then
+            if clipboardSuccess then
+                getgenv().DoNotif("✓ Universal poison copied! (" .. patchedCount .. " patches)", 3)
+            else
+                getgenv().DoNotif("⚠ Generated but clipboard failed", 3)
             end
         end
     end
@@ -42960,4 +44014,3 @@ end
 DoNotif("We're So back. The Best Underground Panel.")
 
 --[[This is open source because I have a disdain for key system or paid scripts. you're all skids.]]
-
