@@ -6,63 +6,54 @@ Made By Zuka. @OverRuka on ROBLOX.
 
 ]]
 
+print("Zukas Panel Version 3.4")
+if not game:IsLoaded() then game.Loaded:Wait() end
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local oldKick
+oldKick = hookfunction(LocalPlayer.Kick, newcclosure(function(self, ...)
+    if not checkcaller() and self == LocalPlayer then
+        return nil
+    end
+    return oldKick(self, ...)
+end))
+--
+
+local function detectEnvironment()
+    local env = {
+        executor = identifyexecutor and identifyexecutor() or "Unknown",
+        functions = {},
+        level = 0
+    }
+    local testFunctions = {
+        "getgenv", "getrenv", "getrawmetatable", "setreadonly",
+        "hookmetamethod", "hookfunction", "newcclosure",
+        "getnamecallmethod", "checkcaller", "getconnections",
+        "firesignal", "Drawing", "WebSocket", "request",
+        "http_request", "syn_request", "readfile", "writefile",
+        "isfile", "isfolder", "makefolder", "delfile"
+    }
+    for _, funcName in ipairs(testFunctions) do
+        local func = getfenv()[funcName]
+        if func then
+            env.functions[funcName] = type(func)
+            env.level = env.level + 1
+        end
+    end
+    env.rating = env.level >= 20 and "High" or env.level >= 10 and "Medium" or "Low"
+    return env
+end
+
+local env = detectEnvironment()
+
+print("Executor:", env.executor)
+print("Capability Level:", env.rating)
+print("Available Functions:", env.level)
+
 local debug = debug
 local getgc = getgc or get_gc_objects
 local setupvalue = debug.setupvalue or setupvalue
 local getupvalues = debug.getupvalues or getupvalues
-local function NeuterAdonis()
-    local count = 0
-    for _, v in pairs(getgc()) do
-        if type(v) == "function" and not isexecutorclosure(v) then
-            local info = debug.info(v, "nsl")
-            if info == "Detected" then
-                local upvalues = getupvalues(v)
-                for i, upv in pairs(upvalues) do
-                    if type(upv) == "function" then
-                        local upvInfo = debug.info(upv, "n")
-                        if upvInfo == "Send" or i == 2 then
-                            setupvalue(v, i, function(...)
-                                warn("Zuka: Blocked Adonis Network Report.")
-                                return nil
-                            end)
-                            count = count + 1
-                        end
-                        if upvInfo == "Kick" or upvInfo == "Kill" or upvInfo == "Disconnect" then
-                            setupvalue(v, i, function(...)
-                                warn("Zuka: Blocked Adonis Local Action.")
-                                return nil
-                            end)
-                            count = count + 1
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return count > 0
-end
-local LogService = game:GetService("LogService")
-task.spawn(function()
-    while task.wait(5) do
-    end
-end)
-local success = NeuterAdonis()
-if success then
-    print("Zuka: Adonis internal variables hijacked. Detections are now silent.")
-else
-    warn("Zuka: Direct search failed, attempting constant-base identification...")
-    for _, v in pairs(getgc()) do
-        if type(v) == "function" and debug.info(v, "a") == 3 then
-            local constants = debug.getconstants(v)
-            if table.find(constants, "D") and table.find(constants, "e") and table.find(constants, "t") then
-                for i, upv in pairs(getupvalues(v)) do
-                    setupvalue(v, i, function() end)
-                end
-                print("Zuka: Detected function neutered via constant matching. GET FUCKED ADONIS!!!")
-            end
-        end
-    end
-end
 
 if getgenv().ZukaTech_Loaded then
     return
@@ -132,13 +123,12 @@ local Services = setmetatable({}, {
         return s
     end
 })
-
-local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 local CoreGui = game:GetService("CoreGui")
 local Lighting = game:GetService("Lighting")
@@ -148,6 +138,7 @@ local TextChatService = game:GetService("TextChatService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local PathfindingService = game:GetService("PathfindingService")
 local CollectionService = game:GetService("CollectionService")
+
 local LocalPlayer = Players.LocalPlayer
 local PlayerMouse = LocalPlayer:GetMouse()
 local CurrentCamera = Workspace.CurrentCamera
@@ -388,11 +379,7 @@ function RegisterCommand(info, func)
     table.insert(CommandInfo, info)
 end
 
-if cmd and cmd.add then
-    print("cmd.add is available")
-else
-    warn("cmd.add is NOT available")
-end
+print("This Panel is managed by Zuka, cut him some slack")
 
 function RegisterCommandDual(info, func)
     RegisterCommand(info, func)
@@ -19690,7 +19677,7 @@ Modules.HumanShield = {
         Connections = {}
     },
     Config = {
-        DISTANCE = 8.5,
+        DISTANCE = 3.5,
         VERTICAL_OFFSET = 0,
     },
     Dependencies = {"Players", "RunService"}
@@ -30285,9 +30272,7 @@ context:Register("GENERATE_POISON_PATCH",{
         local path = Explorer.GetInstancePath(module)
         local success, result = pcall(require, module)
         
-        -- ============================================================================
-        -- ARCHITECTURE DETECTION ENGINE
-        -- ============================================================================
+
         local detectedArch = "UNKNOWN"
         local confidence = 0
         
@@ -30326,9 +30311,6 @@ context:Register("GENERATE_POISON_PATCH",{
             detectArchitecture(result)
         end
         
-        -- ============================================================================
-        -- UNIVERSAL POISON VALUE GENERATOR (FIXED)
-        -- ============================================================================
         local function getPoisonValue(name, currentVal, architecture)
             local n = tostring(name)
             local lowerN = n:lower()
@@ -30336,7 +30318,6 @@ context:Register("GENERATE_POISON_PATCH",{
             
             -- TYPE-BASED UNIVERSAL PATTERNS
             if typeV == "boolean" then
-                -- Toggle booleans related to restrictions/limits
                 if lowerN:find("limit") or lowerN:find("restrict") or lowerN:find("enabled") or 
                    lowerN:find("lock") or lowerN:find("delay") then
                     return false
@@ -30368,11 +30349,8 @@ context:Register("GENERATE_POISON_PATCH",{
                 end
             end
             
-            -- ============================================================================
-            -- ARCHITECTURE-SPECIFIC OVERRIDES (FIXED)
-            -- ============================================================================
+
             
-            -- 1 ENGINE (Phantom Forces, etc)
             if architecture == "1_ENGINE" then
                 if n == "BaseDamage" or lowerN:find("damage") then return 999999
                 elseif n == "HeadshotDamageMultiplier" then return 100
@@ -30448,7 +30426,6 @@ context:Register("GENERATE_POISON_PATCH",{
             -- STATS MODULES
             elseif architecture == "STATS_MODULE" then
                 if n == "Health" or n == "MaxHealth" then return 999999
-                elseif n == "Speed" or n == "WalkSpeed" then return 200 -- Sane cap
                 end
             
             -- SHOP MODULES
@@ -31059,16 +31036,14 @@ context:Register("GENERATE_POISON_PATCH2",{Name = "[ZEX] Poison!", IconMap = Exp
 				-- Fire Rate & Reloads
 				elseif n == "FireRate" or n == "BurstRate" or n == "ReloadTime" or n == "EquipTime" then return 0
 				elseif n == "TacticalReloadTime" or n == "SwitchTime" or lowerN:find("delay") then return 0
+
                 elseif n == "AmmoPerMag" then return 999999
-                elseif n == "Auto" then return true
 				elseif n == "Recoil" then return 0
-                elseif n == "BulletPerShot" then return 15
+                elseif n == "BulletPerShot" then return 5
                 elseif n == "FriendlyFire" then return true
-                elseif n == "ExplosionRadius" then return 9999
                 elseif n == "Lifesteal" then return 99999
                 elseif n == "ShotgunEnabled" then return true
-                elseif n == "SilenceEffect" then return true
-                elseif n == "Knockback" then return 9999
+                elseif n == "Knockback" then return 9999999
                 elseif n == "DualFireEnabled" then return true
                 elseif n == "IcifyChance" then return 9999
                 elseif n == "FlamingBullet" then return true
@@ -31078,10 +31053,11 @@ context:Register("GENERATE_POISON_PATCH2",{Name = "[ZEX] Poison!", IconMap = Exp
                 elseif n == "ChargedShotEnabled" then return false
                 elseif n == "ChargingTime" then return 0
                 elseif n == "HoldAndReleaseEnabled" then return false
+                elseif n == "DelayBeforeFiring" then return 0
+                elseif n == "HoldDownEnabled" then return false
+                elseif n == "Auto" then return false
+                elseif n == "CriticalDamageEnabled" then return 999999
 
-
-
-				-- Physics & Accuracy
 				elseif n == "Recoil" or n == "Spread" or n == "Accuracy" then return 0
 				elseif lowerN:find("angle") and (lowerN:find("min") or lowerN:find("max")) then return 0
 				elseif n == "BulletSpeed" or n == "Range" then return 90000
@@ -31156,184 +31132,298 @@ context:Register("GENERATE_POISON_PATCH2",{Name = "[ZEX] Poison!", IconMap = Exp
 			end
 		end})
 
-		context:Register("SCREENGUI_TO_SCRIPT",{Name = "Convert to Script", IconMap = Explorer.MiscIcons, Icon = "Save", OnClick = function()
-			local node = selection.List[1]
-			if not node or not node.Obj:IsA("ScreenGui") then return end
-			local gui = node.Obj
-			
-			-- Serialize values based on type
-			local function serialize(v)
-				local t = typeof(v)
-				if t == "string" then
-					return '"' .. v:gsub('"', '\\"') .. '"'
-				elseif t == "number" or t == "boolean" then
-					return tostring(v)
-				elseif t == "Vector3" then
-					return "Vector3.new(" .. v.X .. ", " .. v.Y .. ", " .. v.Z .. ")"
-				elseif t == "Vector2" then
-					return "Vector2.new(" .. v.X .. ", " .. v.Y .. ")"
-				elseif t == "UDim2" then
-					return "UDim2.new(" .. v.X.Scale .. ", " .. v.X.Offset .. ", " .. v.Y.Scale .. ", " .. v.Y.Offset .. ")"
-				elseif t == "UDim" then
-					return "UDim.new(" .. v.Scale .. ", " .. v.Offset .. ")"
-				elseif t == "CFrame" then
-					return "CFrame.new(" .. tostring(v) .. ")"
-				elseif t == "Color3" then
-					return "Color3.fromRGB(" .. math.floor(v.R*255) .. ", " .. math.floor(v.G*255) .. ", " .. math.floor(v.B*255) .. ")"
-				elseif t == "BrickColor" then
-					return "BrickColor.new(" .. serialize(v.Name) .. ")"
-				elseif t == "EnumItem" then
-					return tostring(v)
-				elseif t == "Rect" then
-					return "Rect.new(" .. v.Min.X .. ", " .. v.Min.Y .. ", " .. v.Max.X .. ", " .. v.Max.Y .. ")"
-				elseif t == "FontFace" then
-					return "Font.new(" .. serialize(v.Family) .. ", Enum.FontWeight." .. tostring(v.Weight):match("FontWeight%.(.+)") .. ", Enum.FontStyle." .. tostring(v.Style):match("FontStyle%.(.+)") .. ")"
-				end
-				return "nil"
-			end
-			
-			-- Property lists for different GUI object types
-			local propertyMap = {
-				ScreenGui = {
-					"Name", "Enabled", "ResetOnSpawn", "DisplayOrder", "IgnoreGuiInset", "ZIndexBehavior",
-					"BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel", "Transparency"
-				},
-				TextLabel = {
-					"Name", "Text", "TextSize", "Font", "TextColor3", "TextWrapped", "TextScaled", "TextXAlignment", "TextYAlignment",
-					"Size", "Position", "Visible", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
-				},
-				TextButton = {
-					"Name", "Text", "TextSize", "Font", "TextColor3", "TextWrapped", "TextScaled", "TextXAlignment", "TextYAlignment",
-					"Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
-				},
-				Frame = {
-					"Name", "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel", "ClipsDescendants"
-				},
-				ScrollingFrame = {
-					"Name", "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel",
-					"CanvasSize", "ScrollBarThickness", "ClipsDescendants"
-				},
-				ImageLabel = {
-					"Name", "Image", "ImageColor3", "ImageScaled", "ImageSize", "Size", "Position", "Visible", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
-				},
-				ImageButton = {
-					"Name", "Image", "ImageColor3", "ImageScaled", "ImageSize", "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
-				},
-				UICorner = {
-					"CornerRadius"
-				},
-				UIStroke = {
-					"Color", "Thickness", "Transparency", "LineJoinMode"
-				},
-				UIGradient = {
-					"Color", "Rotation", "Transparency"
-				},
-				UIPadding = {
-					"PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom"
-				},
-				UIListLayout = {
-					"Padding", "FillDirection", "HorizontalAlignment", "VerticalAlignment", "SortOrder"
-				},
-				UIGridLayout = {
-					"CellPadding", "CellSize", "FillDirectionMaxCells", "FillDirection", "HorizontalAlignment", "VerticalAlignment", "SortOrder"
-				},
-				UIAspectRatioConstraint = {
-					"AspectRatio", "AspectType", "DominantAxis"
-				},
-				UISizeConstraint = {
-					"MinSize", "MaxSize"
-				},
-				UITextSizeConstraint = {
-					"MinTextSize", "MaxTextSize"
-				},
-			}
-			
-			-- Function to get properties for an object type
-			local function getPropertiesForObject(obj)
-				local className = obj.ClassName
-				return propertyMap[className] or {"Name", "Size", "Position", "Visible", "BackgroundColor3", "BackgroundTransparency"}
-			end
-			
-			-- Function to recursively generate GUI code (handles all descendants)
-			local function generateGuiCode(obj, indent, varName, varCounter)
-				local code = ""
-				local objType = obj.ClassName
-				varCounter = varCounter or {count = 0}
-				
-				-- Create object
-				code = code .. indent .. "local " .. varName .. " = Instance.new(\"" .. objType .. "\")\n"
-				
-				-- Get properties for this object type
-				local properties = getPropertiesForObject(obj)
-				
-				-- Set properties
-				for _, propName in ipairs(properties) do
-					local success, prop = pcall(function() return obj[propName] end)
-					if success and prop ~= nil then
-						-- Skip default values
-						local shouldSet = true
-						if objType == "ScreenGui" and propName == "Enabled" and prop == true then shouldSet = false end
-						if objType == "ScreenGui" and propName == "DisplayOrder" and prop == 0 then shouldSet = false end
-						if (objType == "TextLabel" or objType == "TextButton") and propName == "TextWrapped" and prop == false then shouldSet = false end
-						if (objType == "TextLabel" or objType == "TextButton") and propName == "TextScaled" and prop == false then shouldSet = false end
-						if propName == "Visible" and prop == true then shouldSet = false end
-						if propName == "BackgroundTransparency" and prop == 0 then shouldSet = false end
-						if propName == "BorderSizePixel" and prop == 1 then shouldSet = false end
-						
-						if shouldSet then
-							code = code .. indent .. varName .. "." .. propName .. " = " .. serialize(prop) .. "\n"
-						end
-					end
-				end
-				
-				-- Recursively add ALL children (GuiObjects, constraints, etc.)
-				local children = obj:GetChildren()
-				for i, child in ipairs(children) do
-					varCounter.count = varCounter.count + 1
-					local childVar = varName .. "_" .. varCounter.count
-					
-					-- Generate code for all descendants
-					code = code .. generateGuiCode(child, indent, childVar, varCounter)
-					code = code .. indent .. childVar .. ".Parent = " .. varName .. "\n"
-				end
-				
-				return code
-			end
-			
-			-- Generate full script
-			local output = "--[[ ScreenGui: " .. gui.Name .. " ]]\n"
-			output = output .. "-- This script recreates the GUI structure with all properties and descendants\n"
-			output = output .. "-- Place this in StarterPlayer.StarterCharacterScripts or StarterPlayer.StarterPlayerScripts\n\n"
-			output = output .. "local Players = game:GetService(\"Players\")\n"
-			output = output .. "local player = Players.LocalPlayer\n"
-			output = output .. "local screenGui\n\n"
-			output = output .. "local function createGui()\n"
-			output = output .. generateGuiCode(gui, "  ", "screenGui")
-			output = output .. "  screenGui.Parent = player:WaitForChild(\"PlayerGui\")\n"
-			output = output .. "end\n\n"
-			output = output .. "createGui()\n"
-			
-			-- Output to console
-			print("--- [BEGIN GUI SCRIPT] ---")
-			print(output)
-			print("--- [END GUI SCRIPT] ---")
-			
-			-- Copy to clipboard
-			local clipboardSuccess = false
-			if env.setclipboard then
-				pcall(function() env.setclipboard(output) end)
-				clipboardSuccess = true
-			elseif setclipboard then
-				pcall(function() setclipboard(output) end)
-				clipboardSuccess = true
-			end
-			
-			if clipboardSuccess then
-				if getgenv().DoNotif then getgenv().DoNotif("✓ GUI Script copied to clipboard!", 3) end
-			else
-				if getgenv().DoNotif then getgenv().DoNotif("⚠ Failed to copy to clipboard", 3) end
-			end
-		end})
+		context:Register("SCREENGUI_TO_SCRIPT",{
+    Name = "Convert to Script (Deep)", 
+    IconMap = Explorer.MiscIcons, 
+    Icon = "Save", 
+    OnClick = function()
+        local node = selection.List[1]
+        if not node or not node.Obj:IsA("ScreenGui") then return end
+        local gui = node.Obj
+        
+        -- ============================================================================
+        -- SERIALIZATION
+        -- ============================================================================
+        local function serialize(v)
+            local t = typeof(v)
+            if t == "string" then
+                return '"' .. v:gsub('"', '\\"'):gsub("\n", "\\n") .. '"'
+            elseif t == "number" or t == "boolean" then
+                return tostring(v)
+            elseif t == "Vector3" then
+                return "Vector3.new(" .. v.X .. ", " .. v.Y .. ", " .. v.Z .. ")"
+            elseif t == "Vector2" then
+                return "Vector2.new(" .. v.X .. ", " .. v.Y .. ")"
+            elseif t == "UDim2" then
+                return "UDim2.new(" .. v.X.Scale .. ", " .. v.X.Offset .. ", " .. v.Y.Scale .. ", " .. v.Y.Offset .. ")"
+            elseif t == "UDim" then
+                return "UDim.new(" .. v.Scale .. ", " .. v.Offset .. ")"
+            elseif t == "CFrame" then
+                return "CFrame.new(" .. tostring(v) .. ")"
+            elseif t == "Color3" then
+                return "Color3.fromRGB(" .. math.floor(v.R*255) .. ", " .. math.floor(v.G*255) .. ", " .. math.floor(v.B*255) .. ")"
+            elseif t == "BrickColor" then
+                return "BrickColor.new(" .. serialize(v.Name) .. ")"
+            elseif t == "EnumItem" then
+                return tostring(v)
+            elseif t == "Rect" then
+                return "Rect.new(" .. v.Min.X .. ", " .. v.Min.Y .. ", " .. v.Max.X .. ", " .. v.Max.Y .. ")"
+            elseif t == "FontFace" then
+                return "Font.new(" .. serialize(v.Family) .. ", Enum.FontWeight." .. tostring(v.Weight):match("FontWeight%.(.+)") .. ", Enum.FontStyle." .. tostring(v.Style):match("FontStyle%.(.+)") .. ")"
+            end
+            return "nil"
+        end
+        
+        -- ============================================================================
+        -- PROPERTY MAPS
+        -- ============================================================================
+        local propertyMap = {
+            ScreenGui = {
+                "Name", "Enabled", "ResetOnSpawn", "DisplayOrder", "IgnoreGuiInset", "ZIndexBehavior",
+                "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel", "Transparency"
+            },
+            TextLabel = {
+                "Name", "Text", "TextSize", "Font", "TextColor3", "TextWrapped", "TextScaled", "TextXAlignment", "TextYAlignment",
+                "Size", "Position", "Visible", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
+            },
+            TextButton = {
+                "Name", "Text", "TextSize", "Font", "TextColor3", "TextWrapped", "TextScaled", "TextXAlignment", "TextYAlignment",
+                "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
+            },
+            Frame = {
+                "Name", "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel", "ClipsDescendants"
+            },
+            ScrollingFrame = {
+                "Name", "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel",
+                "CanvasSize", "ScrollBarThickness", "ClipsDescendants"
+            },
+            ImageLabel = {
+                "Name", "Image", "ImageColor3", "ImageScaled", "ImageSize", "Size", "Position", "Visible", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
+            },
+            ImageButton = {
+                "Name", "Image", "ImageColor3", "ImageScaled", "ImageSize", "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
+            },
+            UICorner = {"CornerRadius"},
+            UIStroke = {"Color", "Thickness", "Transparency", "LineJoinMode"},
+            UIGradient = {"Color", "Rotation", "Transparency"},
+            UIPadding = {"PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom"},
+            UIListLayout = {"Padding", "FillDirection", "HorizontalAlignment", "VerticalAlignment", "SortOrder"},
+            UIGridLayout = {"CellPadding", "CellSize", "FillDirectionMaxCells", "FillDirection", "HorizontalAlignment", "VerticalAlignment", "SortOrder"},
+            UIAspectRatioConstraint = {"AspectRatio", "AspectType", "DominantAxis"},
+            UISizeConstraint = {"MinSize", "MaxSize"},
+            UITextSizeConstraint = {"MinTextSize", "MaxTextSize"},
+        }
+        
+        local function getPropertiesForObject(obj)
+            local className = obj.ClassName
+            return propertyMap[className] or {"Name", "Size", "Position", "Visible", "BackgroundColor3", "BackgroundTransparency"}
+        end
+        
+        -- ============================================================================
+        -- SCRIPT EXTRACTION
+        -- ============================================================================
+        local extractedScripts = {}
+        local scriptCounter = 0
+        
+        local function extractScript(scriptObj, parentVar)
+            scriptCounter = scriptCounter + 1
+            local scriptVar = "script_" .. scriptCounter
+            
+            local source = ""
+            local success, result = pcall(function()
+                return scriptObj.Source or decompile(scriptObj)
+            end)
+            
+            if success and result and result ~= "" then
+                source = result
+            else
+                source = "-- [PROTECTED/EMPTY SCRIPT]\n-- Could not extract source"
+            end
+            
+            table.insert(extractedScripts, {
+                var = scriptVar,
+                parent = parentVar,
+                className = scriptObj.ClassName,
+                name = scriptObj.Name,
+                source = source,
+                enabled = scriptObj.Enabled or scriptObj.Disabled == false
+            })
+            
+            return scriptVar
+        end
+        
+        -- ============================================================================
+        -- RECURSIVE GUI CODE GENERATOR (WITH SCRIPTS)
+        -- ============================================================================
+        local function generateGuiCode(obj, indent, varName, varCounter)
+            local code = ""
+            local objType = obj.ClassName
+            varCounter = varCounter or {count = 0}
+            
+            -- Skip if it's a script (we handle those separately)
+            if objType == "LocalScript" or objType == "Script" or objType == "ModuleScript" then
+                extractScript(obj, varName)
+                return ""
+            end
+            
+            -- Create object
+            code = code .. indent .. "local " .. varName .. " = Instance.new(\"" .. objType .. "\")\n"
+            
+            -- Get properties for this object type
+            local properties = getPropertiesForObject(obj)
+            
+            -- Set properties
+            for _, propName in ipairs(properties) do
+                local success, prop = pcall(function() return obj[propName] end)
+                if success and prop ~= nil then
+                    -- Skip default values
+                    local shouldSet = true
+                    if objType == "ScreenGui" and propName == "Enabled" and prop == true then shouldSet = false end
+                    if objType == "ScreenGui" and propName == "DisplayOrder" and prop == 0 then shouldSet = false end
+                    if (objType == "TextLabel" or objType == "TextButton") and propName == "TextWrapped" and prop == false then shouldSet = false end
+                    if (objType == "TextLabel" or objType == "TextButton") and propName == "TextScaled" and prop == false then shouldSet = false end
+                    if propName == "Visible" and prop == true then shouldSet = false end
+                    if propName == "BackgroundTransparency" and prop == 0 then shouldSet = false end
+                    if propName == "BorderSizePixel" and prop == 1 then shouldSet = false end
+                    
+                    if shouldSet then
+                        code = code .. indent .. varName .. "." .. propName .. " = " .. serialize(prop) .. "\n"
+                    end
+                end
+            end
+            
+            -- Recursively add children
+            local children = obj:GetChildren()
+            for i, child in ipairs(children) do
+                local childType = child.ClassName
+                
+                if childType == "LocalScript" or childType == "Script" or childType == "ModuleScript" then
+                    -- Extract script but don't generate GUI code for it
+                    extractScript(child, varName)
+                else
+                    varCounter.count = varCounter.count + 1
+                    local childVar = varName .. "_" .. varCounter.count
+                    
+                    code = code .. generateGuiCode(child, indent, childVar, varCounter)
+                    code = code .. indent .. childVar .. ".Parent = " .. varName .. "\n"
+                end
+            end
+            
+            return code
+        end
+        
+        -- ============================================================================
+        -- GENERATE FULL OUTPUT
+        -- ============================================================================
+        local output = "--[[\n"
+        output = output .. "    ╔═══════════════════════════════════════════════════════╗\n"
+        output = output .. "    ║      DEEP GUI CONVERTER                               ║\n"
+        output = output .. "    ╚═══════════════════════════════════════════════════════╝\n"
+        output = output .. "    \n"
+        output = output .. "    ScreenGui: " .. gui.Name .. "\n"
+        output = output .. "    Extracted: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
+        output = output .. "    Engine:    ZukaTech Deep GUI v1.0\n"
+        output = output .. "    \n"
+        output = output .. "    This script recreates the FULL GUI including:\n"
+        output = output .. "    - All GUI elements and properties\n"
+        output = output .. "    - LocalScripts and their functionality\n"
+        output = output .. "    - Event connections (if extractable)\n"
+        output = output .. "--]]\n\n"
+        
+        output = output .. "local Players = game:GetService(\"Players\")\n"
+        output = output .. "local player = Players.LocalPlayer\n"
+        output = output .. "local screenGui\n\n"
+        
+        output = output .. "-- ============================================================================\n"
+        output = output .. "-- GUI STRUCTURE\n"
+        output = output .. "-- ============================================================================\n"
+        output = output .. "local function createGui()\n"
+        output = output .. generateGuiCode(gui, "  ", "screenGui")
+        output = output .. "  screenGui.Parent = player:WaitForChild(\"PlayerGui\")\n"
+        output = output .. "  return screenGui\n"
+        output = output .. "end\n\n"
+        
+        -- ============================================================================
+        -- ADD EXTRACTED SCRIPTS
+        -- ============================================================================
+        if #extractedScripts > 0 then
+            output = output .. "-- ============================================================================\n"
+            output = output .. "-- EXTRACTED SCRIPTS (" .. #extractedScripts .. " found)\n"
+            output = output .. "-- ============================================================================\n\n"
+            
+            for i, scriptData in ipairs(extractedScripts) do
+                output = output .. "-- Script #" .. i .. ": " .. scriptData.name .. " (" .. scriptData.className .. ")\n"
+                output = output .. "local function " .. scriptData.var .. "_func(parent)\n"
+                
+                -- Indent the script source
+                local indentedSource = scriptData.source:gsub("\n", "\n  ")
+                output = output .. "  " .. indentedSource .. "\n"
+                
+                output = output .. "end\n\n"
+            end
+            
+            output = output .. "-- ============================================================================\n"
+            output = output .. "-- INITIALIZE GUI + SCRIPTS\n"
+            output = output .. "-- ============================================================================\n"
+            output = output .. "local gui = createGui()\n\n"
+            
+            for i, scriptData in ipairs(extractedScripts) do
+                output = output .. "-- Run: " .. scriptData.name .. "\n"
+                
+                -- Try to find the parent element by variable name
+                local parentRef = scriptData.parent == "screenGui" and "gui" or "gui:FindFirstChild(\"" .. scriptData.parent .. "\", true)"
+                
+                output = output .. "task.spawn(function()\n"
+                output = output .. "  local parent = " .. parentRef .. "\n"
+                output = output .. "  if parent then\n"
+                output = output .. "    " .. scriptData.var .. "_func(parent)\n"
+                output = output .. "  else\n"
+                output = output .. "    warn('[Deep GUI] Could not find parent for " .. scriptData.name .. "')\n"
+                output = output .. "  end\n"
+                output = output .. "end)\n\n"
+            end
+        else
+            output = output .. "-- No scripts found in this GUI\n"
+            output = output .. "createGui()\n"
+        end
+        
+        -- ============================================================================
+        -- OUTPUT
+        -- ============================================================================
+        print("\n" .. string.rep("=", 70))
+        print("[ZUKATECH DEEP GUI CONVERTER]")
+        print(string.rep("=", 70))
+        print("GUI: " .. gui.Name)
+        print("Scripts found: " .. #extractedScripts)
+        print(string.rep("-", 70))
+        print(output)
+        print(string.rep("=", 70) .. "\n")
+        
+        -- Clipboard
+        local clipboardSuccess = false
+        local clipboardFuncs = {
+            function() setclipboard(output) end,
+            function() env.setclipboard(output) end,
+            function() getgenv().setclipboard(output) end,
+            function() syn.write_clipboard(output) end,
+        }
+        
+        for _, func in ipairs(clipboardFuncs) do
+            if pcall(func) then
+                clipboardSuccess = true
+                break
+            end
+        end
+        
+        if getgenv().DoNotif then
+            if clipboardSuccess then
+                getgenv().DoNotif("✓ Deep GUI script copied! (" .. #extractedScripts .. " scripts)", 3)
+            else
+                getgenv().DoNotif("⚠ Generated but clipboard failed", 3)
+            end
+        end
+    end
+})
 
 		context:Register("SELECT_CHARACTER",{Name = "Select Character", IconMap = Explorer.LegacyClassIcons, Icon = 9, OnClick = function()
 			local newSelection = {}
