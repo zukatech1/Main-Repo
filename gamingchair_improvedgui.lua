@@ -396,11 +396,11 @@ function AimbotGUI:build()
 	self:createToggleButton(scrollFrame, "Smart Hitbox", true, function(state)
 		self.aimbot.settings.hitboxPriority = state
 	end)
-	self:createSectionHeader(scrollFrame, "Field of View")
+	self:createSectionHeader(scrollFrame, "🎯 Field of View")
 	self:createSlider(scrollFrame, "FOV Radius", 50, 500, self.aimbot.settings.fovRadius, function(value)
 		self.aimbot.settings.fovRadius = value
 	end)
-	self:createSectionHeader(scrollFrame, "Smoothing")
+	self:createSectionHeader(scrollFrame, "🎮 Smoothing")
 	self:createToggleButton(scrollFrame, "Smoothing", self.aimbot.settings.smoothingEnabled, function(state)
 		self.aimbot.settings.smoothingEnabled = state
 	end)
@@ -410,14 +410,14 @@ function AimbotGUI:build()
 	self:createToggleButton(scrollFrame, "Distance-Based Smoothing", true, function(state)
 		self.aimbot.settings.distanceBasedSmoothing = state
 	end)
-	self:createSectionHeader(scrollFrame, "Prediction")
+	self:createSectionHeader(scrollFrame, "🔮 Prediction")
 	self:createToggleButton(scrollFrame, "Prediction", self.aimbot.settings.predictionEnabled, function(state)
 		self.aimbot.settings.predictionEnabled = state
 	end)
 	self:createSlider(scrollFrame, "Prediction Strength", 0.5, 2.0, 1.0, function(value)
 		self.aimbot.settings.predictionMultiplier = value
 	end)
-	self:createSectionHeader(scrollFrame, "Modifiers")
+	self:createSectionHeader(scrollFrame, "🛡️ Modifiers")
 	self:createToggleButton(scrollFrame, "Ignore Team", false, function(state)
 		self.aimbot.settings.ignoreTeam = state
 	end)
