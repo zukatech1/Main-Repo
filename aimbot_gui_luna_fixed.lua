@@ -1,6 +1,6 @@
 --[[
-	Enhanced Aimbot - Luna UI Version
-	Uses Luna UI library for a cleaner, more professional interface
+	Enhanced Aimbot - Luna UI Version (Fixed)
+	Receives Luna instance instead of loading it
 --]]
 
 local AimbotGUILuna = {}
@@ -8,10 +8,11 @@ AimbotGUILuna.__index = AimbotGUILuna
 
 local RunService = game:GetService("RunService")
 
-function AimbotGUILuna.new(aimbotSystem)
+function AimbotGUILuna.new(aimbotSystem, lunaInstance)
 	local self = setmetatable({}, AimbotGUILuna)
 	
 	self.aimbot = aimbotSystem
+	self.luna = lunaInstance
 	self.connections = {}
 	self.window = nil
 	
@@ -19,19 +20,20 @@ function AimbotGUILuna.new(aimbotSystem)
 end
 
 function AimbotGUILuna:build()
-	-- Load Luna UI library
-	local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/main/source.lua"))()
+	print("[GUI] Building Luna window...")
 	
-	-- Create main window
-	self.window = Luna:CreateWindow({
+	-- Create main window using the Luna instance passed in
+	self.window = self.luna:CreateWindow({
 		Name = "Enhanced Aimbot Suite",
-		LogoID = "rbxassetid://7733993369", -- Aimbot icon
+		LogoID = "rbxassetid://7733993369",
 		LoadedCallback = function()
-			print("Aimbot GUI loaded successfully!")
+			print("[GUI] Luna window loaded!")
 		end,
 		FolderToSave = "AimbotConfig",
 		Footer = "Enhanced Aimbot v2.0"
 	})
+	
+	print("[GUI] Creating tabs...")
 	
 	-- Create tabs
 	local mainTab = self.window:CreateTab({
@@ -58,6 +60,7 @@ function AimbotGUILuna:build()
 	-- MAIN TAB
 	-- =====================================
 	
+	print("[GUI] Building Main tab...")
 	local generalSection = mainTab:CreateSection({
 		Name = "General"
 	})
@@ -156,6 +159,7 @@ function AimbotGUILuna:build()
 	-- TARGETING TAB
 	-- =====================================
 	
+	print("[GUI] Building Targeting tab...")
 	local predictionSection = targetingTab:CreateSection({
 		Name = "Prediction"
 	})
@@ -205,7 +209,7 @@ function AimbotGUILuna:build()
 	
 	local function updatePlayerList()
 		local players = game:GetService("Players"):GetPlayers()
-		local playerNames = {}
+		local playerNames = {"None"}
 		
 		for _, player in ipairs(players) do
 			if player ~= game:GetService("Players").LocalPlayer then
@@ -275,6 +279,7 @@ function AimbotGUILuna:build()
 	-- VISUALS TAB
 	-- =====================================
 	
+	print("[GUI] Building Visuals tab...")
 	local fovVisualSection = visualsTab:CreateSection({
 		Name = "FOV Circle"
 	})
@@ -287,7 +292,7 @@ function AimbotGUILuna:build()
 		Callback = function(state)
 			fovCircleEnabled = state
 			if self.aimbot.fovCircle then
-				if not state then
+				if not state and not self.aimbot.aiming then
 					self.aimbot.fovCircle.Visible = false
 				end
 			end
@@ -350,25 +355,7 @@ function AimbotGUILuna:build()
 	-- SETTINGS TAB
 	-- =====================================
 	
-	local performanceSection = settingsTab:CreateSection({
-		Name = "Performance"
-	})
-	
-	performanceSection:CreateSlider({
-		Name = "Update Rate (seconds)",
-		Range = {0.1, 2.0},
-		Increment = 0.1,
-		CurrentValue = 0.5,
-		Callback = function(value)
-			-- Would need to modify CONFIG in aimbot_improved.lua
-			-- For now, just store it
-			self.updateRate = value
-		end
-	})
-	
-	performanceSection:CreateLabel({
-		Text = "Higher = better performance, lower = more responsive"
-	})
+	print("[GUI] Building Settings tab...")
 	
 	-- Profile Section
 	local profileSection = settingsTab:CreateSection({
@@ -391,13 +378,13 @@ function AimbotGUILuna:build()
 		Callback = function()
 			local success, err = self.aimbot:saveProfile(profileName)
 			if success then
-				Luna:Notification({
+				self.luna:Notification({
 					Title = "Profile Saved",
 					Content = "Profile '" .. profileName .. "' saved successfully!",
 					Duration = 3
 				})
 			else
-				Luna:Notification({
+				self.luna:Notification({
 					Title = "Save Failed",
 					Content = err or "Failed to save profile",
 					Duration = 3
@@ -411,13 +398,13 @@ function AimbotGUILuna:build()
 		Callback = function()
 			local success = self.aimbot:loadProfile(profileName)
 			if success then
-				Luna:Notification({
+				self.luna:Notification({
 					Title = "Profile Loaded",
 					Content = "Profile '" .. profileName .. "' loaded successfully!",
 					Duration = 3
 				})
 			else
-				Luna:Notification({
+				self.luna:Notification({
 					Title = "Load Failed",
 					Content = "Profile '" .. profileName .. "' not found",
 					Duration = 3
@@ -439,7 +426,7 @@ function AimbotGUILuna:build()
 			self.aimbot.settings.predictionMultiplier = 1.3
 			self.aimbot.settings.stickyTarget = true
 			self.aimbot.settings.distanceBasedSmoothing = true
-			Luna:Notification({
+			self.luna:Notification({
 				Title = "Preset Applied",
 				Content = "Sniper preset loaded",
 				Duration = 2
@@ -455,7 +442,7 @@ function AimbotGUILuna:build()
 			self.aimbot.settings.predictionMultiplier = 0.9
 			self.aimbot.settings.stickyTarget = false
 			self.aimbot.settings.distanceBasedSmoothing = false
-			Luna:Notification({
+			self.luna:Notification({
 				Title = "Preset Applied",
 				Content = "Close Combat preset loaded",
 				Duration = 2
@@ -471,7 +458,7 @@ function AimbotGUILuna:build()
 			self.aimbot.settings.predictionMultiplier = 1.1
 			self.aimbot.settings.stickyTarget = true
 			self.aimbot.settings.distanceBasedSmoothing = true
-			Luna:Notification({
+			self.luna:Notification({
 				Title = "Preset Applied",
 				Content = "Tracking preset loaded",
 				Duration = 2
@@ -549,11 +536,13 @@ function AimbotGUILuna:build()
 	})
 	
 	-- Initial notification
-	Luna:Notification({
+	self.luna:Notification({
 		Title = "Aimbot Loaded",
 		Content = "Enhanced Aimbot Suite initialized successfully!",
 		Duration = 3
 	})
+	
+	print("[GUI] All tabs built successfully!")
 	
 	return self.window
 end
