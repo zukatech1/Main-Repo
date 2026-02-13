@@ -357,8 +357,6 @@ function RegisterCommandDual(info, func)
 end
 local function loadAimbotGUI(args)
 	local CoreGui = game:GetService("CoreGui")
-	local TweenService = game:GetService("TweenService")
-	local UserInputService = game:GetService("UserInputService")
 	local Players = game:GetService("Players")
 	local GUI_NAME = "EnhancedAimbotSuite"
 	if CoreGui:FindFirstChild(GUI_NAME) and not args then
@@ -373,137 +371,21 @@ local function loadAimbotGUI(args)
 		CoreGui[GUI_NAME]:Destroy()
 	end
 	local success, err = pcall(function()
+		local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/main/source.lua"))()
 		local AimbotSystem = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/gaminghcairimproved.lua"))()
-		local AimbotGUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/gamingchair_improvedgui.lua"))()
-		local screenGui = Instance.new("ScreenGui")
-		screenGui.Name = GUI_NAME
-		screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-		screenGui.ResetOnSpawn = false
-		screenGui.Parent = CoreGui
-		local mainWindow = Instance.new("Frame")
-		mainWindow.Name = "MainWindow"
-		mainWindow.Size = UDim2.new(0, 560, 0, 480)
-		mainWindow.Position = UDim2.new(0.5, -280, 0.5, -240)
-		mainWindow.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-		mainWindow.BackgroundTransparency = 0.1
-		mainWindow.BorderSizePixel = 0
-		mainWindow.Active = true
-		mainWindow.ClipsDescendants = true
-		mainWindow.Parent = screenGui
-		local mainCorner = Instance.new("UICorner")
-		mainCorner.CornerRadius = UDim.new(0, 10)
-		mainCorner.Parent = mainWindow
-		local mainStroke = Instance.new("UIStroke")
-		mainStroke.Color = Color3.fromRGB(100, 100, 120)
-		mainStroke.Thickness = 2
-		mainStroke.Parent = mainWindow
-		local shadow = Instance.new("ImageLabel")
-		shadow.Name = "Shadow"
-		shadow.Size = UDim2.new(1, 30, 1, 30)
-		shadow.Position = UDim2.new(0, -15, 0, -15)
-		shadow.BackgroundTransparency = 1
-		shadow.Image = "rbxasset://textures/ui/InspectMenu/Shadow.png"
-		shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-		shadow.ImageTransparency = 0.5
-		shadow.ScaleType = Enum.ScaleType.Slice
-		shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-		shadow.ZIndex = -1
-		shadow.Parent = mainWindow
-		local dragging = false
-		local dragStart, startPosition
-		mainWindow.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				dragging = true
-				dragStart = input.Position
-				startPosition = mainWindow.Position
-				local changedConn
-				changedConn = input.Changed:Connect(function()
-					if input.UserInputState == Enum.UserInputState.End then
-						dragging = false
-						if changedConn then
-							changedConn:Disconnect()
-						end
-					end
-				end)
-			end
-		end)
-		UserInputService.InputChanged:Connect(function(input)
-			if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragging then
-				local delta = input.Position - dragStart
-				mainWindow.Position = UDim2.new(
-					startPosition.X.Scale,
-					startPosition.X.Offset + delta.X,
-					startPosition.Y.Scale,
-					startPosition.Y.Offset + delta.Y
-				)
-			end
-		end)
-		local topBar = Instance.new("Frame")
-		topBar.Name = "TopBar"
-		topBar.Size = UDim2.new(1, 0, 0, 35)
-		topBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-		topBar.BorderSizePixel = 0
-		topBar.Parent = mainWindow
-		local topCorner = Instance.new("UICorner")
-		topCorner.CornerRadius = UDim.new(0, 10)
-		topCorner.Parent = topBar
-		local titleLabel = Instance.new("TextLabel")
-		titleLabel.Name = "TitleLabel"
-		titleLabel.Size = UDim2.new(1, -120, 1, 0)
-		titleLabel.Position = UDim2.new(0, 15, 0, 0)
-		titleLabel.BackgroundTransparency = 1
-		titleLabel.Font = Enum.Font.GothamBold
-		titleLabel.Text = "Gaming Chair Revamp"
-		titleLabel.TextColor3 = Color3.fromRGB(200, 220, 255)
-		titleLabel.TextSize = 18
-		titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-		titleLabel.Parent = topBar
-		local minimizeButton = Instance.new("TextButton")
-		minimizeButton.Name = "MinimizeButton"
-		minimizeButton.Size = UDim2.new(0, 28, 0, 28)
-		minimizeButton.Position = UDim2.new(1, -66, 0.5, -14)
-		minimizeButton.BackgroundColor3 = Color3.fromRGB(80, 120, 180)
-		minimizeButton.Font = Enum.Font.GothamBold
-		minimizeButton.Text = "_"
-		minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-		minimizeButton.TextSize = 18
-		minimizeButton.Parent = topBar
-		local minCorner = Instance.new("UICorner")
-		minCorner.CornerRadius = UDim.new(0, 6)
-		minCorner.Parent = minimizeButton
-		local closeButton = Instance.new("TextButton")
-		closeButton.Name = "CloseButton"
-		closeButton.Size = UDim2.new(0, 28, 0, 28)
-		closeButton.Position = UDim2.new(1, -32, 0.5, -14)
-		closeButton.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
-		closeButton.Font = Enum.Font.GothamBold
-		closeButton.Text = "×"
-		closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-		closeButton.TextSize = 20
-		closeButton.Parent = topBar
-		local closeCorner = Instance.new("UICorner")
-		closeCorner.CornerRadius = UDim.new(0, 6)
-		closeCorner.Parent = closeButton
-		minimizeButton.MouseEnter:Connect(function()
-			TweenService:Create(minimizeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(90, 130, 190)}):Play()
-		end)
-		minimizeButton.MouseLeave:Connect(function()
-			TweenService:Create(minimizeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(80, 120, 180)}):Play()
-		end)
-		closeButton.MouseEnter:Connect(function()
-			TweenService:Create(closeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(220, 90, 90)}):Play()
-		end)
-		closeButton.MouseLeave:Connect(function()
-			TweenService:Create(closeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200, 80, 80)}):Play()
-		end)
+		local AimbotGUILuna = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/aimbot_gui_luna.lua"))()
 		local aimbot = AimbotSystem.new()
 		if args and args.profile then
-			local success = aimbot:loadProfile(args.profile)
-			if success and DoNotif then
-				DoNotif("Loaded profile: " .. args.profile, 2)
+			local profileSuccess = aimbot:loadProfile(args.profile)
+			if profileSuccess then
+				Luna:Notification({
+					Title = "Profile Loaded",
+					Content = "Loaded profile: " .. args.profile,
+					Duration = 2
+				})
 			end
 		end
-		local gui = AimbotGUI.new(aimbot, mainWindow)
+		local gui = AimbotGUILuna.new(aimbot)
 		gui:build()
 		aimbot:start()
 		if args and args.targetPlayer then
@@ -511,10 +393,11 @@ local function loadAimbotGUI(args)
 			if targetName:lower() == "clear" or targetName:lower() == "reset" or targetName:lower() == "off" then
 				aimbot.settings.specificTargetEnabled = false
 				aimbot.settings.specificTarget = nil
-				gui:updateStatus("Target lock cleared", Color3.fromRGB(180, 220, 180))
-				if DoNotif then
-					DoNotif("Aimbot target lock cleared.", 2)
-				end
+				Luna:Notification({
+					Title = "Target Cleared",
+					Content = "Aimbot target lock cleared",
+					Duration = 2
+				})
 			else
 				local foundPlayer = nil
 				local targetLower = targetName:lower()
@@ -527,64 +410,32 @@ local function loadAimbotGUI(args)
 				if foundPlayer then
 					aimbot.settings.specificTargetEnabled = true
 					aimbot.settings.specificTarget = foundPlayer
-					gui:updateStatus("Locked onto: " .. foundPlayer.Name, Color3.fromRGB(255, 200, 100))
-					if DoNotif then
-						DoNotif("Aimbot locked onto: " .. foundPlayer.Name, 3)
-					end
+					Luna:Notification({
+						Title = "Target Locked",
+						Content = "Locked onto: " .. foundPlayer.Name,
+						Duration = 3
+					})
 				else
-					gui:updateStatus("Player not found: " .. targetName, Color3.fromRGB(255, 100, 100))
-					if DoNotif then
-						DoNotif("Target player '" .. targetName .. "' not found.", 3)
-					end
+					Luna:Notification({
+						Title = "Target Not Found",
+						Content = "Player '" .. targetName .. "' not found",
+						Duration = 3
+					})
 				end
 			end
 		end
-		local isMinimized = false
-		local contentContainer = mainWindow:FindFirstChild("ContentContainer")
-		minimizeButton.MouseButton1Click:Connect(function()
-			isMinimized = not isMinimized
-			if isMinimized then
-				TweenService:Create(mainWindow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-					Size = UDim2.new(0, 320, 0, 35)
-				}):Play()
-				minimizeButton.Text = "□"
-				if contentContainer then
-					contentContainer.Visible = false
-				end
-			else
-				TweenService:Create(mainWindow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-					Size = UDim2.new(0, 560, 0, 480)
-				}):Play()
-				minimizeButton.Text = "_"
-				if contentContainer then
-					contentContainer.Visible = true
-				end
-			end
-		end)
-		closeButton.MouseButton1Click:Connect(function()
-			aimbot:destroy()
-			gui:destroy()
-			local fadeTween = TweenService:Create(mainWindow, TweenInfo.new(0.2), {
-				BackgroundTransparency = 1
-			})
-			fadeTween:Play()
-			task.wait(0.2)
-			screenGui:Destroy()
-		end)
-		mainWindow.BackgroundTransparency = 1
-		mainWindow.Size = UDim2.new(0, 400, 0, 300)
-		TweenService:Create(mainWindow, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			BackgroundTransparency = 0.1,
-			Size = UDim2.new(0, 560, 0, 480)
-		}):Play()
-		if DoNotif then
-			DoNotif("Enhanced Aimbot loaded successfully!", 2)
-		end
+		Luna:Notification({
+			Title = "Gaming Chair Loaded",
+			Content = "Enhanced Aimbot Suite ready!",
+			Duration = 3
+		})
 	end)
 	if not success then
 		warn("Failed to load Enhanced Aimbot:", err)
 		if DoNotif then
 			DoNotif("Error loading Aimbot: " .. tostring(err), 5)
+		else
+			warn("Error loading Aimbot: " .. tostring(err))
 		end
 		local gui = CoreGui:FindFirstChild(GUI_NAME)
 		if gui then
