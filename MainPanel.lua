@@ -105,46 +105,6 @@ local Services = setmetatable({}, {
         return s
     end
 })
-
-local getgenv, getnamecallmethod, hookmetamethod, newcclosure, checkcaller, stringlower = getgenv, getnamecallmethod, hookmetamethod, newcclosure, checkcaller, string.lower;
-local function ClonedService(name)
-	local Service = game.GetService;
-	local Reference = cloneref or function(reference)
-		return reference;
-	end;
-	return Reference(Service(game, name));
-end;
-if (getgenv()).ED_AntiKick then
-	return;
-end;
-local Players, StarterGui, OldNamecall = ClonedService("Players"), ClonedService("StarterGui");
-(getgenv()).ED_AntiKick = {
-	Enabled = true,
-	SendNotifications = true,
-	CheckCaller = true
-};
-OldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
-	if ((getgenv()).ED_AntiKick.CheckCaller and (not checkcaller()) or true) and stringlower(getnamecallmethod()) == "kick" and ED_AntiKick.Enabled then
-		if (getgenv()).ED_AntiKick.SendNotifications then
-			StarterGui:SetCore("SendNotification", {
-				Title = "Exunys Developer",
-				Text = "The script has successfully intercepted an attempted kick.",
-				Icon = "rbxassetid://6238540373",
-				Duration = 2
-			});
-		end;
-		return nil;
-	end;
-	return OldNamecall(...);
-end));
-if (getgenv()).ED_AntiKick.SendNotifications then
-	StarterGui:SetCore("SendNotification", {
-		Title = "Exunys Developer",
-		Text = "Anti-Kick script loaded!",
-		Icon = "rbxassetid://6238537240",
-		Duration = 3
-	});
-end;
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -396,141 +356,237 @@ function RegisterCommandDual(info, func)
     end
 end
 local function loadAimbotGUI(args)
+	local CoreGui = game:GetService("CoreGui")
+	local TweenService = game:GetService("TweenService")
+	local UserInputService = game:GetService("UserInputService")
 	local Players = game:GetService("Players")
+	local GUI_NAME = "EnhancedAimbotSuite"
 	
-	print("=== Loading Enhanced Aimbot ===")
+	if CoreGui:FindFirstChild(GUI_NAME) and not args then
+		if DoNotif then DoNotif("Aimbot GUI is already open.", 2) end
+		return
+	end
+	
+	if CoreGui:FindFirstChild(GUI_NAME) then
+		CoreGui[GUI_NAME]:Destroy()
+	end
 	
 	local success, err = pcall(function()
-		-- Load Luna UI Library FIRST
-		print("[1/4] Loading Luna UI...")
-		local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/main/source.lua"))()
-		
-		if not Luna then
-			error("Luna UI failed to load - check your internet connection")
-		end
-		print("✓ Luna UI loaded successfully")
-		
-		-- Load Aimbot System (core logic)
-		print("[2/4] Loading Aimbot core system...")
 		local AimbotSystem = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/gaminghcairimproved.lua"))()
+		local AimbotGUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/gamingchair_improvedgui.lua"))()
 		
-		if not AimbotSystem then
-			error("Aimbot core system failed to load - check GitHub URL")
-		end
-		print("✓ Core system loaded successfully")
+		local screenGui = Instance.new("ScreenGui")
+		screenGui.Name = GUI_NAME
+		screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+		screenGui.ResetOnSpawn = false
+		screenGui.Parent = CoreGui
 		
-		-- Load Luna GUI (UPDATED VERSION - must be aimbot_gui_luna_fixed.lua)
-		print("[3/4] Loading Luna GUI module...")
-		local AimbotGUILuna = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/aimbot_gui_luna_fixed.lua"))()
+		local mainWindow = Instance.new("Frame")
+		mainWindow.Name = "MainWindow"
+		mainWindow.Size = UDim2.new(0, 560, 0, 480)
+		mainWindow.Position = UDim2.new(0.5, -280, 0.5, -240)
+		mainWindow.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+		mainWindow.BackgroundTransparency = 0.1
+		mainWindow.BorderSizePixel = 0
+		mainWindow.Active = true
+		mainWindow.ClipsDescendants = true
+		mainWindow.Parent = screenGui
 		
-		if not AimbotGUILuna then
-			error("Luna GUI module failed to load - make sure you uploaded aimbot_gui_luna_fixed.lua")
-		end
-		print("✓ Luna GUI module loaded successfully")
+		local mainCorner = Instance.new("UICorner")
+		mainCorner.CornerRadius = UDim.new(0, 10)
+		mainCorner.Parent = mainWindow
 		
-		-- Initialize aimbot system
-		print("[4/4] Initializing aimbot...")
-		local aimbot = AimbotSystem.new()
+		local mainStroke = Instance.new("UIStroke")
+		mainStroke.Color = Color3.fromRGB(100, 100, 120)
+		mainStroke.Thickness = 2
+		mainStroke.Parent = mainWindow
 		
-		if not aimbot then
-			error("Failed to create aimbot instance")
-		end
+		local shadow = Instance.new("ImageLabel")
+		shadow.Name = "Shadow"
+		shadow.Size = UDim2.new(1, 30, 1, 30)
+		shadow.Position = UDim2.new(0, -15, 0, -15)
+		shadow.BackgroundTransparency = 1
+		shadow.Image = "rbxasset://textures/ui/InspectMenu/Shadow.png"
+		shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+		shadow.ImageTransparency = 0.5
+		shadow.ScaleType = Enum.ScaleType.Slice
+		shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+		shadow.ZIndex = -1
+		shadow.Parent = mainWindow
 		
-		-- Load profile if specified
-		if args and args.profile then
-			local profileSuccess = aimbot:loadProfile(args.profile)
-			if profileSuccess then
-				Luna:Notification({
-					Title = "Profile Loaded",
-					Content = "Loaded profile: " .. args.profile,
-					Duration = 2
-				})
+		local dragging = false
+		local dragStart, startPosition
+		
+		mainWindow.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = true
+				dragStart = input.Position
+				startPosition = mainWindow.Position
+				local changedConn
+				changedConn = input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						dragging = false
+						if changedConn then changedConn:Disconnect() end
+					end
+				end)
 			end
-		end
+		end)
 		
-		-- Initialize GUI (passing Luna instance)
-		print("Building GUI...")
-		local gui = AimbotGUILuna.new(aimbot, Luna)
+		UserInputService.InputChanged:Connect(function(input)
+			if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragging then
+				local delta = input.Position - dragStart
+				mainWindow.Position = UDim2.new(
+					startPosition.X.Scale, startPosition.X.Offset + delta.X,
+					startPosition.Y.Scale, startPosition.Y.Offset + delta.Y
+				)
+			end
+		end)
 		
-		if not gui then
-			error("Failed to create GUI instance")
-		end
+		local topBar = Instance.new("Frame")
+		topBar.Name = "TopBar"
+		topBar.Size = UDim2.new(1, 0, 0, 35)
+		topBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+		topBar.BorderSizePixel = 0
+		topBar.Parent = mainWindow
 		
-		-- Build the GUI
+		local topCorner = Instance.new("UICorner")
+		topCorner.CornerRadius = UDim.new(0, 10)
+		topCorner.Parent = topBar
+		
+		local titleLabel = Instance.new("TextLabel")
+		titleLabel.Name = "TitleLabel"
+		titleLabel.Size = UDim2.new(1, -120, 1, 0)
+		titleLabel.Position = UDim2.new(0, 15, 0, 0)
+		titleLabel.BackgroundTransparency = 1
+		titleLabel.Font = Enum.Font.GothamBold
+		titleLabel.Text = "🎯 Gaming Chair"
+		titleLabel.TextColor3 = Color3.fromRGB(200, 220, 255)
+		titleLabel.TextSize = 18
+		titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+		titleLabel.Parent = topBar
+		
+		local minimizeButton = Instance.new("TextButton")
+		minimizeButton.Name = "MinimizeButton"
+		minimizeButton.Size = UDim2.new(0, 28, 0, 28)
+		minimizeButton.Position = UDim2.new(1, -66, 0.5, -14)
+		minimizeButton.BackgroundColor3 = Color3.fromRGB(80, 120, 180)
+		minimizeButton.Font = Enum.Font.GothamBold
+		minimizeButton.Text = "_"
+		minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		minimizeButton.TextSize = 18
+		minimizeButton.Parent = topBar
+		
+		local minCorner = Instance.new("UICorner")
+		minCorner.CornerRadius = UDim.new(0, 6)
+		minCorner.Parent = minimizeButton
+		
+		local closeButton = Instance.new("TextButton")
+		closeButton.Name = "CloseButton"
+		closeButton.Size = UDim2.new(0, 28, 0, 28)
+		closeButton.Position = UDim2.new(1, -32, 0.5, -14)
+		closeButton.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+		closeButton.Font = Enum.Font.GothamBold
+		closeButton.Text = "×"
+		closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		closeButton.TextSize = 20
+		closeButton.Parent = topBar
+		
+		local closeCorner = Instance.new("UICorner")
+		closeCorner.CornerRadius = UDim.new(0, 6)
+		closeCorner.Parent = closeButton
+		
+		minimizeButton.MouseEnter:Connect(function()
+			TweenService:Create(minimizeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(90, 130, 190)}):Play()
+		end)
+		minimizeButton.MouseLeave:Connect(function()
+			TweenService:Create(minimizeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(80, 120, 180)}):Play()
+		end)
+		
+		closeButton.MouseEnter:Connect(function()
+			TweenService:Create(closeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(220, 90, 90)}):Play()
+		end)
+		closeButton.MouseLeave:Connect(function()
+			TweenService:Create(closeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200, 80, 80)}):Play()
+		end)
+		
+		local aimbot = AimbotSystem.new()
+		local gui = AimbotGUI.new(aimbot, mainWindow)
 		gui:build()
-		print("✓ GUI built successfully")
-		
-		-- Start aimbot
 		aimbot:start()
-		print("✓ Aimbot started")
 		
-		-- Handle target player argument
 		if args and args.targetPlayer then
 			local targetName = args.targetPlayer
-			
-			if targetName:lower() == "clear" or targetName:lower() == "reset" or targetName:lower() == "off" then
+			if targetName:lower() == "clear" then
 				aimbot.settings.specificTargetEnabled = false
 				aimbot.settings.specificTarget = nil
-				Luna:Notification({
-					Title = "Target Cleared",
-					Content = "Aimbot target lock cleared",
-					Duration = 2
-				})
+				gui:updateStatus("Target cleared", Color3.fromRGB(180, 220, 180))
 			else
-				-- Find player
-				local foundPlayer = nil
-				local targetLower = targetName:lower()
-				
 				for _, player in ipairs(Players:GetPlayers()) do
-					if player.Name:lower():find(targetLower) or player.DisplayName:lower():find(targetLower) then
-						foundPlayer = player
+					if player.Name:lower():find(targetName:lower()) then
+						aimbot.settings.specificTargetEnabled = true
+						aimbot.settings.specificTarget = player
+						gui:updateStatus("Locked: " .. player.Name, Color3.fromRGB(255, 200, 100))
 						break
 					end
 				end
-				
-				if foundPlayer then
-					aimbot.settings.specificTargetEnabled = true
-					aimbot.settings.specificTarget = foundPlayer
-					Luna:Notification({
-						Title = "Target Locked",
-						Content = "Locked onto: " .. foundPlayer.Name,
-						Duration = 3
-					})
-				else
-					Luna:Notification({
-						Title = "Target Not Found",
-						Content = "Player '" .. targetName .. "' not found",
-						Duration = 3
-					})
-				end
 			end
 		end
 		
-		print("=== All systems loaded successfully! ===")
+		local isMinimized = false
+		local contentContainer = mainWindow:FindFirstChild("ContentContainer")
+		
+		minimizeButton.MouseButton1Click:Connect(function()
+			isMinimized = not isMinimized
+			if isMinimized then
+				TweenService:Create(mainWindow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Size = UDim2.new(0, 280, 0, 35)
+				}):Play()
+				minimizeButton.Text = "□"
+				if contentContainer then contentContainer.Visible = false end
+			else
+				TweenService:Create(mainWindow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Size = UDim2.new(0, 560, 0, 480)
+				}):Play()
+				minimizeButton.Text = "_"
+				if contentContainer then contentContainer.Visible = true end
+			end
+		end)
+		
+		closeButton.MouseButton1Click:Connect(function()
+			aimbot:destroy()
+			gui:destroy()
+			TweenService:Create(mainWindow, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+			task.wait(0.2)
+			screenGui:Destroy()
+		end)
+		
+		mainWindow.BackgroundTransparency = 1
+		mainWindow.Size = UDim2.new(0, 400, 0, 300)
+		TweenService:Create(mainWindow, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			BackgroundTransparency = 0.1,
+			Size = UDim2.new(0, 560, 0, 480)
+		}):Play()
+		
+		if DoNotif then
+			DoNotif("Gaming Chair loaded!", 2)
+		end
 	end)
 	
 	if not success then
-		warn("==========================================")
-		warn("AIMBOT LOAD ERROR:")
-		warn(tostring(err))
-		warn("==========================================")
-		
-		-- Detailed error notification
+		warn("Aimbot error:", err)
 		if DoNotif then
-			DoNotif("Aimbot Load Error: " .. tostring(err), 5)
+			DoNotif("Error: " .. tostring(err), 5)
 		end
 	end
 end
 
--- Command registration (if using a command system)
 if RegisterCommand then
 	RegisterCommand({
 		Name = "aimbot",
-		Aliases = {"gc", "aim"},
-		Description = "Loads the enhanced aimbot GUI. Optional: [player name] to lock target."
+		Aliases = {"gc"},
+		Description = "Loads aimbot"
 	}, function(args)
-		local target = args and args[1]
-		loadAimbotGUI(target and {targetPlayer = target} or nil)
+		loadAimbotGUI(args and args[1] and {targetPlayer = args[1]} or nil)
 	end)
 end
 Modules.Performance = {
