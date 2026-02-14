@@ -1,0 +1,65 @@
+
+--[[ 
+GENERATED PATCH: 1
+	ENGINE: Basic Weapon '1' Architecture
+	ARCHITECT: Made with - (ZukaTech v10)
+	TARGET: game:GetService("Players").OverZuka.Backpack.Pistol.Setting["1"]
+--]]
+
+local targetModule = require(game:GetService("Players").OverZuka.Backpack.Pistol.Setting["1"])
+if setreadonly then setreadonly(targetModule, false) end
+
+targetModule.PenetrationIgnoreDelay = 0 -- [PATCHED]
+targetModule.MeleeDamage = 999999 -- [PATCHED]
+targetModule.DelayAfterFiring = 0 -- [PATCHED]
+targetModule.LaserBeamStartupDelay = 0 -- [PATCHED]
+targetModule.ReduceSelfDamageOnAirOnly = 999999 -- [PATCHED]
+targetModule.CriticalDamageEnabled = 999999 -- [PATCHED]
+targetModule.Knockback = 9999999 -- [PATCHED]
+targetModule.FireRate = 0 -- [PATCHED]
+targetModule.MeleeCriticalDamageMultiplier = 999999 -- [PATCHED]
+targetModule.HeadshotHitmarker = 100 -- [PATCHED]
+targetModule.BlockDelay = 0 -- [PATCHED]
+targetModule.LaserBeamStopDelay = 0 -- [PATCHED]
+targetModule.DamageDropOffEnabled = 999999 -- [PATCHED]
+targetModule.LaserTrailCriticalDamageEnabled = 999999 -- [PATCHED]
+targetModule.ReloadTime = 0 -- [PATCHED]
+targetModule.FriendlyFire = true -- [PATCHED]
+targetModule.LimitedAmmoEnabled = false -- [PATCHED]
+targetModule.LaserTrailConstantDamage = 999999 -- [PATCHED]
+targetModule.Lifesteal = 99999 -- [PATCHED]
+targetModule.MeleeCriticalDamageEnabled = 999999 -- [PATCHED]
+targetModule.AngleXMax = 0 -- [PATCHED]
+targetModule.Spread = 0 -- [PATCHED]
+targetModule.BaseDamage = 999999 -- [PATCHED]
+targetModule.MeleeHeadshotHitmarker = 100 -- [PATCHED]
+targetModule.LaserTrailDamageRate = 999999 -- [PATCHED]
+targetModule.ChargingTime = 0 -- [PATCHED]
+targetModule.HitIgnoreDelay = 0 -- [PATCHED]
+targetModule.BurstRate = 0 -- [PATCHED]
+targetModule.Recoil = 0 -- [PATCHED]
+targetModule.LaserTrailDamage = 999999 -- [PATCHED]
+targetModule.DelayBeforeFiring = 0 -- [PATCHED]
+targetModule.ShotgunEnabled = true -- [PATCHED]
+targetModule.AmmoPerMag = 999999 -- [PATCHED]
+targetModule.SelfDamage = 999999 -- [PATCHED]
+targetModule.ZeroDamageDistance = 999999 -- [PATCHED]
+targetModule.Range = 90000 -- [PATCHED]
+targetModule.EffectDelay = 0 -- [PATCHED]
+targetModule.FullDamageDistance = 999999 -- [PATCHED]
+targetModule.CriticalDamageMultiplier = 999999 -- [PATCHED]
+targetModule.TacticalReloadTime = 0 -- [PATCHED]
+targetModule.BulletSpeed = 90000 -- [PATCHED]
+targetModule.DamageBasedOnDistance = 999999 -- [PATCHED]
+targetModule.SwitchTime = 0 -- [PATCHED]
+targetModule.BulletPerShot = 5 -- [PATCHED]
+targetModule.BounceDelay = 0 -- [PATCHED]
+targetModule.AngleXMin = 0 -- [PATCHED]
+targetModule.DamageThroughWall = 999999 -- [PATCHED]
+targetModule.DamageableLaserTrail = 999999 -- [PATCHED]
+targetModule.Accuracy = 0 -- [PATCHED]
+targetModule.LaserTrailCriticalDamageMultiplier = 999999 -- [PATCHED]
+targetModule.SelfDamageRedution = 999999 -- [PATCHED]
+
+if setreadonly then setreadonly(targetModule, true) end
+print('--> [Poison]: 1 has been neutralized.')

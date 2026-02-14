@@ -1,0 +1,61 @@
+
+--[[ 
+GENERATED PATCH: 1
+	ENGINE: Basic Weapon '1' Architecture
+	ARCHITECT: Made with - (ZukaTech v10)
+	TARGET: game:GetService("Players").OverZuka.Backpack.SNIPER.Setting["1"]
+--]]
+
+local targetModule = require(game:GetService("Players").OverZuka.Backpack.PlasmaSniper.Setting["1"])
+if setreadonly then setreadonly(targetModule, false) end
+
+targetModule.AngleX_Min = 0 -- [PATCHED]
+targetModule.Lifesteal = 99999 -- [PATCHED]
+targetModule.MeleeCriticalDamageEnabled = 999999 -- [PATCHED]
+targetModule.BaseDamage = 999999 -- [PATCHED]
+targetModule.MeleeDamage = 999999 -- [PATCHED]
+targetModule.Auto = false -- [PATCHED]
+targetModule.ChargingTime = 0 -- [PATCHED]
+targetModule.HoldAndReleaseEnabled = false
+targetModule.BulletSpeed = 90000 -- [PATCHED]
+targetModule.HeadshotEnabled = 100 -- [PATCHED]
+targetModule.AngleZ_Max = 0 -- [PATCHED]
+targetModule.DelayBeforeFiring = 0 -- [PATCHED]
+targetModule.EquipTime = 0 -- [PATCHED]
+targetModule.BurstRate = 0 -- [PATCHED]
+targetModule.Recoil = 0 -- [PATCHED]
+targetModule.MeleeHeadshotEnabled = 100 -- [PATCHED]
+targetModule.AngleX_Max = 0 -- [PATCHED]
+targetModule.CriticalDamageEnabled = 999999 -- [PATCHED]
+targetModule.ShotgunEnabled = true -- [PATCHED]
+targetModule.Knockback = 9999999 -- [PATCHED]
+targetModule.AmmoPerMag = 999999 -- [PATCHED]
+targetModule.FireRate = 0 -- [PATCHED]
+targetModule.MeleeCriticalDamageMultiplier = 999999 -- [PATCHED]
+targetModule.ZeroDamageDistance = 999999 -- [PATCHED]
+targetModule.AngleY_Max = 0 -- [PATCHED]
+targetModule.DualFireEnabled = true -- [PATCHED]
+targetModule.MeleeHeadshotDamageMultiplier = 999999 -- [PATCHED]
+targetModule.CriticalDamageMultiplier = 999999 -- [PATCHED]
+targetModule.TacticalReloadTime = 0 -- [PATCHED]
+targetModule.DelayAfterFiring = 0 -- [PATCHED]
+targetModule.ReduceSelfDamageOnAirOnly = 999999 -- [PATCHED]
+targetModule.SelfDamage = 999999 -- [PATCHED]
+targetModule.DamageBasedOnDistance = 999999 -- [PATCHED]
+targetModule.DamageDropOffEnabled = 999999 -- [PATCHED]
+targetModule.SwitchTime = 0 -- [PATCHED]
+targetModule.ReloadTime = 0 -- [PATCHED]
+targetModule.ChargedShotEnabled = false
+targetModule.BulletPerShot = 5 -- [PATCHED]
+targetModule.FriendlyFire = true -- [PATCHED]
+targetModule.AngleY_Min = 0 -- [PATCHED]
+targetModule.Accuracy = 0 -- [PATCHED]
+targetModule.LimitedAmmoEnabled = false -- [PATCHED]
+targetModule.FullDamageDistance = 999999 -- [PATCHED]
+targetModule.HeadshotDamageMultiplier = 999999 -- [PATCHED]
+targetModule.AngleZ_Min = 0 -- [PATCHED]
+targetModule.SelfDamageRedution = 999999 -- [PATCHED]
+targetModule.AdvancedChargingTime = 0
+targetModule.ChargedShotAdvanceEnabled = false
+if setreadonly then setreadonly(targetModule, true) end
+print('--> [Poison]: 1 has been neutralized.')
