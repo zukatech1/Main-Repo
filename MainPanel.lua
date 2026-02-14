@@ -8,121 +8,9 @@ Made By Zuka. @OverRuka on ROBLOX.
 
 print("- Zukas Panel -")
 
-if not game:IsLoaded() then game.Loaded:Wait() end
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local oldKick
-oldKick = hookfunction(LocalPlayer.Kick, newcclosure(function(self, ...)
-    if not checkcaller() and self == LocalPlayer then
-        return nil
-    end
-    return oldKick(self, ...)
-end))
-local function detectEnvironment()
-    local env = {
-        executor = identifyexecutor and identifyexecutor() or "Unknown",
-        functions = {},
-        level = 0
-    }
-    local testFunctions = {
-        "getgenv", "getrenv", "getrawmetatable", "setreadonly",
-        "hookmetamethod", "hookfunction", "newcclosure",
-        "getnamecallmethod", "checkcaller", "getconnections",
-        "firesignal", "Drawing", "WebSocket", "request",
-        "http_request", "syn_request", "readfile", "writefile",
-        "isfile", "isfolder", "makefolder", "delfile"
-    }
-    for _, funcName in ipairs(testFunctions) do
-        local func = getfenv()[funcName]
-        if func then
-            env.functions[funcName] = type(func)
-            env.level = env.level + 1
-        end
-    end
-    env.rating = env.level >= 20 and "High" or env.level >= 10 and "Medium" or "Low"
-    return env
-end
-local env = detectEnvironment()
-print("Executor:", env.executor)
-print("Capability Level:", env.rating)
-print("Available Functions:", env.level)
-local debug = debug
-local getgc = getgc or get_gc_objects
-local setupvalue = debug.setupvalue or setupvalue
-local getupvalues = debug.getupvalues or getupvalues
-if getgenv().ZukaTech_Loaded then
-    return
-end
-getgenv().ZukaTech_Loaded = true
-if not game:IsLoaded() then
-    game.Loaded:Wait()
-end
-local Players = game:GetService("Players")
-local function getLocalPlayer()
-    local lp = Players.LocalPlayer
-    while not lp do
-        task.wait(0.1)
-        lp = Players.LocalPlayer
-    end
-    return lp
-end
-local _GC_START = collectgarbage("count")
-local _TIMESTAMP = os.clock()
-local set_ro = setreadonly or (make_writeable and function(t, v) if v then make_readonly(t) else make_writeable(t) end end)
-local get_mt = getrawmetatable or debug.getmetatable
-local hook_meta = hookmetamethod
-local new_ccl = newcclosure or function(f) return f end
-local check_caller = checkcaller or function() return false end
-local clone_func = clonefunction or function(f) return f end
-local function dismantle_readonly(target)
-    if type(target) ~= "table" then return end
-    pcall(function()
-        if set_ro then set_ro(target, false) end
-        local mt = get_mt(target)
-        if mt and set_ro then set_ro(mt, false) end
-    end)
-end
-local function protect_interface(instance)
-    local protector = (get_hidden_gui or (syn and syn.protect_gui))
-    if protector then pcall(protector, instance) end
-end
-local function get_memory_signature(target_name)
-    local found = 0
-    for _, obj in ipairs(getgc(true)) do
-        if type(obj) == "function" then
-            local info = debug.getinfo(obj)
-            if info.name == target_name or (info.source and info.source:find(target_name)) then
-                found = found + 1
-            end
-        end
-    end
-    return found
-end
-local Services = setmetatable({}, {
-    __index = function(t, k)
-        local s = game:GetService(k)
-        if s then t[k] = s end
-        return s
-    end
-})
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
 local CoreGui = game:GetService("CoreGui")
-local Lighting = game:GetService("Lighting")
-local Debris = game:GetService("Debris")
-local TeleportService = game:GetService("TeleportService")
-local TextChatService = game:GetService("TextChatService")
-local MarketplaceService = game:GetService("MarketplaceService")
-local PathfindingService = game:GetService("PathfindingService")
-local CollectionService = game:GetService("CollectionService")
-local LocalPlayer = Players.LocalPlayer
-local PlayerMouse = LocalPlayer:GetMouse()
-local CurrentCamera = Workspace.CurrentCamera
 do
     local THEME = {
         Title = "Loading...",
@@ -215,6 +103,122 @@ do
     blur:Destroy()
     splashGui:Destroy()
 end
+if not game:IsLoaded() then game.Loaded:Wait() end
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local oldKick
+oldKick = hookfunction(LocalPlayer.Kick, newcclosure(function(self, ...)
+    if not checkcaller() and self == LocalPlayer then
+        return nil
+    end
+    return oldKick(self, ...)
+end))
+local function detectEnvironment()
+    local env = {
+        executor = identifyexecutor and identifyexecutor() or "Unknown",
+        functions = {},
+        level = 0
+    }
+    local testFunctions = {
+        "getgenv", "getrenv", "getrawmetatable", "setreadonly",
+        "hookmetamethod", "hookfunction", "newcclosure",
+        "getnamecallmethod", "checkcaller", "getconnections",
+        "firesignal", "Drawing", "WebSocket", "request",
+        "http_request", "syn_request", "readfile", "writefile",
+        "isfile", "isfolder", "makefolder", "delfile"
+    }
+    for _, funcName in ipairs(testFunctions) do
+        local func = getfenv()[funcName]
+        if func then
+            env.functions[funcName] = type(func)
+            env.level = env.level + 1
+        end
+    end
+    env.rating = env.level >= 20 and "Peak Executor" or env.level >= 10 and "Decent" or "Dog shit"
+    return env
+end
+local env = detectEnvironment()
+print("Executor:", env.executor) if Xeno
+then print("Oh no! Module poisoning is not possible with xeno") end
+print("Good Executor?:", env.rating)
+print("Available Functions:", env.level)
+local debug = debug
+local getgc = getgc or get_gc_objects
+local setupvalue = debug.setupvalue or setupvalue
+local getupvalues = debug.getupvalues or getupvalues
+if getgenv().ZukaTech_Loaded then
+    return
+end
+getgenv().ZukaTech_Loaded = true
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+local Players = game:GetService("Players")
+local function getLocalPlayer()
+    local lp = Players.LocalPlayer
+    while not lp do
+        task.wait(0.1)
+        lp = Players.LocalPlayer
+    end
+    return lp
+end
+local _GC_START = collectgarbage("count")
+local _TIMESTAMP = os.clock()
+local set_ro = setreadonly or (make_writeable and function(t, v) if v then make_readonly(t) else make_writeable(t) end end)
+local get_mt = getrawmetatable or debug.getmetatable
+local hook_meta = hookmetamethod
+local new_ccl = newcclosure or function(f) return f end
+local check_caller = checkcaller or function() return false end
+local clone_func = clonefunction or function(f) return f end
+local function dismantle_readonly(target)
+    if type(target) ~= "table" then return end
+    pcall(function()
+        if set_ro then set_ro(target, false) end
+        local mt = get_mt(target)
+        if mt and set_ro then set_ro(mt, false) end
+    end)
+end
+local function protect_interface(instance)
+    local protector = (get_hidden_gui or (syn and syn.protect_gui))
+    if protector then pcall(protector, instance) end
+end
+local function get_memory_signature(target_name)
+    local found = 0
+    for _, obj in ipairs(getgc(true)) do
+        if type(obj) == "function" then
+            local info = debug.getinfo(obj)
+            if info.name == target_name or (info.source and info.source:find(target_name)) then
+                found = found + 1
+            end
+        end
+    end
+    return found
+end
+local Services = setmetatable({}, {
+    __index = function(t, k)
+        local s = game:GetService(k)
+        if s then t[k] = s end
+        return s
+    end
+})
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local StarterGui = game:GetService("StarterGui")
+local CoreGui = game:GetService("CoreGui")
+local Lighting = game:GetService("Lighting")
+local Debris = game:GetService("Debris")
+local TeleportService = game:GetService("TeleportService")
+local TextChatService = game:GetService("TextChatService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local PathfindingService = game:GetService("PathfindingService")
+local CollectionService = game:GetService("CollectionService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerMouse = LocalPlayer:GetMouse()
+local CurrentCamera = Workspace.CurrentCamera
 local Utilities = {}
 function Utilities.findPlayer(inputName)
     local input = tostring(inputName):lower()
@@ -361,26 +365,21 @@ local function loadAimbotGUI(args)
 	local UserInputService = game:GetService("UserInputService")
 	local Players = game:GetService("Players")
 	local GUI_NAME = "EnhancedAimbotSuite"
-	
 	if CoreGui:FindFirstChild(GUI_NAME) and not args then
 		if DoNotif then DoNotif("Aimbot GUI is already open.", 2) end
 		return
 	end
-	
 	if CoreGui:FindFirstChild(GUI_NAME) then
 		CoreGui[GUI_NAME]:Destroy()
 	end
-	
 	local success, err = pcall(function()
 		local AimbotSystem = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/gaminghcairimproved.lua"))()
 		local AimbotGUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/gamingchair_improvedgui.lua"))()
-		
 		local screenGui = Instance.new("ScreenGui")
 		screenGui.Name = GUI_NAME
 		screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 		screenGui.ResetOnSpawn = false
 		screenGui.Parent = CoreGui
-		
 		local mainWindow = Instance.new("Frame")
 		mainWindow.Name = "MainWindow"
 		mainWindow.Size = UDim2.new(0, 560, 0, 480)
@@ -391,16 +390,13 @@ local function loadAimbotGUI(args)
 		mainWindow.Active = true
 		mainWindow.ClipsDescendants = true
 		mainWindow.Parent = screenGui
-		
 		local mainCorner = Instance.new("UICorner")
 		mainCorner.CornerRadius = UDim.new(0, 10)
 		mainCorner.Parent = mainWindow
-		
 		local mainStroke = Instance.new("UIStroke")
 		mainStroke.Color = Color3.fromRGB(100, 100, 120)
 		mainStroke.Thickness = 2
 		mainStroke.Parent = mainWindow
-		
 		local shadow = Instance.new("ImageLabel")
 		shadow.Name = "Shadow"
 		shadow.Size = UDim2.new(1, 30, 1, 30)
@@ -413,10 +409,8 @@ local function loadAimbotGUI(args)
 		shadow.SliceCenter = Rect.new(10, 10, 118, 118)
 		shadow.ZIndex = -1
 		shadow.Parent = mainWindow
-		
 		local dragging = false
 		local dragStart, startPosition
-		
 		mainWindow.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 				dragging = true
@@ -431,7 +425,6 @@ local function loadAimbotGUI(args)
 				end)
 			end
 		end)
-		
 		UserInputService.InputChanged:Connect(function(input)
 			if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragging then
 				local delta = input.Position - dragStart
@@ -441,18 +434,15 @@ local function loadAimbotGUI(args)
 				)
 			end
 		end)
-		
 		local topBar = Instance.new("Frame")
 		topBar.Name = "TopBar"
 		topBar.Size = UDim2.new(1, 0, 0, 35)
 		topBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 		topBar.BorderSizePixel = 0
 		topBar.Parent = mainWindow
-		
 		local topCorner = Instance.new("UICorner")
 		topCorner.CornerRadius = UDim.new(0, 10)
 		topCorner.Parent = topBar
-		
 		local titleLabel = Instance.new("TextLabel")
 		titleLabel.Name = "TitleLabel"
 		titleLabel.Size = UDim2.new(1, -120, 1, 0)
@@ -464,7 +454,6 @@ local function loadAimbotGUI(args)
 		titleLabel.TextSize = 18
 		titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 		titleLabel.Parent = topBar
-		
 		local minimizeButton = Instance.new("TextButton")
 		minimizeButton.Name = "MinimizeButton"
 		minimizeButton.Size = UDim2.new(0, 28, 0, 28)
@@ -475,11 +464,9 @@ local function loadAimbotGUI(args)
 		minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 		minimizeButton.TextSize = 18
 		minimizeButton.Parent = topBar
-		
 		local minCorner = Instance.new("UICorner")
 		minCorner.CornerRadius = UDim.new(0, 6)
 		minCorner.Parent = minimizeButton
-		
 		local closeButton = Instance.new("TextButton")
 		closeButton.Name = "CloseButton"
 		closeButton.Size = UDim2.new(0, 28, 0, 28)
@@ -490,30 +477,25 @@ local function loadAimbotGUI(args)
 		closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 		closeButton.TextSize = 20
 		closeButton.Parent = topBar
-		
 		local closeCorner = Instance.new("UICorner")
 		closeCorner.CornerRadius = UDim.new(0, 6)
 		closeCorner.Parent = closeButton
-		
 		minimizeButton.MouseEnter:Connect(function()
 			TweenService:Create(minimizeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(90, 130, 190)}):Play()
 		end)
 		minimizeButton.MouseLeave:Connect(function()
 			TweenService:Create(minimizeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(80, 120, 180)}):Play()
 		end)
-		
 		closeButton.MouseEnter:Connect(function()
 			TweenService:Create(closeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(220, 90, 90)}):Play()
 		end)
 		closeButton.MouseLeave:Connect(function()
 			TweenService:Create(closeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200, 80, 80)}):Play()
 		end)
-		
 		local aimbot = AimbotSystem.new()
 		local gui = AimbotGUI.new(aimbot, mainWindow)
 		gui:build()
 		aimbot:start()
-		
 		if args and args.targetPlayer then
 			local targetName = args.targetPlayer
 			if targetName:lower() == "clear" then
@@ -531,10 +513,8 @@ local function loadAimbotGUI(args)
 				end
 			end
 		end
-		
 		local isMinimized = false
 		local contentContainer = mainWindow:FindFirstChild("ContentContainer")
-		
 		minimizeButton.MouseButton1Click:Connect(function()
 			isMinimized = not isMinimized
 			if isMinimized then
@@ -551,7 +531,6 @@ local function loadAimbotGUI(args)
 				if contentContainer then contentContainer.Visible = true end
 			end
 		end)
-		
 		closeButton.MouseButton1Click:Connect(function()
 			aimbot:destroy()
 			gui:destroy()
@@ -559,19 +538,16 @@ local function loadAimbotGUI(args)
 			task.wait(0.2)
 			screenGui:Destroy()
 		end)
-		
 		mainWindow.BackgroundTransparency = 1
 		mainWindow.Size = UDim2.new(0, 400, 0, 300)
 		TweenService:Create(mainWindow, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 			BackgroundTransparency = 0.1,
 			Size = UDim2.new(0, 560, 0, 480)
 		}):Play()
-		
 		if DoNotif then
 			DoNotif("Gaming Chair loaded!", 2)
 		end
 	end)
-	
 	if not success then
 		warn("Aimbot error:", err)
 		if DoNotif then
@@ -579,7 +555,6 @@ local function loadAimbotGUI(args)
 		end
 	end
 end
-
 if RegisterCommand then
 	RegisterCommand({
 		Name = "aimbot",
