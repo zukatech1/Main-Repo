@@ -14,34 +14,7 @@
 ]]
 
 
-local function detectEnvironment()
-    local env = {
-        executor = identifyexecutor and identifyexecutor() or "Unknown",
-        functions = {},
-        level = 0
-    }
-    local testFunctions = {
-        "getgenv", "getrenv", "getrawmetatable", "setreadonly",
-        "hookmetamethod", "hookfunction", "newcclosure",
-        "getnamecallmethod", "checkcaller", "getconnections",
-        "firesignal", "Drawing", "WebSocket", "request",
-        "http_request", "syn_request", "readfile", "writefile",
-        "isfile", "isfolder", "makefolder", "delfile"
-    }
-    for _, funcName in ipairs(testFunctions) do
-        local func = getfenv()[funcName]
-        if func then
-            env.functions[funcName] = type(func)
-            env.level = env.level + 1
-        end
-    end
-    env.rating = env.level >= 20 and "Epic" or env.level >= 10 and "Mid" or "Dogshit"
-    return env
-end
-local env = detectEnvironment()
-print("Executor:", env.executor)
-print("Capability Level:", env.rating)
-print("Available Functions:", env.level)
+
 local Modules = {}
 Modules.ZukaAimbot = {
     State = {
