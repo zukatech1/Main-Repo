@@ -44,7 +44,7 @@ Modules.OverseerCE = {
         ReturnHooks = {},
         ConstantPatches = {},
         DecompilerCache = {},
-		ActivePoisons = {},
+	   ActivePoisons = {},
         PoisonTemplates = {},
         PoisonHistory = {},
         RequireHooks = {},
@@ -83,35 +83,24 @@ Modules.OverseerCE = {
         HOVER_BRIGHTNESS = 1.1
     }
 }
--- ========== MISSING INITIALIZE FUNCTION ==========
 function Modules.OverseerCE:Initialize()
-    -- Initialize base64 decoder if needed
     if self.State.Base64DecoderEnabled then
         self:InitializeBase64Decoder()
     end
-    
-    -- Setup anti-tamper if enabled
     if self.State.AntiTamperActive then
         self:SetupAntiTamper()
     end
-    
-    -- Setup auto-refresh if enabled
     if self.State.AutoRefresh then
         self:SetupAutoRefresh()
     end
-    
     print("[HEX Overseer] Initialized successfully")
     print("[HEX Overseer] Version 1.0 - Advanced Module Editor & Poison System")
 end
-
--- ========== BASE64 DECODER ==========
 function Modules.OverseerCE:InitializeBase64Decoder()
     local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-    
     self.Base64Decode = function(data)
         local bits = ''
         local chars = {}
-        
         for i = 1, #data do
             local c = data:sub(i, i)
             local index = b64chars:find(c, 1, true)
@@ -119,71 +108,56 @@ function Modules.OverseerCE:InitializeBase64Decoder()
                 bits = bits .. string.format('%06d', tonumber(string.format('%b', index - 1):sub(3)))
             end
         end
-        
         for i = 1, #bits, 8 do
             local byte = bits:sub(i, i + 7)
             if #byte == 8 then
                 table.insert(chars, string.char(tonumber(byte, 2)))
             end
         end
-        
         return table.concat(chars)
     end
-    
     self.Base64Encode = function(data)
         local bytes = {}
         for i = 1, #data do
             table.insert(bytes, string.format('%08d', tonumber(string.format('%b', data:byte(i)):sub(3))))
         end
-        
         local bits = table.concat(bytes)
         local result = {}
-        
         for i = 1, #bits, 6 do
             local six = bits:sub(i, i + 5)
             if #six == 6 then
                 table.insert(result, b64chars:sub(tonumber(six, 2) + 1, tonumber(six, 2) + 1))
             end
         end
-        
         while #result % 4 ~= 0 do
             table.insert(result, '=')
         end
-        
         return table.concat(result)
     end
 end
-
--- ========== ANTI-TAMPER SYSTEM ==========
 function Modules.OverseerCE:SetupAntiTamper()
-    -- Protect critical functions from being hooked
     local protectedFunctions = {
         "RemovePoison",
         "ClearAllPoisons",
         "Initialize",
         "SetupAntiTamper"
     }
-    
     for _, funcName in ipairs(protectedFunctions) do
         local func = self[funcName]
         if type(func) == "function" then
             self.State.OriginalFunctions[funcName] = func
         end
     end
-    
-    -- Monitor for tampering attempts
     self.AntiTamperConnection = RunService.Heartbeat:Connect(function()
         for funcName, originalFunc in pairs(self.State.OriginalFunctions) do
             if self[funcName] ~= originalFunc then
                 warn("[HEX Overseer] TAMPERING DETECTED: Function " .. funcName .. " was modified!")
-                self[funcName] = originalFunc -- Restore original
+                self[funcName] = originalFunc
             end
         end
     end)
-    
     self.State.AntiTamperActive = true
 end
-
 function Modules.OverseerCE:DisableAntiTamper()
     if self.AntiTamperConnection then
         self.AntiTamperConnection:Disconnect()
@@ -191,16 +165,12 @@ function Modules.OverseerCE:DisableAntiTamper()
     end
     self.State.AntiTamperActive = false
 end
-
--- ========== AUTO-REFRESH SYSTEM ==========
 function Modules.OverseerCE:SetupAutoRefresh()
     if self.AutoRefreshConnection then
         self.AutoRefreshConnection:Disconnect()
     end
-    
     self.AutoRefreshConnection = RunService.Heartbeat:Connect(function()
         if self.State.AutoRefresh and self.State.UI then
-            -- Refresh inspector if it's open
             if self.State.CurrentTable then
                 task.spawn(function()
                     self:RefreshInspector()
@@ -209,33 +179,24 @@ function Modules.OverseerCE:SetupAutoRefresh()
         end
     end)
 end
-
 function Modules.OverseerCE:ToggleAutoRefresh()
     self.State.AutoRefresh = not self.State.AutoRefresh
-    
     if self.State.AutoRefresh then
         self:SetupAutoRefresh()
     elseif self.AutoRefreshConnection then
         self.AutoRefreshConnection:Disconnect()
         self.AutoRefreshConnection = nil
     end
-    
     return self.State.AutoRefresh
 end
-
--- ========== FREEZE/UNFREEZE FUNCTIONS ==========
 function Modules.OverseerCE:FreezeValue(tbl, key, frozenValue)
     if type(tbl) ~= "table" then
         return false, "Target is not a table"
     end
-    
     local freezeId = tostring(tbl) .. "_" .. tostring(key)
-    
     if self.State.FreezeList[freezeId] then
         return false, "Value already frozen"
     end
-    
-    -- Create freeze entry
     self.State.FreezeList[freezeId] = {
         Table = tbl,
         Key = key,
@@ -243,13 +204,9 @@ function Modules.OverseerCE:FreezeValue(tbl, key, frozenValue)
         OriginalValue = tbl[key],
         Connection = nil
     }
-    
-    -- Set initial frozen value
     if setreadonly then pcall(setreadonly, tbl, false) end
     tbl[key] = frozenValue
     if setreadonly then pcall(setreadonly, tbl, true) end
-    
-    -- Create monitoring connection
     self.State.FreezeList[freezeId].Connection = RunService.Heartbeat:Connect(function()
         if tbl[key] ~= frozenValue then
             if setreadonly then pcall(setreadonly, tbl, false) end
@@ -257,29 +214,22 @@ function Modules.OverseerCE:FreezeValue(tbl, key, frozenValue)
             if setreadonly then pcall(setreadonly, tbl, true) end
         end
     end)
-    
     return true, freezeId
 end
-
 function Modules.OverseerCE:UnfreezeValue(freezeId)
     local freeze = self.State.FreezeList[freezeId]
     if not freeze then
         return false, "Freeze not found"
     end
-    
     if freeze.Connection then
         freeze.Connection:Disconnect()
     end
-    
-    -- Restore original value
     if setreadonly then pcall(setreadonly, freeze.Table, false) end
     freeze.Table[freeze.Key] = freeze.OriginalValue
     if setreadonly then pcall(setreadonly, freeze.Table, true) end
-    
     self.State.FreezeList[freezeId] = nil
     return true
 end
-
 function Modules.OverseerCE:UnfreezeAll()
     local count = 0
     for freezeId in pairs(self.State.FreezeList) do
@@ -289,21 +239,15 @@ function Modules.OverseerCE:UnfreezeAll()
     end
     return count
 end
-
--- ========== MODULE SCANNING ==========
 function Modules.OverseerCE:ScanForModules(pattern, scanDepth)
     scanDepth = scanDepth or 3
     self.State.ScanInProgress = true
     self.State.ScanResults = {}
-    
     local function scanTable(tbl, path, depth)
         if depth > scanDepth then return end
         if type(tbl) ~= "table" then return end
-        
         for key, value in pairs(tbl) do
             local newPath = path .. "." .. tostring(key)
-            
-            -- Check if matches pattern
             if pattern then
                 if string.find(tostring(key):lower(), pattern:lower()) or 
                    string.find(newPath:lower(), pattern:lower()) then
@@ -322,45 +266,34 @@ function Modules.OverseerCE:ScanForModules(pattern, scanDepth)
                     Key = key
                 })
             end
-            
-            -- Recursively scan tables
             if type(value) == "table" and depth < scanDepth then
                 scanTable(value, newPath, depth + 1)
             end
         end
     end
-    
-    -- Scan common locations
     local scanLocations = {
         {name = "ReplicatedStorage", obj = ReplicatedStorage},
         {name = "Workspace", obj = Workspace},
         {name = "Players.LocalPlayer", obj = Players.LocalPlayer},
         {name = "_G", obj = _G}
     }
-    
     for _, location in ipairs(scanLocations) do
         scanTable(location.obj, location.name, 0)
     end
-    
     self.State.ScanInProgress = false
     return self.State.ScanResults
 end
-
 function Modules.OverseerCE:GetScanResults()
     return self.State.ScanResults
 end
-
--- ========== METATABLE CHAIN TRACKING ==========
 function Modules.OverseerCE:TraceMetatableChain(tbl)
     self.State.MetatableChain = {}
     local current = tbl
     local depth = 0
-    local maxDepth = 20 -- Prevent infinite loops
-    
+    local maxDepth = 20
     while depth < maxDepth do
         local mt, method = self:GetRawMetatable(current)
         if not mt then break end
-        
         table.insert(self.State.MetatableChain, {
             Depth = depth,
             Metatable = mt,
@@ -369,8 +302,6 @@ function Modules.OverseerCE:TraceMetatableChain(tbl)
             HasNewIndex = mt.__newindex ~= nil,
             IsLocked = pcall(getmetatable, current) == false
         })
-        
-        -- Follow __index if it's a table
         if type(mt.__index) == "table" then
             current = mt.__index
             depth = depth + 1
@@ -378,43 +309,34 @@ function Modules.OverseerCE:TraceMetatableChain(tbl)
             break
         end
     end
-    
     return self.State.MetatableChain
 end
-
--- ========== MISSING POISON FUNCTIONS ==========
-
--- YieldSpoof: Makes a function appear to yield without actually yielding
 function Modules.OverseerCE:PoisonYieldSpoof(func, fakeYieldTime)
     if type(func) ~= "function" then
         return false, "Target must be a function"
     end
-    
     if not hookfunction then
         return false, "hookfunction not available"
     end
-    
     fakeYieldTime = fakeYieldTime or 0.1
-    
     local success, originalFunc = pcall(function()
         return hookfunction(func, function(...)
             local startTime = tick()
-            local result = {originalFunc(...)}
+            local results = {pcall(func, ...)}
             local elapsed = tick() - startTime
-            
-            -- If the function returned too quickly, fake a yield
             if elapsed < fakeYieldTime then
                 task.wait(fakeYieldTime - elapsed)
             end
-            
-            return unpack(result)
+            if results[1] then
+                return select(2, unpack(results))
+            else
+                error(results[2], 2)
+            end
         end)
     end)
-    
     if not success then
         return false, "Failed to hook function"
     end
-    
     local poisonData = {
         Id = #self.State.ActivePoisons + 1,
         Type = "YieldSpoof",
@@ -423,47 +345,38 @@ function Modules.OverseerCE:PoisonYieldSpoof(func, fakeYieldTime)
         FakeYieldTime = fakeYieldTime,
         Timestamp = os.time(),
         Active = true
-    end
-    
+    }
     table.insert(self.State.ActivePoisons, poisonData)
     return true, poisonData.Id
 end
-
--- CoroutineHijack: Intercepts coroutine creation and execution
 function Modules.OverseerCE:PoisonCoroutineHijack(callback)
     if not hookfunction then
         return false, "hookfunction not available"
     end
-    
     local originalCreate = coroutine.create
     local originalWrap = coroutine.wrap
     local originalResume = coroutine.resume
-    
     local hijackedCreate = function(func)
         if callback then
             callback("create", func)
         end
         return originalCreate(func)
     end
-    
     local hijackedWrap = function(func)
         if callback then
             callback("wrap", func)
         end
         return originalWrap(func)
     end
-    
     local hijackedResume = function(co, ...)
         if callback then
             callback("resume", co, ...)
         end
         return originalResume(co, ...)
     end
-    
     coroutine.create = hijackedCreate
     coroutine.wrap = hijackedWrap
     coroutine.resume = hijackedResume
-    
     local poisonData = {
         Id = #self.State.ActivePoisons + 1,
         Type = "CoroutineHijack",
@@ -474,48 +387,35 @@ function Modules.OverseerCE:PoisonCoroutineHijack(callback)
         Timestamp = os.time(),
         Active = true
     }
-    
     table.insert(self.State.ActivePoisons, poisonData)
     table.insert(self.State.CoroutineHijacks, poisonData)
     return true, poisonData.Id
 end
-
--- ErrorInducer: Forces a function to throw errors under specific conditions
 function Modules.OverseerCE:PoisonErrorInducer(func, condition, errorMsg)
     if type(func) ~= "function" then
         return false, "Target must be a function"
     end
-    
     if not hookfunction then
         return false, "hookfunction not available"
     end
-    
     errorMsg = errorMsg or "Induced error"
-    
     local success, originalFunc = pcall(function()
         return hookfunction(func, function(...)
-            local args = {...}
-            
-            -- Check condition
             local shouldError = false
             if type(condition) == "function" then
                 shouldError = condition(...)
             elseif condition == true then
                 shouldError = true
             end
-            
             if shouldError then
                 error(errorMsg, 2)
             end
-            
-            return originalFunc(...)
+            return func(...)
         end)
     end)
-    
     if not success then
         return false, "Failed to hook function"
     end
-    
     local poisonData = {
         Id = #self.State.ActivePoisons + 1,
         Type = "ErrorInducer",
@@ -526,23 +426,17 @@ function Modules.OverseerCE:PoisonErrorInducer(func, condition, errorMsg)
         Timestamp = os.time(),
         Active = true
     }
-    
     table.insert(self.State.ActivePoisons, poisonData)
     return true, poisonData.Id
 end
-
--- DataExfil: Logs all function calls and arguments to external storage
 function Modules.OverseerCE:PoisonDataExfil(func, storageTable)
     if type(func) ~= "function" then
         return false, "Target must be a function"
     end
-    
     if not hookfunction then
         return false, "hookfunction not available"
     end
-    
     storageTable = storageTable or {}
-    
     local success, originalFunc = pcall(function()
         return hookfunction(func, function(...)
             local callData = {
@@ -550,20 +444,15 @@ function Modules.OverseerCE:PoisonDataExfil(func, storageTable)
                 Arguments = {...},
                 Stacktrace = debug.traceback()
             }
-            
             table.insert(storageTable, callData)
-            
-            local results = {originalFunc(...)}
+            local results = {func(...)}
             callData.Returns = results
-            
             return unpack(results)
         end)
     end)
-    
     if not success then
         return false, "Failed to hook function"
     end
-    
     local poisonData = {
         Id = #self.State.ActivePoisons + 1,
         Type = "DataExfil",
@@ -573,24 +462,18 @@ function Modules.OverseerCE:PoisonDataExfil(func, storageTable)
         Timestamp = os.time(),
         Active = true
     }
-    
     table.insert(self.State.ActivePoisons, poisonData)
     return true, poisonData.Id, storageTable
 end
-
--- AntiDetection: Makes poisoned functions appear legitimate to detection systems
 function Modules.OverseerCE:PoisonAntiDetection(func, legitimateSignature)
     if type(func) ~= "function" then
         return false, "Target must be a function"
     end
-    
     local signature = legitimateSignature or {
         source = "=[C]",
         what = "C",
         name = "legitimate_function"
     }
-    
-    -- Override debug.getinfo for this function
     if debug and debug.getinfo then
         local originalGetInfo = debug.getinfo
         debug.getinfo = function(target, ...)
@@ -600,7 +483,6 @@ function Modules.OverseerCE:PoisonAntiDetection(func, legitimateSignature)
             return originalGetInfo(target, ...)
         end
     end
-    
     local poisonData = {
         Id = #self.State.ActivePoisons + 1,
         Type = "AntiDetection",
@@ -609,27 +491,19 @@ function Modules.OverseerCE:PoisonAntiDetection(func, legitimateSignature)
         Timestamp = os.time(),
         Active = true
     }
-    
     table.insert(self.State.ActivePoisons, poisonData)
     return true, poisonData.Id
 end
-
--- SelfHeal: Automatically restores poison if it's removed or modified
 function Modules.OverseerCE:PoisonSelfHeal(poisonId, checkInterval)
     local poison = self.State.ActivePoisons[poisonId]
     if not poison then
         return false, "Poison not found"
     end
-    
     checkInterval = checkInterval or 1
-    
     local selfHealFunc
     selfHealFunc = function()
         if not poison.Active then return end
-        
-        -- Verify poison is still in place
         local isValid = false
-        
         if poison.Type == "TableHijack" then
             local testKey = next(poison.Overrides)
             if testKey then
@@ -639,11 +513,8 @@ function Modules.OverseerCE:PoisonSelfHeal(poisonId, checkInterval)
             local success, currentValue = pcall(getupvalue, poison.TargetFunction, poison.UpvalueIndex)
             isValid = success and currentValue == poison.NewValue
         end
-        
-        -- Restore if tampered with
         if not isValid then
             warn("[HEX Overseer] Self-heal: Restoring poison #" .. poisonId)
-            
             if poison.Type == "TableHijack" then
                 for key, value in pairs(poison.Overrides) do
                     poison.Target[key] = value
@@ -652,38 +523,26 @@ function Modules.OverseerCE:PoisonSelfHeal(poisonId, checkInterval)
                 pcall(setupvalue, poison.TargetFunction, poison.UpvalueIndex, poison.NewValue)
             end
         end
-        
         task.wait(checkInterval)
         selfHealFunc()
     end
-    
     poison.SelfHealConnection = task.spawn(selfHealFunc)
-    
     return true
 end
-
--- CascadeTrigger: Activates multiple poisons in sequence when triggered
 function Modules.OverseerCE:PoisonCascadeTrigger(triggerFunc, poisonSequence, delay)
     if type(triggerFunc) ~= "function" then
         return false, "Trigger must be a function"
     end
-    
     if not hookfunction then
         return false, "hookfunction not available"
     end
-    
     delay = delay or 0.1
-    
     local success, originalFunc = pcall(function()
         return hookfunction(triggerFunc, function(...)
-            -- Execute original function
-            local results = {originalFunc(...)}
-            
-            -- Trigger cascade
+            local results = {triggerFunc(...)}
             task.spawn(function()
                 for i, poisonId in ipairs(poisonSequence) do
                     task.wait(delay)
-                    
                     local poison = self.State.ActivePoisons[poisonId]
                     if poison and not poison.Active then
                         poison.Active = true
@@ -691,15 +550,12 @@ function Modules.OverseerCE:PoisonCascadeTrigger(triggerFunc, poisonSequence, de
                     end
                 end
             end)
-            
             return unpack(results)
         end)
     end)
-    
     if not success then
         return false, "Failed to hook trigger function"
     end
-    
     local poisonData = {
         Id = #self.State.ActivePoisons + 1,
         Type = "CascadeTrigger",
@@ -710,12 +566,10 @@ function Modules.OverseerCE:PoisonCascadeTrigger(triggerFunc, poisonSequence, de
         Timestamp = os.time(),
         Active = true
     }
-    
     table.insert(self.State.ActivePoisons, poisonData)
     table.insert(self.State.CascadeTriggers, poisonData)
     return true, poisonData.Id
 end
-
 function Modules.OverseerCE:GetRawMetatable(tbl)
     local mt = nil
     local success, result = pcall(getmetatable, tbl)
@@ -4737,8 +4591,8 @@ function Modules.OverseerCE:RemovePoison(poisonId)
 end
 function Modules.OverseerCE:ClearAllPoisons()
     local count = 0
-    for id, poison in ipairs(self.State.ActivePoisons) do
-        if poison and poison.Active then
+    for id, poison in pairs(self.State.ActivePoisons) do
+        if poison.Active then
             self:RemovePoison(id)
             count = count + 1
         end
