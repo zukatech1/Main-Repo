@@ -6,6 +6,8 @@ Made By Zuka. @OverRuka on ROBLOX.
 
 ]]
 
+
+
 print("- Zukas Panel -")
 
 local TweenService = game:GetService("TweenService")
@@ -366,7 +368,7 @@ Modules.ZukaAimbot = {
         Connections = {},
         AimbotCore = nil,
         Aimbot = {
-            Enabled = false,
+            Enabled = true,
             IsAiming = false,
             CurrentTarget = nil,
             VelocityHistory = {},
@@ -374,19 +376,18 @@ Modules.ZukaAimbot = {
             LastIndexUpdate = 0,
             FOVCircle = nil,
             ESPObjects = {},
-            -- Settings
             ToggleKey = Enum.UserInputType.MouseButton2,
             AimPart = "Head",
             FOVRadius = 100,
-            SmoothingEnabled = true,
+            SmoothingEnabled = false,
             SmoothingFactor = 0.2,
             DistanceBasedSmoothing = true,
-            WallCheckEnabled = true,
-            IgnoreTeam = true,
+            WallCheckEnabled = false,
+            IgnoreTeam = false,
             StickyTarget = true,
             PredictionEnabled = true,
             PredictionMultiplier = 1.0,
-            HitboxPriority = true,
+            HitboxPriority = false,
             UpdateRate = 0.5,
             PredictionSamples = 3,
             StickyDistanceMultiplier = 1.5
@@ -397,14 +398,13 @@ Modules.ZukaAimbot = {
             MaxDistance = 500,
             IgnorePlayers = true,
             IgnoreTerrain = true,
-            ShowHighlight = true,
-            DeleteBind = Enum.KeyCode.X,
+            ShowHighlight = false,
+            DeleteBind = Enum.KeyCode.V,
             DeletedParts = {},
             CurrentHighlight = nil
         }
     }
 }
-
 local HITBOX_PRIORITIES = {
     {Name = "Head", Priority = 1, DamageMultiplier = 2.0},
     {Name = "UpperTorso", Priority = 2, DamageMultiplier = 1.5},
@@ -412,31 +412,20 @@ local HITBOX_PRIORITIES = {
     {Name = "Torso", Priority = 4, DamageMultiplier = 1.5},
     {Name = "LowerTorso", Priority = 5, DamageMultiplier = 1.0},
 }
-
 function Modules.ZukaAimbot:Enable()
     if self.State.IsEnabled then return end
     self.State.IsEnabled = true
-    
-    -- Load Luna UI
     local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Luna.lua"))()
-    
-    -- Services
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
     local UserInputService = game:GetService("UserInputService")
     local Workspace = game:GetService("Workspace")
     local Camera = Workspace.CurrentCamera
     local LocalPlayer = Players.LocalPlayer
-    
     local Aimbot = self.State.Aimbot
     local DeleteTool = self.State.DeleteTool
-    
-    -- Raycast params for wall check
     local wallCheckParams = RaycastParams.new()
     wallCheckParams.FilterType = Enum.RaycastFilterType.Exclude
-    
-    -- ============== AIMBOT CORE FUNCTIONS ==============
-    
     local function updateTargetIndex(force)
         local now = tick()
         if not force and (now - Aimbot.LastIndexUpdate) < Aimbot.UpdateRate then
@@ -444,7 +433,6 @@ function Modules.ZukaAimbot:Enable()
         end
         Aimbot.LastIndexUpdate = now
         Aimbot.TargetIndex = {}
-        
         for _, descendant in ipairs(Workspace:GetDescendants()) do
             if descendant:IsA("Model") and descendant:FindFirstChildOfClass("Humanoid") then
                 local humanoid = descendant:FindFirstChildOfClass("Humanoid")
@@ -454,7 +442,6 @@ function Modules.ZukaAimbot:Enable()
             end
         end
     end
-    
     local function isTeammate(player)
         if not Aimbot.IgnoreTeam or not player then
             return false
@@ -467,7 +454,6 @@ function Modules.ZukaAimbot:Enable()
         end
         return false
     end
-    
     local function isPartVisible(targetPart)
         if not Aimbot.WallCheckEnabled then
             return true
@@ -475,48 +461,36 @@ function Modules.ZukaAimbot:Enable()
         if not LocalPlayer.Character or not targetPart or not targetPart.Parent then
             return false
         end
-        
         local targetCharacter = targetPart:FindFirstAncestorOfClass("Model") or targetPart.Parent
         local origin = Camera.CFrame.Position
         local filterList = {LocalPlayer.Character, targetCharacter}
-        
         wallCheckParams.FilterDescendantsInstances = filterList
         local result = Workspace:Raycast(origin, targetPart.Position - origin, wallCheckParams)
-        
         return not result
     end
-    
     local function getSmartHitbox(model)
         if not Aimbot.HitboxPriority then
             return model:FindFirstChild(Aimbot.AimPart)
         end
-        
-        -- Try to find visible hitbox first
         for _, hitbox in ipairs(HITBOX_PRIORITIES) do
             local part = model:FindFirstChild(hitbox.Name)
             if part and isPartVisible(part) then
                 return part
             end
         end
-        
-        -- Fallback to any hitbox
         for _, hitbox in ipairs(HITBOX_PRIORITIES) do
             local part = model:FindFirstChild(hitbox.Name)
             if part then
                 return part
             end
         end
-        
         return nil
     end
-    
     local function getClosestTarget()
         local mousePos = UserInputService:GetMouseLocation()
         local minDist = math.huge
         local closestTarget = nil
         local closestPart = nil
-        
-        -- Sticky target logic
         if Aimbot.StickyTarget and Aimbot.CurrentTarget and Aimbot.CurrentTarget.Parent then
             local player = Players:GetPlayerFromCharacter(Aimbot.CurrentTarget)
             if not (player and player == LocalPlayer) and not (player and isTeammate(player)) then
@@ -532,8 +506,6 @@ function Modules.ZukaAimbot:Enable()
                 end
             end
         end
-        
-        -- Find closest target in FOV
         for _, model in ipairs(Aimbot.TargetIndex) do
             if model and model.Parent then
                 local player = Players:GetPlayerFromCharacter(model)
@@ -553,56 +525,42 @@ function Modules.ZukaAimbot:Enable()
                 end
             end
         end
-        
         return closestTarget, closestPart
     end
-    
     local function predictPosition(targetPart)
         if not Aimbot.PredictionEnabled then
             return targetPart.Position
         end
-        
         local velocity = targetPart.AssemblyLinearVelocity
         table.insert(Aimbot.VelocityHistory, velocity)
-        
         if #Aimbot.VelocityHistory > Aimbot.PredictionSamples then
             table.remove(Aimbot.VelocityHistory, 1)
         end
-        
-        -- Average velocity
         local avgVelocity = Vector3.new(0, 0, 0)
         for _, vel in ipairs(Aimbot.VelocityHistory) do
             avgVelocity = avgVelocity + vel
         end
         avgVelocity = avgVelocity / #Aimbot.VelocityHistory
-        
         local distance = (Camera.CFrame.Position - targetPart.Position).Magnitude
         local predictionTime = (distance / 2000) * Aimbot.PredictionMultiplier
-        
         return targetPart.Position + (avgVelocity * predictionTime)
     end
-    
     local function getDistanceBasedSmoothness(distance)
         if not Aimbot.DistanceBasedSmoothing then
             return Aimbot.SmoothingFactor
         end
-        
         local minDistance = 10
         local maxDistance = 300
         local normalizedDist = math.clamp((distance - minDistance) / (maxDistance - minDistance), 0, 1)
         local smoothnessMult = 1 - (normalizedDist * 0.5)
-        
         return Aimbot.SmoothingFactor * smoothnessMult
     end
-    
     local function aimAtTarget(targetPart, deltaTime)
         if not targetPart or not targetPart.Parent then
             return false
         end
-        
         local predictedPosition = predictPosition(targetPart)
         local goalCFrame = CFrame.lookAt(Camera.CFrame.Position, predictedPosition)
-        
         if Aimbot.SmoothingEnabled then
             local distance = (Camera.CFrame.Position - targetPart.Position).Magnitude
             local smoothness = getDistanceBasedSmoothness(distance)
@@ -611,22 +569,18 @@ function Modules.ZukaAimbot:Enable()
         else
             Camera.CFrame = goalCFrame
         end
-        
         return true
     end
-    
     local function createESP(part, color)
         if not part or not part.Parent then
             return
         end
-        
         if Aimbot.ESPObjects[part] then
             local esp = Aimbot.ESPObjects[part]
             esp.Color3 = color
             esp.Size = part.Size
             return
         end
-        
         local espBox = Instance.new("BoxHandleAdornment")
         espBox.Name = "AimbotESP"
         espBox.Adornee = part
@@ -636,10 +590,8 @@ function Modules.ZukaAimbot:Enable()
         espBox.Color3 = color
         espBox.Transparency = 0.4
         espBox.Parent = part
-        
         Aimbot.ESPObjects[part] = espBox
     end
-    
     local function clearESP(part)
         if part then
             if Aimbot.ESPObjects[part] then
@@ -653,9 +605,6 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.ESPObjects = {}
         end
     end
-    
-    -- ============== DELETE TOOL FUNCTIONS ==============
-    
     local function GetPartUnderCursor()
         local mousePos = UserInputService:GetMouseLocation()
         local ray = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
@@ -663,33 +612,25 @@ function Modules.ZukaAimbot:Enable()
         raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
         raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
         raycastParams.IgnoreWater = true
-        
         local result = Workspace:Raycast(ray.Origin, ray.Direction * DeleteTool.MaxDistance, raycastParams)
-        
         if result and result.Instance then
             if DeleteTool.IgnorePlayers then
                 local isPlayer = result.Instance:FindFirstAncestorOfClass("Model") and 
                     result.Instance:FindFirstAncestorOfClass("Model"):FindFirstChild("Humanoid")
                 if isPlayer then return nil end
             end
-            
             if DeleteTool.IgnoreTerrain and result.Instance:IsA("Terrain") then
                 return nil
             end
-            
             return result.Instance
         end
-        
         return nil
     end
-    
     local function CreateHighlight(part)
         if DeleteTool.CurrentHighlight then
             pcall(function() DeleteTool.CurrentHighlight:Destroy() end)
         end
-        
         if not part then return end
-        
         local highlight = Instance.new("Highlight")
         highlight.Adornee = part
         highlight.FillColor = Color3.fromRGB(255, 0, 0)
@@ -697,18 +638,14 @@ function Modules.ZukaAimbot:Enable()
         highlight.FillTransparency = 0.5
         highlight.OutlineTransparency = 0
         highlight.Parent = part
-        
         DeleteTool.CurrentHighlight = highlight
     end
-    
     local function DeletePart(part)
         if not part then 
             DoNotif("Delete Tool: No part under cursor", 2)
             return 
         end
-        
         local toDelete = nil
-        
         if DeleteTool.DeleteMode == "Part" then
             toDelete = part
         elseif DeleteTool.DeleteMode == "Model" then
@@ -716,20 +653,16 @@ function Modules.ZukaAimbot:Enable()
         elseif DeleteTool.DeleteMode == "Descendants" then
             toDelete = part.Parent
         end
-        
         if toDelete then
             table.insert(DeleteTool.DeletedParts, {
                 Instance = toDelete,
                 Parent = toDelete.Parent,
                 Name = toDelete.Name
             })
-            
             pcall(function() toDelete:Destroy() end)
             DoNotif("Deleted: " .. toDelete.Name, 2)
         end
     end
-    
-    -- Create FOV Circle
     if Drawing and typeof(Drawing.new) == "function" then
         Aimbot.FOVCircle = Drawing.new("Circle")
         Aimbot.FOVCircle.Visible = false
@@ -739,25 +672,16 @@ function Modules.ZukaAimbot:Enable()
         Aimbot.FOVCircle.Transparency = 0.6
         Aimbot.FOVCircle.Filled = false
     end
-    
-    -- ============== MAIN UPDATE LOOP ==============
-    
     local renderConnection = RunService.RenderStepped:Connect(function(deltaTime)
-        -- Update FOV Circle
         if Aimbot.FOVCircle then
             Aimbot.FOVCircle.Position = UserInputService:GetMouseLocation()
             Aimbot.FOVCircle.Radius = Aimbot.FOVRadius
             Aimbot.FOVCircle.Visible = Aimbot.Enabled and Aimbot.IsAiming
         end
-        
-        -- Update target index periodically
         updateTargetIndex()
-        
-        -- Aimbot Logic
         if Aimbot.Enabled and Aimbot.IsAiming then
             local targetModel, targetPart = getClosestTarget()
             Aimbot.CurrentTarget = targetModel
-            
             if targetModel and targetPart then
                 if aimAtTarget(targetPart, deltaTime) then
                     createESP(targetPart, Color3.fromRGB(255, 80, 80))
@@ -768,8 +692,6 @@ function Modules.ZukaAimbot:Enable()
                 clearESP()
                 Aimbot.VelocityHistory = {}
             end
-            
-            -- Clean up ESP for non-targets
             for part, _ in pairs(Aimbot.ESPObjects) do
                 if not part.Parent or part ~= targetPart then
                     clearESP(part)
@@ -780,8 +702,6 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.VelocityHistory = {}
             clearESP()
         end
-        
-        -- Delete Tool Highlight
         if DeleteTool.Enabled and DeleteTool.ShowHighlight then
             local targetPart = GetPartUnderCursor()
             if targetPart then
@@ -795,97 +715,72 @@ function Modules.ZukaAimbot:Enable()
             DeleteTool.CurrentHighlight = nil
         end
     end)
-    
-    -- Input Handler
     local inputBeganConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
-        
-        -- Delete Tool
         if DeleteTool.Enabled and input.KeyCode == DeleteTool.DeleteBind then
             local targetPart = GetPartUnderCursor()
             if targetPart then
                 DeletePart(targetPart)
             end
         end
-        
-        -- Aimbot Toggle (Hold RMB)
         if Aimbot.Enabled and input.UserInputType == Aimbot.ToggleKey then
             Aimbot.IsAiming = true
         end
     end)
-    
     local inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
-        -- Release aimbot
         if input.UserInputType == Aimbot.ToggleKey then
             Aimbot.IsAiming = false
             clearESP()
         end
     end)
-    
     table.insert(self.State.Connections, renderConnection)
     table.insert(self.State.Connections, inputBeganConnection)
     table.insert(self.State.Connections, inputEndedConnection)
-    
-    -- Update initial target index
     updateTargetIndex(true)
-    
-    -- ============== CREATE LUNA UI ==============
-    
     local Window = Luna:CreateWindow({
-        Name = "Zuka Aimbot Suite",
-        Subtitle = "Advanced Targeting System + Delete Tool",
+        Name = "GamingChair 2.0",
+        Subtitle = "The best utility for lazy assholes like us.",
         LogoID = "6031097225",
         LoadingEnabled = true,
-        LoadingTitle = "Zuka Aimbot",
-        LoadingSubtitle = "Loading Advanced Systems...",
+        LoadingTitle = "Gaming Chair",
+        LoadingSubtitle = "Sit back, lock in gamer.",
         ConfigSettings = {
             ConfigFolder = "ZukaAimbot"
         },
         KeySystem = false
     })
-    
     self.State.Window = Window
-    
-    -- Create Tabs
     local MainTab = Window:CreateTab({
         Name = "Aimbot",
         Icon = "home_filled",
         ImageSource = "Material",
         ShowTitle = true
     })
-    
     local AdvancedTab = Window:CreateTab({
         Name = "Advanced",
         Icon = "tune",
         ImageSource = "Material",
         ShowTitle = true
     })
-    
     local DeleteTab = Window:CreateTab({
         Name = "Delete Tool",
         Icon = "delete",
         ImageSource = "Material",
         ShowTitle = true
     })
-    
     local VisualsTab = Window:CreateTab({
         Name = "Visuals",
         Icon = "visibility",
         ImageSource = "Material",
         ShowTitle = true
     })
-    
     local SettingsTab = Window:CreateTab({
         Name = "Settings",
         Icon = "settings",
         ImageSource = "Material",
         ShowTitle = true
     })
-    
-    -- ============== MAIN TAB UI ==============
-    
     local AimbotSection = MainTab:CreateSection("Aimbot Controls")
-    
     AimbotSection:CreateToggle({
         Name = "Enable Aimbot",
         Description = "Hold RIGHT MOUSE BUTTON to aim",
@@ -899,12 +794,10 @@ function Modules.ZukaAimbot:Enable()
             DoNotif("Aimbot: " .. (value and "ENABLED" or "DISABLED"), 2)
         end,
     }, "AimbotEnabled")
-    
     AimbotSection:CreateLabel({
         Text = "💡 HOLD Right Mouse Button to lock onto targets",
         Style = 3
     })
-    
     AimbotSection:CreateSlider({
         Name = "FOV Radius",
         Range = {50, 500},
@@ -914,7 +807,6 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.FOVRadius = value
         end,
     }, "FOVRadius")
-    
     AimbotSection:CreateSlider({
         Name = "Smoothness",
         Range = {0.05, 1.0},
@@ -924,7 +816,6 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.SmoothingFactor = value
         end,
     }, "Smoothness")
-    
     AimbotSection:CreateDropdown({
         Name = "Preferred Hitbox",
         Description = "Will auto-switch if priority is enabled",
@@ -935,9 +826,7 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.AimPart = option
         end,
     }, "AimPart")
-    
     local ChecksSection = MainTab:CreateSection("Targeting Checks")
-    
     ChecksSection:CreateToggle({
         Name = "Ignore Team",
         Description = "Don't target teammates",
@@ -946,7 +835,6 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.IgnoreTeam = value
         end,
     }, "IgnoreTeam")
-    
     ChecksSection:CreateToggle({
         Name = "Wall Check",
         Description = "Only target visible players",
@@ -955,11 +843,7 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.WallCheckEnabled = value
         end,
     }, "WallCheck")
-    
-    -- ============== ADVANCED TAB UI ==============
-    
     local SmartSection = AdvancedTab:CreateSection("Smart Targeting")
-    
     SmartSection:CreateToggle({
         Name = "Hitbox Priority",
         Description = "Auto-select best visible hitbox",
@@ -968,7 +852,6 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.HitboxPriority = value
         end,
     }, "HitboxPriority")
-    
     SmartSection:CreateToggle({
         Name = "Sticky Target",
         Description = "Maintain lock on current target",
@@ -977,7 +860,6 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.StickyTarget = value
         end,
     }, "StickyTarget")
-    
     SmartSection:CreateToggle({
         Name = "Distance-Based Smoothing",
         Description = "Smoother aim for closer targets",
@@ -986,14 +868,11 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.DistanceBasedSmoothing = value
         end,
     }, "DistanceSmoothing")
-    
     SmartSection:CreateLabel({
         Text = "💡 Priority: Head → UpperTorso → HumanoidRootPart → Torso",
         Style = 2
     })
-    
     local PredictionSection = AdvancedTab:CreateSection("Prediction System")
-    
     PredictionSection:CreateToggle({
         Name = "Enable Prediction",
         Description = "Predict target movement",
@@ -1002,7 +881,6 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.PredictionEnabled = value
         end,
     }, "Prediction")
-    
     PredictionSection:CreateSlider({
         Name = "Prediction Multiplier",
         Range = {0.1, 3.0},
@@ -1012,16 +890,11 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.PredictionMultiplier = value
         end,
     }, "PredictionMult")
-    
     PredictionSection:CreateLabel({
         Text = "💡 Uses velocity averaging for accurate predictions",
         Style = 2
     })
-    
-    -- ============== DELETE TOOL TAB UI ==============
-    
     local DeleteMainSection = DeleteTab:CreateSection("Delete Tool")
-    
     DeleteMainSection:CreateToggle({
         Name = "Enable Delete Tool",
         Description = "Enable part deletion mode",
@@ -1031,12 +904,10 @@ function Modules.ZukaAimbot:Enable()
             DoNotif("Delete Tool: " .. (value and "ENABLED" or "DISABLED"), 2)
         end,
     }, "DeleteEnabled")
-    
     DeleteMainSection:CreateLabel({
         Text = "💡 Press X to delete the part under your cursor",
         Style = 3
     })
-    
     DeleteMainSection:CreateBind({
         Name = "Delete Keybind",
         Description = "Press this key to delete",
@@ -1047,7 +918,6 @@ function Modules.ZukaAimbot:Enable()
             DoNotif("Delete keybind: " .. key, 2)
         end,
     }, "DeleteBind")
-    
     DeleteMainSection:CreateDropdown({
         Name = "Delete Mode",
         Description = "What to delete when pressing keybind",
@@ -1059,24 +929,19 @@ function Modules.ZukaAimbot:Enable()
             DoNotif("Delete mode: " .. option, 2)
         end,
     }, "DeleteMode")
-    
     DeleteMainSection:CreateLabel({
         Text = "💡 Part: Single part only",
         Style = 2
     })
-    
     DeleteMainSection:CreateLabel({
         Text = "💡 Model: Entire model containing part",
         Style = 2
     })
-    
     DeleteMainSection:CreateLabel({
         Text = "💡 Descendants: Parent + all children",
         Style = 2
     })
-    
     local DeleteOptionsSection = DeleteTab:CreateSection("Options")
-    
     DeleteOptionsSection:CreateSlider({
         Name = "Max Distance",
         Range = {50, 2000},
@@ -1086,7 +951,6 @@ function Modules.ZukaAimbot:Enable()
             DeleteTool.MaxDistance = value
         end,
     }, "DeleteDistance")
-    
     DeleteOptionsSection:CreateToggle({
         Name = "Ignore Players",
         Description = "Cannot delete player characters",
@@ -1095,7 +959,6 @@ function Modules.ZukaAimbot:Enable()
             DeleteTool.IgnorePlayers = value
         end,
     }, "IgnorePlayers")
-    
     DeleteOptionsSection:CreateToggle({
         Name = "Ignore Terrain",
         Description = "Cannot delete terrain",
@@ -1104,7 +967,6 @@ function Modules.ZukaAimbot:Enable()
             DeleteTool.IgnoreTerrain = value
         end,
     }, "IgnoreTerrain")
-    
     DeleteOptionsSection:CreateToggle({
         Name = "Show Highlight",
         Description = "Red highlight on target",
@@ -1113,14 +975,11 @@ function Modules.ZukaAimbot:Enable()
             DeleteTool.ShowHighlight = value
         end,
     }, "ShowHighlight")
-    
     local DeleteHistorySection = DeleteTab:CreateSection("History")
-    
     local historyLabel = DeleteHistorySection:CreateLabel({
         Text = "Deleted: 0 parts",
         Style = 1
     })
-    
     DeleteHistorySection:CreateButton({
         Name = "Clear History",
         Description = "Clear deletion history",
@@ -1129,26 +988,18 @@ function Modules.ZukaAimbot:Enable()
             DoNotif("Delete history cleared", 2)
         end,
     })
-    
     local historyConnection = RunService.Heartbeat:Connect(function()
         historyLabel:Set("Deleted: " .. #DeleteTool.DeletedParts .. " parts")
     end)
-    
     table.insert(self.State.Connections, historyConnection)
-    
-    -- ============== VISUALS TAB UI ==============
-    
     local FOVSection = VisualsTab:CreateSection("FOV Circle")
-    
     FOVSection:CreateToggle({
         Name = "Show FOV Circle",
         Description = "Display targeting circle",
         CurrentValue = false,
         Callback = function(value)
-            -- Circle visibility is handled by aimbot state
         end,
     }, "ShowFOV")
-    
     FOVSection:CreateColorPicker({
         Name = "FOV Color",
         Color = Color3.fromRGB(255, 255, 255),
@@ -1158,7 +1009,6 @@ function Modules.ZukaAimbot:Enable()
             end
         end,
     }, "FOVColor")
-    
     FOVSection:CreateSlider({
         Name = "FOV Transparency",
         Range = {0, 1},
@@ -1170,31 +1020,24 @@ function Modules.ZukaAimbot:Enable()
             end
         end,
     }, "FOVTransparency")
-    
     local ESPSection = VisualsTab:CreateSection("Target ESP")
-    
     ESPSection:CreateLabel({
         Text = "✅ Red box shows current target",
         Style = 1
     })
-    
     ESPSection:CreateLabel({
         Text = "💡 ESP automatically appears when aiming",
         Style = 2
     })
-    
     local InfoSection = VisualsTab:CreateSection("Target Info")
-    
     local targetLabel = InfoSection:CreateLabel({
         Text = "No target",
         Style = 2
     })
-    
     local statusLabel = InfoSection:CreateLabel({
         Text = "Status: Standby",
         Style = 1
     })
-    
     local infoConnection = RunService.Heartbeat:Connect(function()
         if Aimbot.Enabled and Aimbot.IsAiming and Aimbot.CurrentTarget then
             local player = Players:GetPlayerFromCharacter(Aimbot.CurrentTarget)
@@ -1206,65 +1049,43 @@ function Modules.ZukaAimbot:Enable()
             statusLabel:Set("Status: " .. (Aimbot.Enabled and "Ready (Hold RMB)" or "Disabled"))
         end
     end)
-    
     table.insert(self.State.Connections, infoConnection)
-    
-    -- ============== SETTINGS TAB ==============
-    
     SettingsTab:BuildConfigSection()
     SettingsTab:BuildThemeSection()
-    
-    -- Load config
     Luna:LoadAutoloadConfig()
-    
     DoNotif("Zuka Aimbot Suite: LOADED | Press INSERT to toggle UI | Hold RMB to aim | X to delete", 5)
 end
-
 function Modules.ZukaAimbot:Disable()
     if not self.State.IsEnabled then return end
     self.State.IsEnabled = false
-    
-    -- Disconnect all connections
     for _, connection in ipairs(self.State.Connections) do
         if connection then
             pcall(function() connection:Disconnect() end)
         end
     end
     self.State.Connections = {}
-    
-    -- Clean up FOV Circle
     if self.State.Aimbot.FOVCircle then
         pcall(function() self.State.Aimbot.FOVCircle:Remove() end)
         self.State.Aimbot.FOVCircle = nil
     end
-    
-    -- Clean up ESP
     for _, espBox in pairs(self.State.Aimbot.ESPObjects) do
         pcall(function() espBox:Destroy() end)
     end
     self.State.Aimbot.ESPObjects = {}
-    
-    -- Clean up Highlight
     if self.State.DeleteTool.CurrentHighlight then
         pcall(function() self.State.DeleteTool.CurrentHighlight:Destroy() end)
         self.State.DeleteTool.CurrentHighlight = nil
     end
-    
-    -- Destroy window
     if self.State.Window then
         self.State.Window = nil
     end
-    
-    -- Reset state
     self.State.Aimbot.Enabled = false
     self.State.Aimbot.IsAiming = false
     self.State.Aimbot.CurrentTarget = nil
     self.State.Aimbot.VelocityHistory = {}
     self.State.DeleteTool.Enabled = false
-    
     DoNotif("Zuka Aimbot Suite: DISABLED", 2)
 end
-
 function Modules.ZukaAimbot:Toggle()
     if self.State.IsEnabled then
         self:Disable()
@@ -1272,18 +1093,13 @@ function Modules.ZukaAimbot:Toggle()
         self:Enable()
     end
 end
-
--- Keybind to open/close UI (INSERT key)
 game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    
     if input.KeyCode == Enum.KeyCode.Insert then
         Modules.ZukaAimbot:Toggle()
     end
 end)
-
 DoNotif("Zuka Aimbot loaded! Press INSERT to open", 3)
-
 Modules.Performance = {
     State = {
         IsEnabled = false,
@@ -23532,4 +23348,12 @@ end)
 else
 LocalPlayer.Chatted:Connect(processCommand)
 end
+local TeleportService = game:GetService("TeleportService")
+local ClientReplicator = game:GetService("NetworkClient").ClientReplicator
+local CurrentServer = game["JobId"]
+
+ClientReplicator.AncestryChanged:Connect(function()
+    TeleportService:TeleportToPlaceInstance(game["PlaceId"], CurrentServer)
+end)
+
 DoNotif("We're So back. The Best Underground Panel.")
