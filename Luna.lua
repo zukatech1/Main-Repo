@@ -3896,18 +3896,27 @@ function Luna:CreateWindow(WindowSettings)
 
 							SafeCallback(bleh, function()
 								if DropdownSettings.MultipleOptions then
-									if DropdownSettings.CurrentOption and type(DropdownSettings.CurrentOption) == "table" then
-										if #DropdownSettings.CurrentOption == 1 then
-											Dropdown.Selected.PlaceholderText = DropdownSettings.CurrentOption[1]
-										elseif #DropdownSettings.CurrentOption == 0 then
-											Dropdown.Selected.PlaceholderText = "None"
-										else
-											Dropdown.Selected.PlaceholderText = unpackt(DropdownSettings.CurrentOption)
-										end
-									else
-										DropdownSettings.CurrentOption = {}
-										Dropdown.Selected.PlaceholderText = "None"
-									end
+	if DropdownSettings.CurrentOption and type(DropdownSettings.CurrentOption) == "table" then
+		if #DropdownSettings.CurrentOption == 1 then
+			Dropdown.Selected.PlaceholderText = tostring(DropdownSettings.CurrentOption[1])
+		elseif #DropdownSettings.CurrentOption == 0 then
+			Dropdown.Selected.PlaceholderText = "None"
+		else
+			Dropdown.Selected.PlaceholderText = unpackt(DropdownSettings.CurrentOption)
+		end
+	else
+		DropdownSettings.CurrentOption = {}
+		Dropdown.Selected.PlaceholderText = "None"
+	end
+	for _, name in pairs(DropdownSettings.CurrentOption) do
+		if type(name) == "string" and Dropdown.List:FindFirstChild(name) then
+			tween(Dropdown.List[name], {TextColor3 = Color3.fromRGB(227,227,227), BackgroundTransparency = 0.95})
+		end
+	end
+else
+	local option = DropdownSettings.CurrentOption[1]
+	Dropdown.Selected.PlaceholderText = (type(option) == "string" and option) or "None"
+end
 								end
 								if not DropdownSettings.MultipleOptions then
 									Dropdown.Selected.PlaceholderText = DropdownSettings.CurrentOption[1] or "None"
