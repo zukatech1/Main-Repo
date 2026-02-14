@@ -1563,7 +1563,8 @@ local function GetIcon(icon, source)
 
 			local r = sizedicons[icon]
 			if not r then
-				error("Lucide Icons: Failed to find icon by the name of \"" .. icon .. "\.", 2)
+				warn("Lucide Icons: Failed to find icon by the name of \"" .. icon .. "\"")
+				return "" -- Return empty string instead of error
 			end
 
 			local rirs = r[2]
@@ -1589,9 +1590,9 @@ local function GetIcon(icon, source)
 	else	
 		if icon ~= nil and IconModule[source] then
 			local sourceicon = IconModule[source]
-			return sourceicon[icon]
+			return sourceicon[icon] or "" -- Add fallback to empty string
 		else
-			return nil
+			return "" -- Return empty string instead of nil
 		end
 	end
 end
