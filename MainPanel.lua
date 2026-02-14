@@ -359,211 +359,931 @@ function RegisterCommandDual(info, func)
         end
     end
 end
-local function loadAimbotGUI(args)
-	local CoreGui = game:GetService("CoreGui")
-	local TweenService = game:GetService("TweenService")
-	local UserInputService = game:GetService("UserInputService")
-	local Players = game:GetService("Players")
-	local GUI_NAME = "EnhancedAimbotSuite"
-	if CoreGui:FindFirstChild(GUI_NAME) and not args then
-		if DoNotif then DoNotif("Aimbot GUI is already open.", 2) end
-		return
-	end
-	if CoreGui:FindFirstChild(GUI_NAME) then
-		CoreGui[GUI_NAME]:Destroy()
-	end
-	local success, err = pcall(function()
-		local AimbotSystem = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/gaminghcairimproved.lua"))()
-		local AimbotGUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/gamingchair_improvedgui.lua"))()
-		local screenGui = Instance.new("ScreenGui")
-		screenGui.Name = GUI_NAME
-		screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-		screenGui.ResetOnSpawn = false
-		screenGui.Parent = CoreGui
-		local mainWindow = Instance.new("Frame")
-		mainWindow.Name = "MainWindow"
-		mainWindow.Size = UDim2.new(0, 560, 0, 480)
-		mainWindow.Position = UDim2.new(0.5, -280, 0.5, -240)
-		mainWindow.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-		mainWindow.BackgroundTransparency = 0.1
-		mainWindow.BorderSizePixel = 0
-		mainWindow.Active = true
-		mainWindow.ClipsDescendants = true
-		mainWindow.Parent = screenGui
-		local mainCorner = Instance.new("UICorner")
-		mainCorner.CornerRadius = UDim.new(0, 10)
-		mainCorner.Parent = mainWindow
-		local mainStroke = Instance.new("UIStroke")
-		mainStroke.Color = Color3.fromRGB(100, 100, 120)
-		mainStroke.Thickness = 2
-		mainStroke.Parent = mainWindow
-		local shadow = Instance.new("ImageLabel")
-		shadow.Name = "Shadow"
-		shadow.Size = UDim2.new(1, 30, 1, 30)
-		shadow.Position = UDim2.new(0, -15, 0, -15)
-		shadow.BackgroundTransparency = 1
-		shadow.Image = "rbxasset://textures/ui/InspectMenu/Shadow.png"
-		shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-		shadow.ImageTransparency = 0.5
-		shadow.ScaleType = Enum.ScaleType.Slice
-		shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-		shadow.ZIndex = -1
-		shadow.Parent = mainWindow
-		local dragging = false
-		local dragStart, startPosition
-		mainWindow.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				dragging = true
-				dragStart = input.Position
-				startPosition = mainWindow.Position
-				local changedConn
-				changedConn = input.Changed:Connect(function()
-					if input.UserInputState == Enum.UserInputState.End then
-						dragging = false
-						if changedConn then changedConn:Disconnect() end
-					end
-				end)
-			end
-		end)
-		UserInputService.InputChanged:Connect(function(input)
-			if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragging then
-				local delta = input.Position - dragStart
-				mainWindow.Position = UDim2.new(
-					startPosition.X.Scale, startPosition.X.Offset + delta.X,
-					startPosition.Y.Scale, startPosition.Y.Offset + delta.Y
-				)
-			end
-		end)
-		local topBar = Instance.new("Frame")
-		topBar.Name = "TopBar"
-		topBar.Size = UDim2.new(1, 0, 0, 35)
-		topBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-		topBar.BorderSizePixel = 0
-		topBar.Parent = mainWindow
-		local topCorner = Instance.new("UICorner")
-		topCorner.CornerRadius = UDim.new(0, 10)
-		topCorner.Parent = topBar
-		local titleLabel = Instance.new("TextLabel")
-		titleLabel.Name = "TitleLabel"
-		titleLabel.Size = UDim2.new(1, -120, 1, 0)
-		titleLabel.Position = UDim2.new(0, 15, 0, 0)
-		titleLabel.BackgroundTransparency = 1
-		titleLabel.Font = Enum.Font.GothamBold
-		titleLabel.Text = "🎯 Gaming Chair"
-		titleLabel.TextColor3 = Color3.fromRGB(200, 220, 255)
-		titleLabel.TextSize = 18
-		titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-		titleLabel.Parent = topBar
-		local minimizeButton = Instance.new("TextButton")
-		minimizeButton.Name = "MinimizeButton"
-		minimizeButton.Size = UDim2.new(0, 28, 0, 28)
-		minimizeButton.Position = UDim2.new(1, -66, 0.5, -14)
-		minimizeButton.BackgroundColor3 = Color3.fromRGB(80, 120, 180)
-		minimizeButton.Font = Enum.Font.GothamBold
-		minimizeButton.Text = "_"
-		minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-		minimizeButton.TextSize = 18
-		minimizeButton.Parent = topBar
-		local minCorner = Instance.new("UICorner")
-		minCorner.CornerRadius = UDim.new(0, 6)
-		minCorner.Parent = minimizeButton
-		local closeButton = Instance.new("TextButton")
-		closeButton.Name = "CloseButton"
-		closeButton.Size = UDim2.new(0, 28, 0, 28)
-		closeButton.Position = UDim2.new(1, -32, 0.5, -14)
-		closeButton.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
-		closeButton.Font = Enum.Font.GothamBold
-		closeButton.Text = "×"
-		closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-		closeButton.TextSize = 20
-		closeButton.Parent = topBar
-		local closeCorner = Instance.new("UICorner")
-		closeCorner.CornerRadius = UDim.new(0, 6)
-		closeCorner.Parent = closeButton
-		minimizeButton.MouseEnter:Connect(function()
-			TweenService:Create(minimizeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(90, 130, 190)}):Play()
-		end)
-		minimizeButton.MouseLeave:Connect(function()
-			TweenService:Create(minimizeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(80, 120, 180)}):Play()
-		end)
-		closeButton.MouseEnter:Connect(function()
-			TweenService:Create(closeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(220, 90, 90)}):Play()
-		end)
-		closeButton.MouseLeave:Connect(function()
-			TweenService:Create(closeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200, 80, 80)}):Play()
-		end)
-		local aimbot = AimbotSystem.new()
-		local gui = AimbotGUI.new(aimbot, mainWindow)
-		gui:build()
-		aimbot:start()
-		if args and args.targetPlayer then
-			local targetName = args.targetPlayer
-			if targetName:lower() == "clear" then
-				aimbot.settings.specificTargetEnabled = false
-				aimbot.settings.specificTarget = nil
-				gui:updateStatus("Target cleared", Color3.fromRGB(180, 220, 180))
-			else
-				for _, player in ipairs(Players:GetPlayers()) do
-					if player.Name:lower():find(targetName:lower()) then
-						aimbot.settings.specificTargetEnabled = true
-						aimbot.settings.specificTarget = player
-						gui:updateStatus("Locked: " .. player.Name, Color3.fromRGB(255, 200, 100))
-						break
-					end
-				end
-			end
-		end
-		local isMinimized = false
-		local contentContainer = mainWindow:FindFirstChild("ContentContainer")
-		minimizeButton.MouseButton1Click:Connect(function()
-			isMinimized = not isMinimized
-			if isMinimized then
-				TweenService:Create(mainWindow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-					Size = UDim2.new(0, 280, 0, 35)
-				}):Play()
-				minimizeButton.Text = "□"
-				if contentContainer then contentContainer.Visible = false end
-			else
-				TweenService:Create(mainWindow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-					Size = UDim2.new(0, 560, 0, 480)
-				}):Play()
-				minimizeButton.Text = "_"
-				if contentContainer then contentContainer.Visible = true end
-			end
-		end)
-		closeButton.MouseButton1Click:Connect(function()
-			aimbot:destroy()
-			gui:destroy()
-			TweenService:Create(mainWindow, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-			task.wait(0.2)
-			screenGui:Destroy()
-		end)
-		mainWindow.BackgroundTransparency = 1
-		mainWindow.Size = UDim2.new(0, 400, 0, 300)
-		TweenService:Create(mainWindow, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			BackgroundTransparency = 0.1,
-			Size = UDim2.new(0, 560, 0, 480)
-		}):Play()
-		if DoNotif then
-			DoNotif("Gaming Chair loaded!", 2)
-		end
-	end)
-	if not success then
-		warn("Aimbot error:", err)
-		if DoNotif then
-			DoNotif("Error: " .. tostring(err), 5)
-		end
-	end
+Modules.ZukaAimbot = {
+    State = {
+        IsEnabled = false,
+        Window = nil,
+        Connections = {},
+        AimbotCore = nil,
+        Aimbot = {
+            Enabled = false,
+            IsAiming = false,
+            CurrentTarget = nil,
+            VelocityHistory = {},
+            TargetIndex = {},
+            LastIndexUpdate = 0,
+            FOVCircle = nil,
+            ESPObjects = {},
+            -- Settings
+            ToggleKey = Enum.UserInputType.MouseButton2,
+            AimPart = "Head",
+            FOVRadius = 100,
+            SmoothingEnabled = true,
+            SmoothingFactor = 0.2,
+            DistanceBasedSmoothing = true,
+            WallCheckEnabled = true,
+            IgnoreTeam = true,
+            StickyTarget = true,
+            PredictionEnabled = true,
+            PredictionMultiplier = 1.0,
+            HitboxPriority = true,
+            UpdateRate = 0.5,
+            PredictionSamples = 3,
+            StickyDistanceMultiplier = 1.5
+        },
+        DeleteTool = {
+            Enabled = false,
+            DeleteMode = "Part",
+            MaxDistance = 500,
+            IgnorePlayers = true,
+            IgnoreTerrain = true,
+            ShowHighlight = true,
+            DeleteBind = Enum.KeyCode.X,
+            DeletedParts = {},
+            CurrentHighlight = nil
+        }
+    }
+}
+
+local HITBOX_PRIORITIES = {
+    {Name = "Head", Priority = 1, DamageMultiplier = 2.0},
+    {Name = "UpperTorso", Priority = 2, DamageMultiplier = 1.5},
+    {Name = "HumanoidRootPart", Priority = 3, DamageMultiplier = 1.0},
+    {Name = "Torso", Priority = 4, DamageMultiplier = 1.5},
+    {Name = "LowerTorso", Priority = 5, DamageMultiplier = 1.0},
+}
+
+function Modules.ZukaAimbot:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    
+    -- Load Luna UI
+    local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Luna.lua"))()
+    
+    -- Services
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local Workspace = game:GetService("Workspace")
+    local Camera = Workspace.CurrentCamera
+    local LocalPlayer = Players.LocalPlayer
+    
+    local Aimbot = self.State.Aimbot
+    local DeleteTool = self.State.DeleteTool
+    
+    -- Raycast params for wall check
+    local wallCheckParams = RaycastParams.new()
+    wallCheckParams.FilterType = Enum.RaycastFilterType.Exclude
+    
+    -- ============== AIMBOT CORE FUNCTIONS ==============
+    
+    local function updateTargetIndex(force)
+        local now = tick()
+        if not force and (now - Aimbot.LastIndexUpdate) < Aimbot.UpdateRate then
+            return
+        end
+        Aimbot.LastIndexUpdate = now
+        Aimbot.TargetIndex = {}
+        
+        for _, descendant in ipairs(Workspace:GetDescendants()) do
+            if descendant:IsA("Model") and descendant:FindFirstChildOfClass("Humanoid") then
+                local humanoid = descendant:FindFirstChildOfClass("Humanoid")
+                if humanoid.Health > 0 then
+                    table.insert(Aimbot.TargetIndex, descendant)
+                end
+            end
+        end
+    end
+    
+    local function isTeammate(player)
+        if not Aimbot.IgnoreTeam or not player then
+            return false
+        end
+        if LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team then
+            return true
+        end
+        if LocalPlayer.TeamColor and player.TeamColor and LocalPlayer.TeamColor == player.TeamColor then
+            return true
+        end
+        return false
+    end
+    
+    local function isPartVisible(targetPart)
+        if not Aimbot.WallCheckEnabled then
+            return true
+        end
+        if not LocalPlayer.Character or not targetPart or not targetPart.Parent then
+            return false
+        end
+        
+        local targetCharacter = targetPart:FindFirstAncestorOfClass("Model") or targetPart.Parent
+        local origin = Camera.CFrame.Position
+        local filterList = {LocalPlayer.Character, targetCharacter}
+        
+        wallCheckParams.FilterDescendantsInstances = filterList
+        local result = Workspace:Raycast(origin, targetPart.Position - origin, wallCheckParams)
+        
+        return not result
+    end
+    
+    local function getSmartHitbox(model)
+        if not Aimbot.HitboxPriority then
+            return model:FindFirstChild(Aimbot.AimPart)
+        end
+        
+        -- Try to find visible hitbox first
+        for _, hitbox in ipairs(HITBOX_PRIORITIES) do
+            local part = model:FindFirstChild(hitbox.Name)
+            if part and isPartVisible(part) then
+                return part
+            end
+        end
+        
+        -- Fallback to any hitbox
+        for _, hitbox in ipairs(HITBOX_PRIORITIES) do
+            local part = model:FindFirstChild(hitbox.Name)
+            if part then
+                return part
+            end
+        end
+        
+        return nil
+    end
+    
+    local function getClosestTarget()
+        local mousePos = UserInputService:GetMouseLocation()
+        local minDist = math.huge
+        local closestTarget = nil
+        local closestPart = nil
+        
+        -- Sticky target logic
+        if Aimbot.StickyTarget and Aimbot.CurrentTarget and Aimbot.CurrentTarget.Parent then
+            local player = Players:GetPlayerFromCharacter(Aimbot.CurrentTarget)
+            if not (player and player == LocalPlayer) and not (player and isTeammate(player)) then
+                local targetPart = getSmartHitbox(Aimbot.CurrentTarget)
+                if targetPart then
+                    local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+                        if dist <= (Aimbot.FOVRadius * Aimbot.StickyDistanceMultiplier) then
+                            return Aimbot.CurrentTarget, targetPart
+                        end
+                    end
+                end
+            end
+        end
+        
+        -- Find closest target in FOV
+        for _, model in ipairs(Aimbot.TargetIndex) do
+            if model and model.Parent then
+                local player = Players:GetPlayerFromCharacter(model)
+                if not (player and player == LocalPlayer) and not (player and isTeammate(player)) then
+                    local targetPart = getSmartHitbox(model)
+                    if targetPart then
+                        local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                        if onScreen then
+                            local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+                            if dist < minDist and dist <= Aimbot.FOVRadius then
+                                minDist = dist
+                                closestTarget = model
+                                closestPart = targetPart
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        
+        return closestTarget, closestPart
+    end
+    
+    local function predictPosition(targetPart)
+        if not Aimbot.PredictionEnabled then
+            return targetPart.Position
+        end
+        
+        local velocity = targetPart.AssemblyLinearVelocity
+        table.insert(Aimbot.VelocityHistory, velocity)
+        
+        if #Aimbot.VelocityHistory > Aimbot.PredictionSamples then
+            table.remove(Aimbot.VelocityHistory, 1)
+        end
+        
+        -- Average velocity
+        local avgVelocity = Vector3.new(0, 0, 0)
+        for _, vel in ipairs(Aimbot.VelocityHistory) do
+            avgVelocity = avgVelocity + vel
+        end
+        avgVelocity = avgVelocity / #Aimbot.VelocityHistory
+        
+        local distance = (Camera.CFrame.Position - targetPart.Position).Magnitude
+        local predictionTime = (distance / 2000) * Aimbot.PredictionMultiplier
+        
+        return targetPart.Position + (avgVelocity * predictionTime)
+    end
+    
+    local function getDistanceBasedSmoothness(distance)
+        if not Aimbot.DistanceBasedSmoothing then
+            return Aimbot.SmoothingFactor
+        end
+        
+        local minDistance = 10
+        local maxDistance = 300
+        local normalizedDist = math.clamp((distance - minDistance) / (maxDistance - minDistance), 0, 1)
+        local smoothnessMult = 1 - (normalizedDist * 0.5)
+        
+        return Aimbot.SmoothingFactor * smoothnessMult
+    end
+    
+    local function aimAtTarget(targetPart, deltaTime)
+        if not targetPart or not targetPart.Parent then
+            return false
+        end
+        
+        local predictedPosition = predictPosition(targetPart)
+        local goalCFrame = CFrame.lookAt(Camera.CFrame.Position, predictedPosition)
+        
+        if Aimbot.SmoothingEnabled then
+            local distance = (Camera.CFrame.Position - targetPart.Position).Magnitude
+            local smoothness = getDistanceBasedSmoothness(distance)
+            local adjustedSmoothFactor = math.clamp(1 - (1 - smoothness) ^ (60 * deltaTime), 0, 1)
+            Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, adjustedSmoothFactor)
+        else
+            Camera.CFrame = goalCFrame
+        end
+        
+        return true
+    end
+    
+    local function createESP(part, color)
+        if not part or not part.Parent then
+            return
+        end
+        
+        if Aimbot.ESPObjects[part] then
+            local esp = Aimbot.ESPObjects[part]
+            esp.Color3 = color
+            esp.Size = part.Size
+            return
+        end
+        
+        local espBox = Instance.new("BoxHandleAdornment")
+        espBox.Name = "AimbotESP"
+        espBox.Adornee = part
+        espBox.AlwaysOnTop = true
+        espBox.ZIndex = 10
+        espBox.Size = part.Size
+        espBox.Color3 = color
+        espBox.Transparency = 0.4
+        espBox.Parent = part
+        
+        Aimbot.ESPObjects[part] = espBox
+    end
+    
+    local function clearESP(part)
+        if part then
+            if Aimbot.ESPObjects[part] then
+                pcall(function() Aimbot.ESPObjects[part]:Destroy() end)
+                Aimbot.ESPObjects[part] = nil
+            end
+        else
+            for _, espBox in pairs(Aimbot.ESPObjects) do
+                pcall(function() espBox:Destroy() end)
+            end
+            Aimbot.ESPObjects = {}
+        end
+    end
+    
+    -- ============== DELETE TOOL FUNCTIONS ==============
+    
+    local function GetPartUnderCursor()
+        local mousePos = UserInputService:GetMouseLocation()
+        local ray = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+        raycastParams.IgnoreWater = true
+        
+        local result = Workspace:Raycast(ray.Origin, ray.Direction * DeleteTool.MaxDistance, raycastParams)
+        
+        if result and result.Instance then
+            if DeleteTool.IgnorePlayers then
+                local isPlayer = result.Instance:FindFirstAncestorOfClass("Model") and 
+                    result.Instance:FindFirstAncestorOfClass("Model"):FindFirstChild("Humanoid")
+                if isPlayer then return nil end
+            end
+            
+            if DeleteTool.IgnoreTerrain and result.Instance:IsA("Terrain") then
+                return nil
+            end
+            
+            return result.Instance
+        end
+        
+        return nil
+    end
+    
+    local function CreateHighlight(part)
+        if DeleteTool.CurrentHighlight then
+            pcall(function() DeleteTool.CurrentHighlight:Destroy() end)
+        end
+        
+        if not part then return end
+        
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = part
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+        highlight.Parent = part
+        
+        DeleteTool.CurrentHighlight = highlight
+    end
+    
+    local function DeletePart(part)
+        if not part then 
+            DoNotif("Delete Tool: No part under cursor", 2)
+            return 
+        end
+        
+        local toDelete = nil
+        
+        if DeleteTool.DeleteMode == "Part" then
+            toDelete = part
+        elseif DeleteTool.DeleteMode == "Model" then
+            toDelete = part:FindFirstAncestorOfClass("Model") or part
+        elseif DeleteTool.DeleteMode == "Descendants" then
+            toDelete = part.Parent
+        end
+        
+        if toDelete then
+            table.insert(DeleteTool.DeletedParts, {
+                Instance = toDelete,
+                Parent = toDelete.Parent,
+                Name = toDelete.Name
+            })
+            
+            pcall(function() toDelete:Destroy() end)
+            DoNotif("Deleted: " .. toDelete.Name, 2)
+        end
+    end
+    
+    -- Create FOV Circle
+    if Drawing and typeof(Drawing.new) == "function" then
+        Aimbot.FOVCircle = Drawing.new("Circle")
+        Aimbot.FOVCircle.Visible = false
+        Aimbot.FOVCircle.Thickness = 2
+        Aimbot.FOVCircle.NumSides = 64
+        Aimbot.FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+        Aimbot.FOVCircle.Transparency = 0.6
+        Aimbot.FOVCircle.Filled = false
+    end
+    
+    -- ============== MAIN UPDATE LOOP ==============
+    
+    local renderConnection = RunService.RenderStepped:Connect(function(deltaTime)
+        -- Update FOV Circle
+        if Aimbot.FOVCircle then
+            Aimbot.FOVCircle.Position = UserInputService:GetMouseLocation()
+            Aimbot.FOVCircle.Radius = Aimbot.FOVRadius
+            Aimbot.FOVCircle.Visible = Aimbot.Enabled and Aimbot.IsAiming
+        end
+        
+        -- Update target index periodically
+        updateTargetIndex()
+        
+        -- Aimbot Logic
+        if Aimbot.Enabled and Aimbot.IsAiming then
+            local targetModel, targetPart = getClosestTarget()
+            Aimbot.CurrentTarget = targetModel
+            
+            if targetModel and targetPart then
+                if aimAtTarget(targetPart, deltaTime) then
+                    createESP(targetPart, Color3.fromRGB(255, 80, 80))
+                else
+                    clearESP()
+                end
+            else
+                clearESP()
+                Aimbot.VelocityHistory = {}
+            end
+            
+            -- Clean up ESP for non-targets
+            for part, _ in pairs(Aimbot.ESPObjects) do
+                if not part.Parent or part ~= targetPart then
+                    clearESP(part)
+                end
+            end
+        else
+            Aimbot.CurrentTarget = nil
+            Aimbot.VelocityHistory = {}
+            clearESP()
+        end
+        
+        -- Delete Tool Highlight
+        if DeleteTool.Enabled and DeleteTool.ShowHighlight then
+            local targetPart = GetPartUnderCursor()
+            if targetPart then
+                CreateHighlight(targetPart)
+            elseif DeleteTool.CurrentHighlight then
+                pcall(function() DeleteTool.CurrentHighlight:Destroy() end)
+                DeleteTool.CurrentHighlight = nil
+            end
+        elseif DeleteTool.CurrentHighlight then
+            pcall(function() DeleteTool.CurrentHighlight:Destroy() end)
+            DeleteTool.CurrentHighlight = nil
+        end
+    end)
+    
+    -- Input Handler
+    local inputBeganConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        -- Delete Tool
+        if DeleteTool.Enabled and input.KeyCode == DeleteTool.DeleteBind then
+            local targetPart = GetPartUnderCursor()
+            if targetPart then
+                DeletePart(targetPart)
+            end
+        end
+        
+        -- Aimbot Toggle (Hold RMB)
+        if Aimbot.Enabled and input.UserInputType == Aimbot.ToggleKey then
+            Aimbot.IsAiming = true
+        end
+    end)
+    
+    local inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
+        -- Release aimbot
+        if input.UserInputType == Aimbot.ToggleKey then
+            Aimbot.IsAiming = false
+            clearESP()
+        end
+    end)
+    
+    table.insert(self.State.Connections, renderConnection)
+    table.insert(self.State.Connections, inputBeganConnection)
+    table.insert(self.State.Connections, inputEndedConnection)
+    
+    -- Update initial target index
+    updateTargetIndex(true)
+    
+    -- ============== CREATE LUNA UI ==============
+    
+    local Window = Luna:CreateWindow({
+        Name = "Zuka Aimbot Suite",
+        Subtitle = "Advanced Targeting System + Delete Tool",
+        LogoID = "6031097225",
+        LoadingEnabled = true,
+        LoadingTitle = "Zuka Aimbot",
+        LoadingSubtitle = "Loading Advanced Systems...",
+        ConfigSettings = {
+            ConfigFolder = "ZukaAimbot"
+        },
+        KeySystem = false
+    })
+    
+    self.State.Window = Window
+    
+    -- Create Tabs
+    local MainTab = Window:CreateTab({
+        Name = "Aimbot",
+        Icon = "home_filled",
+        ImageSource = "Material",
+        ShowTitle = true
+    })
+    
+    local AdvancedTab = Window:CreateTab({
+        Name = "Advanced",
+        Icon = "tune",
+        ImageSource = "Material",
+        ShowTitle = true
+    })
+    
+    local DeleteTab = Window:CreateTab({
+        Name = "Delete Tool",
+        Icon = "delete",
+        ImageSource = "Material",
+        ShowTitle = true
+    })
+    
+    local VisualsTab = Window:CreateTab({
+        Name = "Visuals",
+        Icon = "visibility",
+        ImageSource = "Material",
+        ShowTitle = true
+    })
+    
+    local SettingsTab = Window:CreateTab({
+        Name = "Settings",
+        Icon = "settings",
+        ImageSource = "Material",
+        ShowTitle = true
+    })
+    
+    -- ============== MAIN TAB UI ==============
+    
+    local AimbotSection = MainTab:CreateSection("Aimbot Controls")
+    
+    AimbotSection:CreateToggle({
+        Name = "Enable Aimbot",
+        Description = "Hold RIGHT MOUSE BUTTON to aim",
+        CurrentValue = false,
+        Callback = function(value)
+            Aimbot.Enabled = value
+            if not value then
+                Aimbot.IsAiming = false
+                clearESP()
+            end
+            DoNotif("Aimbot: " .. (value and "ENABLED" or "DISABLED"), 2)
+        end,
+    }, "AimbotEnabled")
+    
+    AimbotSection:CreateLabel({
+        Text = "💡 HOLD Right Mouse Button to lock onto targets",
+        Style = 3
+    })
+    
+    AimbotSection:CreateSlider({
+        Name = "FOV Radius",
+        Range = {50, 500},
+        Increment = 5,
+        CurrentValue = 100,
+        Callback = function(value)
+            Aimbot.FOVRadius = value
+        end,
+    }, "FOVRadius")
+    
+    AimbotSection:CreateSlider({
+        Name = "Smoothness",
+        Range = {0.05, 1.0},
+        Increment = 0.01,
+        CurrentValue = 0.2,
+        Callback = function(value)
+            Aimbot.SmoothingFactor = value
+        end,
+    }, "Smoothness")
+    
+    AimbotSection:CreateDropdown({
+        Name = "Preferred Hitbox",
+        Description = "Will auto-switch if priority is enabled",
+        Options = {"Head", "UpperTorso", "HumanoidRootPart", "Torso", "LowerTorso"},
+        CurrentOption = {"Head"},
+        MultipleOptions = false,
+        Callback = function(option)
+            Aimbot.AimPart = option
+        end,
+    }, "AimPart")
+    
+    local ChecksSection = MainTab:CreateSection("Targeting Checks")
+    
+    ChecksSection:CreateToggle({
+        Name = "Ignore Team",
+        Description = "Don't target teammates",
+        CurrentValue = true,
+        Callback = function(value)
+            Aimbot.IgnoreTeam = value
+        end,
+    }, "IgnoreTeam")
+    
+    ChecksSection:CreateToggle({
+        Name = "Wall Check",
+        Description = "Only target visible players",
+        CurrentValue = true,
+        Callback = function(value)
+            Aimbot.WallCheckEnabled = value
+        end,
+    }, "WallCheck")
+    
+    -- ============== ADVANCED TAB UI ==============
+    
+    local SmartSection = AdvancedTab:CreateSection("Smart Targeting")
+    
+    SmartSection:CreateToggle({
+        Name = "Hitbox Priority",
+        Description = "Auto-select best visible hitbox",
+        CurrentValue = true,
+        Callback = function(value)
+            Aimbot.HitboxPriority = value
+        end,
+    }, "HitboxPriority")
+    
+    SmartSection:CreateToggle({
+        Name = "Sticky Target",
+        Description = "Maintain lock on current target",
+        CurrentValue = true,
+        Callback = function(value)
+            Aimbot.StickyTarget = value
+        end,
+    }, "StickyTarget")
+    
+    SmartSection:CreateToggle({
+        Name = "Distance-Based Smoothing",
+        Description = "Smoother aim for closer targets",
+        CurrentValue = true,
+        Callback = function(value)
+            Aimbot.DistanceBasedSmoothing = value
+        end,
+    }, "DistanceSmoothing")
+    
+    SmartSection:CreateLabel({
+        Text = "💡 Priority: Head → UpperTorso → HumanoidRootPart → Torso",
+        Style = 2
+    })
+    
+    local PredictionSection = AdvancedTab:CreateSection("Prediction System")
+    
+    PredictionSection:CreateToggle({
+        Name = "Enable Prediction",
+        Description = "Predict target movement",
+        CurrentValue = true,
+        Callback = function(value)
+            Aimbot.PredictionEnabled = value
+        end,
+    }, "Prediction")
+    
+    PredictionSection:CreateSlider({
+        Name = "Prediction Multiplier",
+        Range = {0.1, 3.0},
+        Increment = 0.1,
+        CurrentValue = 1.0,
+        Callback = function(value)
+            Aimbot.PredictionMultiplier = value
+        end,
+    }, "PredictionMult")
+    
+    PredictionSection:CreateLabel({
+        Text = "💡 Uses velocity averaging for accurate predictions",
+        Style = 2
+    })
+    
+    -- ============== DELETE TOOL TAB UI ==============
+    
+    local DeleteMainSection = DeleteTab:CreateSection("Delete Tool")
+    
+    DeleteMainSection:CreateToggle({
+        Name = "Enable Delete Tool",
+        Description = "Enable part deletion mode",
+        CurrentValue = false,
+        Callback = function(value)
+            DeleteTool.Enabled = value
+            DoNotif("Delete Tool: " .. (value and "ENABLED" or "DISABLED"), 2)
+        end,
+    }, "DeleteEnabled")
+    
+    DeleteMainSection:CreateLabel({
+        Text = "💡 Press X to delete the part under your cursor",
+        Style = 3
+    })
+    
+    DeleteMainSection:CreateBind({
+        Name = "Delete Keybind",
+        Description = "Press this key to delete",
+        CurrentBind = "X",
+        HoldToInteract = false,
+        Callback = function(key)
+            DeleteTool.DeleteBind = Enum.KeyCode[key]
+            DoNotif("Delete keybind: " .. key, 2)
+        end,
+    }, "DeleteBind")
+    
+    DeleteMainSection:CreateDropdown({
+        Name = "Delete Mode",
+        Description = "What to delete when pressing keybind",
+        Options = {"Part", "Model", "Descendants"},
+        CurrentOption = {"Part"},
+        MultipleOptions = false,
+        Callback = function(option)
+            DeleteTool.DeleteMode = option
+            DoNotif("Delete mode: " .. option, 2)
+        end,
+    }, "DeleteMode")
+    
+    DeleteMainSection:CreateLabel({
+        Text = "💡 Part: Single part only",
+        Style = 2
+    })
+    
+    DeleteMainSection:CreateLabel({
+        Text = "💡 Model: Entire model containing part",
+        Style = 2
+    })
+    
+    DeleteMainSection:CreateLabel({
+        Text = "💡 Descendants: Parent + all children",
+        Style = 2
+    })
+    
+    local DeleteOptionsSection = DeleteTab:CreateSection("Options")
+    
+    DeleteOptionsSection:CreateSlider({
+        Name = "Max Distance",
+        Range = {50, 2000},
+        Increment = 10,
+        CurrentValue = 500,
+        Callback = function(value)
+            DeleteTool.MaxDistance = value
+        end,
+    }, "DeleteDistance")
+    
+    DeleteOptionsSection:CreateToggle({
+        Name = "Ignore Players",
+        Description = "Cannot delete player characters",
+        CurrentValue = true,
+        Callback = function(value)
+            DeleteTool.IgnorePlayers = value
+        end,
+    }, "IgnorePlayers")
+    
+    DeleteOptionsSection:CreateToggle({
+        Name = "Ignore Terrain",
+        Description = "Cannot delete terrain",
+        CurrentValue = true,
+        Callback = function(value)
+            DeleteTool.IgnoreTerrain = value
+        end,
+    }, "IgnoreTerrain")
+    
+    DeleteOptionsSection:CreateToggle({
+        Name = "Show Highlight",
+        Description = "Red highlight on target",
+        CurrentValue = true,
+        Callback = function(value)
+            DeleteTool.ShowHighlight = value
+        end,
+    }, "ShowHighlight")
+    
+    local DeleteHistorySection = DeleteTab:CreateSection("History")
+    
+    local historyLabel = DeleteHistorySection:CreateLabel({
+        Text = "Deleted: 0 parts",
+        Style = 1
+    })
+    
+    DeleteHistorySection:CreateButton({
+        Name = "Clear History",
+        Description = "Clear deletion history",
+        Callback = function()
+            DeleteTool.DeletedParts = {}
+            DoNotif("Delete history cleared", 2)
+        end,
+    })
+    
+    local historyConnection = RunService.Heartbeat:Connect(function()
+        historyLabel:Set("Deleted: " .. #DeleteTool.DeletedParts .. " parts")
+    end)
+    
+    table.insert(self.State.Connections, historyConnection)
+    
+    -- ============== VISUALS TAB UI ==============
+    
+    local FOVSection = VisualsTab:CreateSection("FOV Circle")
+    
+    FOVSection:CreateToggle({
+        Name = "Show FOV Circle",
+        Description = "Display targeting circle",
+        CurrentValue = false,
+        Callback = function(value)
+            -- Circle visibility is handled by aimbot state
+        end,
+    }, "ShowFOV")
+    
+    FOVSection:CreateColorPicker({
+        Name = "FOV Color",
+        Color = Color3.fromRGB(255, 255, 255),
+        Callback = function(color)
+            if Aimbot.FOVCircle then
+                Aimbot.FOVCircle.Color = color
+            end
+        end,
+    }, "FOVColor")
+    
+    FOVSection:CreateSlider({
+        Name = "FOV Transparency",
+        Range = {0, 1},
+        Increment = 0.1,
+        CurrentValue = 0.6,
+        Callback = function(value)
+            if Aimbot.FOVCircle then
+                Aimbot.FOVCircle.Transparency = value
+            end
+        end,
+    }, "FOVTransparency")
+    
+    local ESPSection = VisualsTab:CreateSection("Target ESP")
+    
+    ESPSection:CreateLabel({
+        Text = "✅ Red box shows current target",
+        Style = 1
+    })
+    
+    ESPSection:CreateLabel({
+        Text = "💡 ESP automatically appears when aiming",
+        Style = 2
+    })
+    
+    local InfoSection = VisualsTab:CreateSection("Target Info")
+    
+    local targetLabel = InfoSection:CreateLabel({
+        Text = "No target",
+        Style = 2
+    })
+    
+    local statusLabel = InfoSection:CreateLabel({
+        Text = "Status: Standby",
+        Style = 1
+    })
+    
+    local infoConnection = RunService.Heartbeat:Connect(function()
+        if Aimbot.Enabled and Aimbot.IsAiming and Aimbot.CurrentTarget then
+            local player = Players:GetPlayerFromCharacter(Aimbot.CurrentTarget)
+            local targetName = player and player.Name or "Unknown"
+            targetLabel:Set("🎯 Target: " .. targetName)
+            statusLabel:Set("Status: LOCKED & TRACKING")
+        else
+            targetLabel:Set("No target")
+            statusLabel:Set("Status: " .. (Aimbot.Enabled and "Ready (Hold RMB)" or "Disabled"))
+        end
+    end)
+    
+    table.insert(self.State.Connections, infoConnection)
+    
+    -- ============== SETTINGS TAB ==============
+    
+    SettingsTab:BuildConfigSection()
+    SettingsTab:BuildThemeSection()
+    
+    -- Load config
+    Luna:LoadAutoloadConfig()
+    
+    DoNotif("Zuka Aimbot Suite: LOADED | Press INSERT to toggle UI | Hold RMB to aim | X to delete", 5)
 end
-if RegisterCommand then
-	RegisterCommand({
-		Name = "aimbot",
-		Aliases = {"gc"},
-		Description = "Loads aimbot"
-	}, function(args)
-		loadAimbotGUI(args and args[1] and {targetPlayer = args[1]} or nil)
-	end)
+
+function Modules.ZukaAimbot:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    
+    -- Disconnect all connections
+    for _, connection in ipairs(self.State.Connections) do
+        if connection then
+            pcall(function() connection:Disconnect() end)
+        end
+    end
+    self.State.Connections = {}
+    
+    -- Clean up FOV Circle
+    if self.State.Aimbot.FOVCircle then
+        pcall(function() self.State.Aimbot.FOVCircle:Remove() end)
+        self.State.Aimbot.FOVCircle = nil
+    end
+    
+    -- Clean up ESP
+    for _, espBox in pairs(self.State.Aimbot.ESPObjects) do
+        pcall(function() espBox:Destroy() end)
+    end
+    self.State.Aimbot.ESPObjects = {}
+    
+    -- Clean up Highlight
+    if self.State.DeleteTool.CurrentHighlight then
+        pcall(function() self.State.DeleteTool.CurrentHighlight:Destroy() end)
+        self.State.DeleteTool.CurrentHighlight = nil
+    end
+    
+    -- Destroy window
+    if self.State.Window then
+        self.State.Window = nil
+    end
+    
+    -- Reset state
+    self.State.Aimbot.Enabled = false
+    self.State.Aimbot.IsAiming = false
+    self.State.Aimbot.CurrentTarget = nil
+    self.State.Aimbot.VelocityHistory = {}
+    self.State.DeleteTool.Enabled = false
+    
+    DoNotif("Zuka Aimbot Suite: DISABLED", 2)
 end
+
+function Modules.ZukaAimbot:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+
+-- Keybind to open/close UI (INSERT key)
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.Insert then
+        Modules.ZukaAimbot:Toggle()
+    end
+end)
+
+DoNotif("Zuka Aimbot loaded! Press INSERT to open", 3)
+
 Modules.Performance = {
     State = {
         IsEnabled = false,
