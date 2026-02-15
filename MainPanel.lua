@@ -8,33 +8,35 @@ Made By Zuka. @OverRuka on ROBLOX.
 
 do
     local adonisThreads = {}
-    
+    local hdAdminThreads = {}
     local function safeDebugInfo(thread, flag)
         local success, result = pcall(function()
             return debug.getinfo(thread, flag)
         end)
         return success and result or nil
     end
-    
     local function detectAdonis()
         if not getreg or not getgc then
             return false
         end
-        
         local detected = false
         for _, thread in getreg() do
             if type(thread) ~= 'thread' then
                 continue
             end
             local src = safeDebugInfo(thread, 's')
-            if src and (src:find('.Core.Anti') or src:find('.Plugins.Anti_Cheat')) then
+            if src and (
+                src:find('.Core.Anti') or 
+                src:find('.Plugins.Anti_Cheat') or
+                src:find('HD_Admin') or
+                src:find('HDAdmin')
+            ) then
                 detected = true
                 table.insert(adonisThreads, thread)
             end
         end
         return detected
     end
-    
     local function hookAdonisDetections(adonisTables)
         for _, t in ipairs(adonisTables) do
             for _, fn in pairs(t) do
@@ -44,12 +46,10 @@ do
                 if isfunctionhooked and isfunctionhooked(fn) then
                     continue
                 end
-                
                 local function blocker(...)
                     coroutine.yield(coroutine.running())
                     return task.wait(9e9)
                 end
-                
                 if hookfunction then
                     pcall(hookfunction, fn, blocker)
                 elseif hook then
@@ -58,29 +58,29 @@ do
             end
         end
     end
-    
     local function bypassAdonis()
         for _, thread in ipairs(adonisThreads) do
             pcall(close, thread)
         end
-        
         local adonisTables = {}
         if filtergc then
             local ok, cont = pcall(
                 filtergc,
                 'table',
-                { Keys = { 'Detected', 'RLocked' } },
+                { Keys = { 'Detected', 'RLocked', 'ban', 'kick' } },
                 false
             )
             if ok and type(cont) == 'table' then
                 for _, tbl in ipairs(cont) do
-                    if typeof(rawget(tbl, 'Detected')) == 'function' then
+                    local hasDetected = typeof(rawget(tbl, 'Detected')) == 'function'
+                    local hasBan = typeof(rawget(tbl, 'ban')) == 'function'
+                    local hasKick = typeof(rawget(tbl, 'kick')) == 'function'
+                    if hasDetected or hasBan or hasKick then
                         table.insert(adonisTables, tbl)
                     end
                 end
             end
         end
-        
         if #adonisTables == 0 and getgc then
             for _, tbl in ipairs(getgc(true)) do
                 if type(tbl) ~= 'table' then
@@ -90,22 +90,75 @@ do
                 if typeof(detectFn) == 'function' and rawget(tbl, 'RLocked') then
                     table.insert(adonisTables, tbl)
                 end
+                local banFn = rawget(tbl, 'ban')
+                local kickFn = rawget(tbl, 'kick')
+                if typeof(banFn) == 'function' or typeof(kickFn) == 'function' then
+                    table.insert(adonisTables, tbl)
+                end
             end
         end
-        
         hookAdonisDetections(adonisTables)
     end
-    
-    -- Run the bypass
+    local function bypassHDAdmin()
+        pcall(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            for _, remote in pairs(ReplicatedStorage:GetDescendants()) do
+                if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+                    local name = remote.Name:lower()
+                    if name:find("hdadmin") or name:find("ban") or name:find("kick") then
+                        if remote:IsA("RemoteEvent") then
+                            remote.FireServer = function() end
+                        elseif remote:IsA("RemoteFunction") then
+                            remote.InvokeServer = function() end
+                        end
+                    end
+                end
+            end
+        end)
+    end
     if not getgenv().adonismorelikeadonisnt then
         local detected = pcall(detectAdonis) and detectAdonis() or false
         if detected then
             bypassAdonis()
+            bypassHDAdmin()
             getgenv().SimpleSpyAdonisBypassed = true
-            print("✓ Adonis bypass executed")
+            print("✓ Admin bypass executed (Adonis + HD Admin)")
+        else
+            bypassHDAdmin()
+            print("✓ HD Admin bypass executed")
         end
     end
 end
+local function bypassCustomAC()
+    pcall(function()
+        local PlayerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+        PlayerGui.DescendantAdded:Connect(function(gui)
+            if gui:IsA("ScreenGui") or gui:IsA("Frame") then
+                local name = gui.Name:lower()
+                if name:find("scare") or name:find("jumpscare") or name:find("anti") or name:find("cheat") then
+                    task.wait(0.1)
+                    gui:Destroy()
+                end
+            end
+        end)
+        local mt = getrawmetatable(game)
+        local oldNamecall = mt.__namecall
+        setreadonly(mt, false)
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            local args = {...}
+            if method == "FireServer" or method == "InvokeServer" then
+                local remoteName = self.Name:lower()
+                if remoteName:find("report") or remoteName:find("detect") or remoteName:find("anticheat") or remoteName:find("ac") then
+                    return nil
+                end
+            end
+            return oldNamecall(self, ...)
+        end)
+        setreadonly(mt, true)
+    end)
+end
+bypassCustomAC()
 
 print("- Zukas Panel -")
 
@@ -6491,7 +6544,7 @@ function Modules.StalkerBot:Initialize()
     }
     RegisterCommand({
         Name = "stalkstare",
-        Aliases = {"stalk", "follow"},
+        Aliases = {},
         Description = "Follow and stare at a player."
     }, function(args)
         local argument = args[1]
@@ -7139,7 +7192,7 @@ function Modules.KnockbackNullifier:Initialize()
     local module = self
     RegisterCommand({
         Name = "noknockback",
-        Aliases = {"nokb", "antikb", "steady"},
+        Aliases = {"nokb"},
         Description = "Negates knockback and external physics impulses."
     }, function(args)
         if args[1] then
