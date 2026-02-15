@@ -39,6 +39,7 @@ Modules.OverseerCE = {
         ModuleTypeCache = {},
         DecompiledFunctions = {},
         FunctionPatches = {},
+        CurrentModuleDecompiled = nil,
         UpvalueMonitors = {},
         CallTrackers = {},
         ReturnHooks = {},
@@ -738,6 +739,126 @@ function Modules.OverseerCE:DecompileFunction(func)
     self.State.DecompilerCache[funcStr] = decompiled
     return decompiled
 end
+function Modules.OverseerCE:DecompileModuleScript(moduleScript)
+    if not moduleScript or not moduleScript:IsA("ModuleScript") then
+        return nil, "Not a ModuleScript"
+    end
+    local decompiled = {
+        Name = moduleScript.Name,
+        FullName = moduleScript:GetFullName(),
+        SourceCode = nil,
+        DecompileMethod = "none",
+        Functions = {},
+        RequireSuccess = false,
+        ModuleContent = nil
+    }
+    if decompile then
+        local success, source = pcall(decompile, moduleScript)
+        if success and source then
+            decompiled.SourceCode = source
+            decompiled.DecompileMethod = "decompile(ModuleScript)"
+            print("[Decompiler] ✓ Decompiled module via decompile()")
+        end
+    end
+    if not decompiled.SourceCode then
+        local success, moduleFunc = pcall(function()
+            return require(moduleScript)
+        end)
+        if success then
+            decompiled.RequireSuccess = true
+            decompiled.ModuleContent = moduleFunc
+            if type(moduleFunc) == "function" and decompile then
+                local funcSuccess, funcSource = pcall(decompile, moduleFunc)
+                if funcSuccess and funcSource then
+                    decompiled.SourceCode = funcSource
+                    decompiled.DecompileMethod = "decompile(require(module))"
+                    print("[Decompiler] ✓ Decompiled via require() return")
+                end
+            end
+            if type(moduleFunc) == "table" then
+                local functionCount = 0
+                for key, value in pairs(moduleFunc) do
+                    if type(value) == "function" then
+                        local funcDecomp = self:DecompileFunction(value)
+                        if funcDecomp and funcDecomp.SourceCode then
+                            table.insert(decompiled.Functions, {
+                                Name = tostring(key),
+                                Decompiled = funcDecomp
+                            })
+                            functionCount = functionCount + 1
+                        end
+                    end
+                end
+                if functionCount > 0 then
+                    local compositeParts = {
+                        "-- Module: " .. decompiled.Name,
+                        "-- Decompiled " .. functionCount .. " functions",
+                        "-- Original module returns a table",
+                        "",
+                        "local module = {}",
+                        ""
+                    }
+                    for _, funcData in ipairs(decompiled.Functions) do
+                        table.insert(compositeParts, "-- Function: " .. funcData.Name)
+                        table.insert(compositeParts, "function module." .. funcData.Name .. "()")
+                        if funcData.Decompiled.SourceCode then
+                            table.insert(compositeParts, funcData.Decompiled.SourceCode)
+                        else
+                            table.insert(compositeParts, "    -- Could not decompile")
+                        end
+                        table.insert(compositeParts, "end")
+                        table.insert(compositeParts, "")
+                    end
+                    table.insert(compositeParts, "return module")
+                    decompiled.SourceCode = table.concat(compositeParts, "\n")
+                    decompiled.DecompileMethod = "reconstructed from table functions"
+                    print("[Decompiler] ✓ Reconstructed from " .. functionCount .. " functions")
+                end
+            end
+        end
+    end
+    if not decompiled.SourceCode then
+        local infoParts = {
+            "-- Module: " .. decompiled.Name,
+            "-- Path: " .. decompiled.FullName,
+            "-- Status: Could not decompile source code",
+            "",
+            "-- This can happen because:",
+            "-- 1. Your executor doesn't have a decompiler",
+            "-- 2. The module uses bytecode protection",
+            "-- 3. The module is a native C module",
+            "",
+            "-- However, you can still:",
+            "-- • View the module structure in the Table Inspector",
+            "-- • Decompile individual functions from the function browser",
+            "-- • Use the Scanner to find specific values",
+            "",
+        }
+        if decompiled.RequireSuccess and decompiled.ModuleContent then
+            table.insert(infoParts, "-- Module loaded successfully!")
+            table.insert(infoParts, "-- Type: " .. type(decompiled.ModuleContent))
+            if type(decompiled.ModuleContent) == "table" then
+                table.insert(infoParts, "")
+                table.insert(infoParts, "-- Module Structure:")
+                local count = 0
+                for k, v in pairs(decompiled.ModuleContent) do
+                    if count < 20 then
+                        table.insert(infoParts, "-- " .. tostring(k) .. " = " .. type(v))
+                        count = count + 1
+                    end
+                end
+                if count >= 20 then
+                    table.insert(infoParts, "-- ... and more entries")
+                end
+            end
+        else
+            table.insert(infoParts, "-- Module could not be required")
+        end
+        decompiled.SourceCode = table.concat(infoParts, "\n")
+        decompiled.DecompileMethod = "fallback info"
+    end
+    return decompiled
+end
 function Modules.OverseerCE:PatchFunctionReturn(func, returnValue)
     if type(func) ~= "function" then
         return false, "Not a function"
@@ -1011,6 +1132,24 @@ function Modules.OverseerCE:CreateDecompilerPanel(parent)
         self:PopulateFunctionList(panel)
         self:_showNotification("Scanning for functions...", "info")
     end)
+    local decompileModuleBtn = self:_createButton(browserFrame, "Decompile Module", UDim2.new(1, -4, 0, 20), UDim2.new(0, 2, 1, -44), function()
+        if not self.State.SelectedModule then
+            self:_showNotification("No module selected. Select one from the main Module List first.", "warning")
+            return
+        end
+        self:_showNotification("Decompiling entire module...", "info")
+        local moduleDecomp = self:DecompileModuleScript(self.State.SelectedModule)
+        if moduleDecomp then
+            self.State.CurrentModuleDecompiled = moduleDecomp
+            self:SwitchDecompilerTab("ModuleSource", panel)
+            self:_showNotification("Module decompiled: " .. moduleDecomp.Name, "success")
+        else
+            self:_showNotification("Failed to decompile module", "error")
+        end
+    end)
+    decompileModuleBtn.ZIndex = 102
+    decompileModuleBtn.TextSize = 9
+    decompileModuleBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
     scanBtn.ZIndex = 102
     scanBtn.TextSize = 9
     local contentContainer = Instance.new("Frame", panel)
@@ -1025,7 +1164,7 @@ function Modules.OverseerCE:CreateDecompilerPanel(parent)
     tabContainer.BorderSizePixel = 0
     tabContainer.ZIndex = 101
     self:_createBorder(tabContainer, true)
-    local tabs = {"Info", "Constants", "Upvalues", "Protos", "Source"}
+    local tabs = {"Info", "Constants", "Upvalues", "Protos", "Source", "ModuleSource"}
     local tabButtons = {}
     local tabWidth = (tabContainer.AbsoluteSize.X - 12) / #tabs
     for i, tabName in ipairs(tabs) do
@@ -1158,6 +1297,10 @@ function Modules.OverseerCE:SwitchDecompilerTab(tabName, panel)
         if not child:IsA("UIListLayout") then
             child:Destroy()
         end
+    end
+    if tabName == "ModuleSource" then
+        self:ShowModuleSource(contentArea)
+        return
     end
     if not self.State.CurrentDecompiledFunction then
         local emptyLabel = Instance.new("TextLabel", contentArea)
@@ -1471,6 +1614,115 @@ function Modules.OverseerCE:ShowDecompilerSource(parent, decomp)
     else
         sourceBox.Text = "-- Source code not available\n-- Decompiler not found or function is native\n\n-- Use the other tabs to view function details"
     end
+    self:_createBorder(sourceBox, true)
+    local sourcePadding = Instance.new("UIPadding", sourceBox)
+    sourcePadding.PaddingLeft = UDim.new(0, 6)
+    sourcePadding.PaddingTop = UDim.new(0, 6)
+    sourcePadding.PaddingRight = UDim.new(0, 6)
+    sourcePadding.PaddingBottom = UDim.new(0, 6)
+end
+function Modules.OverseerCE:ShowModuleSource(parent)
+    local yPos = 4
+    if not self.State.CurrentModuleDecompiled then
+        local infoLabel = Instance.new("TextLabel", parent)
+        infoLabel.Size = UDim2.new(1, -8, 0, 80)
+        infoLabel.Position = UDim2.fromOffset(4, yPos)
+        infoLabel.BackgroundColor3 = Color3.fromRGB(255, 250, 220)
+        infoLabel.Text = [[MODULE SOURCE VIEWER
+To view the full module source code:
+1. Select a module from the Module List (left panel)
+2. Click "Decompile Module" button in the function browser
+3. The full module source will appear here
+Note: Individual function source is in the "Source" tab]]
+        infoLabel.TextColor3 = self.Config.TEXT_BLACK
+        infoLabel.Font = Enum.Font.SourceSans
+        infoLabel.TextSize = 11
+        infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+        infoLabel.TextYAlignment = Enum.TextYAlignment.Top
+        infoLabel.TextWrapped = true
+        infoLabel.ZIndex = 102
+        self:_createBorder(infoLabel, true)
+        local labelPadding = Instance.new("UIPadding", infoLabel)
+        labelPadding.PaddingLeft = UDim.new(0, 8)
+        labelPadding.PaddingTop = UDim.new(0, 8)
+        return
+    end
+    local moduleDecomp = self.State.CurrentModuleDecompiled
+    local headerLabel = Instance.new("TextLabel", parent)
+    headerLabel.Size = UDim2.new(1, -8, 0, 24)
+    headerLabel.Position = UDim2.fromOffset(4, yPos)
+    headerLabel.BackgroundColor3 = self.Config.ACCENT_BLUE
+    headerLabel.Text = "📄 " .. moduleDecomp.Name .. " - " .. moduleDecomp.DecompileMethod
+    headerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    headerLabel.Font = Enum.Font.SourceSansBold
+    headerLabel.TextSize = 11
+    headerLabel.TextXAlignment = Enum.TextXAlignment.Left
+    headerLabel.ZIndex = 102
+    self:_createBorder(headerLabel, true)
+    local headerPadding = Instance.new("UIPadding", headerLabel)
+    headerPadding.PaddingLeft = UDim.new(0, 6)
+    yPos = yPos + 28
+    local btnContainer = Instance.new("Frame", parent)
+    btnContainer.Size = UDim2.new(1, -8, 0, 26)
+    btnContainer.Position = UDim2.fromOffset(4, yPos)
+    btnContainer.BackgroundTransparency = 1
+    btnContainer.ZIndex = 102
+    local copyBtn = self:_createButton(btnContainer, "Copy Source", UDim2.fromOffset(100, 22), UDim2.fromOffset(0, 0), function()
+        local copied = self:_setClipboard(moduleDecomp.SourceCode)
+        if copied then
+            self:_showNotification("Source copied to clipboard!", "success")
+        else
+            self:_showNotification("Clipboard not available", "error")
+        end
+    end)
+    copyBtn.ZIndex = 103
+    copyBtn.TextSize = 9
+    local refreshBtn = self:_createButton(btnContainer, "Re-Decompile", UDim2.fromOffset(100, 22), UDim2.fromOffset(104, 0), function()
+        if self.State.SelectedModule then
+            self:_showNotification("Re-decompiling...", "info")
+            local newDecomp = self:DecompileModuleScript(self.State.SelectedModule)
+            if newDecomp then
+                self.State.CurrentModuleDecompiled = newDecomp
+                self:SwitchDecompilerTab("ModuleSource", parent:GetParent())
+                self:_showNotification("Module re-decompiled!", "success")
+            end
+        end
+    end)
+    refreshBtn.ZIndex = 103
+    refreshBtn.TextSize = 9
+    local exportBtn = self:_createButton(btnContainer, "Export Info", UDim2.fromOffset(100, 22), UDim2.fromOffset(208, 0), function()
+        local exportData = {
+            Name = moduleDecomp.Name,
+            FullName = moduleDecomp.FullName,
+            Method = moduleDecomp.DecompileMethod,
+            SourceCode = moduleDecomp.SourceCode,
+            FunctionCount = #moduleDecomp.Functions
+        }
+        local success, json = pcall(function()
+            return game:GetService("HttpService"):JSONEncode(exportData)
+        end)
+        if success then
+            self:_setClipboard(json)
+            self:_showNotification("Module info exported!", "success")
+        end
+    end)
+    exportBtn.ZIndex = 103
+    exportBtn.TextSize = 9
+    yPos = yPos + 30
+    local sourceBox = Instance.new("TextBox", parent)
+    sourceBox.Size = UDim2.new(1, -8, 1, -yPos - 4)
+    sourceBox.Position = UDim2.fromOffset(4, yPos)
+    sourceBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    sourceBox.TextColor3 = Color3.fromRGB(220, 220, 220)
+    sourceBox.Font = Enum.Font.Code
+    sourceBox.TextSize = 9
+    sourceBox.TextXAlignment = Enum.TextXAlignment.Left
+    sourceBox.TextYAlignment = Enum.TextYAlignment.Top
+    sourceBox.TextWrapped = true
+    sourceBox.ClearTextOnFocus = false
+    sourceBox.MultiLine = true
+    sourceBox.ZIndex = 102
+    sourceBox.Text = moduleDecomp.SourceCode or "-- No source code available"
     self:_createBorder(sourceBox, true)
     local sourcePadding = Instance.new("UIPadding", sourceBox)
     sourcePadding.PaddingLeft = UDim.new(0, 6)
@@ -3399,24 +3651,70 @@ function Modules.OverseerCE:RefreshInspector()
     end
 end
 function Modules.OverseerCE:PopulateTable(tbl, isMetatable)
-    if not tbl or type(tbl) ~= "table" then return end
-    if self.State.VisitedTables[tbl] then return end
-    self.State.VisitedTables[tbl] = true
-    local entries = {}
-    for key, value in pairs(tbl) do
-        table.insert(entries, {Key = key, Value = value})
+    if not tbl or type(tbl) ~= "table" then 
+        warn("[Overseer] PopulateTable: invalid input")
+        return 
     end
+    if self.State.VisitedTables[tbl] then 
+        return 
+    end
+    local entries = {}
+    local success, error = pcall(function()
+        for key, value in pairs(tbl) do
+            table.insert(entries, {Key = key, Value = value})
+        end
+    end)
+    if not success then
+        print("[Overseer] Cannot iterate table:", error)
+        self:CreateInspectorRow("[ERROR]", "Cannot read table: " .. tostring(error), tbl, isMetatable)
+        return
+    end
+    if #entries == 0 then
+        self:CreateInspectorRow("[EMPTY]", "This table has no entries", tbl, isMetatable)
+        self.State.VisitedTables[tbl] = true
+        return
+    end
+    self.State.VisitedTables[tbl] = true
     table.sort(entries, function(a, b)
-        return tostring(a.Key) < tostring(b.Key)
+        local aStr = tostring(a.Key)
+        local bStr = tostring(b.Key)
+        local aSpecial = aStr:match("^%[")
+        local bSpecial = bStr:match("^%[")
+        if aSpecial and not bSpecial then return false end
+        if bSpecial and not aSpecial then return true end
+        local aNum = tonumber(a.Key)
+        local bNum = tonumber(b.Key)
+        if aNum and bNum then return aNum < bNum end
+        if aNum then return true end
+        if bNum then return false end
+        return aStr < bStr
     end)
     for _, entry in ipairs(entries) do
         self:CreateInspectorRow(entry.Key, entry.Value, tbl, isMetatable)
     end
+    print(string.format("[Overseer] ✓ Populated table: %d entries", #entries))
 end
 function Modules.OverseerCE:CreateInspectorRow(key, value, parentTable, isMetatable)
     if not self.State.UI then return end
     local valueType = type(value)
     local displayValue = self:GetDisplayValue(value, key)
+	if valueType == "table" then
+        local tableInfo = ""
+        local success, size = pcall(function()
+            local count = 0
+            for k, v in pairs(value) do 
+                count = count + 1
+                if count > 100 then break end
+            end
+            return count
+        end)
+        if success and size then
+            tableInfo = " (" .. size .. (size > 100 and "+" or "") .. " entries)"
+            displayValue = "{table" .. tableInfo .. "}"
+        else
+            displayValue = "{table: protected}"
+        end
+    end
     local row = Instance.new("Frame", self.State.UI.InspectorScroll)
     row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
     row.BackgroundColor3 = isMetatable and self.Config.BG_LIGHT or self.Config.BG_WHITE
@@ -3475,7 +3773,13 @@ function Modules.OverseerCE:CreateInspectorRow(key, value, parentTable, isMetata
     valueBox.ClearTextOnFocus = false
     local patchBtn = self:_createButton(row, "Patch", UDim2.fromOffset(45, 16), UDim2.new(0.80, 2, 0.5, -8), function()
         if valueType == "table" then
-            self:DrillDown(key, value)
+            local success, err = pcall(function()
+                self:DrillDown(key, value)
+            end)
+            if not success then
+                self:_showNotification("Dive failed: " .. tostring(err), "error")
+                warn("[Overseer] Dive error:", err, debug.traceback())
+            end
         elseif valueType == "function" then
             self:ShowFunctionInfo(key, value, parentTable)
         else
@@ -3488,6 +3792,13 @@ function Modules.OverseerCE:CreateInspectorRow(key, value, parentTable, isMetata
         end
     end)
     patchBtn.TextSize = 9
+    if valueType == "table" then
+        patchBtn.Text = "Dive"
+        patchBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    elseif valueType == "function" then
+        patchBtn.Text = "Hook"
+        patchBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 100)
+    end
     local freezeBtn = self:_createButton(row, "Freeze", UDim2.fromOffset(45, 16), UDim2.new(0.88, 2, 0.5, -8), function()
         local newVal = self:ParseValue(valueBox.Text, valueType)
         if newVal ~= nil then
@@ -3502,6 +3813,36 @@ function Modules.OverseerCE:CreateInspectorRow(key, value, parentTable, isMetata
     elseif valueType == "function" then
         patchBtn.Text = "Hook"
     end
+	if valueType == "table" then
+        local lastClick = 0
+        row.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                local now = tick()
+                if now - lastClick < 0.5 then
+                    pcall(function()
+                        self:DrillDown(key, value)
+                    end)
+                end
+                lastClick = now
+            end
+        end)
+    end
+    row.MouseEnter:Connect(function()
+        if row.BackgroundColor3 ~= self.Config.HIGHLIGHT then
+            row.BackgroundColor3 = Color3.fromRGB(230, 240, 255)
+        end
+    end)
+    row.MouseLeave:Connect(function()
+        if isPatched then
+            if patch and patch.Frozen then
+                row.BackgroundColor3 = Color3.fromRGB(255, 220, 220)
+            else
+                row.BackgroundColor3 = Color3.fromRGB(240, 255, 240)
+            end
+        else
+            row.BackgroundColor3 = isMetatable and self.Config.BG_LIGHT or self.Config.BG_WHITE
+        end
+    end)
     valueBox.FocusLost:Connect(function(enterPressed)
         if enterPressed and valueType ~= "table" and valueType ~= "function" then
             local newVal = self:ParseValue(valueBox.Text, valueType)
@@ -3613,11 +3954,25 @@ function Modules.OverseerCE:CreatePatchRow(patchId, patch)
     delBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 200)
 end
 function Modules.OverseerCE:DrillDown(name, tbl)
-    if type(tbl) ~= "table" then return end
+    if type(tbl) ~= "table" then 
+        self:_showNotification("Cannot dive: " .. tostring(name) .. " is " .. type(tbl), "warning")
+        return 
+    end
+    local canIterate, iterError = pcall(function()
+        local test = next(tbl)
+        return test ~= nil
+    end)
+    if not canIterate then
+        self:_showNotification("Table is protected or empty: " .. tostring(name), "error")
+        print("[Overseer] DrillDown blocked:", iterError)
+        return
+    end
     table.insert(self.State.PathStack, tostring(name))
     self.State.CurrentTable = tbl
     self.State.VisitedTables = {}
+    print("[Overseer] ✓ Dove into:", name)
     self:RefreshInspector()
+    self:_showNotification("Viewing: " .. tostring(name), "info")
 end
 function Modules.OverseerCE:GoBack()
     if #self.State.PathStack == 0 then return end
