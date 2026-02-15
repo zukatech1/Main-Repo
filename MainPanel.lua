@@ -158,7 +158,6 @@ local function bypassCustomAC()
         setreadonly(mt, true)
     end)
 end
-bypassCustomAC()
 
 print("- Zukas Panel -")
 
@@ -2828,24 +2827,13 @@ Modules.ESP = {
     State = {
         PlayersEnabled = false,
         Connections = {},
-        TrackedPlayers = setmetatable({}, {__mode="k"}),
-        UpdateConnection = nil
-    },
-    Config = {
-        MaxRenderDistance = 5000,
-        UpdateInterval = 0.1,
-        EnableDistanceCulling = false,
-        DistanceCullThreshold = 3000
+        TrackedPlayers = setmetatable({}, {__mode="k"})
     }
 }
 function Modules.ESP:_cleanup()
     for name, conn in pairs(self.State.Connections) do 
         conn:Disconnect() 
         self.State.Connections[name] = nil
-    end
-    if self.State.UpdateConnection then
-        self.State.UpdateConnection:Disconnect()
-        self.State.UpdateConnection = nil
     end
     for player, _ in pairs(self.State.TrackedPlayers) do
         self:_removePlayerEsp(player)
@@ -2856,9 +2844,6 @@ function Modules.ESP:_createPlayerEsp(player)
     if player == LocalPlayer then return end
     if self.State.Connections["CharAdded_" .. player.UserId] then return end
     local function setupVisuals(character)
-        if not character:IsDescendantOf(workspace) then
-            character.AncestryChanged:Wait()
-        end
         local existing = self.State.TrackedPlayers[player]
         if existing then
             if existing.Highlight then pcall(function() existing.Highlight:Destroy() end) end
@@ -2880,7 +2865,6 @@ function Modules.ESP:_createPlayerEsp(player)
         highlight.FillTransparency = 0.75
         highlight.OutlineTransparency = 0.1
         highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Enabled = true
         local billboard = Instance.new("BillboardGui")
         billboard.Name = "v_Billboard"
         billboard.Parent = head
@@ -2888,8 +2872,7 @@ function Modules.ESP:_createPlayerEsp(player)
         billboard.AlwaysOnTop = true
         billboard.Size = UDim2.new(0, 200, 0, 60)
         billboard.StudsOffset = Vector3.new(0, 3, 0)
-        billboard.MaxDistance = self.Config.MaxRenderDistance
-        billboard.Enabled = true
+        billboard.MaxDistance = 2500
         local container = Instance.new("Frame", billboard)
         container.Size = UDim2.new(1, 0, 1, 0)
         container.BackgroundTransparency = 1
@@ -2924,22 +2907,27 @@ function Modules.ESP:_createPlayerEsp(player)
         subLabel.Text = "DISTANCE: 0m"
         local subStroke = Instance.new("UIStroke", subLabel)
         subStroke.Thickness = 1.2
+        local function update()
+            if not hrp or not LocalPlayer.Character then return end
+            local lHrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not lHrp then return end
+            local hp = humanoid.Health / humanoid.MaxHealth
+            healthBar.Size = UDim2.new(1, 0, hp, 0)
+            healthBar.Position = UDim2.new(0, 0, 1 - hp, 0)
+            healthBar.BackgroundColor3 = Color3.fromHSV(hp * 0.35, 1, 1)
+            local dist = (hrp.Position - lHrp.Position).Magnitude
+            subLabel.Text = string.format("%s | %d STUDS", (player.Team and player.Team.Name:upper() or "NEUTRAL"), math.floor(dist))
+        end
+        local hConn = humanoid.HealthChanged:Connect(update)
+        local rConn = game:GetService("RunService").Heartbeat:Connect(update)
         self.State.TrackedPlayers[player] = {
             Highlight = highlight,
             Billboard = billboard,
-            Character = character,
-            HRP = hrp,
-            Humanoid = humanoid,
-            HealthBar = healthBar,
-            SubLabel = subLabel,
-            LastUpdate = 0
+            InternalConns = {hConn, rConn}
         }
     end
-    if player.Character then 
-        task.spawn(setupVisuals, player.Character) 
-    end
+    if player.Character then task.spawn(setupVisuals, player.Character) end
     self.State.Connections["CharAdded_" .. player.UserId] = player.CharacterAdded:Connect(function(char)
-        task.wait(0.1)
         task.spawn(setupVisuals, char)
     end)
 end
@@ -2948,54 +2936,15 @@ function Modules.ESP:_removePlayerEsp(player)
     if data then
         if data.Highlight then pcall(function() data.Highlight:Destroy() end) end
         if data.Billboard then pcall(function() data.Billboard:Destroy() end) end
+        if data.InternalConns then
+            for _, c in pairs(data.InternalConns) do c:Disconnect() end
+        end
         self.State.TrackedPlayers[player] = nil
     end
     local charConn = self.State.Connections["CharAdded_" .. player.UserId]
     if charConn then
         charConn:Disconnect()
         self.State.Connections["CharAdded_" .. player.UserId] = nil
-    end
-end
-function Modules.ESP:_updateLoop()
-    local lPlayer = LocalPlayer
-    local lChar = lPlayer.Character
-    local lHrp = lChar and lChar:FindFirstChild("HumanoidRootPart")
-    if not lHrp then return end
-    local now = tick()
-    for player, data in pairs(self.State.TrackedPlayers) do
-        if not player or not player.Parent then
-            self:_removePlayerEsp(player)
-            continue
-        end
-        if (now - data.LastUpdate) < self.Config.UpdateInterval then
-            continue
-        end
-        data.LastUpdate = now
-        local char = data.Character
-        local hrp = data.HRP
-        local humanoid = data.Humanoid
-        if not (char and char.Parent and hrp and hrp.Parent and humanoid and humanoid.Parent) then
-            continue
-        end
-        local dist = (hrp.Position - lHrp.Position).Magnitude
-        if self.Config.EnableDistanceCulling and dist > self.Config.DistanceCullThreshold then
-            if data.Highlight then data.Highlight.Enabled = false end
-            if data.Billboard then data.Billboard.Enabled = false end
-            continue
-        else
-            if data.Highlight then data.Highlight.Enabled = true end
-            if data.Billboard then data.Billboard.Enabled = true end
-        end
-        if data.HealthBar and humanoid then
-            local hp = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
-            data.HealthBar.Size = UDim2.new(1, 0, hp, 0)
-            data.HealthBar.Position = UDim2.new(0, 0, 1 - hp, 0)
-            data.HealthBar.BackgroundColor3 = Color3.fromHSV(hp * 0.35, 1, 1)
-        end
-        if data.SubLabel then
-            local teamName = (player.Team and player.Team.Name:upper() or "NEUTRAL")
-            data.SubLabel.Text = string.format("%s | %d STUDS", teamName, math.floor(dist))
-        end
     end
 end
 function Modules.ESP:Toggle(argument)
@@ -3013,9 +2962,6 @@ function Modules.ESP:Toggle(argument)
             for _, player in ipairs(Players:GetPlayers()) do 
                 self:_createPlayerEsp(player) 
             end
-            self.State.UpdateConnection = RunService.Heartbeat:Connect(function()
-                self:_updateLoop()
-            end)
         else
             self:_cleanup()
         end
@@ -3028,17 +2974,12 @@ function Modules.ESP:Toggle(argument)
         else
             self:_createPlayerEsp(targetPlayer)
             DoNotif("ESP Enabled for " .. targetPlayer.DisplayName, 2)
-            if not self.State.UpdateConnection then
-                self.State.UpdateConnection = RunService.Heartbeat:Connect(function()
-                    self:_updateLoop()
-                end)
-            end
         end
     end
 end
 RegisterCommand({
     Name = "esp",
-    Aliases = {"visuals"},
+    Aliases = {},
     Description = "Toggles ESP for all players or a specific player."
 }, function(args)
     Modules.ESP:Toggle(args[1])
@@ -21386,73 +21327,7 @@ RegisterCommand({
 }, function()
     Modules.NetworkOwner:Toggle()
 end)
-Modules.MeleeFreezer = {
-    State = {
-        IsEnabled = false,
-        FrozenTracks = {},
-        Connection = nil
-    },
-    Config = {
-        ToggleKey = Enum.KeyCode.G
-    }
-}
-function Modules.MeleeFreezer:Enable(): ()
-    if self.State.IsEnabled then return end
-    self.State.IsEnabled = true
-    self.State.Connection = RunService.RenderStepped:Connect(function()
-        local character = LocalPlayer.Character
-        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-        local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-        if animator then
-            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-                if track.IsPlaying and track.Speed ~= 0 then
-                    track:AdjustSpeed(0)
-                end
-            end
-        end
-    end)
-    DoNotif("Melee Freeze: ENABLED (Animations Locked)", 2)
-end
-function Modules.MeleeFreezer:Disable(): ()
-    if not self.State.IsEnabled then return end
-    self.State.IsEnabled = false
-    if self.State.Connection then
-        self.State.Connection:Disconnect()
-        self.State.Connection = nil
-    end
-    local character = LocalPlayer.Character
-    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-    local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-    if animator then
-        for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-            track:AdjustSpeed(1)
-        end
-    end
-    DoNotif("Melee Freeze: DISABLED (Animations Restored)", 2)
-end
-function Modules.MeleeFreezer:Toggle(): ()
-    if self.State.IsEnabled then
-        self:Disable()
-    else
-        self:Enable()
-    end
-end
-function Modules.MeleeFreezer:Initialize(): ()
-    local module = self
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        if input.KeyCode == module.Config.ToggleKey then
-            module:Toggle()
-        end
-    end)
-    RegisterCommand({
-        Name = "freezemelee",
-        Aliases = {},
-        Description = "Toggles an animation freeze when G is pressed."
-    }, function()
-        module:Toggle()
-    end)
-end
+
 Modules.ToolAttributeLister = {
     State = {}
 }
