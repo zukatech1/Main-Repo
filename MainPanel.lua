@@ -4,6 +4,8 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/ZukaTech
 
 Made By Zuka. @OverRuka on ROBLOX.
 
+spoofid 82347291 -example
+
 ]]
 
 
@@ -379,7 +381,8 @@ Modules.ZukaAimbot = {
             ToggleKey = Enum.UserInputType.MouseButton2,
             AimPart = "Head",
             FOVRadius = 100,
-            SmoothingEnabled = false,
+            ShowFOVCircle = false,
+            SmoothingEnabled = true,
             SmoothingFactor = 0.2,
             DistanceBasedSmoothing = true,
             WallCheckEnabled = false,
@@ -390,7 +393,14 @@ Modules.ZukaAimbot = {
             HitboxPriority = false,
             UpdateRate = 0.5,
             PredictionSamples = 3,
-            StickyDistanceMultiplier = 1.5
+            StickyDistanceMultiplier = 1.5,
+            UsePIDController = true,
+            UseAdvancedScoring = true,
+            AimRandomization = true,
+            RandomizationMin = 0.92,
+            RandomizationMax = 0.98,
+            HealthPriority = 0.3,
+            DistancePriority = 0.2
         },
         DeleteTool = {
             Enabled = false,
@@ -412,6 +422,44 @@ local HITBOX_PRIORITIES = {
     {Name = "Torso", Priority = 4, DamageMultiplier = 1.5},
     {Name = "LowerTorso", Priority = 5, DamageMultiplier = 1.0},
 }
+local PID = {}
+PID.__index = PID
+function PID:new(kp, ki, kd)
+    local obj = {
+        kp = kp or 0.5,
+        ki = ki or 0.1,
+        kd = kd or 0.2,
+        prev_error = 0,
+        integral = 0,
+        dt = 1/60
+    }
+    setmetatable(obj, PID)
+    return obj
+end
+function PID:calculate(setpoint, measurement)
+    local error = setpoint - measurement
+    self.integral = self.integral + error * self.dt
+    self.integral = math.clamp(self.integral, -10, 10)
+    local derivative = (error - self.prev_error) / self.dt
+    local output = self.kp * error + 
+                   self.ki * self.integral + 
+                   self.kd * derivative
+    self.prev_error = error
+    return output
+end
+function PID:reset()
+    self.prev_error = 0
+    self.integral = 0
+end
+local function DoNotif(message, duration)
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Zuka Aimbot";
+            Text = message;
+            Duration = duration or 3;
+        })
+    end)
+end
 function Modules.ZukaAimbot:Enable()
     if self.State.IsEnabled then return end
     self.State.IsEnabled = true
@@ -424,6 +472,8 @@ function Modules.ZukaAimbot:Enable()
     local LocalPlayer = Players.LocalPlayer
     local Aimbot = self.State.Aimbot
     local DeleteTool = self.State.DeleteTool
+    local pitchPID = PID:new(0.4, 0.08, 0.15)
+    local yawPID = PID:new(0.4, 0.08, 0.15)
     local wallCheckParams = RaycastParams.new()
     wallCheckParams.FilterType = Enum.RaycastFilterType.Exclude
     local function updateTargetIndex(force)
@@ -486,9 +536,30 @@ function Modules.ZukaAimbot:Enable()
         end
         return nil
     end
+    local function calculateTargetScore(model, targetPart, screenDistance)
+        if not Aimbot.UseAdvancedScoring then
+            return screenDistance
+        end
+        local score = 1000 / (screenDistance + 1)
+        local humanoid = model:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            local healthFactor = 1.0 - (humanoid.Health / humanoid.MaxHealth) * Aimbot.HealthPriority
+            score = score * healthFactor
+        end
+        if LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
+            local distance = (LocalPlayer.Character.PrimaryPart.Position - targetPart.Position).Magnitude
+            local distanceFactor = 1.0 / (1.0 + distance / 1000)
+            score = score * (1.0 + distanceFactor * Aimbot.DistancePriority)
+        end
+        if Aimbot.WallCheckEnabled then
+            score = score * 1.2
+        end
+        score = score + math.random() * 10
+        return score
+    end
     local function getClosestTarget()
         local mousePos = UserInputService:GetMouseLocation()
-        local minDist = math.huge
+        local minScore = -math.huge
         local closestTarget = nil
         local closestPart = nil
         if Aimbot.StickyTarget and Aimbot.CurrentTarget and Aimbot.CurrentTarget.Parent then
@@ -500,7 +571,12 @@ function Modules.ZukaAimbot:Enable()
                     if onScreen then
                         local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
                         if dist <= (Aimbot.FOVRadius * Aimbot.StickyDistanceMultiplier) then
-                            return Aimbot.CurrentTarget, targetPart
+                            local score = calculateTargetScore(Aimbot.CurrentTarget, targetPart, dist) * 1.3
+                            if score > minScore then
+                                minScore = score
+                                closestTarget = Aimbot.CurrentTarget
+                                closestPart = targetPart
+                            end
                         end
                     end
                 end
@@ -515,10 +591,13 @@ function Modules.ZukaAimbot:Enable()
                         local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
                         if onScreen then
                             local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-                            if dist < minDist and dist <= Aimbot.FOVRadius then
-                                minDist = dist
-                                closestTarget = model
-                                closestPart = targetPart
+                            if dist <= Aimbot.FOVRadius then
+                                local score = calculateTargetScore(model, targetPart, dist)
+                                if score > minScore then
+                                    minScore = score
+                                    closestTarget = model
+                                    closestPart = targetPart
+                                end
                             end
                         end
                     end
@@ -531,7 +610,12 @@ function Modules.ZukaAimbot:Enable()
         if not Aimbot.PredictionEnabled then
             return targetPart.Position
         end
-        local velocity = targetPart.AssemblyLinearVelocity
+        local velocity = Vector3.new(0, 0, 0)
+        if targetPart.AssemblyLinearVelocity then
+            velocity = targetPart.AssemblyLinearVelocity
+        elseif targetPart.Velocity then
+            velocity = targetPart.Velocity
+        end
         table.insert(Aimbot.VelocityHistory, velocity)
         if #Aimbot.VelocityHistory > Aimbot.PredictionSamples then
             table.remove(Aimbot.VelocityHistory, 1)
@@ -560,21 +644,45 @@ function Modules.ZukaAimbot:Enable()
             return false
         end
         local predictedPosition = predictPosition(targetPart)
-        local goalCFrame = CFrame.lookAt(Camera.CFrame.Position, predictedPosition)
-        if Aimbot.SmoothingEnabled then
-            local distance = (Camera.CFrame.Position - targetPart.Position).Magnitude
-            local smoothness = getDistanceBasedSmoothness(distance)
-            local adjustedSmoothFactor = math.clamp(1 - (1 - smoothness) ^ (60 * deltaTime), 0, 1)
-            Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, adjustedSmoothFactor)
+        local targetScreenPos = Camera:WorldToViewportPoint(predictedPosition)
+        local mousePos = UserInputService:GetMouseLocation()
+        local delta = Vector2.new(
+            targetScreenPos.X - mousePos.X,
+            targetScreenPos.Y - mousePos.Y
+        )
+        if Aimbot.AimRandomization then
+            local randomFactor = Aimbot.RandomizationMin + 
+                               math.random() * (Aimbot.RandomizationMax - Aimbot.RandomizationMin)
+            delta = delta * randomFactor
+        end
+        if Aimbot.UsePIDController then
+            local pitchCorrection = pitchPID:calculate(0, delta.Y)
+            local yawCorrection = yawPID:calculate(0, delta.X)
+            pitchCorrection = math.clamp(pitchCorrection, -2.0, 2.0)
+            yawCorrection = math.clamp(yawCorrection, -2.0, 2.0)
+            local sensitivity = 0.01
+            local cameraCF = Camera.CFrame
+            local newCF = cameraCF * CFrame.Angles(
+                math.rad(-pitchCorrection * sensitivity),
+                math.rad(-yawCorrection * sensitivity),
+                0
+            )
+            Camera.CFrame = newCF
         else
-            Camera.CFrame = goalCFrame
+            local goalCFrame = CFrame.lookAt(Camera.CFrame.Position, predictedPosition)
+            if Aimbot.SmoothingEnabled then
+                local distance = (Camera.CFrame.Position - targetPart.Position).Magnitude
+                local smoothness = getDistanceBasedSmoothness(distance)
+                local adjustedSmoothFactor = math.clamp(1 - (1 - smoothness) ^ (60 * deltaTime), 0, 1)
+                Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, adjustedSmoothFactor)
+            else
+                Camera.CFrame = goalCFrame
+            end
         end
         return true
     end
     local function createESP(part, color)
-        if not part or not part.Parent then
-            return
-        end
+        if not part or not part.Parent then return end
         if Aimbot.ESPObjects[part] then
             local esp = Aimbot.ESPObjects[part]
             esp.Color3 = color
@@ -595,12 +703,16 @@ function Modules.ZukaAimbot:Enable()
     local function clearESP(part)
         if part then
             if Aimbot.ESPObjects[part] then
-                pcall(function() Aimbot.ESPObjects[part]:Destroy() end)
+                pcall(function()
+                    Aimbot.ESPObjects[part]:Destroy()
+                end)
                 Aimbot.ESPObjects[part] = nil
             end
         else
             for _, espBox in pairs(Aimbot.ESPObjects) do
-                pcall(function() espBox:Destroy() end)
+                pcall(function()
+                    espBox:Destroy()
+                end)
             end
             Aimbot.ESPObjects = {}
         end
@@ -615,9 +727,10 @@ function Modules.ZukaAimbot:Enable()
         local result = Workspace:Raycast(ray.Origin, ray.Direction * DeleteTool.MaxDistance, raycastParams)
         if result and result.Instance then
             if DeleteTool.IgnorePlayers then
-                local isPlayer = result.Instance:FindFirstAncestorOfClass("Model") and 
-                    result.Instance:FindFirstAncestorOfClass("Model"):FindFirstChild("Humanoid")
-                if isPlayer then return nil end
+                local isPlayer = result.Instance:FindFirstAncestorOfClass("Model") and result.Instance:FindFirstAncestorOfClass("Model"):FindFirstChild("Humanoid")
+                if isPlayer then
+                    return nil
+                end
             end
             if DeleteTool.IgnoreTerrain and result.Instance:IsA("Terrain") then
                 return nil
@@ -628,7 +741,9 @@ function Modules.ZukaAimbot:Enable()
     end
     local function CreateHighlight(part)
         if DeleteTool.CurrentHighlight then
-            pcall(function() DeleteTool.CurrentHighlight:Destroy() end)
+            pcall(function()
+                DeleteTool.CurrentHighlight:Destroy()
+            end)
         end
         if not part then return end
         local highlight = Instance.new("Highlight")
@@ -640,10 +755,11 @@ function Modules.ZukaAimbot:Enable()
         highlight.Parent = part
         DeleteTool.CurrentHighlight = highlight
     end
+    local historyLabel = nil
     local function DeletePart(part)
-        if not part then 
+        if not part then
             DoNotif("Delete Tool: No part under cursor", 2)
-            return 
+            return
         end
         local toDelete = nil
         if DeleteTool.DeleteMode == "Part" then
@@ -652,6 +768,10 @@ function Modules.ZukaAimbot:Enable()
             toDelete = part:FindFirstAncestorOfClass("Model") or part
         elseif DeleteTool.DeleteMode == "Descendants" then
             toDelete = part.Parent
+            if not toDelete then
+                DoNotif("Delete Tool: Part has no parent", 2)
+                return
+            end
         end
         if toDelete then
             table.insert(DeleteTool.DeletedParts, {
@@ -659,8 +779,13 @@ function Modules.ZukaAimbot:Enable()
                 Parent = toDelete.Parent,
                 Name = toDelete.Name
             })
-            pcall(function() toDelete:Destroy() end)
-            DoNotif("Deleted: " .. toDelete.Name, 2)
+            pcall(function()
+                toDelete:Destroy()
+            end)
+            DoNotif("Deleted: " .. toDelete.Name .. " (" .. DeleteTool.DeleteMode .. ")", 2)
+            if historyLabel then
+                historyLabel:Set("Deleted: " .. #DeleteTool.DeletedParts .. " parts")
+            end
         end
     end
     if Drawing and typeof(Drawing.new) == "function" then
@@ -676,11 +801,15 @@ function Modules.ZukaAimbot:Enable()
         if Aimbot.FOVCircle then
             Aimbot.FOVCircle.Position = UserInputService:GetMouseLocation()
             Aimbot.FOVCircle.Radius = Aimbot.FOVRadius
-            Aimbot.FOVCircle.Visible = Aimbot.Enabled and Aimbot.IsAiming
+            Aimbot.FOVCircle.Visible = Aimbot.ShowFOVCircle and Aimbot.Enabled and Aimbot.IsAiming
         end
         updateTargetIndex()
         if Aimbot.Enabled and Aimbot.IsAiming then
             local targetModel, targetPart = getClosestTarget()
+            if targetModel ~= Aimbot.CurrentTarget then
+                pitchPID:reset()
+                yawPID:reset()
+            end
             Aimbot.CurrentTarget = targetModel
             if targetModel and targetPart then
                 if aimAtTarget(targetPart, deltaTime) then
@@ -691,6 +820,8 @@ function Modules.ZukaAimbot:Enable()
             else
                 clearESP()
                 Aimbot.VelocityHistory = {}
+                pitchPID:reset()
+                yawPID:reset()
             end
             for part, _ in pairs(Aimbot.ESPObjects) do
                 if not part.Parent or part ~= targetPart then
@@ -701,17 +832,23 @@ function Modules.ZukaAimbot:Enable()
             Aimbot.CurrentTarget = nil
             Aimbot.VelocityHistory = {}
             clearESP()
+            pitchPID:reset()
+            yawPID:reset()
         end
         if DeleteTool.Enabled and DeleteTool.ShowHighlight then
             local targetPart = GetPartUnderCursor()
             if targetPart then
                 CreateHighlight(targetPart)
             elseif DeleteTool.CurrentHighlight then
-                pcall(function() DeleteTool.CurrentHighlight:Destroy() end)
+                pcall(function()
+                    DeleteTool.CurrentHighlight:Destroy()
+                end)
                 DeleteTool.CurrentHighlight = nil
             end
         elseif DeleteTool.CurrentHighlight then
-            pcall(function() DeleteTool.CurrentHighlight:Destroy() end)
+            pcall(function()
+                DeleteTool.CurrentHighlight:Destroy()
+            end)
             DeleteTool.CurrentHighlight = nil
         end
     end)
@@ -731,6 +868,8 @@ function Modules.ZukaAimbot:Enable()
         if input.UserInputType == Aimbot.ToggleKey then
             Aimbot.IsAiming = false
             clearESP()
+            pitchPID:reset()
+            yawPID:reset()
         end
     end)
     table.insert(self.State.Connections, renderConnection)
@@ -872,6 +1011,83 @@ function Modules.ZukaAimbot:Enable()
         Text = "💡 Priority: Head → UpperTorso → HumanoidRootPart → Torso",
         Style = 2
     })
+    local AlgorithmSection = AdvancedTab:CreateSection("Algorithm Settings")
+    AlgorithmSection:CreateToggle({
+        Name = "Use PID Controller",
+        Description = "More human-like aim with acceleration",
+        CurrentValue = true,
+        Callback = function(value)
+            Aimbot.UsePIDController = value
+            if value then
+                pitchPID:reset()
+                yawPID:reset()
+            end
+            DoNotif("PID Controller: " .. (value and "ENABLED" or "DISABLED"), 2)
+        end,
+    }, "UsePID")
+    AlgorithmSection:CreateToggle({
+        Name = "Advanced Scoring",
+        Description = "Multi-factor target prioritization",
+        CurrentValue = true,
+        Callback = function(value)
+            Aimbot.UseAdvancedScoring = value
+            DoNotif("Advanced Scoring: " .. (value and "ENABLED" or "DISABLED"), 2)
+        end,
+    }, "AdvancedScoring")
+    AlgorithmSection:CreateToggle({
+        Name = "Aim Randomization",
+        Description = "Add slight randomness for realism",
+        CurrentValue = true,
+        Callback = function(value)
+            Aimbot.AimRandomization = value
+            DoNotif("Randomization: " .. (value and "ENABLED" or "DISABLED"), 2)
+        end,
+    }, "AimRandom")
+    AlgorithmSection:CreateLabel({
+        Text = "💡 PID = Smoother, more realistic aim movement",
+        Style = 2
+    })
+    local PrioritySection = AdvancedTab:CreateSection("Target Priority Weights")
+    PrioritySection:CreateSlider({
+        Name = "Health Priority",
+        Range = {0, 1.0},
+        Increment = 0.05,
+        CurrentValue = 0.3,
+        Callback = function(value)
+            Aimbot.HealthPriority = value
+        end,
+    }, "HealthPriority")
+    PrioritySection:CreateSlider({
+        Name = "Distance Priority",
+        Range = {0, 1.0},
+        Increment = 0.05,
+        CurrentValue = 0.2,
+        Callback = function(value)
+            Aimbot.DistancePriority = value
+        end,
+    }, "DistancePriority")
+    PrioritySection:CreateSlider({
+        Name = "Randomization Min",
+        Range = {0.8, 1.0},
+        Increment = 0.01,
+        CurrentValue = 0.92,
+        Callback = function(value)
+            Aimbot.RandomizationMin = value
+        end,
+    }, "RandomMin")
+    PrioritySection:CreateSlider({
+        Name = "Randomization Max",
+        Range = {0.8, 1.0},
+        Increment = 0.01,
+        CurrentValue = 0.98,
+        Callback = function(value)
+            Aimbot.RandomizationMax = value
+        end,
+    }, "RandomMax")
+    PrioritySection:CreateLabel({
+        Text = "💡 Higher values = stronger influence on targeting",
+        Style = 2
+    })
     local PredictionSection = AdvancedTab:CreateSection("Prediction System")
     PredictionSection:CreateToggle({
         Name = "Enable Prediction",
@@ -938,7 +1154,7 @@ function Modules.ZukaAimbot:Enable()
         Style = 2
     })
     DeleteMainSection:CreateLabel({
-        Text = "💡 Descendants: Parent + all children",
+        Text = "💡 Descendants: All parts in parent container",
         Style = 2
     })
     local DeleteOptionsSection = DeleteTab:CreateSection("Options")
@@ -976,7 +1192,7 @@ function Modules.ZukaAimbot:Enable()
         end,
     }, "ShowHighlight")
     local DeleteHistorySection = DeleteTab:CreateSection("History")
-    local historyLabel = DeleteHistorySection:CreateLabel({
+    historyLabel = DeleteHistorySection:CreateLabel({
         Text = "Deleted: 0 parts",
         Style = 1
     })
@@ -985,19 +1201,17 @@ function Modules.ZukaAimbot:Enable()
         Description = "Clear deletion history",
         Callback = function()
             DeleteTool.DeletedParts = {}
+            historyLabel:Set("Deleted: 0 parts")
             DoNotif("Delete history cleared", 2)
         end,
     })
-    local historyConnection = RunService.Heartbeat:Connect(function()
-        historyLabel:Set("Deleted: " .. #DeleteTool.DeletedParts .. " parts")
-    end)
-    table.insert(self.State.Connections, historyConnection)
     local FOVSection = VisualsTab:CreateSection("FOV Circle")
     FOVSection:CreateToggle({
         Name = "Show FOV Circle",
         Description = "Display targeting circle",
         CurrentValue = false,
         Callback = function(value)
+            Aimbot.ShowFOVCircle = value
         end,
     }, "ShowFOV")
     FOVSection:CreateColorPicker({
@@ -1043,37 +1257,190 @@ function Modules.ZukaAimbot:Enable()
             local player = Players:GetPlayerFromCharacter(Aimbot.CurrentTarget)
             local targetName = player and player.Name or "Unknown"
             targetLabel:Set("🎯 Target: " .. targetName)
-            statusLabel:Set("Status: LOCKED & TRACKING")
+            statusLabel:Set("Status: LOCKED & TRACKING" .. (Aimbot.UsePIDController and " [PID]" or ""))
         else
             targetLabel:Set("No target")
             statusLabel:Set("Status: " .. (Aimbot.Enabled and "Ready (Hold RMB)" or "Disabled"))
         end
     end)
+    local ConfigSystem = {
+    ConfigFolder = "ZukaAimbot",
+    CurrentConfig = "default"
+}
+function ConfigSystem:SaveConfig(configName)
+    configName = configName or self.CurrentConfig
+    local config = {
+        AimbotEnabled = Aimbot.Enabled,
+        FOVRadius = Aimbot.FOVRadius,
+        SmoothingFactor = Aimbot.SmoothingFactor,
+        AimPart = Aimbot.AimPart,
+        ShowFOVCircle = Aimbot.ShowFOVCircle,
+        IgnoreTeam = Aimbot.IgnoreTeam,
+        WallCheckEnabled = Aimbot.WallCheckEnabled,
+        HitboxPriority = Aimbot.HitboxPriority,
+        StickyTarget = Aimbot.StickyTarget,
+        DistanceBasedSmoothing = Aimbot.DistanceBasedSmoothing,
+        PredictionEnabled = Aimbot.PredictionEnabled,
+        PredictionMultiplier = Aimbot.PredictionMultiplier,
+        UsePIDController = Aimbot.UsePIDController,
+        UseAdvancedScoring = Aimbot.UseAdvancedScoring,
+        AimRandomization = Aimbot.AimRandomization,
+        RandomizationMin = Aimbot.RandomizationMin,
+        RandomizationMax = Aimbot.RandomizationMax,
+        HealthPriority = Aimbot.HealthPriority,
+        DistancePriority = Aimbot.DistancePriority,
+        DeleteToolEnabled = DeleteTool.Enabled,
+        DeleteMode = DeleteTool.DeleteMode,
+        DeleteMaxDistance = DeleteTool.MaxDistance,
+        DeleteIgnorePlayers = DeleteTool.IgnorePlayers,
+        DeleteIgnoreTerrain = DeleteTool.IgnoreTerrain,
+        DeleteShowHighlight = DeleteTool.ShowHighlight
+    }
+    local success, err = pcall(function()
+        writefile(self.ConfigFolder .. "/" .. configName .. ".json", game:GetService("HttpService"):JSONEncode(config))
+    end)
+    if success then
+        DoNotif("Config saved: " .. configName, 3)
+        return true
+    else
+        DoNotif("Failed to save config: " .. tostring(err), 3)
+        return false
+    end
+end
+function ConfigSystem:LoadConfig(configName)
+    configName = configName or self.CurrentConfig
+    local success, result = pcall(function()
+        return readfile(self.ConfigFolder .. "/" .. configName .. ".json")
+    end)
+    if not success then
+        DoNotif("Config not found: " .. configName, 3)
+        return false
+    end
+    local config = game:GetService("HttpService"):JSONDecode(result)
+    if config.AimbotEnabled ~= nil then Aimbot.Enabled = config.AimbotEnabled end
+    if config.FOVRadius then Aimbot.FOVRadius = config.FOVRadius end
+    if config.SmoothingFactor then Aimbot.SmoothingFactor = config.SmoothingFactor end
+    if config.AimPart then Aimbot.AimPart = config.AimPart end
+    if config.ShowFOVCircle ~= nil then Aimbot.ShowFOVCircle = config.ShowFOVCircle end
+    if config.IgnoreTeam ~= nil then Aimbot.IgnoreTeam = config.IgnoreTeam end
+    if config.WallCheckEnabled ~= nil then Aimbot.WallCheckEnabled = config.WallCheckEnabled end
+    if config.HitboxPriority ~= nil then Aimbot.HitboxPriority = config.HitboxPriority end
+    if config.StickyTarget ~= nil then Aimbot.StickyTarget = config.StickyTarget end
+    if config.DistanceBasedSmoothing ~= nil then Aimbot.DistanceBasedSmoothing = config.DistanceBasedSmoothing end
+    if config.PredictionEnabled ~= nil then Aimbot.PredictionEnabled = config.PredictionEnabled end
+    if config.PredictionMultiplier then Aimbot.PredictionMultiplier = config.PredictionMultiplier end
+    if config.UsePIDController ~= nil then Aimbot.UsePIDController = config.UsePIDController end
+    if config.UseAdvancedScoring ~= nil then Aimbot.UseAdvancedScoring = config.UseAdvancedScoring end
+    if config.AimRandomization ~= nil then Aimbot.AimRandomization = config.AimRandomization end
+    if config.RandomizationMin then Aimbot.RandomizationMin = config.RandomizationMin end
+    if config.RandomizationMax then Aimbot.RandomizationMax = config.RandomizationMax end
+    if config.HealthPriority then Aimbot.HealthPriority = config.HealthPriority end
+    if config.DistancePriority then Aimbot.DistancePriority = config.DistancePriority end
+    if config.DeleteToolEnabled ~= nil then DeleteTool.Enabled = config.DeleteToolEnabled end
+    if config.DeleteMode then DeleteTool.DeleteMode = config.DeleteMode end
+    if config.DeleteMaxDistance then DeleteTool.MaxDistance = config.DeleteMaxDistance end
+    if config.DeleteIgnorePlayers ~= nil then DeleteTool.IgnorePlayers = config.DeleteIgnorePlayers end
+    if config.DeleteIgnoreTerrain ~= nil then DeleteTool.IgnoreTerrain = config.DeleteIgnoreTerrain end
+    if config.DeleteShowHighlight ~= nil then DeleteTool.ShowHighlight = config.DeleteShowHighlight end
+    DoNotif("Config loaded: " .. configName, 3)
+    return true
+end
+function ConfigSystem:DeleteConfig(configName)
+    local success, err = pcall(function()
+        delfile(self.ConfigFolder .. "/" .. configName .. ".json")
+    end)
+    if success then
+        DoNotif("Config deleted: " .. configName, 3)
+        return true
+    else
+        DoNotif("Failed to delete config", 3)
+        return false
+    end
+end
+function ConfigSystem:ListConfigs()
+    local success, files = pcall(function()
+        return listfiles(self.ConfigFolder)
+    end)
+    if not success then
+        return {}
+    end
+    local configs = {}
+    for _, file in ipairs(files) do
+        local configName = file:match("([^/]+)%.json$")
+        if configName then
+            table.insert(configs, configName)
+        end
+    end
+    return configs
+end
+pcall(function()
+    if not isfolder(ConfigSystem.ConfigFolder) then
+        makefolder(ConfigSystem.ConfigFolder)
+    end
+end)
     table.insert(self.State.Connections, infoConnection)
+local configSuccess = pcall(function()
     SettingsTab:BuildConfigSection()
-    SettingsTab:BuildThemeSection()
+end)
+if not configSuccess then
+    local ManualConfigSection = SettingsTab:CreateSection("Configuration")
+    ManualConfigSection:CreateButton({
+        Name = "Save Config",
+        Description = "Save current settings",
+        Callback = function()
+            ConfigSystem:SaveConfig("default")
+        end,
+    })
+    ManualConfigSection:CreateButton({
+        Name = "Load Config",
+        Description = "Load saved settings",
+        Callback = function()
+            ConfigSystem:LoadConfig("default")
+        end,
+    })
+    ManualConfigSection:CreateButton({
+        Name = "Reset Config",
+        Description = "Reset to defaults",
+        Callback = function()
+            ConfigSystem:DeleteConfig("default")
+            DoNotif("Config reset - restart script to apply defaults", 3)
+        end,
+    })
+    ManualConfigSection:CreateLabel({
+        Text = "💡 Config auto-saves as 'default.json'",
+        Style = 2
+    })
+end    SettingsTab:BuildThemeSection()
     Luna:LoadAutoloadConfig()
-    DoNotif("Zuka Aimbot Suite: LOADED | Press INSERT to toggle UI | Hold RMB to aim | X to delete", 5)
+    DoNotif("Zuka Aimbot Suite v2.0: LOADED | PID + Smart Scoring Active | Press INSERT to toggle UI", 5)
 end
 function Modules.ZukaAimbot:Disable()
     if not self.State.IsEnabled then return end
     self.State.IsEnabled = false
     for _, connection in ipairs(self.State.Connections) do
         if connection then
-            pcall(function() connection:Disconnect() end)
+            pcall(function()
+                connection:Disconnect()
+            end)
         end
     end
     self.State.Connections = {}
     if self.State.Aimbot.FOVCircle then
-        pcall(function() self.State.Aimbot.FOVCircle:Remove() end)
+        pcall(function()
+            self.State.Aimbot.FOVCircle:Remove()
+        end)
         self.State.Aimbot.FOVCircle = nil
     end
     for _, espBox in pairs(self.State.Aimbot.ESPObjects) do
-        pcall(function() espBox:Destroy() end)
+        pcall(function()
+            espBox:Destroy()
+        end)
     end
     self.State.Aimbot.ESPObjects = {}
     if self.State.DeleteTool.CurrentHighlight then
-        pcall(function() self.State.DeleteTool.CurrentHighlight:Destroy() end)
+        pcall(function()
+            self.State.DeleteTool.CurrentHighlight:Destroy()
+        end)
         self.State.DeleteTool.CurrentHighlight = nil
     end
     if self.State.Window then
@@ -1099,7 +1466,7 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gameProce
         Modules.ZukaAimbot:Toggle()
     end
 end)
-DoNotif("Zuka Aimbot loaded! Press INSERT to open", 3)
+DoNotif("Zuka Aimbot v2.0 loaded! Press INSERT to open", 3)
 Modules.Performance = {
     State = {
         IsEnabled = false,
@@ -20234,574 +20601,7 @@ RegisterCommand({
         Modules.AutoInteract:Enable(args[1])
     end
 end)
-Modules.SettingsManager = {
-    State = {
-        UI = nil,
-        IsOpen = false,
-        ActiveCategory = "General",
-        Connections = {},
-        Cache = {},
-        Presets = {},
-        CurrentPreset = "default"
-    },
-    Config = {
-        ACCENT = Color3.fromRGB(0, 255, 255),
-        BG = Color3.fromRGB(15, 15, 18),
-        SECONDARY = Color3.fromRGB(22, 22, 26),
-        TEXT = Color3.fromRGB(240, 240, 240),
-        DANGER = Color3.fromRGB(255, 80, 80)
-    },
-    Settings = {
-        General = {
-            Notifications = {type = "boolean", value = true, label = "Global Notifications", desc = "Enable/disable all notifications from the system"},
-            AutoSave = {type = "boolean", value = true, label = "Auto-Persistence", desc = "Automatically save settings on every change"},
-            StreamerMode = {type = "boolean", value = false, label = "Streamer Mode", desc = "Hide sensitive info in UI (usernames, coordinates)"}
-        },
-        Visual = {
-            PanelOpacity = {type = "number", value = 0.9, label = "Panel Opacity", min = 0.1, max = 1, desc = "Global transparency of all UI panels"},
-            ThemeColor = {type = "color", value = Color3.fromRGB(0, 255, 255), label = "Accent Color", desc = "Primary theme color for UI elements"},
-            OverlayEnabled = {type = "boolean", value = true, label = "Draw Overlays", desc = "Display visual ESP and highlight overlays"},
-            FontSize = {type = "number", value = 13, label = "Font Size", min = 10, max = 20, desc = "Text size in UI panels"}
-        },
-        Performance = {
-            FPSCap = {type = "number", value = 0, label = "FPS Limiter (0=off)", min = 0, max = 240, desc = "Cap framerate for reduced CPU usage"},
-            UpdateFrequency = {type = "number", value = 1, label = "Update Rate (Hz)", min = 1, max = 60, desc = "ESP and visual update frequency"},
-            MemoryOptimize = {type = "boolean", value = true, label = "Memory Optimization", desc = "Clean up unused objects periodically"}
-        },
-        Notifications = {
-            ModuleToggle = {type = "boolean", value = true, label = "Module Toggles", desc = "Notify when modules enable/disable"},
-            CommandExecution = {type = "boolean", value = false, label = "Command Execution", desc = "Notify when commands are run"},
-            Errors = {type = "boolean", value = true, label = "Show Errors", desc = "Display error messages"},
-            Duration = {type = "number", value = 2, label = "Default Duration (sec)", min = 0.5, max = 10, desc = "How long notifications stay visible"}
-        },
-        Keybinds = {
-            MenuToggle = {type = "keybind", value = Enum.KeyCode.RightControl, label = "Primary Dashboard", desc = "Open main menu"},
-            SettingsToggle = {type = "keybind", value = Enum.KeyCode.RightShift, label = "Settings Panel", desc = "Toggle this window"},
-            CommandPrefix = {type = "string", value = ";", label = "Command Prefix", desc = "Character(s) to trigger commands"}
-        },
-        Advanced = {
-            DebugMode = {type = "boolean", value = false, label = "Debug Mode", desc = "Enable logging to console"},
-            LogLevel = {type = "string", value = "warn", label = "Log Level", options = {"info", "warn", "error"}, desc = "Console output verbosity"},
-            EnableMetatableHooks = {type = "boolean", value = false, label = "Metatable Inspection", desc = "Allow inspection of protected metatables"}
-        }
-    }
-}
-function Modules.SettingsManager:Save(): ()
-    local encoded = {}
-    for cat, data in pairs(self.Settings) do
-        encoded[cat] = {}
-        for key, setting in pairs(data) do
-            if setting.type == "color" then
-                encoded[cat][key] = {r = setting.value.R, g = setting.value.G, b = setting.value.B}
-            elseif setting.type == "keybind" then
-                encoded[cat][key] = setting.value.Name
-            else
-                encoded[cat][key] = setting.value
-            end
-        end
-    end
-    local success, result = pcall(function()
-        local json = HttpService:JSONEncode(encoded)
-        if writefile then
-            writefile("ZukaV10_Config.json", json)
-        end
-    end)
-    if success and typeof(DoNotif) == "function" then
-        DoNotif("Configuration Synced", 1.5)
-    end
-end
-function Modules.SettingsManager:Load(): ()
-    if not isfile or not isfile("ZukaV10_Config.json") then return end
-    local success, data = pcall(function()
-        local raw = readfile("ZukaV10_Config.json")
-        return HttpService:JSONDecode(raw)
-    end)
-    if not success then return end
-    for cat, settings in pairs(data) do
-        if self.Settings[cat] then
-            for key, val in pairs(settings) do
-                local target = self.Settings[cat][key]
-                if target then
-                    if target.type == "color" and type(val) == "table" then
-                        target.value = Color3.new(val.r, val.g, val.b)
-                    elseif target.type == "keybind" and type(val) == "string" then
-                        target.value = Enum.KeyCode[val]
-                    else
-                        target.value = val
-                    end
-                end
-            end
-        end
-    end
-end
-function Modules.SettingsManager:_createControl(parent: Instance, cat: string, key: string, data: table): ()
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, -10, 0, 50)
-    container.BackgroundColor3 = self.Config.SECONDARY
-    container.BorderSizePixel = 0
-    container.Parent = parent
-    local corner = Instance.new("UICorner", container)
-    corner.CornerRadius = UDim.new(0, 4)
-    local label = Instance.new("TextLabel", container)
-    label.Size = UDim2.new(0.6, 0, 0, 25)
-    label.Position = UDim2.fromOffset(12, 5)
-    label.Text = data.label
-    label.TextColor3 = self.Config.TEXT
-    label.Font = Enum.Font.Code
-    label.TextSize = 13
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.BackgroundTransparency = 1
-    if data.desc then
-        local desc = Instance.new("TextLabel", container)
-        desc.Size = UDim2.new(0.6, -24, 0, 18)
-        desc.Position = UDim2.fromOffset(12, 28)
-        desc.Text = "• " .. data.desc
-        desc.TextColor3 = Color3.fromRGB(150, 150, 150)
-        desc.Font = Enum.Font.Code
-        desc.TextSize = 10
-        desc.TextXAlignment = Enum.TextXAlignment.Left
-        desc.BackgroundTransparency = 1
-    end
-    if data.type == "boolean" then
-        local btn = Instance.new("TextButton", container)
-        btn.Size = UDim2.fromOffset(60, 26)
-        btn.Position = UDim2.new(1, -72, 0.5, -13)
-        btn.BackgroundColor3 = data.value and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(60, 60, 65)
-        btn.Text = data.value and "ON" or "OFF"
-        btn.TextColor3 = Color3.new(1, 1, 1)
-        btn.Font = Enum.Font.Code
-        btn.TextSize = 11
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-        btn.MouseButton1Click:Connect(function()
-            data.value = not data.value
-            btn.Text = data.value and "ON" or "OFF"
-            local TweenService = game:GetService("TweenService")
-            TweenService:Create(btn, TweenInfo.new(0.2), {
-                BackgroundColor3 = data.value and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(60, 60, 65)
-            }):Play()
-            if self.Settings.General.AutoSave.value then self:Save() end
-        end)
-    elseif data.type == "number" then
-        local box = Instance.new("TextBox", container)
-        box.Size = UDim2.fromOffset(80, 26)
-        box.Position = UDim2.new(1, -92, 0.5, -13)
-        box.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-        box.Text = tostring(data.value)
-        box.TextColor3 = self.Config.ACCENT
-        box.Font = Enum.Font.Code
-        box.TextSize = 12
-        Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
-        box.FocusLost:Connect(function(enter)
-            local n = tonumber(box.Text)
-            if n then
-                n = math.clamp(n, data.min or -math.huge, data.max or math.huge)
-                data.value = n
-                box.Text = tostring(n)
-                if self.Settings.General.AutoSave.value then self:Save() end
-            else
-                box.Text = tostring(data.value)
-            end
-        end)
-    elseif data.type == "color" then
-        local colorDisplay = Instance.new("Frame", container)
-        colorDisplay.Size = UDim2.fromOffset(35, 26)
-        colorDisplay.Position = UDim2.new(1, -115, 0.5, -13)
-        colorDisplay.BackgroundColor3 = data.value
-        colorDisplay.BorderSizePixel = 1
-        colorDisplay.BorderColor3 = self.Config.ACCENT
-        Instance.new("UICorner", colorDisplay).CornerRadius = UDim.new(0, 4)
-        local colorBtn = Instance.new("TextButton", container)
-        colorBtn.Size = UDim2.fromOffset(70, 26)
-        colorBtn.Position = UDim2.new(1, -72, 0.5, -13)
-        colorBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-        colorBtn.Text = "Pick"
-        colorBtn.TextColor3 = self.Config.ACCENT
-        colorBtn.Font = Enum.Font.Code
-        colorBtn.TextSize = 11
-        Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(0, 4)
-        colorBtn.MouseButton1Click:Connect(function()
-            local r = math.floor(data.value.R * 255)
-            local g = math.floor(data.value.G * 255)
-            local b = math.floor(data.value.B * 255)
-            local newColor = Color3.fromRGB(
-                math.clamp(r + math.random(-10, 10), 0, 255),
-                math.clamp(g + math.random(-10, 10), 0, 255),
-                math.clamp(b + math.random(-10, 10), 0, 255)
-            )
-            data.value = newColor
-            colorDisplay.BackgroundColor3 = newColor
-            if self.Settings.General.AutoSave.value then self:Save() end
-        end)
-    elseif data.type == "string" then
-        if data.options then
-            local dropdownBtn = Instance.new("TextButton", container)
-            dropdownBtn.Size = UDim2.fromOffset(80, 26)
-            dropdownBtn.Position = UDim2.new(1, -92, 0.5, -13)
-            dropdownBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-            dropdownBtn.Text = data.value:upper()
-            dropdownBtn.TextColor3 = self.Config.ACCENT
-            dropdownBtn.Font = Enum.Font.Code
-            dropdownBtn.TextSize = 11
-            Instance.new("UICorner", dropdownBtn).CornerRadius = UDim.new(0, 4)
-            dropdownBtn.MouseButton1Click:Connect(function()
-                local idx = table.find(data.options, data.value) or 1
-                idx = (idx % #data.options) + 1
-                data.value = data.options[idx]
-                dropdownBtn.Text = data.value:upper()
-                if self.Settings.General.AutoSave.value then self:Save() end
-            end)
-        else
-            local textBox = Instance.new("TextBox", container)
-            textBox.Size = UDim2.fromOffset(80, 26)
-            textBox.Position = UDim2.new(1, -92, 0.5, -13)
-            textBox.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-            textBox.Text = tostring(data.value)
-            textBox.TextColor3 = self.Config.ACCENT
-            textBox.Font = Enum.Font.Code
-            textBox.TextSize = 12
-            Instance.new("UICorner", textBox).CornerRadius = UDim.new(0, 4)
-            textBox.FocusLost:Connect(function()
-                data.value = textBox.Text
-                if self.Settings.General.AutoSave.value then self:Save() end
-            end)
-        end
-    elseif data.type == "keybind" then
-        local btn = Instance.new("TextButton", container)
-        btn.Size = UDim2.fromOffset(100, 26)
-        btn.Position = UDim2.new(1, -112, 0.5, -13)
-        btn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-        btn.Text = data.value.Name
-        btn.TextColor3 = self.Config.ACCENT
-        btn.Font = Enum.Font.Code
-        btn.TextSize = 11
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-        local active = false
-        btn.MouseButton1Click:Connect(function()
-            if active then return end
-            active = true
-            btn.Text = "..."
-            btn.TextColor3 = self.Config.DANGER
-            local conn
-            conn = UserInputService.InputBegan:Connect(function(input, gpe)
-                if gpe then return end
-                if input.UserInputType == Enum.UserInputType.Keyboard then
-                    data.value = input.KeyCode
-                    btn.Text = input.KeyCode.Name
-                    btn.TextColor3 = self.Config.ACCENT
-                    active = false
-                    if self.Settings.General.AutoSave.value then self:Save() end
-                    conn:Disconnect()
-                end
-            end)
-            task.delay(5, function()
-                if active then
-                    active = false
-                    btn.Text = data.value.Name
-                    btn.TextColor3 = self.Config.ACCENT
-                    if conn then conn:Disconnect() end
-                end
-            end)
-        end)
-    end
-end
-function Modules.SettingsManager:CreateUI(): ()
-    if self.State.UI then
-        self.State.UI.Enabled = true
-        return
-    end
-    local sg = Instance.new("ScreenGui", CoreGui)
-    sg.Name = "Zuka_Settings_V10"
-    self.State.UI = sg
-    local main = Instance.new("Frame", sg)
-    main.Size = UDim2.fromOffset(750, 550)
-    main.Position = UDim2.fromScale(0.5, 0.5)
-    main.AnchorPoint = Vector2.new(0.5, 0.5)
-    main.BackgroundColor3 = self.Config.BG
-    main.BorderSizePixel = 0
-    main.Active = true
-    main.Draggable = true
-    local stroke = Instance.new("UIStroke", main)
-    stroke.Color = self.Config.ACCENT
-    stroke.Thickness = 1.5
-    Instance.new("UICorner", main).CornerRadius = UDim.new(0, 6)
-    local header = Instance.new("Frame", main)
-    header.Size = UDim2.new(1, 0, 0, 50)
-    header.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    header.BorderSizePixel = 0
-    local title = Instance.new("TextLabel", header)
-    title.Size = UDim2.new(0.6, 0, 1, 0)
-    title.Position = UDim2.fromOffset(15, 0)
-    title.Text = "⚙️ SYSTEM SETTINGS"
-    title.TextColor3 = self.Config.ACCENT
-    title.Font = Enum.Font.Code
-    title.TextSize = 16
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.BackgroundTransparency = 1
-    local presetLabel = Instance.new("TextLabel", header)
-    presetLabel.Size = UDim2.new(0, 100, 0, 20)
-    presetLabel.Position = UDim2.new(0.6, 0, 0.15, 0)
-    presetLabel.Text = "Preset:"
-    presetLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-    presetLabel.Font = Enum.Font.Code
-    presetLabel.TextSize = 11
-    presetLabel.BackgroundTransparency = 1
-    local presetBox = Instance.new("TextBox", header)
-    presetBox.Size = UDim2.new(0, 100, 0, 22)
-    presetBox.Position = UDim2.new(0.72, 0, 0.14, 0)
-    presetBox.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    presetBox.Text = self.State.CurrentPreset
-    presetBox.TextColor3 = self.Config.ACCENT
-    presetBox.Font = Enum.Font.Code
-    presetBox.TextSize = 11
-    Instance.new("UICorner", presetBox).CornerRadius = UDim.new(0, 3)
-    local savePresetBtn = Instance.new("TextButton", header)
-    savePresetBtn.Size = UDim2.fromOffset(50, 22)
-    savePresetBtn.Position = UDim2.new(0.87, 0, 0.14, 0)
-    savePresetBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
-    savePresetBtn.Text = "Save"
-    savePresetBtn.TextColor3 = Color3.new(1, 1, 1)
-    savePresetBtn.Font = Enum.Font.Code
-    savePresetBtn.TextSize = 10
-    Instance.new("UICorner", savePresetBtn).CornerRadius = UDim.new(0, 3)
-    savePresetBtn.MouseButton1Click:Connect(function()
-        local presetName = presetBox.Text
-        if presetName:len() > 0 then
-            self:SavePreset(presetName)
-            self.State.CurrentPreset = presetName
-            DoNotif("Preset saved: " .. presetName, 2)
-        end
-    end)
-    local resetBtn = Instance.new("TextButton", header)
-    resetBtn.Size = UDim2.fromOffset(80, 22)
-    resetBtn.Position = UDim2.new(1, -95, 0.5, -11)
-    resetBtn.BackgroundColor3 = self.Config.DANGER
-    resetBtn.Text = "Reset All"
-    resetBtn.TextColor3 = Color3.new(1, 1, 1)
-    resetBtn.Font = Enum.Font.Code
-    resetBtn.TextSize = 10
-    Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 3)
-    resetBtn.MouseButton1Click:Connect(function()
-        self:ResetDefaults()
-        DoNotif("Settings reset to defaults", 2)
-        sg:Destroy()
-        self.State.UI = nil
-        task.wait(0.1)
-        self:CreateUI()
-    end)
-    local close = Instance.new("TextButton", header)
-    close.Size = UDim2.fromOffset(35, 35)
-    close.Position = UDim2.new(1, -35, 0, 0)
-    close.Text = "X"
-    close.TextColor3 = self.Config.DANGER
-    close.BackgroundTransparency = 1
-    close.Font = Enum.Font.Code
-    close.TextSize = 16
-    close.MouseButton1Click:Connect(function() sg.Enabled = false end)
-    local sidebar = Instance.new("Frame", main)
-    sidebar.Size = UDim2.new(0, 150, 1, -55)
-    sidebar.Position = UDim2.fromOffset(0, 50)
-    sidebar.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
-    sidebar.BorderSizePixel = 0
-    local content = Instance.new("ScrollingFrame", main)
-    content.Size = UDim2.new(1, -160, 1, -60)
-    content.Position = UDim2.fromOffset(155, 55)
-    content.BackgroundTransparency = 1
-    content.BorderSizePixel = 0
-    content.ScrollBarThickness = 3
-    content.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    local layout = Instance.new("UIListLayout", content)
-    layout.Padding = UDim.new(0, 10)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    local sideLayout = Instance.new("UIListLayout", sidebar)
-    sideLayout.Padding = UDim.new(0, 2)
-    local function loadCategory(catName)
-        for _, child in ipairs(content:GetChildren()) do
-            if not child:IsA("UIListLayout") then child:Destroy() end
-        end
-        for key, data in pairs(self.Settings[catName]) do
-            self:_createControl(content, catName, key, data)
-        end
-    end
-    for catName, _ in pairs(self.Settings) do
-        local b = Instance.new("TextButton", sidebar)
-        b.Size = UDim2.new(1, 0, 0, 35)
-        b.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-        b.BorderSizePixel = 0
-        b.Text = catName:upper()
-        b.TextColor3 = Color3.fromRGB(150, 150, 150)
-        b.Font = Enum.Font.Code
-        b.TextSize = 11
-        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
-        b.MouseButton1Click:Connect(function()
-            loadCategory(catName)
-            for _, other in ipairs(sidebar:GetChildren()) do
-                if other:IsA("TextButton") then
-                    other.TextColor3 = Color3.fromRGB(150, 150, 150)
-                    other.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-                end
-            end
-            b.TextColor3 = Color3.new(0, 0, 0)
-            b.BackgroundColor3 = self.Config.ACCENT
-        end)
-    end
-    loadCategory("General")
-    local firstBtn = sidebar:FindFirstChildOfClass("TextButton")
-    if firstBtn then
-        firstBtn.BackgroundColor3 = self.Config.ACCENT
-        firstBtn.TextColor3 = Color3.new(0, 0, 0)
-    end
-end
-function Modules.SettingsManager:ResetDefaults(): ()
-    self.Settings = {
-        General = {
-            Notifications = {type = "boolean", value = true, label = "Global Notifications", desc = "Enable/disable all notifications from the system"},
-            AutoSave = {type = "boolean", value = true, label = "Auto-Persistence", desc = "Automatically save settings on every change"},
-            StreamerMode = {type = "boolean", value = false, label = "Streamer Mode", desc = "Hide sensitive info in UI (usernames, coordinates)"}
-        },
-        Visual = {
-            PanelOpacity = {type = "number", value = 0.9, label = "Panel Opacity", min = 0.1, max = 1, desc = "Global transparency of all UI panels"},
-            ThemeColor = {type = "color", value = Color3.fromRGB(0, 255, 255), label = "Accent Color", desc = "Primary theme color for UI elements"},
-            OverlayEnabled = {type = "boolean", value = true, label = "Draw Overlays", desc = "Display visual ESP and highlight overlays"},
-            FontSize = {type = "number", value = 13, label = "Font Size", min = 10, max = 20, desc = "Text size in UI panels"}
-        },
-        Performance = {
-            FPSCap = {type = "number", value = 0, label = "FPS Limiter (0=off)", min = 0, max = 240, desc = "Cap framerate for reduced CPU usage"},
-            UpdateFrequency = {type = "number", value = 1, label = "Update Rate (Hz)", min = 1, max = 60, desc = "ESP and visual update frequency"},
-            MemoryOptimize = {type = "boolean", value = true, label = "Memory Optimization", desc = "Clean up unused objects periodically"}
-        },
-        Notifications = {
-            ModuleToggle = {type = "boolean", value = true, label = "Module Toggles", desc = "Notify when modules enable/disable"},
-            CommandExecution = {type = "boolean", value = false, label = "Command Execution", desc = "Notify when commands are run"},
-            Errors = {type = "boolean", value = true, label = "Show Errors", desc = "Display error messages"},
-            Duration = {type = "number", value = 2, label = "Default Duration (sec)", min = 0.5, max = 10, desc = "How long notifications stay visible"}
-        },
-        Keybinds = {
-            MenuToggle = {type = "keybind", value = Enum.KeyCode.RightControl, label = "Primary Dashboard", desc = "Open main menu"},
-            SettingsToggle = {type = "keybind", value = Enum.KeyCode.RightShift, label = "Settings Panel", desc = "Toggle this window"},
-            CommandPrefix = {type = "string", value = ";", label = "Command Prefix", desc = "Character(s) to trigger commands"}
-        },
-        Advanced = {
-            DebugMode = {type = "boolean", value = false, label = "Debug Mode", desc = "Enable logging to console"},
-            LogLevel = {type = "string", value = "warn", label = "Log Level", options = {"info", "warn", "error"}, desc = "Console output verbosity"},
-            EnableMetatableHooks = {type = "boolean", value = false, label = "Metatable Inspection", desc = "Allow inspection of protected metatables"}
-        }
-    }
-    self:Save()
-end
-function Modules.SettingsManager:SavePreset(name: string): ()
-    local presetData = {}
-    for cat, settings in pairs(self.Settings) do
-        presetData[cat] = {}
-        for key, data in pairs(settings) do
-            if data.type == "color" then
-                presetData[cat][key] = {r = data.value.R, g = data.value.G, b = data.value.B}
-            elseif data.type == "keybind" then
-                presetData[cat][key] = data.value.Name
-            else
-                presetData[cat][key] = data.value
-            end
-        end
-    end
-    self.State.Presets[name] = presetData
-    if writefile then
-        pcall(function()
-            writefile("ZukaV10_Presets.json", HttpService:JSONEncode(self.State.Presets))
-        end)
-    end
-end
-function Modules.SettingsManager:LoadPreset(name: string): ()
-    if not self.State.Presets[name] then
-        DoNotif("Preset not found: " .. name, 2)
-        return
-    end
-    local presetData = self.State.Presets[name]
-    for cat, settings in pairs(presetData) do
-        if self.Settings[cat] then
-            for key, val in pairs(settings) do
-                local target = self.Settings[cat][key]
-                if target then
-                    if target.type == "color" and type(val) == "table" then
-                        target.value = Color3.new(val.r, val.g, val.b)
-                    elseif target.type == "keybind" and type(val) == "string" then
-                        target.value = Enum.KeyCode[val] or target.value
-                    else
-                        target.value = val
-                    end
-                end
-            end
-        end
-    end
-    self.State.CurrentPreset = name
-    self:Save()
-    DoNotif("Preset loaded: " .. name, 2)
-end
-function Modules.SettingsManager:ExportSettings(): string
-    local exported = {}
-    for cat, settings in pairs(self.Settings) do
-        exported[cat] = {}
-        for key, data in pairs(settings) do
-            if data.type == "color" then
-                exported[cat][key] = {r = math.floor(data.value.R * 255), g = math.floor(data.value.G * 255), b = math.floor(data.value.B * 255)}
-            elseif data.type == "keybind" then
-                exported[cat][key] = data.value.Name
-            else
-                exported[cat][key] = data.value
-            end
-        end
-    end
-    return HttpService:JSONEncode(exported)
-end
-function Modules.SettingsManager:Initialize(): ()
-    self:Load()
-    if writefile and isfile("ZukaV10_Presets.json") then
-        local success, presets = pcall(function()
-            return HttpService:JSONDecode(readfile("ZukaV10_Presets.json"))
-        end)
-        if success then
-            self.State.Presets = presets
-        end
-    end
-    RegisterCommand({
-        Name = "settings",
-        Aliases = {"config", "setup"},
-        Description = "Opens the settings menu"
-    }, function()
-        self:CreateUI()
-    end)
-    RegisterCommand({
-        Name = "loadpreset",
-        Aliases = {"preset"},
-        Description = "Loads a saved preset. Usage: ;loadpreset [name]"
-    }, function(args)
-        if args[1] then
-            self:LoadPreset(args[1])
-        else
-            DoNotif("Available presets: " .. table.concat(Object.keys(self.State.Presets), ", "), 3)
-        end
-    end)
-    RegisterCommand({
-        Name = "exportcfg",
-        Aliases = {},
-        Description = "Exports current settings as JSON (check clipboard)"
-    }, function()
-        local json = self:ExportSettings()
-        if setclipboard then
-            setclipboard(json)
-            DoNotif("Settings exported to clipboard", 2)
-        end
-    end)
-    UserInputService.InputBegan:Connect(function(input, gpe)
-        if gpe then return end
-        local bind = self.Settings.Keybinds.SettingsToggle.value
-        if input.KeyCode == bind then
-            if self.State.UI then
-                self.State.UI.Enabled = not self.State.UI.Enabled
-            else
-                self:CreateUI()
-            end
-        end
-    end)
-end
+
 Modules.PhysicsGun = {
     State = {
         IsEnabled = false,
@@ -22508,7 +22308,7 @@ RegisterCommand({Name = "creepyanim", Aliases = {"canim"}, Description = "Uncann
 RegisterCommand({Name = "swordbot", Aliases = {"sf", "sfbot"}, Description = "Auto Sword Fighter, use E and R"}, function() loadstringCmd("https://raw.githubusercontent.com/bloxtech1/luaprojects2/refs/heads/main/swordnpc", "Bot loaded.") end)
 RegisterCommand({Name = "touchfling", Aliases = {}, Description = "Loads the touchfling GUI"}, function() loadstringCmd("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/SimpleTouchFlingGui.lua", "Loaded") end)
 RegisterCommand({Name = "umpff", Aliases = {}, Description = "For Backrooms." }, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/UMPteamkiller.lua", "Loaded") end)
-RegisterCommand({Name = "unglue", Aliases = {}, Description = "Anti Attacher" }, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/AntiAttacherUpdated.lua", "Loaded") end)
+RegisterCommand({Name = "hex", Aliases = {}, Description = "Work In Progress" }, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/HEXOverseer.lua", "Loaded") end)
 RegisterCommand({Name = "ibtools", Aliases = {"btools"}, Description = "Upgraded Gui For Btools"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/buildtools.lua", "Loading Revamped Btools Gui") end)
 RegisterCommand({Name = "Zex", Aliases = {"zx"}, Description = "Updated Dex+"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Zex.lua", "Loading Zex..") end)
 RegisterCommand({Name = "walkvoid", Aliases = {"wv"}, Description = "Stops you from falling into the void."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/WalkVoid.lua", "You are now safe from falling into the void.") end)
@@ -22517,7 +22317,7 @@ RegisterCommand({Name = "csgo", Aliases = {"bhop"}, Description = "Bhop movement
 RegisterCommand({Name = "lineofsight", Aliases = {}, Description = "Logger for players looking at you"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/LineOfSightLogger.lua", "Loading...") end)
 RegisterCommand({Name = "zcooldowns", Aliases = {"ncd"}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game"}, function() loadstringCmd("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/NocooldownsZombieUpd3.txt", "Loading Cooldownremover...") end)
 RegisterCommand({Name = "zshovel", Aliases = {}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/ShovelAnimation.lua", "Loading Shovel.") end)
-RegisterCommand({Name = "npc", Aliases = {"npcmode"}, Description = "Avoid being kicked for being idle."}, function() loadstringCmd("https://raw.githubusercontent.com/bloxtech1/luaprojects2/refs/heads/main/AutoPilotMode.lua", "Anti Afk loaded.") end)
+RegisterCommand({Name = "patchgun", Aliases = {}, Description = "Avoid being kicked for being idle."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/PatchedGuns.lua", "Guns Patched.") end)
 RegisterCommand({Name = "zmelee", Aliases = {}, Description = "For https://www.roblox.com/games/6850833423/Zombie-Infection-Game."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/MeleeDamagex2.lua", "Loading..") end)
 RegisterCommand({Name = "flinger", Aliases = {"flingui"}, Description = "Loads a Fling GUI."}, function() loadstringCmd("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/SkidFling.lua", "Loading GUI..") end)
 RegisterCommand({Name = "rem", Aliases = {}, Description = "In game exploit creation kit.."}, function() loadstringCmd("https://e-vil.com/anbu/rem.lua", "Loading Rem.") end)
