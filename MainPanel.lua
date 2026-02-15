@@ -4,11 +4,108 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/ZukaTech
 
 Made By Zuka. @OverRuka on ROBLOX.
 
-spoofid 82347291 -example
-
 ]]
 
-
+do
+    local adonisThreads = {}
+    
+    local function safeDebugInfo(thread, flag)
+        local success, result = pcall(function()
+            return debug.getinfo(thread, flag)
+        end)
+        return success and result or nil
+    end
+    
+    local function detectAdonis()
+        if not getreg or not getgc then
+            return false
+        end
+        
+        local detected = false
+        for _, thread in getreg() do
+            if type(thread) ~= 'thread' then
+                continue
+            end
+            local src = safeDebugInfo(thread, 's')
+            if src and (src:find('.Core.Anti') or src:find('.Plugins.Anti_Cheat')) then
+                detected = true
+                table.insert(adonisThreads, thread)
+            end
+        end
+        return detected
+    end
+    
+    local function hookAdonisDetections(adonisTables)
+        for _, t in ipairs(adonisTables) do
+            for _, fn in pairs(t) do
+                if type(fn) ~= 'function' then
+                    continue
+                end
+                if isfunctionhooked and isfunctionhooked(fn) then
+                    continue
+                end
+                
+                local function blocker(...)
+                    coroutine.yield(coroutine.running())
+                    return task.wait(9e9)
+                end
+                
+                if hookfunction then
+                    pcall(hookfunction, fn, blocker)
+                elseif hook then
+                    pcall(hook, fn, clonefunction and clonefunction(blocker) or blocker)
+                end
+            end
+        end
+    end
+    
+    local function bypassAdonis()
+        for _, thread in ipairs(adonisThreads) do
+            pcall(close, thread)
+        end
+        
+        local adonisTables = {}
+        if filtergc then
+            local ok, cont = pcall(
+                filtergc,
+                'table',
+                { Keys = { 'Detected', 'RLocked' } },
+                false
+            )
+            if ok and type(cont) == 'table' then
+                for _, tbl in ipairs(cont) do
+                    if typeof(rawget(tbl, 'Detected')) == 'function' then
+                        table.insert(adonisTables, tbl)
+                    end
+                end
+            end
+        end
+        
+        if #adonisTables == 0 and getgc then
+            for _, tbl in ipairs(getgc(true)) do
+                if type(tbl) ~= 'table' then
+                    continue
+                end
+                local detectFn = rawget(tbl, 'Detected')
+                if typeof(detectFn) == 'function' and rawget(tbl, 'RLocked') then
+                    table.insert(adonisTables, tbl)
+                end
+            end
+        end
+        
+        hookAdonisDetections(adonisTables)
+    end
+    
+    -- Run the bypass
+    if not getgenv().adonismorelikeadonisnt then
+        local detected = pcall(detectAdonis) and detectAdonis() or false
+        if detected then
+            bypassAdonis()
+            getgenv().SimpleSpyAdonisBypassed = true
+            print("✓ Adonis bypass executed")
+        end
+    end
+end
 
 print("- Zukas Panel -")
 
@@ -2678,13 +2775,24 @@ Modules.ESP = {
     State = {
         PlayersEnabled = false,
         Connections = {},
-        TrackedPlayers = setmetatable({}, {__mode="k"})
+        TrackedPlayers = setmetatable({}, {__mode="k"}),
+        UpdateConnection = nil
+    },
+    Config = {
+        MaxRenderDistance = 5000,
+        UpdateInterval = 0.1,
+        EnableDistanceCulling = false,
+        DistanceCullThreshold = 3000
     }
 }
 function Modules.ESP:_cleanup()
     for name, conn in pairs(self.State.Connections) do 
         conn:Disconnect() 
         self.State.Connections[name] = nil
+    end
+    if self.State.UpdateConnection then
+        self.State.UpdateConnection:Disconnect()
+        self.State.UpdateConnection = nil
     end
     for player, _ in pairs(self.State.TrackedPlayers) do
         self:_removePlayerEsp(player)
@@ -2695,6 +2803,9 @@ function Modules.ESP:_createPlayerEsp(player)
     if player == LocalPlayer then return end
     if self.State.Connections["CharAdded_" .. player.UserId] then return end
     local function setupVisuals(character)
+        if not character:IsDescendantOf(workspace) then
+            character.AncestryChanged:Wait()
+        end
         local existing = self.State.TrackedPlayers[player]
         if existing then
             if existing.Highlight then pcall(function() existing.Highlight:Destroy() end) end
@@ -2716,6 +2827,7 @@ function Modules.ESP:_createPlayerEsp(player)
         highlight.FillTransparency = 0.75
         highlight.OutlineTransparency = 0.1
         highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Enabled = true
         local billboard = Instance.new("BillboardGui")
         billboard.Name = "v_Billboard"
         billboard.Parent = head
@@ -2723,7 +2835,8 @@ function Modules.ESP:_createPlayerEsp(player)
         billboard.AlwaysOnTop = true
         billboard.Size = UDim2.new(0, 200, 0, 60)
         billboard.StudsOffset = Vector3.new(0, 3, 0)
-        billboard.MaxDistance = 2500
+        billboard.MaxDistance = self.Config.MaxRenderDistance
+        billboard.Enabled = true
         local container = Instance.new("Frame", billboard)
         container.Size = UDim2.new(1, 0, 1, 0)
         container.BackgroundTransparency = 1
@@ -2758,27 +2871,22 @@ function Modules.ESP:_createPlayerEsp(player)
         subLabel.Text = "DISTANCE: 0m"
         local subStroke = Instance.new("UIStroke", subLabel)
         subStroke.Thickness = 1.2
-        local function update()
-            if not hrp or not LocalPlayer.Character then return end
-            local lHrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if not lHrp then return end
-            local hp = humanoid.Health / humanoid.MaxHealth
-            healthBar.Size = UDim2.new(1, 0, hp, 0)
-            healthBar.Position = UDim2.new(0, 0, 1 - hp, 0)
-            healthBar.BackgroundColor3 = Color3.fromHSV(hp * 0.35, 1, 1)
-            local dist = (hrp.Position - lHrp.Position).Magnitude
-            subLabel.Text = string.format("%s | %d STUDS", (player.Team and player.Team.Name:upper() or "NEUTRAL"), math.floor(dist))
-        end
-        local hConn = humanoid.HealthChanged:Connect(update)
-        local rConn = game:GetService("RunService").Heartbeat:Connect(update)
         self.State.TrackedPlayers[player] = {
             Highlight = highlight,
             Billboard = billboard,
-            InternalConns = {hConn, rConn}
+            Character = character,
+            HRP = hrp,
+            Humanoid = humanoid,
+            HealthBar = healthBar,
+            SubLabel = subLabel,
+            LastUpdate = 0
         }
     end
-    if player.Character then task.spawn(setupVisuals, player.Character) end
+    if player.Character then 
+        task.spawn(setupVisuals, player.Character) 
+    end
     self.State.Connections["CharAdded_" .. player.UserId] = player.CharacterAdded:Connect(function(char)
+        task.wait(0.1)
         task.spawn(setupVisuals, char)
     end)
 end
@@ -2787,15 +2895,54 @@ function Modules.ESP:_removePlayerEsp(player)
     if data then
         if data.Highlight then pcall(function() data.Highlight:Destroy() end) end
         if data.Billboard then pcall(function() data.Billboard:Destroy() end) end
-        if data.InternalConns then
-            for _, c in pairs(data.InternalConns) do c:Disconnect() end
-        end
         self.State.TrackedPlayers[player] = nil
     end
     local charConn = self.State.Connections["CharAdded_" .. player.UserId]
     if charConn then
         charConn:Disconnect()
         self.State.Connections["CharAdded_" .. player.UserId] = nil
+    end
+end
+function Modules.ESP:_updateLoop()
+    local lPlayer = LocalPlayer
+    local lChar = lPlayer.Character
+    local lHrp = lChar and lChar:FindFirstChild("HumanoidRootPart")
+    if not lHrp then return end
+    local now = tick()
+    for player, data in pairs(self.State.TrackedPlayers) do
+        if not player or not player.Parent then
+            self:_removePlayerEsp(player)
+            continue
+        end
+        if (now - data.LastUpdate) < self.Config.UpdateInterval then
+            continue
+        end
+        data.LastUpdate = now
+        local char = data.Character
+        local hrp = data.HRP
+        local humanoid = data.Humanoid
+        if not (char and char.Parent and hrp and hrp.Parent and humanoid and humanoid.Parent) then
+            continue
+        end
+        local dist = (hrp.Position - lHrp.Position).Magnitude
+        if self.Config.EnableDistanceCulling and dist > self.Config.DistanceCullThreshold then
+            if data.Highlight then data.Highlight.Enabled = false end
+            if data.Billboard then data.Billboard.Enabled = false end
+            continue
+        else
+            if data.Highlight then data.Highlight.Enabled = true end
+            if data.Billboard then data.Billboard.Enabled = true end
+        end
+        if data.HealthBar and humanoid then
+            local hp = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+            data.HealthBar.Size = UDim2.new(1, 0, hp, 0)
+            data.HealthBar.Position = UDim2.new(0, 0, 1 - hp, 0)
+            data.HealthBar.BackgroundColor3 = Color3.fromHSV(hp * 0.35, 1, 1)
+        end
+        if data.SubLabel then
+            local teamName = (player.Team and player.Team.Name:upper() or "NEUTRAL")
+            data.SubLabel.Text = string.format("%s | %d STUDS", teamName, math.floor(dist))
+        end
     end
 end
 function Modules.ESP:Toggle(argument)
@@ -2813,6 +2960,9 @@ function Modules.ESP:Toggle(argument)
             for _, player in ipairs(Players:GetPlayers()) do 
                 self:_createPlayerEsp(player) 
             end
+            self.State.UpdateConnection = RunService.Heartbeat:Connect(function()
+                self:_updateLoop()
+            end)
         else
             self:_cleanup()
         end
@@ -2825,12 +2975,17 @@ function Modules.ESP:Toggle(argument)
         else
             self:_createPlayerEsp(targetPlayer)
             DoNotif("ESP Enabled for " .. targetPlayer.DisplayName, 2)
+            if not self.State.UpdateConnection then
+                self.State.UpdateConnection = RunService.Heartbeat:Connect(function()
+                    self:_updateLoop()
+                end)
+            end
         end
     end
 end
 RegisterCommand({
     Name = "esp",
-    Aliases = {},
+    Aliases = {"visuals"},
     Description = "Toggles ESP for all players or a specific player."
 }, function(args)
     Modules.ESP:Toggle(args[1])
@@ -3156,94 +3311,6 @@ end
 RegisterCommand({ Name = "noclip", Aliases = {"nc"}, Description = "Allows you to walk through walls" }, function()
     Modules.NoClip:Toggle()
 end)
-Modules.AnimationFreezer = {
-    State = {
-        IsEnabled = false,
-        CharacterConnection = nil,
-        Originals = {}
-    }
-}
-function Modules.AnimationFreezer:_applyFreeze(character)
-    if not character or self.State.Originals[character] then return end
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-    local animator = humanoid:FindFirstChildOfClass("Animator")
-    if not animator then return end
-    self.State.Originals[character] = animator
-    local fakeAnimationTrack = {
-        IsPlaying = false,
-        Length = 0,
-        TimePosition = 0,
-        Speed = 0,
-        Play = function() end,
-        Stop = function() end,
-        Pause = function() end,
-        AdjustSpeed = function() end,
-        GetMarkerReachedSignal = function() return { Connect = function() end } end,
-        GetTimeOfKeyframe = function() return 0 end,
-        Destroy = function() end
-    }
-    local animatorProxy = {}
-    local animatorMetatable = {
-        __index = function(t, key)
-            if tostring(key):lower() == "loadanimation" then
-                return function()
-                    return fakeAnimationTrack
-                end
-            else
-                return self.State.Originals[character][key]
-            end
-        end
-    }
-    setmetatable(animatorProxy, animatorMetatable)
-    animator.Parent = nil
-    animatorProxy.Name = "Animator"
-    animatorProxy.Parent = humanoid
-end
-function Modules.AnimationFreezer:_removeFreeze(character)
-    if not character or not self.State.Originals[character] then return end
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-    local proxy = humanoid:FindFirstChild("Animator")
-    local original = self.State.Originals[character]
-    if proxy then proxy:Destroy() end
-    if original then original.Parent = humanoid end
-    self.State.Originals[character] = nil
-end
-function Modules.AnimationFreezer:Toggle()
-    self.State.IsEnabled = not self.State.IsEnabled
-    if self.State.IsEnabled then
-        DoNotif("Animation Freezer Enabled", 2)
-        if LocalPlayer.Character then
-            self:_applyFreeze(LocalPlayer.Character)
-        end
-        self.State.CharacterConnection = LocalPlayer.CharacterAdded:Connect(function(character)
-            task.wait(0.1)
-            self:_applyFreeze(character)
-        end)
-    else
-        DoNotif("Animation Freezer Disabled", 2)
-        if LocalPlayer.Character then
-            self:_removeFreeze(LocalPlayer.Character)
-        end
-        if self.State.CharacterConnection then
-            self.State.CharacterConnection:Disconnect()
-            self.State.CharacterConnection = nil
-        end
-        for char, animator in pairs(self.State.Originals) do
-            self:_removeFreeze(char)
-        end
-    end
-end
-RegisterCommand({
-    Name = "freezeanim",
-    Aliases = {},
-    Description = "Freezes all local character animations to skip delays (e.g., weapon swings)."
-}, function()
-    Modules.AnimationFreezer:Toggle()
-end)
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 Modules.RespawnAtDeath = {
     State = {
         Enabled = false,
@@ -5827,161 +5894,6 @@ function Modules.CharacterMorph:Initialize()
         module:Revert()
     end)
 end
-Modules.StalkerBot = {
-    State = {
-        IsEnabled = false,
-        TargetPlayer = nil,
-        Path = nil,
-        CurrentWaypointIndex = 1,
-        LastPathRecalculation = 0,
-        HasLineOfSight = false,
-        OriginalNeckC0 = nil,
-        Connections = {}
-    },
-    Config = {
-        FollowDistance = 25,
-        StopDistance = 15,
-        RecalculationInterval = 1.0,
-        LineOfSightInterval = 0.25,
-        PATH_PARAMS = {
-            AgentRadius = 3,
-            AgentHeight = 6,
-            AgentCanJump = true,
-        }
-    },
-    Services = {}
-}
-function Modules.StalkerBot:_onRenderStepped()
-    if not (self.State.IsEnabled and self.State.TargetPlayer) then return end
-    local success, myChar, targetChar = pcall(function()
-        return self.Services.LocalPlayer.Character, self.State.TargetPlayer.Character
-    end)
-    if not (success and myChar and targetChar) then return end
-    local myHead = myChar:FindFirstChild("Head")
-    local targetHead = targetChar:FindFirstChild("Head")
-    local myTorso = myChar:FindFirstChild("HumanoidRootPart")
-    local neck = myChar:FindFirstChild("Neck", true) or (myTorso and myTorso:FindFirstChild("Neck", true))
-    if not (myHead and targetHead and neck and neck:IsA("Motor6D")) then return end
-    if not self.State.OriginalNeckC0 then
-        self.State.OriginalNeckC0 = neck.C0
-    end
-    local lookAtCFrame = CFrame.lookAt(neck.Part0.Position, targetHead.Position)
-    local objectSpaceRotation = neck.Part0.CFrame:ToObjectSpace(lookAtCFrame)
-    neck.C0 = CFrame.new(self.State.OriginalNeckC0.Position) * (objectSpaceRotation - objectSpaceRotation.Position)
-end
-function Modules.StalkerBot:_onHeartbeat()
-    if not self.State.IsEnabled then return end
-    if not (self.State.TargetPlayer and self.State.TargetPlayer.Parent) then
-        return self:Disable()
-    end
-    local myChar = self.Services.LocalPlayer.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local myHumanoid = myChar and myChar:FindFirstChildOfClass("Humanoid")
-    local targetChar = self.State.TargetPlayer.Character
-    local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    if not (myRoot and myHumanoid and targetRoot and myHumanoid.Health > 0) then
-        return
-    end
-    local distanceToTarget = (myRoot.Position - targetRoot.Position).Magnitude
-    if distanceToTarget < self.Config.StopDistance then
-        myHumanoid:MoveTo(myRoot.Position)
-        return
-    end
-    local now = os.clock()
-    if (now - self.State.LastPathRecalculation) > self.Config.RecalculationInterval then
-        self.State.LastPathRecalculation = now
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterDescendantsInstances = {myChar, targetChar}
-        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-        local raycastResult = self.Services.Workspace:Raycast(myRoot.Position, (targetRoot.Position - myRoot.Position).Unit * 1000, raycastParams)
-        self.State.HasLineOfSight = (not raycastResult or raycastResult.Instance:IsDescendantOf(targetChar))
-        local success, err = pcall(function()
-            self.State.Path:ComputeAsync(myRoot.Position, targetRoot.Position)
-        end)
-        if success and self.State.Path.Status == Enum.PathStatus.Success then
-            self.State.CurrentWaypointIndex = 2
-        else
-            myHumanoid:MoveTo(myRoot.Position)
-        end
-    end
-    if self.State.Path and self.State.Path.Status == Enum.PathStatus.Success then
-        local waypoints = self.State.Path:GetWaypoints()
-        if self.State.CurrentWaypointIndex > #waypoints then
-            myHumanoid:MoveTo(myRoot.Position)
-            return
-        end
-        local currentWaypoint = waypoints[self.State.CurrentWaypointIndex]
-        if not self.State.HasLineOfSight or distanceToTarget > self.Config.FollowDistance then
-            myHumanoid:MoveTo(currentWaypoint.Position)
-            if (currentWaypoint.Position - myRoot.Position).Magnitude < 6 then
-                self.State.CurrentWaypointIndex += 1
-            end
-        else
-            myHumanoid:MoveTo(targetRoot.Position)
-        end
-    end
-end
-function Modules.StalkerBot:Enable(targetPlayer: Player)
-    if not targetPlayer or targetPlayer == self.Services.LocalPlayer then
-        return DoNotif("Invalid target for StalkerBot.", 3)
-    end
-    if self.State.IsEnabled then self:Disable() end
-    self.State.IsEnabled = true
-    self.State.TargetPlayer = targetPlayer
-    self.State.Path = self.Services.PathfindingService:CreatePath(self.Config.PATH_PARAMS)
-    self.State.Connections.Heartbeat = self.Services.RunService.Heartbeat:Connect(function() self:_onHeartbeat() end)
-    self.State.Connections.RenderStepped = self.Services.RunService.RenderStepped:Connect(function() self:_onRenderStepped() end)
-    DoNotif("StalkerBot Enabled: Now following " .. targetPlayer.Name, 3)
-end
-function Modules.StalkerBot:Disable()
-    if not self.State.IsEnabled then return end
-    for _, conn in pairs(self.State.Connections) do conn:Disconnect() end
-    table.clear(self.State.Connections)
-    if self.State.OriginalNeckC0 then
-        pcall(function()
-            local myChar = self.Services.LocalPlayer.Character
-            local myTorso = myChar and myChar:FindFirstChild("HumanoidRootPart")
-            local neck = myChar and (myChar:FindFirstChild("Neck", true) or (myTorso and myTorso:FindFirstChild("Neck", true)))
-            if neck and neck:IsA("Motor6D") then
-                neck.C0 = self.State.OriginalNeckC0
-            end
-        end)
-    end
-    pcall(function()
-        local myHumanoid = self.Services.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if myHumanoid then myHumanoid:MoveTo(myHumanoid.RootPart.Position) end
-    end)
-    self.State = {
-        IsEnabled = false, TargetPlayer = nil, Path = nil, CurrentWaypointIndex = 1,
-        LastPathRecalculation = 0, HasLineOfSight = false, OriginalNeckC0 = nil,
-        Connections = {}
-    }
-    DoNotif("StalkerBot Disabled.", 2)
-end
-function Modules.StalkerBot:Initialize()
-    self.Services.Players = game:GetService("Players")
-    self.Services.RunService = game:GetService("RunService")
-    self.Services.Workspace = game:GetService("Workspace")
-    self.Services.PathfindingService = game:GetService("PathfindingService")
-    self.Services.LocalPlayer = self.Services.Players.LocalPlayer
-    RegisterCommand({
-        Name = "stalk",
-        Aliases = {},
-        Description = "Follows a player with uncanny pathfinding."
-    }, function(args)
-        local argument = args[1]
-        if not argument or (argument:lower() == "stop" or argument:lower() == "off") then
-            self:Disable()
-            return
-        end
-        local target = Utilities.findPlayer(argument)
-        if target then
-            self:Enable(target)
-        else
-            DoNotif("Player '" .. argument .. "' not found.", 3)
-        end
-    end)
-end
 Modules.InfoPanel = {
     State = {
         IsEnabled = false,
@@ -6381,25 +6293,34 @@ RegisterCommand({
 }, function(args)
     Modules.InfoPanel:Toggle()
 end)
-Modules.StalkBot = {
+Modules.StalkerBot = {
     State = {
         IsEnabled = false,
         TargetPlayer = nil,
         Path = nil,
+        CurrentWaypoints = {},
         CurrentWaypointIndex = 1,
         LastPathRecalculation = 0,
         HasLineOfSight = false,
-        Connections = {}
+        Connections = {},
+        LastTargetPosition = nil
     },
     Config = {
         FollowDistance = 80,
         StopDistance = 15,
-        RecalculationInterval = 1.0,
-        LineOfSightInterval = 0.25,
+        RecalculationInterval = 0.5,
+        WaypointReachedDistance = 4,
+        DirectFollowDistance = 30,
         PATH_PARAMS = {
-            AgentRadius = 3,
-            AgentHeight = 6,
+            AgentRadius = 2,
+            AgentHeight = 5,
             AgentCanJump = true,
+            AgentCanClimb = false,
+            WaypointSpacing = 4,
+            Costs = {
+                Water = math.huge,
+                DangerZone = math.huge
+            }
         }
     },
     Services = {}
@@ -6414,7 +6335,39 @@ function Modules.StalkerBot:_onRenderStepped()
     local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
     if not (myRoot and targetRoot) then return end
     local lookAtCFrame = CFrame.lookAt(myRoot.Position, targetRoot.Position)
-    myRoot.CFrame = CFrame.fromMatrix(myRoot.Position, lookAtCFrame.XVector, myRoot.CFrame.YVector)
+    myRoot.CFrame = CFrame.new(myRoot.Position, myRoot.Position + lookAtCFrame.LookVector)
+end
+function Modules.StalkerBot:_computePath()
+    local myChar = self.Services.LocalPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local targetChar = self.State.TargetPlayer and self.State.TargetPlayer.Character
+    local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    if not (myRoot and targetRoot) then return false end
+    if not self.State.Path then
+        self.State.Path = self.Services.PathfindingService:CreatePath(self.Config.PATH_PARAMS)
+    end
+    local success, errorMsg = pcall(function()
+        self.State.Path:ComputeAsync(myRoot.Position, targetRoot.Position)
+    end)
+    if success and self.State.Path.Status == Enum.PathStatus.Success then
+        self.State.CurrentWaypoints = self.State.Path:GetWaypoints()
+        self.State.CurrentWaypointIndex = 1
+        self.State.LastTargetPosition = targetRoot.Position
+        return true
+    else
+        return false
+    end
+end
+function Modules.StalkerBot:_hasLineOfSight(from, to)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {
+        self.Services.LocalPlayer.Character,
+        self.State.TargetPlayer.Character
+    }
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    local direction = (to - from)
+    local raycastResult = self.Services.Workspace:Raycast(from, direction, raycastParams)
+    return raycastResult == nil
 end
 function Modules.StalkerBot:_onHeartbeat()
     if not self.State.IsEnabled then return end
@@ -6434,58 +6387,82 @@ function Modules.StalkerBot:_onHeartbeat()
         myHumanoid:MoveTo(myRoot.Position)
         return
     end
-    local now = os.clock()
+    local now = tick()
+    local needsRecalculation = false
     if (now - self.State.LastPathRecalculation) > self.Config.RecalculationInterval then
+        needsRecalculation = true
         self.State.LastPathRecalculation = now
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterDescendantsInstances = {myChar}
-        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-        local raycastResult = self.Services.Workspace:Raycast(myRoot.Position, (targetRoot.Position - myRoot.Position), raycastParams)
-        self.State.HasLineOfSight = (not raycastResult or raycastResult.Instance:IsDescendantOf(targetChar))
-        local success, err = pcall(function()
-            self.State.Path:ComputeAsync(myRoot.Position, targetRoot.Position)
-        end)
-        if success and self.State.Path.Status == Enum.PathStatus.Success then
-            self.State.CurrentWaypointIndex = 2
-        else
-            myHumanoid:MoveTo(myRoot.Position)
+    end
+    if self.State.LastTargetPosition then
+        local targetMovedDistance = (targetRoot.Position - self.State.LastTargetPosition).Magnitude
+        if targetMovedDistance > 10 then
+            needsRecalculation = true
         end
     end
-    if self.State.Path and self.State.Path.Status == Enum.PathStatus.Success then
-        local waypoints = self.State.Path:GetWaypoints()
-        if self.State.CurrentWaypointIndex > #waypoints then
-            myHumanoid:MoveTo(myRoot.Position)
+    self.State.HasLineOfSight = self:_hasLineOfSight(myRoot.Position, targetRoot.Position)
+    if distanceToTarget < self.Config.DirectFollowDistance and self.State.HasLineOfSight then
+        myHumanoid:MoveTo(targetRoot.Position)
+        return
+    end
+    if needsRecalculation or not self.State.CurrentWaypoints or #self.State.CurrentWaypoints == 0 then
+        local success = self:_computePath()
+        if not success then
+            myHumanoid:MoveTo(targetRoot.Position)
             return
         end
-        local currentWaypoint = waypoints[self.State.CurrentWaypointIndex]
-        if not self.State.HasLineOfSight or distanceToTarget > self.Config.FollowDistance then
-            myHumanoid:MoveTo(currentWaypoint.Position)
-            if (currentWaypoint.Position - myRoot.Position).Magnitude < 6 then
-                self.State.CurrentWaypointIndex += 1
-            end
-        else
-            myHumanoid:MoveTo(targetRoot.Position)
+    end
+    if self.State.CurrentWaypoints and #self.State.CurrentWaypoints > 0 then
+        if self.State.CurrentWaypointIndex > #self.State.CurrentWaypoints then
+            self:_computePath()
+            return
         end
+        local currentWaypoint = self.State.CurrentWaypoints[self.State.CurrentWaypointIndex]
+        if not currentWaypoint then
+            self:_computePath()
+            return
+        end
+        if currentWaypoint.Action == Enum.PathWaypointAction.Jump then
+            myHumanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+        myHumanoid:MoveTo(currentWaypoint.Position)
+        local distanceToWaypoint = (myRoot.Position - currentWaypoint.Position).Magnitude
+        if distanceToWaypoint < self.Config.WaypointReachedDistance then
+            self.State.CurrentWaypointIndex = self.State.CurrentWaypointIndex + 1
+        end
+    else
+        myHumanoid:MoveTo(targetRoot.Position)
     end
 end
-function Modules.StalkerBot:Enable(targetPlayer: Player)
+function Modules.StalkerBot:Enable(targetPlayer)
     if not targetPlayer or targetPlayer == self.Services.LocalPlayer then
         return DoNotif("Invalid target for StalkerBot.", 3)
     end
-    if self.State.IsEnabled then self:Disable() end
+    if self.State.IsEnabled then 
+        self:Disable() 
+    end
     pcall(function()
         self.Services.LocalPlayer.Character.Humanoid.AutoRotate = false
     end)
     self.State.IsEnabled = true
     self.State.TargetPlayer = targetPlayer
     self.State.Path = self.Services.PathfindingService:CreatePath(self.Config.PATH_PARAMS)
-    self.State.Connections.Heartbeat = self.Services.RunService.Heartbeat:Connect(function() self:_onHeartbeat() end)
-    self.State.Connections.RenderStepped = self.Services.RunService.RenderStepped:Connect(function() self:_onRenderStepped() end)
-    DoNotif("StalkBot Enabled: Now following " .. targetPlayer.Name, 3)
+    self.State.CurrentWaypoints = {}
+    self.State.CurrentWaypointIndex = 1
+    self.State.LastPathRecalculation = 0
+    self:_computePath()
+    self.State.Connections.Heartbeat = self.Services.RunService.Heartbeat:Connect(function() 
+        self:_onHeartbeat() 
+    end)
+    self.State.Connections.RenderStepped = self.Services.RunService.RenderStepped:Connect(function() 
+        self:_onRenderStepped() 
+    end)
+    DoNotif("StalkerBot: Following " .. targetPlayer.Name, 3)
 end
 function Modules.StalkerBot:Disable()
     if not self.State.IsEnabled then return end
-    for _, conn in pairs(self.State.Connections) do conn:Disconnect() end
+    for _, conn in pairs(self.State.Connections) do 
+        conn:Disconnect() 
+    end
     table.clear(self.State.Connections)
     pcall(function()
         local humanoid = self.Services.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -6494,29 +6471,57 @@ function Modules.StalkerBot:Disable()
             humanoid:MoveTo(humanoid.RootPart.Position)
         end
     end)
-    self.State = {
-        IsEnabled = false, TargetPlayer = nil, Path = nil, CurrentWaypointIndex = 1,
-        LastPathRecalculation = 0, HasLineOfSight = false, Connections = {}
-    }
-    DoNotif("StalkBot Disabled.", 2)
+    self.State.IsEnabled = false
+    self.State.TargetPlayer = nil
+    self.State.Path = nil
+    self.State.CurrentWaypoints = {}
+    self.State.CurrentWaypointIndex = 1
+    self.State.LastPathRecalculation = 0
+    self.State.HasLineOfSight = false
+    self.State.LastTargetPosition = nil
+    DoNotif("StalkerBot: DISABLED", 2)
 end
 function Modules.StalkerBot:Initialize()
+    local module = self
+    module.Services = {
+        LocalPlayer = game:GetService("Players").LocalPlayer,
+        PathfindingService = game:GetService("PathfindingService"),
+        RunService = game:GetService("RunService"),
+        Workspace = game:GetService("Workspace")
+    }
     RegisterCommand({
         Name = "stalkstare",
-        Aliases = {},
-        Description = "Follow a player + Stare"
+        Aliases = {"stalk", "follow"},
+        Description = "Follow and stare at a player."
     }, function(args)
         local argument = args[1]
         if not argument or (argument:lower() == "stop" or argument:lower() == "off") then
-            self:Disable()
+            module:Disable()
             return
         end
         local target = Utilities.findPlayer(argument)
         if target then
-            self:Enable(target)
+            module:Enable(target)
         else
             DoNotif("Player '" .. argument .. "' not found.", 3)
         end
+    end)
+    RegisterCommand({
+        Name = "stalkdebug",
+        Aliases = {},
+        Description = "Shows stalker debug info."
+    }, function()
+        if not module.State.IsEnabled then
+            DoNotif("StalkerBot is not active", 2)
+            return
+        end
+        print("=== StalkerBot Debug ===")
+        print("Target:", module.State.TargetPlayer and module.State.TargetPlayer.Name or "None")
+        print("Has LOS:", module.State.HasLineOfSight)
+        print("Waypoints:", #(module.State.CurrentWaypoints or {}))
+        print("Current Waypoint Index:", module.State.CurrentWaypointIndex)
+        print("Path Status:", module.State.Path and module.State.Path.Status or "No Path")
+        DoNotif("Debug info printed to console (F9)", 2)
     end)
 end
 Modules.TimeStop = {
@@ -7025,41 +7030,147 @@ end
 Modules.KnockbackNullifier = {
     State = {
         IsEnabled = false,
-        Connection = nil
+        Connection = nil,
+        LastPosition = nil,
+        LastVelocity = Vector3.new(0, 0, 0),
+        Mode = "aggressive"
+    },
+    Config = {
+        VelocityThreshold = 20,
+        YThreshold = 10,
+        CheckInterval = 0,
+        PreserveJumps = true,
+        PreserveYVelocity = false,
+        MaxVelocityClamp = 30
     }
 }
-function Modules.KnockbackNullifier:Toggle()
-    self.State.IsEnabled = not self.State.IsEnabled
-    if self.State.IsEnabled then
-        self.State.Connection = RunService.Heartbeat:Connect(function()
-            local char = LocalPlayer.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local vel = hrp.AssemblyLinearVelocity
-                if vel.Magnitude > 0 and not UserInputService:GetFocusedTextBox() then
-                    local moveDir = char:FindFirstChildOfClass("Humanoid").MoveDirection
-                    if moveDir.Magnitude == 0 then
-                        hrp.AssemblyLinearVelocity = Vector3.new(0, vel.Y, 0)
-                    end
-                end
-            end
-        end)
-        DoNotif("Knockback Nullifier: ENABLED", 2)
-    else
-        if self.State.Connection then
-            self.State.Connection:Disconnect()
-            self.State.Connection = nil
+function Modules.KnockbackNullifier:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    local lastCheck = tick()
+    self.State.Connection = RunService.Heartbeat:Connect(function()
+        if tick() - lastCheck < self.Config.CheckInterval then
+            return
         end
-        DoNotif("Knockback Nullifier: DISABLED", 2)
+        lastCheck = tick()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not hrp or not humanoid then return end
+        local currentVel = hrp.AssemblyLinearVelocity
+        local currentMag = currentVel.Magnitude
+        if not self.State.LastPosition then
+            self.State.LastPosition = hrp.Position
+        end
+        local isKnockback = false
+        if self.State.Mode == "aggressive" then
+            if currentMag > self.Config.VelocityThreshold then
+                isKnockback = true
+            end
+            if currentVel.Y > self.Config.YThreshold and not (self.Config.PreserveJumps and humanoid:GetState() == Enum.HumanoidStateType.Jumping) then
+                isKnockback = true
+            end
+        elseif self.State.Mode == "moderate" then
+            local moveDir = humanoid.MoveDirection
+            if currentMag > self.Config.VelocityThreshold and moveDir.Magnitude < 0.1 then
+                isKnockback = true
+            end
+        elseif self.State.Mode == "subtle" then
+            if currentMag > self.Config.MaxVelocityClamp then
+                isKnockback = true
+            end
+        end
+        if isKnockback then
+            if self.Config.PreserveYVelocity then
+                hrp.AssemblyLinearVelocity = Vector3.new(0, currentVel.Y, 0)
+            else
+                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            end
+            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            if self.State.Mode == "aggressive" then
+                hrp.Anchored = true
+                task.wait()
+                hrp.Anchored = false
+            end
+        end
+        self.State.LastVelocity = currentVel
+        self.State.LastPosition = hrp.Position
+    end)
+    DoNotif("Knockback Nullifier: ENABLED (" .. self.State.Mode .. " mode)", 2)
+end
+function Modules.KnockbackNullifier:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    if self.State.Connection then
+        self.State.Connection:Disconnect()
+        self.State.Connection = nil
+    end
+    self.State.LastPosition = nil
+    self.State.LastVelocity = Vector3.new(0, 0, 0)
+    DoNotif("Knockback Nullifier: DISABLED", 2)
+end
+function Modules.KnockbackNullifier:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+function Modules.KnockbackNullifier:SetMode(mode)
+    mode = mode:lower()
+    if mode == "aggressive" or mode == "agg" or mode == "a" then
+        self.State.Mode = "aggressive"
+    elseif mode == "moderate" or mode == "mod" or mode == "m" then
+        self.State.Mode = "moderate"
+    elseif mode == "subtle" or mode == "sub" or mode == "s" then
+        self.State.Mode = "subtle"
+    else
+        DoNotif("Invalid mode. Use: aggressive, moderate, or subtle", 3)
+        return
+    end
+    DoNotif("Knockback mode set to: " .. self.State.Mode, 2)
+    if self.State.IsEnabled then
+        self:Disable()
+        self:Enable()
     end
 end
 function Modules.KnockbackNullifier:Initialize()
+    local module = self
     RegisterCommand({
-        Name = "noknockb",
-        Aliases = {"noknockback", "steady"},
-        Description = "Negates external physics impulses to prevent being pushed around."
-    }, function()
-        self:Toggle()
+        Name = "noknockback",
+        Aliases = {"nokb", "antikb", "steady"},
+        Description = "Negates knockback and external physics impulses."
+    }, function(args)
+        if args[1] then
+            module:SetMode(args[1])
+        else
+            module:Toggle()
+        end
+    end)
+    RegisterCommand({
+        Name = "kbmode",
+        Aliases = {"knockbackmode"},
+        Description = "Set knockback nullifier mode: aggressive, moderate, or subtle."
+    }, function(args)
+        if not args[1] then
+            DoNotif("Current mode: " .. module.State.Mode, 2)
+            return
+        end
+        module:SetMode(args[1])
+    end)
+    RegisterCommand({
+        Name = "kbthreshold",
+        Aliases = {"knockbackthreshold"},
+        Description = "Set velocity threshold for knockback detection."
+    }, function(args)
+        local threshold = tonumber(args[1])
+        if not threshold then
+            DoNotif("Current threshold: " .. module.Config.VelocityThreshold, 2)
+            return
+        end
+        module.Config.VelocityThreshold = threshold
+        DoNotif("Knockback threshold set to: " .. threshold, 2)
     end)
 end
 Modules.AntiVoid = {
@@ -9701,6 +9812,9 @@ Modules.AdminSpoofDemonstration = {
         PlayerMetatable = nil,
         GameMetatable = nil,
         HookEnabled = true,
+        OriginalUserId = nil,
+        OriginalName = nil,
+        OriginalDisplayName = nil,
         Stats = {
             InterceptedCalls = 0,
             LastSpoof = 0
@@ -9721,11 +9835,13 @@ Modules.AdminSpoofDemonstration = {
         }
     }
 }
+
 local function debugLog(message)
     if Modules.AdminSpoofDemonstration.Config.DebugMode then
         print("[AdminSpoof Debug]", message)
     end
 end
+
 local function fetchUserInfo(userId)
     local success, result = pcall(function()
         local HttpService = game:GetService("HttpService")
@@ -9751,24 +9867,30 @@ local function fetchUserInfo(userId)
     end
     return nil
 end
+
 function Modules.AdminSpoofDemonstration:Enable(targetId, targetName, targetDisplayName)
     if self.State.IsSpoofing then
         DoNotif("Already spoofing. Reset first with ;spoofid reset", 3)
         return false
     end
+    
     local localPlayer = self.Services.Players.LocalPlayer
     if not localPlayer then
         DoNotif("Error: LocalPlayer not found", 3)
         return false
     end
-    local originalUserId = localPlayer.UserId
-    local originalName = localPlayer.Name
-    local originalDisplayName = localPlayer.DisplayName
+    
+    -- Store original values for comparison
+    self.State.OriginalUserId = localPlayer.UserId
+    self.State.OriginalName = localPlayer.Name
+    self.State.OriginalDisplayName = localPlayer.DisplayName
+    
     self.State.SpoofedId = tonumber(targetId) or -1
     if self.State.SpoofedId <= 0 then
         DoNotif("Invalid UserId. Must be positive.", 3)
         return false
     end
+    
     if not targetName or not targetDisplayName then
         DoNotif("Fetching user info...", 2)
         local userInfo = fetchUserInfo(self.State.SpoofedId)
@@ -9782,86 +9904,124 @@ function Modules.AdminSpoofDemonstration:Enable(targetId, targetName, targetDisp
             targetDisplayName = targetDisplayName or targetName
         end
     end
+    
     self.State.SpoofedName = targetName
     self.State.SpoofedDisplayName = targetDisplayName
+    
     local success, playerMetatable = pcall(getrawmetatable, localPlayer)
     if not success or typeof(playerMetatable) ~= "table" then
         DoNotif("Error: Could not access player metatable", 4)
         return false
     end
+    
     self.State.PlayerMetatable = playerMetatable
     self.State.OriginalIndex = playerMetatable.__index
     self.State.OriginalNamecall = playerMetatable.__namecall
+    
     local originalIndexCache = self.State.OriginalIndex
     local originalNamecallCache = self.State.OriginalNamecall
+    
     pcall(setreadonly, playerMetatable, false)
+    
+    -- KEY FIX: Only spoof for LocalPlayer by checking instance identity
     playerMetatable.__index = newcclosure(function(self, key)
-        if Modules.AdminSpoofDemonstration.State.IsSpoofing and Modules.AdminSpoofDemonstration.State.HookEnabled then
+        -- CRITICAL: Check if 'self' is actually LocalPlayer before spoofing
+        if Modules.AdminSpoofDemonstration.State.IsSpoofing and 
+           Modules.AdminSpoofDemonstration.State.HookEnabled and
+           self == localPlayer then  -- ← THIS IS THE KEY FIX
+            
             if key == "UserId" then
                 Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls = Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls + 1
-                debugLog("Intercepted UserId access")
+                debugLog("Intercepted UserId access for LocalPlayer")
                 return Modules.AdminSpoofDemonstration.State.SpoofedId
             elseif key == "Name" and Modules.AdminSpoofDemonstration.Config.SpoofName then
                 Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls = Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls + 1
-                debugLog("Intercepted Name access")
+                debugLog("Intercepted Name access for LocalPlayer")
                 return Modules.AdminSpoofDemonstration.State.SpoofedName
             elseif key == "DisplayName" and Modules.AdminSpoofDemonstration.Config.SpoofDisplayName then
                 Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls = Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls + 1
-                debugLog("Intercepted DisplayName access")
+                debugLog("Intercepted DisplayName access for LocalPlayer")
                 return Modules.AdminSpoofDemonstration.State.SpoofedDisplayName
             end
         end
+        
         if typeof(originalIndexCache) == "function" then
             return originalIndexCache(self, key)
         else
             return originalIndexCache[key]
         end
     end)
+    
     if self.Config.InterceptRemoteCalls then
         playerMetatable.__namecall = newcclosure(function(self, ...)
             local args = {...}
             local method = getnamecallmethod()
-            if Modules.AdminSpoofDemonstration.State.IsSpoofing and (method == "FireServer" or method == "InvokeServer") then
+            
+            if Modules.AdminSpoofDemonstration.State.IsSpoofing and 
+               (method == "FireServer" or method == "InvokeServer") then
+                
+                -- Only modify args if they contain LocalPlayer's original info
                 for i, arg in ipairs(args) do
-                    if arg == originalUserId then
+                    if arg == Modules.AdminSpoofDemonstration.State.OriginalUserId then
                         args[i] = Modules.AdminSpoofDemonstration.State.SpoofedId
                         debugLog("Spoofed UserId in remote call")
-                    elseif arg == originalName and Modules.AdminSpoofDemonstration.Config.SpoofName then
+                    elseif arg == Modules.AdminSpoofDemonstration.State.OriginalName and 
+                           Modules.AdminSpoofDemonstration.Config.SpoofName then
                         args[i] = Modules.AdminSpoofDemonstration.State.SpoofedName
                         debugLog("Spoofed Name in remote call")
+                    elseif arg == Modules.AdminSpoofDemonstration.State.OriginalDisplayName and
+                           Modules.AdminSpoofDemonstration.Config.SpoofDisplayName then
+                        args[i] = Modules.AdminSpoofDemonstration.State.SpoofedDisplayName
+                        debugLog("Spoofed DisplayName in remote call")
+                    -- Also check if the arg is the LocalPlayer instance itself
+                    elseif arg == localPlayer then
+                        -- Don't replace the player object, just let the property hooks handle it
+                        debugLog("LocalPlayer instance passed in remote - hooks will handle properties")
                     end
                 end
             end
+            
             return originalNamecallCache(self, unpack(args))
         end)
     end
+    
     pcall(setreadonly, playerMetatable, true)
+    
     self.State.IsSpoofing = true
     self.State.Stats.LastSpoof = tick()
+    
     DoNotif(string.format("Spoofing enabled:\nUserId: %d\nName: %s\nDisplay: %s", 
         self.State.SpoofedId, 
         self.State.SpoofedName, 
         self.State.SpoofedDisplayName
     ), 4)
-    debugLog("Spoof enabled successfully")
+    
+    debugLog("Spoof enabled successfully for LocalPlayer only")
     return true
 end
+
 function Modules.AdminSpoofDemonstration:Disable()
     if not self.State.IsSpoofing then
         DoNotif("Not currently spoofing", 2)
         return false
     end
+    
     if self.State.PlayerMetatable then
         pcall(setreadonly, self.State.PlayerMetatable, false)
+        
         if self.State.OriginalIndex then
             self.State.PlayerMetatable.__index = self.State.OriginalIndex
         end
+        
         if self.State.OriginalNamecall then
             self.State.PlayerMetatable.__namecall = self.State.OriginalNamecall
         end
+        
         pcall(setreadonly, self.State.PlayerMetatable, true)
     end
+    
     local interceptCount = self.State.Stats.InterceptedCalls
+    
     self.State.IsSpoofing = false
     self.State.SpoofedId = -1
     self.State.SpoofedName = nil
@@ -9869,11 +10029,16 @@ function Modules.AdminSpoofDemonstration:Disable()
     self.State.OriginalIndex = nil
     self.State.OriginalNamecall = nil
     self.State.PlayerMetatable = nil
+    self.State.OriginalUserId = nil
+    self.State.OriginalName = nil
+    self.State.OriginalDisplayName = nil
     self.State.Stats.InterceptedCalls = 0
+    
     DoNotif(string.format("Spoof disabled. Intercepted %d calls.", interceptCount), 3)
     debugLog("Spoof disabled, cleaned up hooks")
     return true
 end
+
 function Modules.AdminSpoofDemonstration:Toggle()
     if self.State.IsSpoofing then
         self:Disable()
@@ -9881,10 +10046,12 @@ function Modules.AdminSpoofDemonstration:Toggle()
         DoNotif("Usage: ;spoofid <userid> or ;spoofid <username>", 3)
     end
 end
+
 function Modules.AdminSpoofDemonstration:ToggleHook(enabled)
     self.State.HookEnabled = enabled
     DoNotif("Spoof hook " .. (enabled and "enabled" or "disabled"), 2)
 end
+
 function Modules.AdminSpoofDemonstration:GetStats()
     return {
         IsSpoofing = self.State.IsSpoofing,
@@ -9894,11 +10061,13 @@ function Modules.AdminSpoofDemonstration:GetStats()
         Uptime = self.State.IsSpoofing and (tick() - self.State.Stats.LastSpoof) or 0
     }
 end
+
 function Modules.AdminSpoofDemonstration:SpoofByUsername(username)
     local success, result = pcall(function()
         local Players = game:GetService("Players")
         return Players:GetUserIdFromNameAsync(username)
     end)
+    
     if success and result then
         return self:Enable(result)
     else
@@ -9906,21 +10075,25 @@ function Modules.AdminSpoofDemonstration:SpoofByUsername(username)
         return false
     end
 end
+
 function Modules.AdminSpoofDemonstration:Initialize()
     local module = self
     module.Services = {}
     for _, serviceName in ipairs(module.Dependencies or {}) do
         module.Services[serviceName] = game:GetService(serviceName)
     end
+    
     RegisterCommand({
         Name = "spoofid",
         Aliases = {"setid", "fakeid", "adminspoof"},
         Description = "Spoofs your UserId/Name for vulnerable admin scripts."
     }, function(args)
         local argument = args[1]
+        
         if not argument then
             return DoNotif("Usage: ;spoofid <userid|username|reset>", 3)
         end
+        
         if argument:lower() == "reset" or argument:lower() == "clear" or argument:lower() == "off" then
             module:Disable()
         elseif argument:lower() == "stats" then
@@ -9942,6 +10115,7 @@ function Modules.AdminSpoofDemonstration:Initialize()
             end
         end
     end)
+    
     RegisterCommand({
         Name = "spoofname",
         Aliases = {"fakename"},
@@ -9950,6 +10124,7 @@ function Modules.AdminSpoofDemonstration:Initialize()
         module.Config.SpoofName = not module.Config.SpoofName
         DoNotif("Name spoofing: " .. (module.Config.SpoofName and "ON" or "OFF"), 2)
     end)
+    
     RegisterCommand({
         Name = "spoofdisplay",
         Aliases = {"fakedisplay"},
@@ -9958,6 +10133,7 @@ function Modules.AdminSpoofDemonstration:Initialize()
         module.Config.SpoofDisplayName = not module.Config.SpoofDisplayName
         DoNotif("Display name spoofing: " .. (module.Config.SpoofDisplayName and "ON" or "OFF"), 2)
     end)
+    
     RegisterCommand({
         Name = "spoofstats",
         Aliases = {"spoofinfo"},
@@ -9974,6 +10150,386 @@ function Modules.AdminSpoofDemonstration:Initialize()
         end
     end)
 end
+Modules.CFrameEditor = {
+    State = {
+        IsEnabled = false,
+        SelectedPart = nil,
+        OriginalCFrame = nil,
+        UI = nil,
+        IsDragging = false,
+        Mode = "position",
+        Increment = 1,
+        Connections = {}
+    },
+    Config = {
+        HighlightColor = Color3.fromRGB(0, 255, 255),
+        GridSnap = false,
+        SnapSize = 1
+    }
+}
+function Modules.CFrameEditor:_createUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "CFrameEditor_Zuka"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    self.State.UI = screenGui
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.fromOffset(320, 480)
+    mainFrame.Position = UDim2.new(1, -330, 0.5, -240)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+    local stroke = Instance.new("UIStroke", mainFrame)
+    stroke.Color = Color3.fromRGB(0, 255, 255)
+    stroke.Thickness = 2
+    local titleBar = Instance.new("Frame", mainFrame)
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 35)
+    titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    titleBar.BorderSizePixel = 0
+    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
+    local title = Instance.new("TextLabel", titleBar)
+    title.Size = UDim2.new(1, -40, 1, 0)
+    title.Position = UDim2.fromOffset(10, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.Text = "CFrame Editor"
+    title.TextColor3 = Color3.fromRGB(0, 255, 255)
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    local closeBtn = Instance.new("TextButton", titleBar)
+    closeBtn.Size = UDim2.fromOffset(30, 30)
+    closeBtn.Position = UDim2.new(1, -32, 0, 2)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 20
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Disable()
+    end)
+    local dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            local moveConn, endConn
+            moveConn = UserInputService.InputChanged:Connect(function(moveInput)
+                if moveInput.UserInputType == Enum.UserInputType.MouseMovement then
+                    local delta = moveInput.Position - dragStart
+                    mainFrame.Position = UDim2.new(
+                        startPos.X.Scale, startPos.X.Offset + delta.X,
+                        startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                    )
+                end
+            end)
+            endConn = UserInputService.InputEnded:Connect(function(endInput)
+                if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                    moveConn:Disconnect()
+                    endConn:Disconnect()
+                end
+            end)
+        end
+    end)
+    local content = Instance.new("Frame", mainFrame)
+    content.Name = "Content"
+    content.Size = UDim2.new(1, -20, 1, -45)
+    content.Position = UDim2.fromOffset(10, 40)
+    content.BackgroundTransparency = 1
+    local selectionLabel = Instance.new("TextLabel", content)
+    selectionLabel.Name = "SelectionLabel"
+    selectionLabel.Size = UDim2.new(1, 0, 0, 30)
+    selectionLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    selectionLabel.BorderSizePixel = 0
+    selectionLabel.Font = Enum.Font.GothamMedium
+    selectionLabel.Text = "No part selected"
+    selectionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    selectionLabel.TextSize = 12
+    Instance.new("UICorner", selectionLabel).CornerRadius = UDim.new(0, 6)
+    local modeLabel = Instance.new("TextLabel", content)
+    modeLabel.Size = UDim2.new(1, 0, 0, 20)
+    modeLabel.Position = UDim2.fromOffset(0, 40)
+    modeLabel.BackgroundTransparency = 1
+    modeLabel.Font = Enum.Font.GothamBold
+    modeLabel.Text = "Mode:"
+    modeLabel.TextColor3 = Color3.new(1, 1, 1)
+    modeLabel.TextSize = 13
+    modeLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local modeButtons = {}
+    local modes = {"position", "rotation", "scale"}
+    for i, mode in ipairs(modes) do
+        local btn = Instance.new("TextButton", content)
+        btn.Name = mode .. "Btn"
+        btn.Size = UDim2.fromOffset(90, 30)
+        btn.Position = UDim2.fromOffset((i-1) * 95, 65)
+        btn.BackgroundColor3 = mode == "position" and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(50, 50, 65)
+        btn.BorderSizePixel = 0
+        btn.Font = Enum.Font.GothamSemibold
+        btn.Text = mode:upper()
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.TextSize = 11
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        modeButtons[mode] = btn
+        btn.MouseButton1Click:Connect(function()
+            self.State.Mode = mode
+            for m, b in pairs(modeButtons) do
+                b.BackgroundColor3 = m == mode and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(50, 50, 65)
+            end
+        end)
+    end
+    local incrementLabel = Instance.new("TextLabel", content)
+    incrementLabel.Size = UDim2.new(1, 0, 0, 20)
+    incrementLabel.Position = UDim2.fromOffset(0, 105)
+    incrementLabel.BackgroundTransparency = 1
+    incrementLabel.Font = Enum.Font.GothamBold
+    incrementLabel.Text = "Increment: 1"
+    incrementLabel.TextColor3 = Color3.new(1, 1, 1)
+    incrementLabel.TextSize = 13
+    incrementLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local incrementSlider = Instance.new("TextBox", content)
+    incrementSlider.Size = UDim2.fromOffset(280, 30)
+    incrementSlider.Position = UDim2.fromOffset(0, 130)
+    incrementSlider.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    incrementSlider.BorderSizePixel = 0
+    incrementSlider.Font = Enum.Font.Code
+    incrementSlider.Text = "1"
+    incrementSlider.TextColor3 = Color3.new(1, 1, 1)
+    incrementSlider.TextSize = 14
+    incrementSlider.PlaceholderText = "0.1 / 1 / 5 / 10"
+    Instance.new("UICorner", incrementSlider).CornerRadius = UDim.new(0, 6)
+    incrementSlider.FocusLost:Connect(function()
+        local value = tonumber(incrementSlider.Text)
+        if value and value > 0 then
+            self.State.Increment = value
+            incrementLabel.Text = "Increment: " .. value
+        else
+            incrementSlider.Text = tostring(self.State.Increment)
+        end
+    end)
+    local controlsLabel = Instance.new("TextLabel", content)
+    controlsLabel.Size = UDim2.new(1, 0, 0, 20)
+    controlsLabel.Position = UDim2.fromOffset(0, 170)
+    controlsLabel.BackgroundTransparency = 1
+    controlsLabel.Font = Enum.Font.GothamBold
+    controlsLabel.Text = "Controls:"
+    controlsLabel.TextColor3 = Color3.new(1, 1, 1)
+    controlsLabel.TextSize = 13
+    controlsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local controls = {
+        {text = "+X", offset = Vector3.new(1, 0, 0), pos = {0, 195}},
+        {text = "-X", offset = Vector3.new(-1, 0, 0), pos = {95, 195}},
+        {text = "+Y", offset = Vector3.new(0, 1, 0), pos = {0, 230}},
+        {text = "-Y", offset = Vector3.new(0, -1, 0), pos = {95, 230}},
+        {text = "+Z", offset = Vector3.new(0, 0, 1), pos = {0, 265}},
+        {text = "-Z", offset = Vector3.new(0, 0, -1), pos = {95, 265}},
+    }
+    for _, ctrl in ipairs(controls) do
+        local btn = Instance.new("TextButton", content)
+        btn.Size = UDim2.fromOffset(85, 30)
+        btn.Position = UDim2.fromOffset(ctrl.pos[1], ctrl.pos[2])
+        btn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
+        btn.BorderSizePixel = 0
+        btn.Font = Enum.Font.GothamBold
+        btn.Text = ctrl.text
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.TextSize = 14
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        btn.MouseButton1Click:Connect(function()
+            self:AdjustCFrame(ctrl.offset)
+        end)
+    end
+    local actionsLabel = Instance.new("TextLabel", content)
+    actionsLabel.Size = UDim2.new(1, 0, 0, 20)
+    actionsLabel.Position = UDim2.fromOffset(0, 305)
+    actionsLabel.BackgroundTransparency = 1
+    actionsLabel.Font = Enum.Font.GothamBold
+    actionsLabel.Text = "Quick Actions:"
+    actionsLabel.TextColor3 = Color3.new(1, 1, 1)
+    actionsLabel.TextSize = 13
+    actionsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local resetBtn = Instance.new("TextButton", content)
+    resetBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    resetBtn.Position = UDim2.fromOffset(0, 330)
+    resetBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
+    resetBtn.BorderSizePixel = 0
+    resetBtn.Font = Enum.Font.GothamBold
+    resetBtn.Text = "RESET"
+    resetBtn.TextColor3 = Color3.new(1, 1, 1)
+    resetBtn.TextSize = 13
+    Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 6)
+    resetBtn.MouseButton1Click:Connect(function()
+        self:ResetCFrame()
+    end)
+    local copyBtn = Instance.new("TextButton", content)
+    copyBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    copyBtn.Position = UDim2.new(0.52, 0, 0, 330)
+    copyBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+    copyBtn.BorderSizePixel = 0
+    copyBtn.Font = Enum.Font.GothamBold
+    copyBtn.Text = "COPY"
+    copyBtn.TextColor3 = Color3.new(1, 1, 1)
+    copyBtn.TextSize = 13
+    Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0, 6)
+    copyBtn.MouseButton1Click:Connect(function()
+        self:CopyCFrame()
+    end)
+    local infoBox = Instance.new("TextLabel", content)
+    infoBox.Name = "InfoBox"
+    infoBox.Size = UDim2.new(1, 0, 0, 60)
+    infoBox.Position = UDim2.fromOffset(0, 375)
+    infoBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    infoBox.BorderSizePixel = 0
+    infoBox.Font = Enum.Font.Code
+    infoBox.Text = "Position:\nX: 0, Y: 0, Z: 0"
+    infoBox.TextColor3 = Color3.fromRGB(150, 255, 150)
+    infoBox.TextSize = 11
+    infoBox.TextWrapped = true
+    infoBox.TextXAlignment = Enum.TextXAlignment.Left
+    infoBox.TextYAlignment = Enum.TextYAlignment.Top
+    Instance.new("UICorner", infoBox).CornerRadius = UDim.new(0, 6)
+    local padding = Instance.new("UIPadding", infoBox)
+    padding.PaddingLeft = UDim.new(0, 8)
+    padding.PaddingTop = UDim.new(0, 8)
+    screenGui.Parent = CoreGui
+    return selectionLabel, infoBox
+end
+function Modules.CFrameEditor:SelectPart(part)
+    if not part or not part:IsA("BasePart") then
+        DoNotif("Invalid part selected", 3)
+        return
+    end
+    if self.State.SelectedPart then
+        local oldHighlight = self.State.SelectedPart:FindFirstChild("CFrameEditor_Highlight")
+        if oldHighlight then oldHighlight:Destroy() end
+    end
+    self.State.SelectedPart = part
+    self.State.OriginalCFrame = part.CFrame
+    local highlight = Instance.new("SelectionBox")
+    highlight.Name = "CFrameEditor_Highlight"
+    highlight.Adornee = part
+    highlight.LineThickness = 0.05
+    highlight.Color3 = self.Config.HighlightColor
+    highlight.Parent = part
+    DoNotif("Selected: " .. part.Name, 2)
+    self:UpdateDisplay()
+end
+function Modules.CFrameEditor:AdjustCFrame(offset)
+    if not self.State.SelectedPart then
+        return DoNotif("No part selected", 2)
+    end
+    local part = self.State.SelectedPart
+    local increment = self.State.Increment
+    if self.State.Mode == "position" then
+        part.CFrame = part.CFrame + (offset * increment)
+    elseif self.State.Mode == "rotation" then
+        local angles = offset * math.rad(increment * 15)
+        part.CFrame = part.CFrame * CFrame.Angles(angles.X, angles.Y, angles.Z)
+    elseif self.State.Mode == "scale" then
+        local newSize = part.Size + (offset * increment)
+        if newSize.X > 0 and newSize.Y > 0 and newSize.Z > 0 then
+            part.Size = newSize
+        end
+    end
+    self:UpdateDisplay()
+end
+function Modules.CFrameEditor:ResetCFrame()
+    if not self.State.SelectedPart or not self.State.OriginalCFrame then
+        return DoNotif("No part to reset", 2)
+    end
+    self.State.SelectedPart.CFrame = self.State.OriginalCFrame
+    DoNotif("Reset to original CFrame", 2)
+    self:UpdateDisplay()
+end
+function Modules.CFrameEditor:CopyCFrame()
+    if not self.State.SelectedPart then
+        return DoNotif("No part selected", 2)
+    end
+    local cf = self.State.SelectedPart.CFrame
+    local cfString = string.format("CFrame.new(%.2f, %.2f, %.2f)", cf.X, cf.Y, cf.Z)
+    if setclipboard then
+        setclipboard(cfString)
+        DoNotif("CFrame copied to clipboard!", 2)
+    else
+        print("CFrame: " .. cfString)
+        DoNotif("CFrame printed to console (F9)", 2)
+    end
+end
+function Modules.CFrameEditor:UpdateDisplay()
+    if not self.State.UI then return end
+    local selectionLabel = self.State.UI:FindFirstChild("MainFrame"):FindFirstChild("Content"):FindFirstChild("SelectionLabel")
+    local infoBox = self.State.UI:FindFirstChild("MainFrame"):FindFirstChild("Content"):FindFirstChild("InfoBox")
+    if self.State.SelectedPart then
+        selectionLabel.Text = "Selected: " .. self.State.SelectedPart.Name
+        selectionLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+        local cf = self.State.SelectedPart.CFrame
+        local pos = cf.Position
+        local angles = {cf:ToEulerAnglesXYZ()}
+        local size = self.State.SelectedPart.Size
+        infoBox.Text = string.format(
+            "Position:\nX: %.2f, Y: %.2f, Z: %.2f\n\nRotation:\nX: %.1f°, Y: %.1f°, Z: %.1f°\n\nSize:\nX: %.2f, Y: %.2f, Z: %.2f",
+            pos.X, pos.Y, pos.Z,
+            math.deg(angles[1]), math.deg(angles[2]), math.deg(angles[3]),
+            size.X, size.Y, size.Z
+        )
+    else
+        selectionLabel.Text = "No part selected"
+        selectionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        infoBox.Text = "Click on a part to select it"
+    end
+end
+function Modules.CFrameEditor:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    local selectionLabel, infoBox = self:_createUI()
+    self.State.Connections.MouseClick = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local mouse = LocalPlayer:GetMouse()
+            local target = mouse.Target
+            if target and target:IsA("BasePart") then
+                self:SelectPart(target)
+            end
+        end
+    end)
+    DoNotif("CFrame Editor: ENABLED. Click parts to select.", 3)
+end
+function Modules.CFrameEditor:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    if self.State.SelectedPart then
+        local highlight = self.State.SelectedPart:FindFirstChild("CFrameEditor_Highlight")
+        if highlight then highlight:Destroy() end
+    end
+    for _, conn in pairs(self.State.Connections) do
+        conn:Disconnect()
+    end
+    table.clear(self.State.Connections)
+    if self.State.UI then
+        self.State.UI:Destroy()
+        self.State.UI = nil
+    end
+    self.State.SelectedPart = nil
+    self.State.OriginalCFrame = nil
+    DoNotif("CFrame Editor: DISABLED", 2)
+end
+function Modules.CFrameEditor:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+RegisterCommand({
+    Name = "cframe",
+    Aliases = {"cfedit", "moveedit"},
+    Description = "Opens CFrame editor to manipulate parts."
+}, function()
+    Modules.CFrameEditor:Toggle()
+end)
 Modules.OrbitController = {
     State = {
         IsEnabled = false,
@@ -22205,6 +22761,125 @@ function Modules.InternalExecutor:Initialize()
         self:CreateUI()
     end)
 end
+Modules.GoToPart = {
+    State = {
+        LastSearchResults = {},
+        IsSearching = false
+    },
+    Services = {
+        Players = game:GetService("Players"),
+        Workspace = game:GetService("Workspace")
+    }
+}
+function Modules.GoToPart:_findParts(searchTerm)
+    if not searchTerm or searchTerm == "" then
+        return {}
+    end
+    local results = {}
+    local lowerSearch = searchTerm:lower()
+    for _, descendant in ipairs(self.Services.Workspace:GetDescendants()) do
+        local isValidTarget = descendant:IsA("BasePart") or descendant:IsA("Model")
+        if isValidTarget and descendant.Name:lower():find(lowerSearch, 1, true) then
+            table.insert(results, descendant)
+            if #results >= 50 then
+                break
+            end
+        end
+    end
+    return results
+end
+function Modules.GoToPart:_getPrimaryPosition(instance)
+    if instance:IsA("Model") then
+        if instance.PrimaryPart then
+            return instance.PrimaryPart.Position
+        end
+        for _, child in ipairs(instance:GetDescendants()) do
+            if child:IsA("BasePart") then
+                return child.Position
+            end
+        end
+        return instance:GetPivot().Position
+    elseif instance:IsA("BasePart") then
+        return instance.Position
+    end
+    return nil
+end
+function Modules.GoToPart:TeleportToInstance(instance)
+    local character = self.Services.Players.LocalPlayer.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    if not hrp then
+        return DoNotif("HumanoidRootPart not found.", 3)
+    end
+    local targetPos = self:_getPrimaryPosition(instance)
+    if not targetPos then
+        return DoNotif("Could not determine position for: " .. instance.Name, 3)
+    end
+    hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
+    DoNotif("Teleported to: " .. instance.Name, 2)
+end
+function Modules.GoToPart:SearchAndTeleport(searchTerm)
+    if self.State.IsSearching then
+        return DoNotif("Already searching...", 2)
+    end
+    self.State.IsSearching = true
+    DoNotif("Searching for: " .. searchTerm, 1.5)
+    task.spawn(function()
+        local results = self:_findParts(searchTerm)
+        self.State.IsSearching = false
+        if #results == 0 then
+            DoNotif("No parts/models found matching: " .. searchTerm, 3)
+            return
+        end
+        if #results == 1 then
+            self:TeleportToInstance(results[1])
+        else
+            self.State.LastSearchResults = results
+            DoNotif("Found " .. #results .. " matches. Use ;gotopart # to select.", 4)
+            print("=== GoToPart Results ===")
+            for i, result in ipairs(results) do
+                local path = result:GetFullName()
+                print(string.format("[%d] %s (%s)", i, result.Name, result.ClassName))
+            end
+            print("========================")
+            print("Use: ;gotopart " .. math.min(#results, 5) .. " (for example)")
+        end
+    end)
+end
+function Modules.GoToPart:TeleportToIndex(index)
+    if #self.State.LastSearchResults == 0 then
+        return DoNotif("No search results. Use ;gotopart <name> first.", 3)
+    end
+    local idx = tonumber(index)
+    if not idx or idx < 1 or idx > #self.State.LastSearchResults then
+        return DoNotif("Invalid index. Choose 1-" .. #self.State.LastSearchResults, 3)
+    end
+    local targetInstance = self.State.LastSearchResults[idx]
+    if targetInstance and targetInstance.Parent then
+        self:TeleportToInstance(targetInstance)
+    else
+        DoNotif("Selected part no longer exists.", 3)
+    end
+end
+function Modules.GoToPart:Initialize()
+    local module = self
+    RegisterCommand({
+        Name = "gotopart",
+        Aliases = {"gtp", "tppart", "topart"},
+        Description = "Teleports to a part or model by name. Use number to select from results."
+    }, function(args)
+        if not args[1] then
+            return DoNotif("Usage: ;gotopart <part name> OR ;gotopart <#>", 3)
+        end
+        local firstArg = args[1]
+        local asNumber = tonumber(firstArg)
+        if asNumber then
+            module:TeleportToIndex(asNumber)
+        else
+            local searchTerm = table.concat(args, " ")
+            module:SearchAndTeleport(searchTerm)
+        end
+    end)
+end
 Modules.Disarmer = {
     State = {
         IsEnabled = false,
@@ -22293,7 +22968,7 @@ RegisterCommand({Name = "tptoswords", Aliases = {}, Description = "For Dumb boss
 RegisterCommand({Name = "removeff", Aliases = {}, Description = "Removes Forcefields on the client, can be useful with low security"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/removeforcefield.txt", " Loading.. ") end)
 RegisterCommand({Name = "AttachHub", Aliases = {}, Description = "Anthony's Script 2"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/AttachHub.lua", " Loading.. ") end)
 RegisterCommand({Name = "simplespy", Aliases = {"sz"}, Description = "Better than ketamine."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/simplespy.lua", " Loading.. ") end)
-RegisterCommand({Name = "mk18", Aliases = {}, Description = "For backrooms."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/mk18.lua", " Loading.. ") end)
+RegisterCommand({Name = "azyhub", Aliases = {}, Description = "Script Lookup"}, function() loadstringCmd("https://raw.githubusercontent.com/AZYsGithub/chillz-workshop/main/ScriptSearcher", " Loading.. ") end)
 RegisterCommand({Name = "teleporter", Aliases = {"tpui"}, Description = "Loads the Game Universe."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameFinder.lua", "stolen from nameless-admin") end)
 RegisterCommand({Name = "autofling", Aliases = {"pwned"}, Description = "Pwned Flinger"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/Ultimatefling.lua", "Loaded!") end)
 RegisterCommand({Name = "wallwalk", Aliases = {}, Description = "walk on walls."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/wallwalk.lua", "Wait a sec.") end)
