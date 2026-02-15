@@ -890,89 +890,166 @@ function Modules.OverseerCE:GetFunctionCallstack(func)
     end
     return callstack
 end
+function Modules.OverseerCE:PopulateFunctionList(panel)
+    if not self.State.CurrentTable then 
+        self:_showNotification("No module loaded to scan", "warning")
+        return 
+    end
+    local listArea = panel:FindFirstChild("FunctionListScroll", true)
+    if not listArea then 
+        warn("[Decompiler] Could not find FunctionListScroll")
+        self:_showNotification("Error: Function list area not found", "error")
+        return 
+    end
+    for _, child in ipairs(listArea:GetChildren()) do
+        if not child:IsA("UIListLayout") then 
+            child:Destroy() 
+        end
+    end
+    local foundFunctions = {}
+    local successCount = 0
+    local errorCount = 0
+    for k, v in pairs(self.State.CurrentTable) do
+        if type(v) == "function" then
+            table.insert(foundFunctions, {Name = tostring(k), Func = v, Source = "Module"})
+            successCount = successCount + 1
+        end
+    end
+    local mt = self:GetRawMetatable(self.State.CurrentTable)
+    if mt and mt.__index then
+        local target = mt.__index
+        if type(target) == "table" then
+            for k, v in pairs(target) do
+                if type(v) == "function" then
+                    table.insert(foundFunctions, {Name = "[MT] "..tostring(k), Func = v, Source = "Metatable"})
+                    successCount = successCount + 1
+                end
+            end
+        end
+    end
+    if #foundFunctions == 0 then
+        self:_showNotification("No functions found in this module", "warning")
+        local noFuncLabel = Instance.new("TextLabel", listArea)
+        noFuncLabel.Size = UDim2.new(1, -4, 0, 40)
+        noFuncLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 220)
+        noFuncLabel.Text = "No functions found.\n\nThis module may only\ncontain data or tables."
+        noFuncLabel.TextColor3 = self.Config.TEXT_BLACK
+        noFuncLabel.Font = Enum.Font.SourceSans
+        noFuncLabel.TextSize = 9
+        noFuncLabel.TextWrapped = true
+        noFuncLabel.BorderSizePixel = 0
+        self:_createBorder(noFuncLabel, true)
+        return
+    end
+    for _, data in ipairs(foundFunctions) do
+        local btn = self:_createButton(listArea, data.Name, UDim2.new(1, -4, 0, 20), UDim2.new(0,0,0,0), function()
+            self:_showNotification("Analyzing: " .. data.Name, "info")
+            print("[Decompiler] Decompiling function:", data.Name)
+            local decomp = self:DecompileFunction(data.Func)
+            if decomp then
+                self.State.CurrentDecompiledFunction = decomp
+                self.State.CurrentDecompiledFunctionRef = data.Func
+                self.State.CurrentDecompiledName = data.Name
+                self:SwitchDecompilerTab("Info", panel)
+                self:_showNotification("Function decompiled: " .. data.Name, "success")
+            else
+                self:_showNotification("Failed to decompile function", "error")
+            end
+        end)
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        btn.TextSize = 9
+        btn.TextWrapped = false
+        btn.TextTruncate = Enum.TextTruncate.AtEnd
+        btn.ZIndex = 103
+        local btnPadding = Instance.new("UIPadding", btn)
+        btnPadding.PaddingLeft = UDim.new(0, 4)
+        if data.Source == "Metatable" then
+            btn.TextColor3 = Color3.fromRGB(0, 120, 215)
+        end
+    end
+    self:_showNotification(string.format("Found %d functions", #foundFunctions), "success")
+    print(string.format("[Decompiler] Found %d functions in module", #foundFunctions))
+end
 function Modules.OverseerCE:CreateDecompilerPanel(parent)
-    local panel = self:_createPanel(parent, UDim2.fromOffset(4, 4), UDim2.new(1, -8, 1, -8), "Function Decompiler & Advanced Patcher")
+    local panel = self:_createPanel(parent, UDim2.fromOffset(4, 4), UDim2.new(1, -8, 1, -8), "Function Decompiler & Browser")
     panel.ZIndex = 100
-    local selectorLabel = Instance.new("TextLabel", panel)
-    selectorLabel.Size = UDim2.new(0, 100, 0, 20)
-    selectorLabel.Position = UDim2.fromOffset(4, 28)
-    selectorLabel.BackgroundTransparency = 1
-    selectorLabel.Text = "Select Function:"
-    selectorLabel.TextColor3 = self.Config.TEXT_BLACK
-    selectorLabel.Font = Enum.Font.SourceSans
-    selectorLabel.TextSize = 10
-    selectorLabel.TextXAlignment = Enum.TextXAlignment.Left
-    selectorLabel.ZIndex = 101
-    local functionDropdown = Instance.new("TextBox", panel)
-    functionDropdown.Name = "FunctionSelector"
-    functionDropdown.Size = UDim2.new(1, -112, 0, 22)
-    functionDropdown.Position = UDim2.fromOffset(108, 28)
-    functionDropdown.BackgroundColor3 = self.Config.BG_WHITE
-    functionDropdown.PlaceholderText = "Enter function path (e.g., Module.Function)"
-    functionDropdown.Text = ""
-    functionDropdown.TextColor3 = self.Config.TEXT_BLACK
-    functionDropdown.Font = Enum.Font.Code
-    functionDropdown.TextSize = 10
-    functionDropdown.TextXAlignment = Enum.TextXAlignment.Left
-    functionDropdown.ClearTextOnFocus = false
-    functionDropdown.ZIndex = 101
-    self:_createBorder(functionDropdown, true)
-    local funcPadding = Instance.new("UIPadding", functionDropdown)
-    funcPadding.PaddingLeft = UDim.new(0, 4)
-    local decompileBtn = self:_createButton(panel, "Decompile", UDim2.fromOffset(100, 24), UDim2.fromOffset(4, 54), function()
-        local funcPath = functionDropdown.Text
-        if funcPath == "" then
-            self:_showNotification("Please enter a function path", "warning")
+    panel.ClipsDescendants = true
+    local browserFrame = Instance.new("Frame", panel)
+    browserFrame.Size = UDim2.new(0.25, -6, 1, -35)
+    browserFrame.Position = UDim2.fromOffset(4, 28)
+    browserFrame.BackgroundColor3 = self.Config.BG_DARK
+    browserFrame.BorderSizePixel = 0
+    browserFrame.ZIndex = 101
+    self:_createBorder(browserFrame, true)
+    local browserLabel = Instance.new("TextLabel", browserFrame)
+    browserLabel.Size = UDim2.new(1, 0, 0, 18)
+    browserLabel.Position = UDim2.fromOffset(0, 0)
+    browserLabel.Text = "Functions in Module"
+    browserLabel.Font = Enum.Font.SourceSansBold
+    browserLabel.TextSize = 10
+    browserLabel.BackgroundColor3 = self.Config.BG_PANEL
+    browserLabel.TextColor3 = self.Config.TEXT_BLACK
+    browserLabel.BorderSizePixel = 0
+    browserLabel.ZIndex = 102
+    local listScroll = Instance.new("ScrollingFrame", browserFrame)
+    listScroll.Name = "FunctionListScroll"
+    listScroll.Size = UDim2.new(1, -4, 1, -45)
+    listScroll.Position = UDim2.fromOffset(2, 20)
+    listScroll.BackgroundColor3 = self.Config.BG_WHITE
+    listScroll.BorderSizePixel = 0
+    listScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    listScroll.ScrollBarThickness = 4
+    listScroll.ZIndex = 102
+    self:_createBorder(listScroll, true)
+    local listLayout = Instance.new("UIListLayout", listScroll)
+    listLayout.Padding = UDim.new(0, 1)
+    local scanBtn = self:_createButton(browserFrame, "Scan Module", UDim2.new(1, -4, 0, 20), UDim2.new(0, 2, 1, -22), function()
+        if not self.State.CurrentTable then
+            self:_showNotification("No module loaded. Select a module from the left panel first.", "warning")
             return
         end
-        self:DecompileFunctionFromPath(funcPath, panel)
+        self:PopulateFunctionList(panel)
+        self:_showNotification("Scanning for functions...", "info")
     end)
-    decompileBtn.ZIndex = 101
-    decompileBtn.TextSize = 10
-    local refreshBtn = self:_createButton(panel, "Refresh", UDim2.fromOffset(80, 24), UDim2.fromOffset(108, 54), function()
-        if self.State.CurrentDecompiledFunction then
-            self:RefreshDecompilerView(panel)
-        end
-    end)
-    refreshBtn.ZIndex = 101
-    refreshBtn.TextSize = 10
-    local exportBtn = self:_createButton(panel, "Export Info", UDim2.fromOffset(90, 24), UDim2.fromOffset(192, 54), function()
-        if self.State.CurrentDecompiledFunction then
-            self:ExportFunctionInfo(self.State.CurrentDecompiledFunction)
-        else
-            self:_showNotification("No function decompiled", "warning")
-        end
-    end)
-    exportBtn.ZIndex = 101
-    exportBtn.TextSize = 10
-    local tabContainer = Instance.new("Frame", panel)
-    tabContainer.Size = UDim2.new(1, -8, 0, 26)
-    tabContainer.Position = UDim2.fromOffset(4, 82)
+    scanBtn.ZIndex = 102
+    scanBtn.TextSize = 9
+    local contentContainer = Instance.new("Frame", panel)
+    contentContainer.Size = UDim2.new(0.75, -6, 1, -35)
+    contentContainer.Position = UDim2.new(0.25, 2, 0, 28)
+    contentContainer.BackgroundTransparency = 1
+    contentContainer.ZIndex = 100
+    local tabContainer = Instance.new("Frame", contentContainer)
+    tabContainer.Size = UDim2.new(1, 0, 0, 26)
+    tabContainer.Position = UDim2.fromOffset(0, 0)
     tabContainer.BackgroundColor3 = self.Config.BG_DARK
     tabContainer.BorderSizePixel = 0
     tabContainer.ZIndex = 101
     self:_createBorder(tabContainer, true)
     local tabs = {"Info", "Constants", "Upvalues", "Protos", "Source"}
     local tabButtons = {}
-    local tabX = 2
-    for _, tabName in ipairs(tabs) do
-        local tabBtn = self:_createButton(tabContainer, tabName, UDim2.fromOffset(75, 22), UDim2.fromOffset(tabX, 2), function()
+    local tabWidth = (tabContainer.AbsoluteSize.X - 12) / #tabs
+    for i, tabName in ipairs(tabs) do
+        local tabBtn = self:_createButton(tabContainer, tabName, UDim2.new(0, tabWidth - 2, 0, 22), UDim2.fromOffset(2 + (i-1) * tabWidth, 2), function()
             self:SwitchDecompilerTab(tabName, panel)
             for _, btn in pairs(tabButtons) do
-                btn.BackgroundColor3 = self.Config.BG_PANEL
+                if btn and btn.Parent then
+                    btn.BackgroundColor3 = self.Config.BG_PANEL
+                    btn.TextColor3 = self.Config.TEXT_BLACK
+                end
             end
-            tabBtn.BackgroundColor3 = self.Config.ACCENT_BLUE
-            tabBtn.TextColor3 = self.Config.BG_WHITE
+            if tabBtn and tabBtn.Parent then
+                tabBtn.BackgroundColor3 = self.Config.ACCENT_BLUE
+                tabBtn.TextColor3 = self.Config.BG_WHITE
+            end
         end)
         tabBtn.ZIndex = 102
         tabBtn.TextSize = 9
         tabButtons[tabName] = tabBtn
-        tabX = tabX + 77
     end
-    local contentArea = Instance.new("ScrollingFrame", panel)
+    local contentArea = Instance.new("ScrollingFrame", contentContainer)
     contentArea.Name = "DecompilerContent"
-    contentArea.Size = UDim2.new(1, -8, 1, -188)
-    contentArea.Position = UDim2.fromOffset(4, 112)
+    contentArea.Size = UDim2.new(1, 0, 1, -106)
+    contentArea.Position = UDim2.fromOffset(0, 28)
     contentArea.BackgroundColor3 = self.Config.BG_WHITE
     contentArea.BorderSizePixel = 0
     contentArea.ScrollBarThickness = 12
@@ -980,64 +1057,80 @@ function Modules.OverseerCE:CreateDecompilerPanel(parent)
     contentArea.AutomaticCanvasSize = Enum.AutomaticSize.Y
     contentArea.CanvasSize = UDim2.new(0, 0, 0, 0)
     contentArea.ZIndex = 101
+    contentArea.ClipsDescendants = true
     self:_createBorder(contentArea, true)
-    local actionFrame = Instance.new("Frame", panel)
-    actionFrame.Size = UDim2.new(1, -8, 0, 70)
-    actionFrame.Position = UDim2.new(0, 4, 1, -74)
+    local emptyLabel = Instance.new("TextLabel", contentArea)
+    emptyLabel.Name = "EmptyMessage"
+    emptyLabel.Size = UDim2.new(1, -16, 0, 80)
+    emptyLabel.Position = UDim2.fromOffset(8, 8)
+    emptyLabel.BackgroundTransparency = 1
+    emptyLabel.Text = [[HOW TO USE DECOMPILER:
+1. Select a module from the Module List (left panel)
+2. Click "Scan Module" in the function browser
+3. Click any function name to decompile it
+4. Use tabs above to view Info/Constants/Upvalues/Source
+5. Use Quick Actions below to patch/hook functions]]
+    emptyLabel.TextColor3 = self.Config.TEXT_GRAY
+    emptyLabel.Font = Enum.Font.SourceSans
+    emptyLabel.TextSize = 11
+    emptyLabel.TextWrapped = true
+    emptyLabel.TextXAlignment = Enum.TextXAlignment.Left
+    emptyLabel.TextYAlignment = Enum.TextYAlignment.Top
+    emptyLabel.ZIndex = 102
+    local actionFrame = Instance.new("Frame", contentContainer)
+    actionFrame.Size = UDim2.new(1, 0, 0, 76)
+    actionFrame.Position = UDim2.new(0, 0, 1, -76)
     actionFrame.BackgroundColor3 = self.Config.BG_PANEL
     actionFrame.BorderSizePixel = 0
     actionFrame.ZIndex = 101
     self:_createBorder(actionFrame, true)
     local actionTitle = Instance.new("TextLabel", actionFrame)
-    actionTitle.Size = UDim2.new(1, -8, 0, 18)
-    actionTitle.Position = UDim2.fromOffset(4, 4)
+    actionTitle.Size = UDim2.new(1, -8, 0, 16)
+    actionTitle.Position = UDim2.fromOffset(4, 2)
     actionTitle.BackgroundTransparency = 1
-    actionTitle.Text = "Quick Actions"
+    actionTitle.Text = "Quick Actions (select a function first)"
     actionTitle.TextColor3 = self.Config.TEXT_BLACK
     actionTitle.Font = Enum.Font.SourceSansBold
-    actionTitle.TextSize = 10
+    actionTitle.TextSize = 9
     actionTitle.TextXAlignment = Enum.TextXAlignment.Left
     actionTitle.ZIndex = 102
-    local btnY = 24
-    local btnWidth = 110
-    local btnSpacing = 114
-    local hookReturnBtn = self:_createButton(actionFrame, "Hook Return", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4, btnY), function()
-        self:ShowReturnHookDialog(panel)
-    end)
-    hookReturnBtn.ZIndex = 102
-    hookReturnBtn.TextSize = 9
-    local patchUpvalueBtn = self:_createButton(actionFrame, "Patch Upvalue", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4 + btnSpacing, btnY), function()
-        self:ShowUpvaluePatchDialog(panel)
-    end)
-    patchUpvalueBtn.ZIndex = 102
-    patchUpvalueBtn.TextSize = 9
-    local patchConstBtn = self:_createButton(actionFrame, "Patch Constant", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4 + btnSpacing * 2, btnY), function()
-        self:ShowConstantPatchDialog(panel)
-    end)
-    patchConstBtn.ZIndex = 102
-    patchConstBtn.TextSize = 9
-    local trackCallsBtn = self:_createButton(actionFrame, "Track Calls", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4 + btnSpacing * 3, btnY), function()
-        self:ShowCallTrackerDialog(panel)
-    end)
-    trackCallsBtn.ZIndex = 102
-    trackCallsBtn.TextSize = 9
-    btnY = btnY + 24
-    local replaceClosureBtn = self:_createButton(actionFrame, "Replace Closure", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4, btnY), function()
-        self:ShowClosureReplaceDialog(panel)
-    end)
-    replaceClosureBtn.ZIndex = 102
-    replaceClosureBtn.TextSize = 9
-    local viewPatchesBtn = self:_createButton(actionFrame, "View Patches", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4 + btnSpacing, btnY), function()
-        self:ShowFunctionPatchList(panel)
-    end)
-    viewPatchesBtn.ZIndex = 102
-    viewPatchesBtn.TextSize = 9
-    local clearPatchesBtn = self:_createButton(actionFrame, "Clear All", UDim2.fromOffset(btnWidth, 20), UDim2.fromOffset(4 + btnSpacing * 2, btnY), function()
-        self:ClearAllFunctionPatches()
-        self:_showNotification("All function patches cleared", "success")
-    end)
-    clearPatchesBtn.ZIndex = 102
-    clearPatchesBtn.TextSize = 9
+    local buttonStartY = 20
+    local buttonHeight = 22
+    local buttonSpacing = 2
+    local buttonsPerRow = 4
+    local actionButtons = {
+        {label = "Hook Return", func = function() self:ShowReturnHookDialog(panel) end},
+        {label = "Patch Upvalue", func = function() self:ShowUpvaluePatchDialog(panel) end},
+        {label = "Patch Constant", func = function() self:ShowConstantPatchDialog(panel) end},
+        {label = "Track Calls", func = function() self:ShowCallTrackerDialog(panel) end},
+        {label = "Replace Closure", func = function() self:ShowClosureReplaceDialog(panel) end},
+        {label = "View Patches", func = function() self:ShowFunctionPatchList(panel) end},
+        {label = "Clear All Patches", func = function() 
+            self:ClearAllFunctionPatches()
+            self:_showNotification("All function patches cleared", "success")
+        end},
+        {label = "Export Info", func = function()
+            if self.State.CurrentDecompiledFunction then
+                self:ExportFunctionInfo(self.State.CurrentDecompiledFunction)
+            else
+                self:_showNotification("No function decompiled yet", "warning")
+            end
+        end}
+    }
+    for i, btnData in ipairs(actionButtons) do
+        local row = math.floor((i - 1) / buttonsPerRow)
+        local col = (i - 1) % buttonsPerRow
+        local btn = self:_createButton(
+            actionFrame, 
+            btnData.label, 
+            UDim2.new(0.25, -3, 0, buttonHeight), 
+            UDim2.new(col * 0.25, 2, 0, buttonStartY + row * (buttonHeight + buttonSpacing)),
+            btnData.func
+        )
+        btn.ZIndex = 102
+        btn.TextSize = 8
+        btn.TextWrapped = true
+    end
     return panel
 end
 function Modules.OverseerCE:DecompileFunctionFromPath(path, panel)
