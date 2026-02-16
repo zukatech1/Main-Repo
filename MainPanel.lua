@@ -10987,6 +10987,634 @@ RegisterCommand({
 }, function()
     Modules.CFrameEditor:Toggle()
 end)
+Modules.CFrameDesync = {
+    State = {
+        IsEnabled = false,
+        OriginalCFrame = nil,
+        VisualCFrame = nil,
+        ServerCFrame = nil,
+        UI = nil,
+        Mode = "position",
+        Increment = 1,
+        Connections = {},
+        DesyncActive = false,
+        FakeCharacter = nil
+    },
+    Config = {
+        HighlightColor = Color3.fromRGB(255, 0, 200),
+        ShowFakeCharacter = true,
+        UpdateRate = 0.1
+    }
+}
+
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+function Modules.CFrameDesync:_createUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "CFrameDesync_Zuka"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    self.State.UI = screenGui
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.fromOffset(340, 520)
+    mainFrame.Position = UDim2.new(1, -350, 0.5, -260)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+    
+    local stroke = Instance.new("UIStroke", mainFrame)
+    stroke.Color = Color3.fromRGB(255, 0, 200)
+    stroke.Thickness = 2
+    
+    local glowTween = TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+        Thickness = 3
+    })
+    glowTween:Play()
+    
+    local titleBar = Instance.new("Frame", mainFrame)
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 35)
+    titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    titleBar.BorderSizePixel = 0
+    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
+    
+    local title = Instance.new("TextLabel", titleBar)
+    title.Size = UDim2.new(1, -70, 1, 0)
+    title.Position = UDim2.fromOffset(10, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.Code
+    title.Text = "▸ CFRAME DESYNC"
+    title.TextColor3 = Color3.fromRGB(255, 0, 200)
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local statusIndicator = Instance.new("TextLabel", titleBar)
+    statusIndicator.Name = "StatusIndicator"
+    statusIndicator.Size = UDim2.fromOffset(60, 20)
+    statusIndicator.Position = UDim2.new(1, -130, 0.5, -10)
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    statusIndicator.BorderSizePixel = 0
+    statusIndicator.Font = Enum.Font.GothamBold
+    statusIndicator.Text = "OFF"
+    statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statusIndicator.TextSize = 10
+    Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
+    
+    local closeBtn = Instance.new("TextButton", titleBar)
+    closeBtn.Size = UDim2.fromOffset(30, 30)
+    closeBtn.Position = UDim2.new(1, -32, 0, 2)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 20
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+    
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Disable()
+    end)
+    
+    -- Make draggable
+    local dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            
+            local moveConn, endConn
+            moveConn = game:GetService("UserInputService").InputChanged:Connect(function(moveInput)
+                if moveInput.UserInputType == Enum.UserInputType.MouseMovement then
+                    local delta = moveInput.Position - dragStart
+                    mainFrame.Position = UDim2.new(
+                        startPos.X.Scale, startPos.X.Offset + delta.X,
+                        startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                    )
+                end
+            end)
+            
+            endConn = game:GetService("UserInputService").InputEnded:Connect(function(endInput)
+                if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                    moveConn:Disconnect()
+                    endConn:Disconnect()
+                end
+            end)
+        end
+    end)
+    
+    local content = Instance.new("Frame", mainFrame)
+    content.Name = "Content"
+    content.Size = UDim2.new(1, -20, 1, -45)
+    content.Position = UDim2.fromOffset(10, 40)
+    content.BackgroundTransparency = 1
+    
+    -- Desync Toggle
+    local desyncToggle = Instance.new("TextButton", content)
+    desyncToggle.Name = "DesyncToggle"
+    desyncToggle.Size = UDim2.new(1, 0, 0, 45)
+    desyncToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+    desyncToggle.BorderSizePixel = 0
+    desyncToggle.Font = Enum.Font.GothamBold
+    desyncToggle.Text = "ACTIVATE DESYNC"
+    desyncToggle.TextColor3 = Color3.new(1, 1, 1)
+    desyncToggle.TextSize = 16
+    Instance.new("UICorner", desyncToggle).CornerRadius = UDim.new(0, 6)
+    
+    desyncToggle.MouseButton1Click:Connect(function()
+        self:ToggleDesync()
+    end)
+    
+    -- Mode Selection
+    local modeLabel = Instance.new("TextLabel", content)
+    modeLabel.Size = UDim2.new(1, 0, 0, 20)
+    modeLabel.Position = UDim2.fromOffset(0, 55)
+    modeLabel.BackgroundTransparency = 1
+    modeLabel.Font = Enum.Font.GothamBold
+    modeLabel.Text = "Mode:"
+    modeLabel.TextColor3 = Color3.new(1, 1, 1)
+    modeLabel.TextSize = 13
+    modeLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local modeButtons = {}
+    local modes = {"position", "rotation"}
+    for i, mode in ipairs(modes) do
+        local btn = Instance.new("TextButton", content)
+        btn.Name = mode .. "Btn"
+        btn.Size = UDim2.fromOffset(150, 30)
+        btn.Position = UDim2.fromOffset((i-1) * 160, 80)
+        btn.BackgroundColor3 = mode == "position" and Color3.fromRGB(255, 0, 200) or Color3.fromRGB(50, 50, 65)
+        btn.BorderSizePixel = 0
+        btn.Font = Enum.Font.GothamSemibold
+        btn.Text = mode:upper()
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.TextSize = 11
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        
+        modeButtons[mode] = btn
+        
+        btn.MouseButton1Click:Connect(function()
+            self.State.Mode = mode
+            for m, b in pairs(modeButtons) do
+                b.BackgroundColor3 = m == mode and Color3.fromRGB(255, 0, 200) or Color3.fromRGB(50, 50, 65)
+            end
+        end)
+    end
+    
+    -- Increment
+    local incrementLabel = Instance.new("TextLabel", content)
+    incrementLabel.Size = UDim2.new(1, 0, 0, 20)
+    incrementLabel.Position = UDim2.fromOffset(0, 120)
+    incrementLabel.BackgroundTransparency = 1
+    incrementLabel.Font = Enum.Font.GothamBold
+    incrementLabel.Text = "Increment: 1"
+    incrementLabel.TextColor3 = Color3.new(1, 1, 1)
+    incrementLabel.TextSize = 13
+    incrementLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local incrementSlider = Instance.new("TextBox", content)
+    incrementSlider.Size = UDim2.new(1, 0, 0, 30)
+    incrementSlider.Position = UDim2.fromOffset(0, 145)
+    incrementSlider.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    incrementSlider.BorderSizePixel = 0
+    incrementSlider.Font = Enum.Font.Code
+    incrementSlider.Text = "1"
+    incrementSlider.TextColor3 = Color3.new(1, 1, 1)
+    incrementSlider.TextSize = 14
+    incrementSlider.PlaceholderText = "0.1 / 1 / 5 / 10"
+    Instance.new("UICorner", incrementSlider).CornerRadius = UDim.new(0, 6)
+    
+    incrementSlider.FocusLost:Connect(function()
+        local value = tonumber(incrementSlider.Text)
+        if value and value > 0 then
+            self.State.Increment = value
+            incrementLabel.Text = "Increment: " .. value
+        else
+            incrementSlider.Text = tostring(self.State.Increment)
+        end
+    end)
+    
+    -- Controls
+    local controlsLabel = Instance.new("TextLabel", content)
+    controlsLabel.Size = UDim2.new(1, 0, 0, 20)
+    controlsLabel.Position = UDim2.fromOffset(0, 185)
+    controlsLabel.BackgroundTransparency = 1
+    controlsLabel.Font = Enum.Font.GothamBold
+    controlsLabel.Text = "Visual Position Controls:"
+    controlsLabel.TextColor3 = Color3.new(1, 1, 1)
+    controlsLabel.TextSize = 13
+    controlsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local controls = {
+        {text = "+X", offset = Vector3.new(1, 0, 0), pos = {0, 210}},
+        {text = "-X", offset = Vector3.new(-1, 0, 0), pos = {110, 210}},
+        {text = "+Y", offset = Vector3.new(0, 1, 0), pos = {0, 245}},
+        {text = "-Y", offset = Vector3.new(0, -1, 0), pos = {110, 245}},
+        {text = "+Z", offset = Vector3.new(0, 0, 1), pos = {0, 280}},
+        {text = "-Z", offset = Vector3.new(0, 0, -1), pos = {110, 280}},
+    }
+    
+    for _, ctrl in ipairs(controls) do
+        local btn = Instance.new("TextButton", content)
+        btn.Size = UDim2.fromOffset(100, 30)
+        btn.Position = UDim2.fromOffset(ctrl.pos[1], ctrl.pos[2])
+        btn.BackgroundColor3 = Color3.fromRGB(200, 60, 120)
+        btn.BorderSizePixel = 0
+        btn.Font = Enum.Font.GothamBold
+        btn.Text = ctrl.text
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.TextSize = 14
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        
+        btn.MouseButton1Click:Connect(function()
+            self:AdjustVisualCFrame(ctrl.offset)
+        end)
+    end
+    
+    -- Preset buttons
+    local presetsLabel = Instance.new("TextLabel", content)
+    presetsLabel.Size = UDim2.new(1, 0, 0, 20)
+    presetsLabel.Position = UDim2.fromOffset(0, 320)
+    presetsLabel.BackgroundTransparency = 1
+    presetsLabel.Font = Enum.Font.GothamBold
+    presetsLabel.Text = "Presets:"
+    presetsLabel.TextColor3 = Color3.new(1, 1, 1)
+    presetsLabel.TextSize = 13
+    presetsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local undergroundBtn = Instance.new("TextButton", content)
+    undergroundBtn.Size = UDim2.new(0.48, 0, 0, 30)
+    undergroundBtn.Position = UDim2.fromOffset(0, 345)
+    undergroundBtn.BackgroundColor3 = Color3.fromRGB(150, 100, 50)
+    undergroundBtn.BorderSizePixel = 0
+    undergroundBtn.Font = Enum.Font.GothamBold
+    undergroundBtn.Text = "UNDERGROUND"
+    undergroundBtn.TextColor3 = Color3.new(1, 1, 1)
+    undergroundBtn.TextSize = 10
+    Instance.new("UICorner", undergroundBtn).CornerRadius = UDim.new(0, 6)
+    
+    undergroundBtn.MouseButton1Click:Connect(function()
+        self:PresetUnderground()
+    end)
+    
+    local skyBtn = Instance.new("TextButton", content)
+    skyBtn.Size = UDim2.new(0.48, 0, 0, 30)
+    skyBtn.Position = UDim2.new(0.52, 0, 0, 345)
+    skyBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    skyBtn.BorderSizePixel = 0
+    skyBtn.Font = Enum.Font.GothamBold
+    skyBtn.Text = "SKY"
+    skyBtn.TextColor3 = Color3.new(1, 1, 1)
+    skyBtn.TextSize = 10
+    Instance.new("UICorner", skyBtn).CornerRadius = UDim.new(0, 6)
+    
+    skyBtn.MouseButton1Click:Connect(function()
+        self:PresetSky()
+    end)
+    
+    -- Quick Actions
+    local actionsLabel = Instance.new("TextLabel", content)
+    actionsLabel.Size = UDim2.new(1, 0, 0, 20)
+    actionsLabel.Position = UDim2.fromOffset(0, 385)
+    actionsLabel.BackgroundTransparency = 1
+    actionsLabel.Font = Enum.Font.GothamBold
+    actionsLabel.Text = "Quick Actions:"
+    actionsLabel.TextColor3 = Color3.new(1, 1, 1)
+    actionsLabel.TextSize = 13
+    actionsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local resetBtn = Instance.new("TextButton", content)
+    resetBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    resetBtn.Position = UDim2.fromOffset(0, 410)
+    resetBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
+    resetBtn.BorderSizePixel = 0
+    resetBtn.Font = Enum.Font.GothamBold
+    resetBtn.Text = "RESET"
+    resetBtn.TextColor3 = Color3.new(1, 1, 1)
+    resetBtn.TextSize = 13
+    Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 6)
+    
+    resetBtn.MouseButton1Click:Connect(function()
+        self:ResetDesync()
+    end)
+    
+    local syncBtn = Instance.new("TextButton", content)
+    syncBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    syncBtn.Position = UDim2.new(0.52, 0, 0, 410)
+    syncBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+    syncBtn.BorderSizePixel = 0
+    syncBtn.Font = Enum.Font.GothamBold
+    syncBtn.Text = "SYNC"
+    syncBtn.TextColor3 = Color3.new(1, 1, 1)
+    syncBtn.TextSize = 13
+    Instance.new("UICorner", syncBtn).CornerRadius = UDim.new(0, 6)
+    
+    syncBtn.MouseButton1Click:Connect(function()
+        self:SyncToServer()
+    end)
+    
+    -- Info Box
+    local infoBox = Instance.new("TextLabel", content)
+    infoBox.Name = "InfoBox"
+    infoBox.Size = UDim2.new(1, 0, 0, 60)
+    infoBox.Position = UDim2.fromOffset(0, 455)
+    infoBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    infoBox.BorderSizePixel = 0
+    infoBox.Font = Enum.Font.Code
+    infoBox.Text = "Desync: OFF\nVisual Offset: 0, 0, 0"
+    infoBox.TextColor3 = Color3.fromRGB(255, 150, 200)
+    infoBox.TextSize = 10
+    infoBox.TextWrapped = true
+    infoBox.TextXAlignment = Enum.TextXAlignment.Left
+    infoBox.TextYAlignment = Enum.TextYAlignment.Top
+    Instance.new("UICorner", infoBox).CornerRadius = UDim.new(0, 6)
+    
+    local padding = Instance.new("UIPadding", infoBox)
+    padding.PaddingLeft = UDim.new(0, 8)
+    padding.PaddingTop = UDim.new(0, 8)
+    
+    screenGui.Parent = CoreGui
+    
+    return desyncToggle, statusIndicator, infoBox
+end
+
+function Modules.CFrameDesync:ToggleDesync()
+    if not self.State.DesyncActive then
+        self:ActivateDesync()
+    else
+        self:DeactivateDesync()
+    end
+end
+
+function Modules.CFrameDesync:ActivateDesync()
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        print("✗ Character not found")
+        return
+    end
+    
+    self.State.DesyncActive = true
+    self.State.OriginalCFrame = character.HumanoidRootPart.CFrame
+    self.State.ServerCFrame = self.State.OriginalCFrame
+    self.State.VisualCFrame = self.State.OriginalCFrame
+    
+    -- Create fake character
+    if self.Config.ShowFakeCharacter then
+        self:CreateFakeCharacter()
+    end
+    
+    -- Update UI
+    local desyncToggle = self.State.UI.MainFrame.Content.DesyncToggle
+    local statusIndicator = self.State.UI.MainFrame.TitleBar.StatusIndicator
+    
+    desyncToggle.Text = "DEACTIVATE DESYNC"
+    desyncToggle.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    statusIndicator.Text = "ACTIVE"
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 200)
+    statusIndicator.TextColor3 = Color3.new(1, 1, 1)
+    
+    -- Start desync loop
+    self.State.Connections.DesyncLoop = RunService.Heartbeat:Connect(function()
+        self:UpdateDesync()
+    end)
+    
+    print("✓ Desync activated")
+end
+
+function Modules.CFrameDesync:DeactivateDesync()
+    self.State.DesyncActive = false
+    
+    -- Sync back to server
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        character.HumanoidRootPart.CFrame = self.State.ServerCFrame
+    end
+    
+    -- Remove fake character
+    if self.State.FakeCharacter then
+        self.State.FakeCharacter:Destroy()
+        self.State.FakeCharacter = nil
+    end
+    
+    -- Disconnect desync loop
+    if self.State.Connections.DesyncLoop then
+        self.State.Connections.DesyncLoop:Disconnect()
+        self.State.Connections.DesyncLoop = nil
+    end
+    
+    -- Update UI
+    local desyncToggle = self.State.UI.MainFrame.Content.DesyncToggle
+    local statusIndicator = self.State.UI.MainFrame.TitleBar.StatusIndicator
+    
+    desyncToggle.Text = "ACTIVATE DESYNC"
+    desyncToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+    statusIndicator.Text = "OFF"
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
+    
+    print("✓ Desync deactivated")
+    self:UpdateDisplay()
+end
+
+function Modules.CFrameDesync:CreateFakeCharacter()
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    -- Clone character
+    local fake = Instance.new("Model")
+    fake.Name = "FakeCharacter_" .. LocalPlayer.Name
+    
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            local clone = part:Clone()
+            clone.CanCollide = false
+            clone.Transparency = 0.5
+            clone.Material = Enum.Material.ForceField
+            clone.Color = Color3.fromRGB(255, 0, 200)
+            clone.Parent = fake
+        end
+    end
+    
+    fake.Parent = workspace
+    self.State.FakeCharacter = fake
+end
+
+function Modules.CFrameDesync:UpdateDesync()
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local hrp = character.HumanoidRootPart
+    
+    -- Update server position (what the server sees)
+    self.State.ServerCFrame = hrp.CFrame
+    
+    -- Apply visual offset
+    hrp.CFrame = self.State.VisualCFrame
+    
+    -- Update fake character position
+    if self.State.FakeCharacter then
+        for _, part in pairs(self.State.FakeCharacter:GetChildren()) do
+            if part:IsA("BasePart") then
+                local realPart = character:FindFirstChild(part.Name)
+                if realPart then
+                    part.CFrame = realPart.CFrame
+                end
+            end
+        end
+    end
+    
+    self:UpdateDisplay()
+end
+
+function Modules.CFrameDesync:AdjustVisualCFrame(offset)
+    if not self.State.DesyncActive then
+        print("⚠ Desync is not active")
+        return
+    end
+    
+    local increment = self.State.Increment
+    
+    if self.State.Mode == "position" then
+        self.State.VisualCFrame = self.State.VisualCFrame + (offset * increment)
+    elseif self.State.Mode == "rotation" then
+        local angles = offset * math.rad(increment * 15)
+        self.State.VisualCFrame = self.State.VisualCFrame * CFrame.Angles(angles.X, angles.Y, angles.Z)
+    end
+    
+    self:UpdateDisplay()
+end
+
+function Modules.CFrameDesync:ResetDesync()
+    if not self.State.DesyncActive then
+        print("⚠ Desync is not active")
+        return
+    end
+    
+    self.State.VisualCFrame = self.State.ServerCFrame
+    print("✓ Reset visual position to server position")
+    self:UpdateDisplay()
+end
+
+function Modules.CFrameDesync:SyncToServer()
+    if not self.State.DesyncActive then
+        print("⚠ Desync is not active")
+        return
+    end
+    
+    -- Move server position to visual position
+    self.State.ServerCFrame = self.State.VisualCFrame
+    
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        character.HumanoidRootPart.CFrame = self.State.ServerCFrame
+    end
+    
+    print("✓ Synced server position to visual position")
+    self:UpdateDisplay()
+end
+
+function Modules.CFrameDesync:PresetUnderground()
+    if not self.State.DesyncActive then
+        print("⚠ Desync is not active")
+        return
+    end
+    
+    self.State.VisualCFrame = self.State.ServerCFrame - Vector3.new(0, 50, 0)
+    print("✓ Applied underground preset")
+    self:UpdateDisplay()
+end
+
+function Modules.CFrameDesync:PresetSky()
+    if not self.State.DesyncActive then
+        print("⚠ Desync is not active")
+        return
+    end
+    
+    self.State.VisualCFrame = self.State.ServerCFrame + Vector3.new(0, 200, 0)
+    print("✓ Applied sky preset")
+    self:UpdateDisplay()
+end
+
+function Modules.CFrameDesync:UpdateDisplay()
+    if not self.State.UI then return end
+    
+    local infoBox = self.State.UI.MainFrame.Content.InfoBox
+    
+    if self.State.DesyncActive then
+        local visualPos = self.State.VisualCFrame.Position
+        local serverPos = self.State.ServerCFrame.Position
+        local offset = visualPos - serverPos
+        
+        infoBox.Text = string.format(
+            "Desync: ACTIVE\n\nVisual Pos:\nX: %.2f, Y: %.2f, Z: %.2f\n\nServer Pos:\nX: %.2f, Y: %.2f, Z: %.2f\n\nOffset:\nX: %.2f, Y: %.2f, Z: %.2f",
+            visualPos.X, visualPos.Y, visualPos.Z,
+            serverPos.X, serverPos.Y, serverPos.Z,
+            offset.X, offset.Y, offset.Z
+        )
+        infoBox.TextColor3 = Color3.fromRGB(255, 100, 200)
+    else
+        infoBox.Text = "Desync: OFF\n\nActivate desync to start"
+        infoBox.TextColor3 = Color3.fromRGB(150, 150, 150)
+    end
+end
+
+function Modules.CFrameDesync:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    
+    self:_createUI()
+    
+    print("✓ CFrame Desync enabled")
+end
+
+function Modules.CFrameDesync:Disable()
+    if not self.State.IsEnabled then return end
+    
+    -- Deactivate desync if active
+    if self.State.DesyncActive then
+        self:DeactivateDesync()
+    end
+    
+    self.State.IsEnabled = false
+    
+    -- Disconnect all connections
+    for _, conn in pairs(self.State.Connections) do
+        if conn then
+            conn:Disconnect()
+        end
+    end
+    table.clear(self.State.Connections)
+    
+    -- Destroy UI
+    if self.State.UI then
+        self.State.UI:Destroy()
+        self.State.UI = nil
+    end
+    
+    print("✓ CFrame Desync disabled")
+end
+
+function Modules.CFrameDesync:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+
+RegisterCommand({
+    Name = "csync",
+    Aliases = {"fakepos"},
+    Description = "Opens CFrame desync editor to manipulate your character's visual position."
+}, function()
+    Modules.CFrameDesync:Toggle()
+end)
 Modules.OrbitController = {
     State = {
         IsEnabled = false,
@@ -15541,6 +16169,526 @@ function Modules.Overseer:Initialize()
         module:CreateUI()
     end)
 end
+Modules.ModelBring = {
+    State = {
+        IsEnabled = false,
+        BroughtObjects = {},
+        Connections = {},
+        SelectedObject = nil,
+        UI = nil
+    },
+    Config = {
+        DISTANCE = 5,
+        VERTICAL_OFFSET = 0,
+        HORIZONTAL_OFFSET = 0,
+        ShowHighlight = true,
+        HighlightColor = Color3.fromRGB(0, 255, 200)
+    }
+}
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+function Modules.ModelBring:_createUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "ModelBring_Zuka"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    self.State.UI = screenGui
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.fromOffset(360, 480)
+    mainFrame.Position = UDim2.new(1, -370, 0.5, -240)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+    local stroke = Instance.new("UIStroke", mainFrame)
+    stroke.Color = Color3.fromRGB(0, 255, 200)
+    stroke.Thickness = 2
+    local glowTween = TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+        Thickness = 3
+    })
+    glowTween:Play()
+    local titleBar = Instance.new("Frame", mainFrame)
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 35)
+    titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    titleBar.BorderSizePixel = 0
+    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
+    local title = Instance.new("TextLabel", titleBar)
+    title.Size = UDim2.new(1, -70, 1, 0)
+    title.Position = UDim2.fromOffset(10, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.Code
+    title.Text = "▸ MODEL BRING"
+    title.TextColor3 = Color3.fromRGB(0, 255, 200)
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    local statusIndicator = Instance.new("TextLabel", titleBar)
+    statusIndicator.Name = "StatusIndicator"
+    statusIndicator.Size = UDim2.fromOffset(80, 20)
+    statusIndicator.Position = UDim2.new(1, -150, 0.5, -10)
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    statusIndicator.BorderSizePixel = 0
+    statusIndicator.Font = Enum.Font.GothamBold
+    statusIndicator.Text = "0 ACTIVE"
+    statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statusIndicator.TextSize = 10
+    Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
+    local closeBtn = Instance.new("TextButton", titleBar)
+    closeBtn.Size = UDim2.fromOffset(30, 30)
+    closeBtn.Position = UDim2.new(1, -32, 0, 2)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 20
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Disable()
+    end)
+    local dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            local moveConn, endConn
+            moveConn = game:GetService("UserInputService").InputChanged:Connect(function(moveInput)
+                if moveInput.UserInputType == Enum.UserInputType.MouseMovement then
+                    local delta = moveInput.Position - dragStart
+                    mainFrame.Position = UDim2.new(
+                        startPos.X.Scale, startPos.X.Offset + delta.X,
+                        startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                    )
+                end
+            end)
+            endConn = game:GetService("UserInputService").InputEnded:Connect(function(endInput)
+                if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                    moveConn:Disconnect()
+                    endConn:Disconnect()
+                end
+            end)
+        end
+    end)
+    local content = Instance.new("Frame", mainFrame)
+    content.Name = "Content"
+    content.Size = UDim2.new(1, -20, 1, -45)
+    content.Position = UDim2.fromOffset(10, 40)
+    content.BackgroundTransparency = 1
+    local selectionLabel = Instance.new("TextLabel", content)
+    selectionLabel.Name = "SelectionLabel"
+    selectionLabel.Size = UDim2.new(1, 0, 0, 35)
+    selectionLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    selectionLabel.BorderSizePixel = 0
+    selectionLabel.Font = Enum.Font.GothamMedium
+    selectionLabel.Text = "Click an object to select"
+    selectionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    selectionLabel.TextSize = 12
+    Instance.new("UICorner", selectionLabel).CornerRadius = UDim.new(0, 6)
+    local settingsLabel = Instance.new("TextLabel", content)
+    settingsLabel.Size = UDim2.new(1, 0, 0, 20)
+    settingsLabel.Position = UDim2.fromOffset(0, 45)
+    settingsLabel.BackgroundTransparency = 1
+    settingsLabel.Font = Enum.Font.GothamBold
+    settingsLabel.Text = "Position Settings:"
+    settingsLabel.TextColor3 = Color3.new(1, 1, 1)
+    settingsLabel.TextSize = 13
+    settingsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local distanceLabel = Instance.new("TextLabel", content)
+    distanceLabel.Size = UDim2.new(1, 0, 0, 18)
+    distanceLabel.Position = UDim2.fromOffset(0, 70)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.Font = Enum.Font.Gotham
+    distanceLabel.Text = "Distance: 5"
+    distanceLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    distanceLabel.TextSize = 11
+    distanceLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local distanceInput = Instance.new("TextBox", content)
+    distanceInput.Size = UDim2.new(1, 0, 0, 30)
+    distanceInput.Position = UDim2.fromOffset(0, 92)
+    distanceInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    distanceInput.BorderSizePixel = 0
+    distanceInput.Font = Enum.Font.Code
+    distanceInput.Text = "5"
+    distanceInput.TextColor3 = Color3.new(1, 1, 1)
+    distanceInput.TextSize = 12
+    distanceInput.PlaceholderText = "Distance from player..."
+    Instance.new("UICorner", distanceInput).CornerRadius = UDim.new(0, 6)
+    distanceInput.FocusLost:Connect(function()
+        local value = tonumber(distanceInput.Text)
+        if value then
+            self.Config.DISTANCE = value
+            distanceLabel.Text = "Distance: " .. value
+        else
+            distanceInput.Text = tostring(self.Config.DISTANCE)
+        end
+    end)
+    local verticalLabel = Instance.new("TextLabel", content)
+    verticalLabel.Size = UDim2.new(1, 0, 0, 18)
+    verticalLabel.Position = UDim2.fromOffset(0, 130)
+    verticalLabel.BackgroundTransparency = 1
+    verticalLabel.Font = Enum.Font.Gotham
+    verticalLabel.Text = "Vertical Offset: 0"
+    verticalLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    verticalLabel.TextSize = 11
+    verticalLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local verticalInput = Instance.new("TextBox", content)
+    verticalInput.Size = UDim2.new(1, 0, 0, 30)
+    verticalInput.Position = UDim2.fromOffset(0, 152)
+    verticalInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    verticalInput.BorderSizePixel = 0
+    verticalInput.Font = Enum.Font.Code
+    verticalInput.Text = "0"
+    verticalInput.TextColor3 = Color3.new(1, 1, 1)
+    verticalInput.TextSize = 12
+    verticalInput.PlaceholderText = "Height offset..."
+    Instance.new("UICorner", verticalInput).CornerRadius = UDim.new(0, 6)
+    verticalInput.FocusLost:Connect(function()
+        local value = tonumber(verticalInput.Text)
+        if value then
+            self.Config.VERTICAL_OFFSET = value
+            verticalLabel.Text = "Vertical Offset: " .. value
+        else
+            verticalInput.Text = tostring(self.Config.VERTICAL_OFFSET)
+        end
+    end)
+    local horizontalLabel = Instance.new("TextLabel", content)
+    horizontalLabel.Size = UDim2.new(1, 0, 0, 18)
+    horizontalLabel.Position = UDim2.fromOffset(0, 190)
+    horizontalLabel.BackgroundTransparency = 1
+    horizontalLabel.Font = Enum.Font.Gotham
+    horizontalLabel.Text = "Horizontal Offset: 0"
+    horizontalLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    horizontalLabel.TextSize = 11
+    horizontalLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local horizontalInput = Instance.new("TextBox", content)
+    horizontalInput.Size = UDim2.new(1, 0, 0, 30)
+    horizontalInput.Position = UDim2.fromOffset(0, 212)
+    horizontalInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    horizontalInput.BorderSizePixel = 0
+    horizontalInput.Font = Enum.Font.Code
+    horizontalInput.Text = "0"
+    horizontalInput.TextColor3 = Color3.new(1, 1, 1)
+    horizontalInput.TextSize = 12
+    horizontalInput.PlaceholderText = "Side offset..."
+    Instance.new("UICorner", horizontalInput).CornerRadius = UDim.new(0, 6)
+    horizontalInput.FocusLost:Connect(function()
+        local value = tonumber(horizontalInput.Text)
+        if value then
+            self.Config.HORIZONTAL_OFFSET = value
+            horizontalLabel.Text = "Horizontal Offset: " .. value
+        else
+            horizontalInput.Text = tostring(self.Config.HORIZONTAL_OFFSET)
+        end
+    end)
+    local actionsLabel = Instance.new("TextLabel", content)
+    actionsLabel.Size = UDim2.new(1, 0, 0, 20)
+    actionsLabel.Position = UDim2.fromOffset(0, 252)
+    actionsLabel.BackgroundTransparency = 1
+    actionsLabel.Font = Enum.Font.GothamBold
+    actionsLabel.Text = "Actions:"
+    actionsLabel.TextColor3 = Color3.new(1, 1, 1)
+    actionsLabel.TextSize = 13
+    actionsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local bringBtn = Instance.new("TextButton", content)
+    bringBtn.Name = "BringButton"
+    bringBtn.Size = UDim2.new(1, 0, 0, 40)
+    bringBtn.Position = UDim2.fromOffset(0, 277)
+    bringBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 150)
+    bringBtn.BorderSizePixel = 0
+    bringBtn.Font = Enum.Font.GothamBold
+    bringBtn.Text = "BRING SELECTED"
+    bringBtn.TextColor3 = Color3.new(1, 1, 1)
+    bringBtn.TextSize = 14
+    Instance.new("UICorner", bringBtn).CornerRadius = UDim.new(0, 6)
+    bringBtn.MouseButton1Click:Connect(function()
+        self:BringSelected()
+    end)
+    local releaseBtn = Instance.new("TextButton", content)
+    releaseBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    releaseBtn.Position = UDim2.fromOffset(0, 327)
+    releaseBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
+    releaseBtn.BorderSizePixel = 0
+    releaseBtn.Font = Enum.Font.GothamBold
+    releaseBtn.Text = "RELEASE"
+    releaseBtn.TextColor3 = Color3.new(1, 1, 1)
+    releaseBtn.TextSize = 12
+    Instance.new("UICorner", releaseBtn).CornerRadius = UDim.new(0, 6)
+    releaseBtn.MouseButton1Click:Connect(function()
+        self:ReleaseSelected()
+    end)
+    local releaseAllBtn = Instance.new("TextButton", content)
+    releaseAllBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    releaseAllBtn.Position = UDim2.new(0.52, 0, 0, 327)
+    releaseAllBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    releaseAllBtn.BorderSizePixel = 0
+    releaseAllBtn.Font = Enum.Font.GothamBold
+    releaseAllBtn.Text = "RELEASE ALL"
+    releaseAllBtn.TextColor3 = Color3.new(1, 1, 1)
+    releaseAllBtn.TextSize = 12
+    Instance.new("UICorner", releaseAllBtn).CornerRadius = UDim.new(0, 6)
+    releaseAllBtn.MouseButton1Click:Connect(function()
+        self:ReleaseAll()
+    end)
+    local listLabel = Instance.new("TextLabel", content)
+    listLabel.Size = UDim2.new(1, 0, 0, 20)
+    listLabel.Position = UDim2.fromOffset(0, 372)
+    listLabel.BackgroundTransparency = 1
+    listLabel.Font = Enum.Font.GothamBold
+    listLabel.Text = "Brought Objects:"
+    listLabel.TextColor3 = Color3.new(1, 1, 1)
+    listLabel.TextSize = 13
+    listLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local objectList = Instance.new("ScrollingFrame", content)
+    objectList.Name = "ObjectList"
+    objectList.Size = UDim2.new(1, 0, 0, 83)
+    objectList.Position = UDim2.fromOffset(0, 397)
+    objectList.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    objectList.BorderSizePixel = 0
+    objectList.ScrollBarThickness = 4
+    objectList.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 200)
+    objectList.CanvasSize = UDim2.fromOffset(0, 0)
+    objectList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Instance.new("UICorner", objectList).CornerRadius = UDim.new(0, 6)
+    local listLayout = Instance.new("UIListLayout", objectList)
+    listLayout.Padding = UDim.new(0, 3)
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    screenGui.Parent = CoreGui
+    return selectionLabel, statusIndicator, objectList
+end
+function Modules.ModelBring:GetPrimaryPart(obj)
+    if obj:IsA("Model") then
+        return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart", true)
+    elseif obj:IsA("BasePart") then
+        return obj
+    end
+    return nil
+end
+function Modules.ModelBring:BringSelected()
+    if not self.State.SelectedObject then
+        print("⚠ No object selected")
+        return
+    end
+    local obj = self.State.SelectedObject
+    local primaryPart = self:GetPrimaryPart(obj)
+    if not primaryPart then
+        print("✗ Object has no valid part to bring")
+        return
+    end
+    for _, data in pairs(self.State.BroughtObjects) do
+        if data.Object == obj then
+            print("⚠ Object already brought")
+            return
+        end
+    end
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
+        print("✗ Character not found")
+        return
+    end
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ModelBring_Highlight"
+    highlight.FillColor = self.Config.HighlightColor
+    highlight.OutlineColor = self.Config.HighlightColor
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.Adornee = obj:IsA("Model") and obj or primaryPart
+    highlight.Parent = obj:IsA("Model") and obj or primaryPart
+    local connection = RunService.Heartbeat:Connect(function()
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not (myRoot and primaryPart and primaryPart.Parent) then
+            return
+        end
+        if primaryPart:IsA("BasePart") then
+            primaryPart.Velocity = Vector3.new(0, 0, 0)
+            primaryPart.RotVelocity = Vector3.new(0, 0, 0)
+        end
+        local offset = CFrame.new(
+            self.Config.HORIZONTAL_OFFSET,
+            self.Config.VERTICAL_OFFSET,
+            -self.Config.DISTANCE
+        )
+        if obj:IsA("Model") and obj.PrimaryPart then
+            obj:SetPrimaryPartCFrame(myRoot.CFrame * offset)
+        elseif primaryPart then
+            primaryPart.CFrame = myRoot.CFrame * offset
+        end
+    end)
+    table.insert(self.State.BroughtObjects, {
+        Object = obj,
+        Connection = connection,
+        Highlight = highlight,
+        Name = obj.Name
+    })
+    print(string.format("✓ Brought: %s", obj.Name))
+    self:UpdateDisplay()
+end
+function Modules.ModelBring:ReleaseSelected()
+    if not self.State.SelectedObject then
+        print("⚠ No object selected")
+        return
+    end
+    for i, data in ipairs(self.State.BroughtObjects) do
+        if data.Object == self.State.SelectedObject then
+            if data.Connection then
+                data.Connection:Disconnect()
+            end
+            if data.Highlight then
+                data.Highlight:Destroy()
+            end
+            table.remove(self.State.BroughtObjects, i)
+            print(string.format("✓ Released: %s", data.Name))
+            self:UpdateDisplay()
+            return
+        end
+    end
+    print("⚠ Selected object is not brought")
+end
+function Modules.ModelBring:ReleaseAll()
+    if #self.State.BroughtObjects == 0 then
+        print("⚠ No objects to release")
+        return
+    end
+    local count = #self.State.BroughtObjects
+    for _, data in ipairs(self.State.BroughtObjects) do
+        if data.Connection then
+            data.Connection:Disconnect()
+        end
+        if data.Highlight then
+            data.Highlight:Destroy()
+        end
+    end
+    self.State.BroughtObjects = {}
+    print(string.format("✓ Released %d objects", count))
+    self:UpdateDisplay()
+end
+function Modules.ModelBring:SelectObject(obj)
+    if not obj or (not obj:IsA("Model") and not obj:IsA("BasePart")) then
+        print("⚠ Invalid object selected")
+        return
+    end
+    if self.State.SelectedObject then
+        local oldHighlight = self.State.SelectedObject:FindFirstChild("ModelBring_Selection")
+        if oldHighlight then
+            oldHighlight:Destroy()
+        end
+    end
+    self.State.SelectedObject = obj
+    local selectionBox = Instance.new("SelectionBox")
+    selectionBox.Name = "ModelBring_Selection"
+    selectionBox.Adornee = obj:IsA("Model") and obj or obj
+    selectionBox.LineThickness = 0.05
+    selectionBox.Color3 = Color3.fromRGB(255, 255, 0)
+    selectionBox.Parent = obj
+    print(string.format("✓ Selected: %s", obj.Name))
+    self:UpdateDisplay()
+end
+function Modules.ModelBring:UpdateDisplay()
+    if not self.State.UI then return end
+    local selectionLabel = self.State.UI.MainFrame.Content.SelectionLabel
+    local statusIndicator = self.State.UI.MainFrame.TitleBar.StatusIndicator
+    local objectList = self.State.UI.MainFrame.Content.ObjectList
+    if self.State.SelectedObject then
+        selectionLabel.Text = "Selected: " .. self.State.SelectedObject.Name
+        selectionLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    else
+        selectionLabel.Text = "Click an object to select"
+        selectionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    end
+    local count = #self.State.BroughtObjects
+    statusIndicator.Text = count .. " ACTIVE"
+    statusIndicator.BackgroundColor3 = count > 0 and Color3.fromRGB(0, 200, 150) or Color3.fromRGB(50, 50, 50)
+    statusIndicator.TextColor3 = count > 0 and Color3.new(1, 1, 1) or Color3.fromRGB(200, 200, 200)
+    for _, child in pairs(objectList:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+    for i, data in ipairs(self.State.BroughtObjects) do
+        local entry = Instance.new("TextButton")
+        entry.Size = UDim2.new(1, -5, 0, 25)
+        entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        entry.BorderSizePixel = 0
+        entry.Font = Enum.Font.Code
+        entry.Text = string.format("[%d] %s", i, data.Name)
+        entry.TextColor3 = Color3.fromRGB(0, 255, 200)
+        entry.TextSize = 11
+        entry.TextXAlignment = Enum.TextXAlignment.Left
+        entry.AutoButtonColor = false
+        entry.Parent = objectList
+        Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 4)
+        local padding = Instance.new("UIPadding", entry)
+        padding.PaddingLeft = UDim.new(0, 8)
+        entry.MouseButton1Click:Connect(function()
+            self.State.SelectedObject = data.Object
+            self:SelectObject(data.Object)
+        end)
+        entry.MouseEnter:Connect(function()
+            entry.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        end)
+        entry.MouseLeave:Connect(function()
+            entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        end)
+    end
+end
+function Modules.ModelBring:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    self:_createUI()
+    self.State.Connections.MouseClick = game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local mouse = LocalPlayer:GetMouse()
+            local target = mouse.Target
+            if target then
+                local obj = target:IsA("Model") and target or target.Parent
+                if obj:IsA("Model") or obj:IsA("BasePart") then
+                    self:SelectObject(obj)
+                end
+            end
+        end
+    end)
+    print("✓ Model Bring enabled - Click objects to select")
+end
+function Modules.ModelBring:Disable()
+    if not self.State.IsEnabled then return end
+    self:ReleaseAll()
+    self.State.IsEnabled = false
+    if self.State.SelectedObject then
+        local highlight = self.State.SelectedObject:FindFirstChild("ModelBring_Selection")
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+    for _, conn in pairs(self.State.Connections) do
+        if conn then
+            conn:Disconnect()
+        end
+    end
+    table.clear(self.State.Connections)
+    if self.State.UI then
+        self.State.UI:Destroy()
+        self.State.UI = nil
+    end
+    self.State.SelectedObject = nil
+    print("✓ Model Bring disabled")
+end
+function Modules.ModelBring:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+RegisterCommand({
+    Name = "bringmodel",
+    Aliases = {""},
+    Description = "Brings any workspace model or part to you. Click to select, then click 'BRING SELECTED'."
+}, function()
+    Modules.ModelBring:Toggle()
+end)
 Modules.ApexCounter = {
     State = {
         IsEnabled = false,
@@ -15883,14 +17031,17 @@ Modules.ModuleExplorer = {
         GhostIndexes = {}
     }
 }
+
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
+
 local function CreateGUI()
     local gui = Instance.new("ScreenGui")
     gui.Name = "ModuleExplorer"
     gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     gui.ResetOnSpawn = false
     gui.Parent = CoreGui
+    
     local main = Instance.new("Frame")
     main.Name = "MainFrame"
     main.Size = UDim2.fromOffset(1100, 650)
@@ -15900,19 +17051,25 @@ local function CreateGUI()
     main.BorderSizePixel = 0
     main.ClipsDescendants = true
     main.Parent = gui
+    
     local mainCorner = Instance.new("UICorner", main)
     mainCorner.CornerRadius = UDim.new(0, 12)
+    
     local mainStroke = Instance.new("UIStroke", main)
     mainStroke.Color = Color3.fromRGB(0, 255, 150)
     mainStroke.Thickness = 2
+    
+    -- Title Bar
     local titleBar = Instance.new("Frame")
     titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, 0, 0, 40)
     titleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
     titleBar.BorderSizePixel = 0
     titleBar.Parent = main
+    
     local titleCorner = Instance.new("UICorner", titleBar)
     titleCorner.CornerRadius = UDim.new(0, 12)
+    
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -100, 1, 0)
     title.Position = UDim2.fromOffset(15, 0)
@@ -15923,6 +17080,7 @@ local function CreateGUI()
     title.TextSize = 16
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = titleBar
+    
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.fromOffset(30, 30)
     closeBtn.Position = UDim2.new(1, -35, 0, 5)
@@ -15933,8 +17091,11 @@ local function CreateGUI()
     closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     closeBtn.TextSize = 20
     closeBtn.Parent = titleBar
+    
     local closeBtnCorner = Instance.new("UICorner", closeBtn)
     closeBtnCorner.CornerRadius = UDim.new(0, 8)
+    
+    -- Left Panel (Module List)
     local leftPanel = Instance.new("Frame")
     leftPanel.Name = "ModuleList"
     leftPanel.Size = UDim2.new(0.25, -5, 1, -50)
@@ -15942,12 +17103,15 @@ local function CreateGUI()
     leftPanel.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
     leftPanel.BorderSizePixel = 0
     leftPanel.Parent = main
+    
     local leftCorner = Instance.new("UICorner", leftPanel)
     leftCorner.CornerRadius = UDim.new(0, 8)
+    
     local leftStroke = Instance.new("UIStroke", leftPanel)
     leftStroke.Color = Color3.fromRGB(0, 255, 150)
     leftStroke.Thickness = 1
     leftStroke.Transparency = 0.5
+    
     local moduleScroll = Instance.new("ScrollingFrame")
     moduleScroll.Name = "ModuleScroll"
     moduleScroll.Size = UDim2.new(1, -10, 1, -10)
@@ -15959,9 +17123,12 @@ local function CreateGUI()
     moduleScroll.CanvasSize = UDim2.fromOffset(0, 0)
     moduleScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     moduleScroll.Parent = leftPanel
+    
     local moduleLayout = Instance.new("UIListLayout", moduleScroll)
     moduleLayout.Padding = UDim.new(0, 5)
     moduleLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    -- Middle Panel (Details)
     local middlePanel = Instance.new("Frame")
     middlePanel.Name = "DetailsPanel"
     middlePanel.Size = UDim2.new(0.45, -5, 1, -50)
@@ -15969,12 +17136,15 @@ local function CreateGUI()
     middlePanel.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
     middlePanel.BorderSizePixel = 0
     middlePanel.Parent = main
+    
     local middleCorner = Instance.new("UICorner", middlePanel)
     middleCorner.CornerRadius = UDim.new(0, 8)
+    
     local middleStroke = Instance.new("UIStroke", middlePanel)
     middleStroke.Color = Color3.fromRGB(0, 255, 150)
     middleStroke.Thickness = 1
     middleStroke.Transparency = 0.5
+    
     local detailsScroll = Instance.new("ScrollingFrame")
     detailsScroll.Name = "DetailsScroll"
     detailsScroll.Size = UDim2.new(1, -10, 1, -10)
@@ -15986,9 +17156,12 @@ local function CreateGUI()
     detailsScroll.CanvasSize = UDim2.fromOffset(0, 0)
     detailsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     detailsScroll.Parent = middlePanel
+    
     local detailsLayout = Instance.new("UIListLayout", detailsScroll)
     detailsLayout.Padding = UDim.new(0, 5)
     detailsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    -- Right Panel (Actions)
     local rightPanel = Instance.new("Frame")
     rightPanel.Name = "ActionsPanel"
     rightPanel.Size = UDim2.new(0.3, -10, 1, -50)
@@ -15996,12 +17169,15 @@ local function CreateGUI()
     rightPanel.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
     rightPanel.BorderSizePixel = 0
     rightPanel.Parent = main
+    
     local rightCorner = Instance.new("UICorner", rightPanel)
     rightCorner.CornerRadius = UDim.new(0, 8)
+    
     local rightStroke = Instance.new("UIStroke", rightPanel)
     rightStroke.Color = Color3.fromRGB(0, 255, 150)
     rightStroke.Thickness = 1
     rightStroke.Transparency = 0.5
+    
     local actionsScroll = Instance.new("ScrollingFrame")
     actionsScroll.Name = "ActionsScroll"
     actionsScroll.Size = UDim2.new(1, -10, 1, -10)
@@ -16013,16 +17189,21 @@ local function CreateGUI()
     actionsScroll.CanvasSize = UDim2.fromOffset(0, 0)
     actionsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     actionsScroll.Parent = rightPanel
+    
     local actionsLayout = Instance.new("UIListLayout", actionsScroll)
     actionsLayout.Padding = UDim.new(0, 8)
     actionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    -- Make draggable
     local dragging = false
     local dragInput, dragStart, startPos
+    
     titleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
             startPos = main.Position
+            
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -16030,11 +17211,13 @@ local function CreateGUI()
             end)
         end
     end)
+    
     titleBar.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement then
             dragInput = input
         end
     end)
+    
     game:GetService("UserInputService").InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
@@ -16046,6 +17229,7 @@ local function CreateGUI()
             )
         end
     end)
+    
     closeBtn.MouseButton1Click:Connect(function()
         local closeTween = TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
             Size = UDim2.fromOffset(0, 0)
@@ -16055,8 +17239,10 @@ local function CreateGUI()
         gui:Destroy()
         Modules.ModuleExplorer.State.IsOpen = false
     end)
+    
     return gui, main, moduleScroll, detailsScroll, actionsScroll
 end
+
 local function ScanModules()
     local modules = {}
     local locations = {
@@ -16064,6 +17250,7 @@ local function ScanModules()
         game:GetService("ReplicatedFirst"),
         game:GetService("StarterPlayer"):WaitForChild("StarterPlayerScripts", 5)
     }
+    
     for _, location in pairs(locations) do
         if location then
             for _, obj in pairs(location:GetDescendants()) do
@@ -16073,8 +17260,10 @@ local function ScanModules()
             end
         end
     end
+    
     return modules
 end
+
 local function CreateModuleButton(module, parent, onClick)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 35)
@@ -16087,12 +17276,15 @@ local function CreateModuleButton(module, parent, onClick)
     btn.TextXAlignment = Enum.TextXAlignment.Left
     btn.AutoButtonColor = false
     btn.Parent = parent
+    
     local btnCorner = Instance.new("UICorner", btn)
     btnCorner.CornerRadius = UDim.new(0, 6)
+    
     local btnStroke = Instance.new("UIStroke", btn)
     btnStroke.Color = Color3.fromRGB(0, 255, 150)
     btnStroke.Thickness = 1
     btnStroke.Transparency = 0.8
+    
     btn.MouseButton1Click:Connect(function()
         onClick(module)
         for _, child in pairs(parent:GetChildren()) do
@@ -16102,18 +17294,22 @@ local function CreateModuleButton(module, parent, onClick)
         end
         btn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
     end)
+    
     btn.MouseEnter:Connect(function()
         TweenService:Create(btnStroke, TweenInfo.new(0.2), {
             Transparency = 0.3
         }):Play()
     end)
+    
     btn.MouseLeave:Connect(function()
         TweenService:Create(btnStroke, TweenInfo.new(0.2), {
             Transparency = 0.8
         }):Play()
     end)
+    
     return btn
 end
+
 local function CreateLabel(text, color, parent, isBold)
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 0, 0)
@@ -16127,8 +17323,10 @@ local function CreateLabel(text, color, parent, isBold)
     label.TextWrapped = true
     label.RichText = true
     label.Parent = parent
+    
     return label
 end
+
 local function CreateActionButton(text, color, parent, onClick)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 35)
@@ -16140,30 +17338,39 @@ local function CreateActionButton(text, color, parent, onClick)
     btn.TextSize = 12
     btn.AutoButtonColor = false
     btn.Parent = parent
+    
     local btnCorner = Instance.new("UICorner", btn)
     btnCorner.CornerRadius = UDim.new(0, 6)
+    
     btn.MouseButton1Click:Connect(onClick)
+    
     btn.MouseEnter:Connect(function()
         local h, s, v = color:ToHSV()
         btn.BackgroundColor3 = Color3.fromHSV(h, s, math.min(v + 0.1, 1))
     end)
+    
     btn.MouseLeave:Connect(function()
         btn.BackgroundColor3 = color
     end)
+    
     return btn
 end
+
 local function CreateInputField(placeholder, parent)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, 0, 0, 35)
     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
     frame.BorderSizePixel = 0
     frame.Parent = parent
+    
     local frameCorner = Instance.new("UICorner", frame)
     frameCorner.CornerRadius = UDim.new(0, 6)
+    
     local frameStroke = Instance.new("UIStroke", frame)
     frameStroke.Color = Color3.fromRGB(0, 255, 150)
     frameStroke.Thickness = 1
     frameStroke.Transparency = 0.7
+    
     local input = Instance.new("TextBox")
     input.Size = UDim2.new(1, -10, 1, 0)
     input.Position = UDim2.fromOffset(5, 0)
@@ -16177,19 +17384,24 @@ local function CreateInputField(placeholder, parent)
     input.TextXAlignment = Enum.TextXAlignment.Left
     input.ClearTextOnFocus = false
     input.Parent = frame
+    
     input.Focused:Connect(function()
         TweenService:Create(frameStroke, TweenInfo.new(0.2), {
             Transparency = 0.3
         }):Play()
     end)
+    
     input.FocusLost:Connect(function()
         TweenService:Create(frameStroke, TweenInfo.new(0.2), {
             Transparency = 0.7
         }):Play()
     end)
+    
     return input
 end
+
 local function ParseValue(str)
+    -- Try to parse as different types
     if str == "true" then
         return true
     elseif str == "false" then
@@ -16202,6 +17414,7 @@ local function ParseValue(str)
         return str
     end
 end
+
 local function GetNestedValue(tbl, path)
     local current = tbl
     for _, key in ipairs(path) do
@@ -16213,6 +17426,7 @@ local function GetNestedValue(tbl, path)
     end
     return current
 end
+
 local function SetNestedValue(tbl, path, value)
     local current = tbl
     for i = 1, #path - 1 do
@@ -16228,6 +17442,7 @@ local function SetNestedValue(tbl, path, value)
     end
     return false
 end
+
 local function CreateClickableLabel(text, color, parent, isBold, onClick, path)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 0)
@@ -16244,36 +17459,46 @@ local function CreateClickableLabel(text, color, parent, isBold, onClick, path)
     btn.RichText = true
     btn.AutoButtonColor = false
     btn.Parent = parent
+    
     if onClick then
         btn.MouseButton1Click:Connect(function()
             onClick(path)
         end)
+        
         btn.MouseEnter:Connect(function()
             btn.BackgroundTransparency = 0.9
         end)
+        
         btn.MouseLeave:Connect(function()
             btn.BackgroundTransparency = 1
         end)
     end
+    
     return btn
 end
+
 local function InspectValue(value, depth, maxDepth, detailsScroll, path, onSelect)
     depth = depth or 0
     maxDepth = maxDepth or 3
     path = path or {}
+    
     if depth > maxDepth then
         return "..."
     end
+    
     local indent = string.rep("  ", depth)
     local valueType = typeof(value)
+    
     if valueType == "table" then
         CreateLabel(indent .. "{ -- Table", Color3.fromRGB(100, 200, 255), detailsScroll)
+        
         for k, v in pairs(value) do
             local keyStr = tostring(k)
             local valueStr = tostring(v)
             local vType = typeof(v)
             local currentPath = {table.unpack(path)}
             table.insert(currentPath, k)
+            
             if vType == "function" then
                 CreateClickableLabel(
                     indent .. "  " .. keyStr .. " = <function>",
@@ -16306,6 +17531,8 @@ local function InspectValue(value, depth, maxDepth, detailsScroll, path, onSelec
                 )
             end
         end
+        
+        -- Check metatable
         local mt = getmetatable(value)
         if mt then
             CreateLabel(indent .. "  __metatable = <table>", Color3.fromRGB(255, 0, 200), detailsScroll)
@@ -16315,6 +17542,7 @@ local function InspectValue(value, depth, maxDepth, detailsScroll, path, onSelec
                 InspectValue(mt, depth + 1, maxDepth, detailsScroll, mtPath, onSelect)
             end
         end
+        
         CreateLabel(indent .. "}", Color3.fromRGB(100, 200, 255), detailsScroll)
     elseif valueType == "function" then
         local info = debug.getinfo(value)
@@ -16324,28 +17552,38 @@ local function InspectValue(value, depth, maxDepth, detailsScroll, path, onSelec
         CreateLabel(indent .. tostring(value) .. " (" .. valueType .. ")", Color3.fromRGB(200, 200, 200), detailsScroll)
     end
 end
+
 local function DisplayActions(moduleResult, selectedPath, actionsScroll)
+    -- Clear previous actions
     for _, child in pairs(actionsScroll:GetChildren()) do
         if not child:IsA("UIListLayout") then
             child:Destroy()
         end
     end
+    
     CreateLabel("═══ ACTIONS ═══", Color3.fromRGB(0, 255, 150), actionsScroll, true)
     CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
+    
     if #selectedPath == 0 then
         CreateLabel("Select an item to modify", Color3.fromRGB(180, 180, 180), actionsScroll)
         return
     end
+    
     local pathStr = table.concat(selectedPath, ".")
     CreateLabel("Selected: " .. pathStr, Color3.fromRGB(100, 200, 255), actionsScroll, true)
     CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
+    
     local value = GetNestedValue(moduleResult, selectedPath)
     local valueType = typeof(value)
+    
     CreateLabel("Type: " .. valueType, Color3.fromRGB(180, 180, 180), actionsScroll)
     CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
+    
+    -- Modify Value
     if valueType ~= "function" then
         CreateLabel("▸ Modify Value:", Color3.fromRGB(255, 200, 0), actionsScroll, true)
         local valueInput = CreateInputField("New value...", actionsScroll)
+        
         CreateActionButton("Apply Change", Color3.fromRGB(0, 150, 255), actionsScroll, function()
             local newValue = ParseValue(valueInput.Text)
             if SetNestedValue(moduleResult, selectedPath, newValue) then
@@ -16355,17 +17593,23 @@ local function DisplayActions(moduleResult, selectedPath, actionsScroll)
                 print("✗ Failed to modify value")
             end
         end)
+        
         CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
     end
+    
+    -- Hook Function
     if valueType == "function" then
         CreateLabel("▸ Hook Function:", Color3.fromRGB(255, 150, 0), actionsScroll, true)
+        
         CreateActionButton("Hook - Log Calls", Color3.fromRGB(255, 100, 0), actionsScroll, function()
             local originalFunc = value
             local hookKey = pathStr
+            
             if Modules.ModuleExplorer.State.Hooks[hookKey] then
                 print("⚠ Function already hooked!")
                 return
             end
+            
             local hooked = function(...)
                 local args = {...}
                 print(string.format("🔗 Hook [%s] called with %d args:", pathStr, #args))
@@ -16376,47 +17620,156 @@ local function DisplayActions(moduleResult, selectedPath, actionsScroll)
                 print(string.format("  → Returned %d values", #results))
                 return table.unpack(results)
             end
+            
             Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
             SetNestedValue(moduleResult, selectedPath, hooked)
             print(string.format("✓ Hooked function: %s", pathStr))
         end)
+        
         CreateActionButton("Hook - Block Calls", Color3.fromRGB(255, 0, 100), actionsScroll, function()
             local originalFunc = value
             local hookKey = pathStr
+            
             if Modules.ModuleExplorer.State.Hooks[hookKey] then
                 print("⚠ Function already hooked!")
                 return
             end
+            
             local hooked = function(...)
                 print(string.format("🚫 Blocked call to: %s", pathStr))
                 return nil
             end
+            
             Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
             SetNestedValue(moduleResult, selectedPath, hooked)
             print(string.format("✓ Blocked function: %s", pathStr))
         end)
-        CreateActionButton("Hook - Modify Return", Color3.fromRGB(150, 0, 255), actionsScroll, function()
+        
+        -- Force True
+        CreateActionButton("Hook - Force Return True", Color3.fromRGB(0, 200, 100), actionsScroll, function()
             local originalFunc = value
             local hookKey = pathStr
+            
             if Modules.ModuleExplorer.State.Hooks[hookKey] then
                 print("⚠ Function already hooked!")
                 return
             end
+            
             local hooked = function(...)
-                local results = {originalFunc(...)}
-                if type(results[1]) == "number" then
-                    results[1] = results[1] * 999
-                    print(string.format("🔧 Modified return: %s -> multiplied by 999", pathStr))
-                elseif type(results[1]) == "boolean" then
-                    results[1] = true
-                    print(string.format("🔧 Modified return: %s -> forced true", pathStr))
-                end
-                return table.unpack(results)
+                originalFunc(...)
+                print(string.format("✓ Forced true return: %s", pathStr))
+                return true
             end
+            
             Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
             SetNestedValue(moduleResult, selectedPath, hooked)
-            print(string.format("✓ Hooked with return modifier: %s", pathStr))
+            print(string.format("✓ Hooked to force return true: %s", pathStr))
         end)
+        
+        -- Force False
+        CreateActionButton("Hook - Force Return False", Color3.fromRGB(200, 50, 50), actionsScroll, function()
+            local originalFunc = value
+            local hookKey = pathStr
+            
+            if Modules.ModuleExplorer.State.Hooks[hookKey] then
+                print("⚠ Function already hooked!")
+                return
+            end
+            
+            local hooked = function(...)
+                originalFunc(...)
+                print(string.format("✓ Forced false return: %s", pathStr))
+                return false
+            end
+            
+            Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
+            SetNestedValue(moduleResult, selectedPath, hooked)
+            print(string.format("✓ Hooked to force return false: %s", pathStr))
+        end)
+        
+        -- Force Nil
+        CreateActionButton("Hook - Force Return Nil", Color3.fromRGB(100, 100, 100), actionsScroll, function()
+            local originalFunc = value
+            local hookKey = pathStr
+            
+            if Modules.ModuleExplorer.State.Hooks[hookKey] then
+                print("⚠ Function already hooked!")
+                return
+            end
+            
+            local hooked = function(...)
+                originalFunc(...)
+                print(string.format("✓ Forced nil return: %s", pathStr))
+                return nil
+            end
+            
+            Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
+            SetNestedValue(moduleResult, selectedPath, hooked)
+            print(string.format("✓ Hooked to force return nil: %s", pathStr))
+        end)
+        
+        -- Custom Return Value
+        CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
+        CreateLabel("Custom Return:", Color3.fromRGB(150, 150, 255), actionsScroll, true)
+        local customReturnInput = CreateInputField("Return value...", actionsScroll)
+        
+        CreateActionButton("Hook - Custom Return", Color3.fromRGB(150, 0, 255), actionsScroll, function()
+            local originalFunc = value
+            local hookKey = pathStr
+            
+            if Modules.ModuleExplorer.State.Hooks[hookKey] then
+                print("⚠ Function already hooked!")
+                return
+            end
+            
+            local customValue = ParseValue(customReturnInput.Text)
+            
+            local hooked = function(...)
+                originalFunc(...)
+                print(string.format("✓ Forced custom return: %s -> %s", pathStr, tostring(customValue)))
+                return customValue
+            end
+            
+            Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
+            SetNestedValue(moduleResult, selectedPath, hooked)
+            print(string.format("✓ Hooked to force return: %s = %s", pathStr, tostring(customValue)))
+            customReturnInput.Text = ""
+        end)
+        
+        -- Multiply Numbers
+        CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
+        CreateLabel("Numeric Multiplier:", Color3.fromRGB(255, 200, 100), actionsScroll, true)
+        local multiplierInput = CreateInputField("Multiplier (e.g., 999)...", actionsScroll)
+        
+        CreateActionButton("Hook - Multiply Numbers", Color3.fromRGB(255, 150, 0), actionsScroll, function()
+            local originalFunc = value
+            local hookKey = pathStr
+            
+            if Modules.ModuleExplorer.State.Hooks[hookKey] then
+                print("⚠ Function already hooked!")
+                return
+            end
+            
+            local multiplier = tonumber(multiplierInput.Text) or 1
+            
+            local hooked = function(...)
+                local results = {originalFunc(...)}
+                -- Modify numeric returns
+                for i, result in ipairs(results) do
+                    if type(result) == "number" then
+                        results[i] = result * multiplier
+                    end
+                end
+                print(string.format("✓ Multiplied numeric returns by %d: %s", multiplier, pathStr))
+                return table.unpack(results)
+            end
+            
+            Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
+            SetNestedValue(moduleResult, selectedPath, hooked)
+            print(string.format("✓ Hooked with %dx multiplier: %s", multiplier, pathStr))
+            multiplierInput.Text = ""
+        end)
+        
         if Modules.ModuleExplorer.State.Hooks[pathStr] then
             CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
             CreateActionButton("Unhook Function", Color3.fromRGB(0, 200, 100), actionsScroll, function()
@@ -16426,26 +17779,36 @@ local function DisplayActions(moduleResult, selectedPath, actionsScroll)
                 print(string.format("✓ Unhooked function: %s", pathStr))
             end)
         end
+        
         CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
     end
+    
+    -- Ghost Index (for tables)
     if valueType == "table" then
         CreateLabel("▸ Ghost Index:", Color3.fromRGB(200, 0, 255), actionsScroll, true)
         CreateLabel("Add fake properties that appear to exist", Color3.fromRGB(150, 150, 150), actionsScroll)
+        
         local ghostKeyInput = CreateInputField("Key name...", actionsScroll)
         local ghostValueInput = CreateInputField("Value...", actionsScroll)
+        
         CreateActionButton("Add Ghost Index", Color3.fromRGB(200, 0, 255), actionsScroll, function()
             local key = ghostKeyInput.Text
             local val = ParseValue(ghostValueInput.Text)
+            
             if key == "" then
                 print("✗ Please enter a key name")
                 return
             end
+            
             local ghostKey = pathStr .. ".__ghost__"
             if not Modules.ModuleExplorer.State.GhostIndexes[ghostKey] then
                 Modules.ModuleExplorer.State.GhostIndexes[ghostKey] = {}
             end
+            
+            -- Set up __index metamethod
             local mt = getmetatable(value) or {}
             local oldIndex = mt.__index
+            
             mt.__index = function(tbl, k)
                 if Modules.ModuleExplorer.State.GhostIndexes[ghostKey][k] then
                     print(string.format("👻 Ghost index accessed: %s.%s", pathStr, k))
@@ -16458,55 +17821,74 @@ local function DisplayActions(moduleResult, selectedPath, actionsScroll)
                 end
                 return rawget(tbl, k)
             end
+            
             setmetatable(value, mt)
             Modules.ModuleExplorer.State.GhostIndexes[ghostKey][key] = val
+            
             print(string.format("✓ Added ghost index: %s.%s = %s", pathStr, key, tostring(val)))
             ghostKeyInput.Text = ""
             ghostValueInput.Text = ""
         end)
+        
         CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
     end
+    
+    -- Copy Path
     CreateActionButton("Copy Path to Clipboard", Color3.fromRGB(100, 100, 100), actionsScroll, function()
         setclipboard(pathStr)
         print(string.format("✓ Copied to clipboard: %s", pathStr))
     end)
 end
+
 local function DisplayModuleDetails(module, detailsScroll, actionsScroll)
+    -- Clear previous details
     for _, child in pairs(detailsScroll:GetChildren()) do
         if not child:IsA("UIListLayout") then
             child:Destroy()
         end
     end
+    
     CreateLabel("═══ MODULE: " .. module.Name .. " ═══", Color3.fromRGB(0, 255, 150), detailsScroll, true)
     CreateLabel("Path: " .. module:GetFullName(), Color3.fromRGB(180, 180, 180), detailsScroll)
     CreateLabel("", Color3.fromRGB(255, 255, 255), detailsScroll)
+    
+    -- Try to require the module
     local success, result = pcall(require, module)
+    
     if not success then
         CreateLabel("✗ Failed to require module:", Color3.fromRGB(255, 50, 100), detailsScroll, true)
         CreateLabel(tostring(result), Color3.fromRGB(255, 100, 100), detailsScroll)
         return
     end
+    
     CreateLabel("✓ Module loaded successfully", Color3.fromRGB(0, 255, 100), detailsScroll, true)
     CreateLabel("", Color3.fromRGB(255, 255, 255), detailsScroll)
+    
     local resultType = typeof(result)
     CreateLabel("Type: " .. resultType, Color3.fromRGB(100, 200, 255), detailsScroll, true)
     CreateLabel("", Color3.fromRGB(255, 255, 255), detailsScroll)
+    
     if resultType == "table" then
         CreateLabel("═══ CONTENTS ═══", Color3.fromRGB(0, 255, 150), detailsScroll, true)
         CreateLabel("Click any item to modify it", Color3.fromRGB(150, 150, 150), detailsScroll)
         CreateLabel("", Color3.fromRGB(255, 255, 255), detailsScroll)
+        
+        -- Store module result for modifications
         Modules.ModuleExplorer.State.ModuleResult = result
+        
         local function onSelect(path)
             Modules.ModuleExplorer.State.SelectedPath = path
             DisplayActions(result, path, actionsScroll)
         end
+        
         InspectValue(result, 0, 2, detailsScroll, {}, onSelect)
     else
         CreateLabel("Value: " .. tostring(result), Color3.fromRGB(200, 200, 200), detailsScroll)
     end
 end
+
 RegisterCommand({
-    Name = "nodex",
+    Name = "Nodex",
     Aliases = {},
     Description = "Opens the module explorer GUI with patching, hooking, and ghost index features."
 }, function(args)
@@ -16514,17 +17896,24 @@ RegisterCommand({
         print("Module Explorer is already open.")
         return
     end
+    
     print("Opening Module Explorer...")
+    
     local gui, main, moduleScroll, detailsScroll, actionsScroll = CreateGUI()
     Modules.ModuleExplorer.State.GUI = gui
     Modules.ModuleExplorer.State.IsOpen = true
+    
+    -- Animate opening
     main.Size = UDim2.fromOffset(0, 0)
     local openTween = TweenService:Create(main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
         Size = UDim2.fromOffset(1100, 650)
     })
     openTween:Play()
+    
+    -- Scan and populate modules
     local modules = ScanModules()
     print(string.format("Found %d modules", #modules))
+    
     for i, module in pairs(modules) do
         CreateModuleButton(module, moduleScroll, function(selectedModule)
             Modules.ModuleExplorer.State.SelectedModule = selectedModule
@@ -16532,6 +17921,8 @@ RegisterCommand({
             DisplayModuleDetails(selectedModule, detailsScroll, actionsScroll)
         end)
     end
+    
+    -- Initial actions display
     DisplayActions(nil, {}, actionsScroll)
 end)
 
@@ -23115,7 +24506,7 @@ function Modules.TeamChanger:Initialize()
     end
     RegisterCommand({
         Name = "team",
-        Aliases = {"setteam", "join"},
+        Aliases = {"setteam"},
         Description = "Forces a team change via spawn-touch emulation or property spoofing."
     }, function(args)
         module:Execute(table.concat(args, " "))
