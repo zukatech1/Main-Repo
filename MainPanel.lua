@@ -2,7 +2,7 @@
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/ZukaTechPanel/refs/heads/main/MainPanel.lua"))()
 
-Made By Zuka. @OverRuka on ROBLOX.
+Made By Zuka. @OverZuka on ROBLOX.
 
 ]]
 
@@ -158,9 +158,7 @@ local function bypassCustomAC()
         setreadonly(mt, true)
     end)
 end
-
 print("- Zukas Panel -")
-
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 local CoreGui = game:GetService("CoreGui")
@@ -2201,8 +2199,52 @@ Modules.CommandBar = {
         Suggestion = Color3.fromRGB(0, 128, 0),
         Font = Enum.Font.Code
     },
-    Dependencies = {"UserInputService", "TweenService", "SoundService"}
+    Dependencies = {"UserInputService", "TweenService", "SoundService"},
+    Scanner = {
+        FoundModules = {},
+        ScanInProgress = false,
+        PoisonedModules = {},
+        Poisons = {
+            inventory = {
+                Name = "Inventory Poison",
+                Description = "Item duplication, unlimited stacks, stat modification",
+                Target = {"inventory", "backpack", "storage", "container", "bag"},
+                Applied = false
+            },
+            damage = {
+                Name = "Damage Poison",
+                Description = "Damage multipliers, invincibility, one-shot kills",
+                Target = {"damage", "combat", "attack", "health"},
+                Applied = false
+            },
+            movement = {
+                Name = "Movement Poison",
+                Description = "Speed hacks, flight, teleportation, no-clip",
+                Target = {"movement", "walkspeed", "character", "humanoid"},
+                Applied = false
+            },
+            currency = {
+                Name = "Economy Poison",
+                Description = "Money multipliers, free purchases, XP boosts",
+                Target = {"currency", "money", "cash", "coins", "shop", "store"},
+                Applied = false
+            },
+            weapon = {
+                Name = "Weapon Poison",
+                Description = "Infinite ammo, no recoil, auto-aim, damage boost",
+                Target = {"weapon", "gun", "tool", "equipment"},
+                Applied = false
+            }
+        }
+    }
 }
+function SafeRequire(module)
+    local success, result = pcall(require, module)
+    if success then
+        return result
+    end
+    return nil
+end
 function Modules.CommandBar:PlayBeep(): ()
     local beep = Instance.new("Sound")
     beep.SoundId = "rbxasset://sounds/electronicpingshort.wav"
@@ -2396,6 +2438,308 @@ function Modules.CommandBar:UpdateSuggestions(): ()
         self.State.CurrentSuggestion = ""
         self.State.SuggestionLabel.Text = ""
     end
+end
+function Modules.CommandBar:StartScan(): ()
+    if self.Scanner.ScanInProgress then
+        self:AddOutput("WARNING: Scan already in progress!", Color3.fromRGB(255, 255, 0))
+        self:PlayBeep()
+        return
+    end
+    self.Scanner.ScanInProgress = true
+    self.Scanner.FoundModules = {}
+    self:AddOutput("════════════════════════════════════════════", self.Theme.Accent)
+    self:AddOutput("INITIATING MODULE SCAN...", self.Theme.Text)
+    self:AddOutput("════════════════════════════════════════════", self.Theme.Accent)
+    self:AddOutput("")
+    task.spawn(function()
+        self:ScanForModules()
+        self.Scanner.ScanInProgress = false
+        self:AddOutput("")
+        self:AddOutput("════════════════════════════════════════════", self.Theme.Accent)
+        self:AddOutput(string.format("SCAN COMPLETE - Found %d modules", #self.Scanner.FoundModules), self.Theme.Accent)
+        self:AddOutput("════════════════════════════════════════════", self.Theme.Accent)
+        self:AddOutput("")
+    end)
+end
+function Modules.CommandBar:ScanForModules(): ()
+    local locations = {
+        {game:GetService("ReplicatedStorage"), "ReplicatedStorage"},
+        {game:GetService("ReplicatedFirst"), "ReplicatedFirst"},
+    }
+    local success, starterPlayer = pcall(function()
+        return game:GetService("StarterPlayer"):WaitForChild("StarterPlayerScripts", 2)
+    end)
+    if success and starterPlayer then
+        table.insert(locations, {starterPlayer, "StarterPlayerScripts"})
+    end
+    local foundCount = 0
+    for _, locationData in pairs(locations) do
+        local location, name = locationData[1], locationData[2]
+        self:AddOutput(string.format("Scanning: %s", name), self.Theme.Text)
+        local modules = {}
+        for _, obj in pairs(location:GetDescendants()) do
+            if obj:IsA("ModuleScript") then
+                table.insert(modules, obj)
+            end
+        end
+        self:AddOutput(string.format("  Found %d ModuleScripts", #modules), self.Theme.Text)
+        for _, module in pairs(modules) do
+            foundCount = foundCount + 1
+            local moduleName = module.Name:lower()
+            local path = module:GetFullName()
+            local category = "unknown"
+            local poisonType = nil
+            for pType, pData in pairs(self.Scanner.Poisons) do
+                for _, keyword in pairs(pData.Target) do
+                    if moduleName:match(keyword) then
+                        category = pType
+                        poisonType = pData
+                        break
+                    end
+                end
+                if poisonType then break end
+            end
+            local moduleData = {
+                Module = module,
+                Name = module.Name,
+                Path = path,
+                Category = category,
+                Poison = poisonType,
+                Index = foundCount
+            }
+            table.insert(self.Scanner.FoundModules, moduleData)
+            if category ~= "unknown" then
+                self:AddOutput(string.format("  [%d] [%s] %s", foundCount, category:upper(), module.Name), self.Theme.Accent)
+            else
+                self:AddOutput(string.format("  [%d] [UNKNOWN] %s", foundCount, module.Name), self.Theme.Text)
+            end
+            task.wait(0.01)
+        end
+        self:AddOutput("")
+    end
+end
+function Modules.CommandBar:ListModules(): ()
+    if #self.Scanner.FoundModules == 0 then
+        self:AddOutput("No modules found. Run 'scan' first.", Color3.fromRGB(255, 255, 0))
+        return
+    end
+    self:AddOutput("════════════════════════════════════════════", self.Theme.Accent)
+    self:AddOutput(string.format("FOUND %d MODULES:", #self.Scanner.FoundModules), self.Theme.Text)
+    self:AddOutput("════════════════════════════════════════════", self.Theme.Accent)
+    self:AddOutput("")
+    for i, mod in pairs(self.Scanner.FoundModules) do
+        local status = self.Scanner.PoisonedModules[mod.Name] and "[POISONED]" or ""
+        self:AddOutput(string.format("[%d] %s (%s) %s", i, mod.Name, mod.Category, status), self.Theme.Text)
+    end
+    self:AddOutput("")
+end
+function Modules.CommandBar:InjectPoison(moduleData): ()
+    self:AddOutput("")
+    self:AddOutput("════════════════════════════════════════════", self.Theme.Accent)
+    self:AddOutput(string.format("INJECTING POISON: %s", moduleData.Poison.Name), self.Theme.Accent)
+    self:AddOutput("════════════════════════════════════════════", self.Theme.Accent)
+    self:AddOutput("")
+    local success, err = pcall(function()
+        self:ApplyPoison(moduleData)
+    end)
+    if success then
+        self:AddOutput(string.format("Successfully injected into: %s", moduleData.Name), self.Theme.Accent)
+        self:AddOutput(string.format("  Description: %s", moduleData.Poison.Description), self.Theme.Text)
+        self:AddOutput("")
+        self.Scanner.PoisonedModules[moduleData.Name] = true
+        moduleData.Poison.Applied = true
+    else
+        self:AddOutput(string.format("Injection failed: %s", tostring(err)), Color3.fromRGB(255, 0, 0))
+        self:AddOutput("")
+        self:PlayBeep()
+    end
+end
+function Modules.CommandBar:ApplyPoison(moduleData): ()
+    local module = SafeRequire(moduleData.Module)
+    if not module then
+        error("Failed to require module")
+    end
+    self:AddOutput("  Analyzing module structure...", self.Theme.Text)
+    local category = moduleData.Category
+    local hooked = 0
+    if category == "inventory" then
+        hooked = self:PoisonInventory(module)
+    elseif category == "damage" then
+        hooked = self:PoisonDamage(module)
+    elseif category == "movement" then
+        hooked = self:PoisonMovement(module)
+    elseif category == "currency" then
+        hooked = self:PoisonCurrency(module)
+    elseif category == "weapon" then
+        hooked = self:PoisonWeapon(module)
+    end
+    self:AddOutput(string.format("  Hooked %d functions", hooked), self.Theme.Accent)
+end
+function Modules.CommandBar:PoisonInventory(module): number
+    local hooked = 0
+    local originalFuncs = {}
+    for funcName, func in pairs(module) do
+        if type(func) == "function" then
+            local name = funcName:lower()
+            if name:match("add") or name:match("give") or name:match("insert") then
+                originalFuncs[funcName] = func
+                module[funcName] = function(...)
+                    local args = {...}
+                    if type(args[2]) == "table" then
+                        args[2].Amount = 999999
+                        args[2].Quantity = 999999
+                        args[2].Stack = 999999
+                    end
+                    return originalFuncs[funcName](...)
+                end
+                hooked = hooked + 1
+                self:AddOutput(string.format("    Hooked: %s (unlimited stacks)", funcName), self.Theme.Accent)
+            end
+            if name:match("remove") or name:match("consume") then
+                originalFuncs[funcName] = func
+                module[funcName] = function(...)
+                    return true
+                end
+                hooked = hooked + 1
+                self:AddOutput(string.format("    Hooked: %s (prevent consumption)", funcName), self.Theme.Accent)
+            end
+            if name:match("damage") or name:match("power") then
+                originalFuncs[funcName] = func
+                module[funcName] = function(...)
+                    local result = originalFuncs[funcName](...)
+                    if type(result) == "number" then
+                        return result * 3.0
+                    end
+                    return result
+                end
+                hooked = hooked + 1
+                self:AddOutput(string.format("    Hooked: %s (3x multiplier)", funcName), self.Theme.Accent)
+            end
+        end
+    end
+    return hooked
+end
+function Modules.CommandBar:PoisonDamage(module): number
+    local hooked = 0
+    local originalFuncs = {}
+    for funcName, func in pairs(module) do
+        if type(func) == "function" then
+            local name = funcName:lower()
+            if name:match("damage") or name:match("takedamage") or name:match("hurt") then
+                originalFuncs[funcName] = func
+                module[funcName] = function(amount, ...)
+                    if type(amount) == "number" then
+                        return originalFuncs[funcName](amount * 0.1, ...)
+                    end
+                    return originalFuncs[funcName](amount, ...)
+                end
+                hooked = hooked + 1
+                self:AddOutput(string.format("    Hooked: %s (90%% damage reduction)", funcName), self.Theme.Accent)
+            end
+            if name:match("deal") or name:match("attack") or name:match("hit") then
+                originalFuncs[funcName] = func
+                module[funcName] = function(amount, ...)
+                    if type(amount) == "number" then
+                        return originalFuncs[funcName](amount * 5.0, ...)
+                    end
+                    return originalFuncs[funcName](amount, ...)
+                end
+                hooked = hooked + 1
+                self:AddOutput(string.format("    Hooked: %s (5x damage output)", funcName), self.Theme.Accent)
+            end
+        end
+    end
+    return hooked
+end
+function Modules.CommandBar:PoisonMovement(module): number
+    local hooked = 0
+    local originalFuncs = {}
+    for funcName, func in pairs(module) do
+        if type(func) == "function" then
+            local name = funcName:lower()
+            if name:match("speed") or name:match("walkspeed") then
+                originalFuncs[funcName] = func
+                module[funcName] = function(...)
+                    local result = originalFuncs[funcName](...)
+                    if type(result) == "number" then
+                        return result * 3.0
+                    end
+                    return result
+                end
+                hooked = hooked + 1
+                self:AddOutput(string.format("    Hooked: %s (3x speed)", funcName), self.Theme.Accent)
+            end
+        end
+    end
+    return hooked
+end
+function Modules.CommandBar:PoisonCurrency(module): number
+    local hooked = 0
+    local originalFuncs = {}
+    for funcName, func in pairs(module) do
+        if type(func) == "function" then
+            local name = funcName:lower()
+            if name:match("add") or name:match("give") or name:match("earn") then
+                originalFuncs[funcName] = func
+                module[funcName] = function(amount, ...)
+                    if type(amount) == "number" then
+                        return originalFuncs[funcName](amount * 10.0, ...)
+                    end
+                    return originalFuncs[funcName](amount, ...)
+                end
+                hooked = hooked + 1
+                self:AddOutput(string.format("    Hooked: %s (10x multiplier)", funcName), self.Theme.Accent)
+            end
+            if name:match("cost") or name:match("price") then
+                originalFuncs[funcName] = func
+                module[funcName] = function(...)
+                    return 0
+                end
+                hooked = hooked + 1
+                self:AddOutput(string.format("    Hooked: %s (free purchases)", funcName), self.Theme.Accent)
+            end
+        end
+    end
+    return hooked
+end
+function Modules.CommandBar:PoisonWeapon(module): number
+    local hooked = 0
+    local originalFuncs = {}
+    for funcName, func in pairs(module) do
+        if type(func) == "function" then
+            local name = funcName:lower()
+            if name:match("ammo") or name:match("clip") then
+                originalFuncs[funcName] = func
+                module[funcName] = function(...)
+                    return 999999
+                end
+                hooked = hooked + 1
+                self:AddOutput(string.format("    Hooked: %s (infinite ammo)", funcName), self.Theme.Accent)
+            end
+            if name:match("fire") or name:match("shoot") then
+                originalFuncs[funcName] = func
+                module[funcName] = function(...)
+                    return originalFuncs[funcName](...)
+                end
+                hooked = hooked + 1
+                self:AddOutput(string.format("    Hooked: %s (no cooldown)", funcName), self.Theme.Accent)
+            end
+        end
+    end
+    return hooked
+end
+function Modules.CommandBar:ShowStatus(): ()
+    self:AddOutput("════════════════════════════════════════════", self.Theme.Accent)
+    self:AddOutput("SCANNER STATUS", self.Theme.Text)
+    self:AddOutput("════════════════════════════════════════════", self.Theme.Accent)
+    self:AddOutput(string.format("Modules Found: %d", #self.Scanner.FoundModules), self.Theme.Text)
+    local poisonedCount = 0
+    for _ in pairs(self.Scanner.PoisonedModules) do
+        poisonedCount = poisonedCount + 1
+    end
+    self:AddOutput(string.format("Poisons Applied: %d", poisonedCount), self.Theme.Text)
+    self:AddOutput(string.format("Scan Active: %s", self.Scanner.ScanInProgress and "Yes" or "No"), self.Theme.Text)
+    self:AddOutput("")
 end
 function Modules.CommandBar:Initialize(): ()
     local CommandBarUI: ScreenGui = Instance.new("ScreenGui")
@@ -2766,6 +3110,29 @@ function Modules.CommandBar:Initialize(): ()
                 elseif cmd:lower() == "cls" or cmd:lower() == "clear" then
                     for _, child in ipairs(OutputLog:GetChildren()) do
                         if child:IsA("TextLabel") then child:Destroy() end
+                    end
+                elseif cmd:lower() == "scan" then
+                    self:StartScan()
+                elseif cmd:lower() == "list" then
+                    self:ListModules()
+                elseif cmd:lower() == "status" then
+                    self:ShowStatus()
+                elseif cmd:lower():match("^inject%s+(%d+)") then
+                    local index = tonumber(cmd:lower():match("^inject%s+(%d+)"))
+                    if index then
+                        local moduleData = self.Scanner.FoundModules[index]
+                        if not moduleData then
+                            self:AddOutput("Invalid module index", Color3.fromRGB(255, 255, 255))
+                            self:PlayBeep()
+                        elseif not moduleData.Poison then
+                            self:AddOutput("Module has no available poison", Color3.fromRGB(255, 255, 0))
+                            self:PlayBeep()
+                        else
+                            self:InjectPoison(moduleData)
+                        end
+                    else
+                        self:AddOutput("Usage: inject <index>", Color3.fromRGB(255, 255, 255))
+                        self:PlayBeep()
                     end
                 else
                     local wasProcessed: boolean = processCommand(Prefix .. cmd)
@@ -3372,6 +3739,151 @@ RegisterCommand({
     Description = "Toggles respawning at your last death location."
 }, function(args)
     Modules.RespawnAtDeath.Toggle()
+end)
+Modules.BypassDevProduct = {
+    State = {
+        Enabled = false
+    }
+}
+
+RegisterCommand({
+    Name = "bypassdevproduct",
+    Aliases = {"bpdp", "unlockproducts"},
+    Description = "Bypasses developer product purchase prompts."
+}, function(args)
+    Modules.BypassDevProduct.State.Enabled = not Modules.BypassDevProduct.State.Enabled
+    
+    if Modules.BypassDevProduct.State.Enabled then
+        print("Developer product bypass enabled.")
+        
+        -- Hook PromptProductPurchase to simulate successful purchase
+        local oldPromptProductPurchase
+        oldPromptProductPurchase = hookfunction(MarketplaceService.PromptProductPurchase, function(...)
+            if Modules.BypassDevProduct.State.Enabled then
+                print("Blocked product purchase prompt.")
+                return
+            end
+            return oldPromptProductPurchase(...)
+        end)
+    else
+        print("Developer product bypass disabled.")
+    end
+end)
+Modules.BypassGamepass = {
+    State = {
+        Enabled = false
+    }
+}
+
+RegisterCommand({
+    Name = "bypassgamepass",
+    Aliases = {"bpgp", "unlockgamepasses"},
+    Description = "Bypasses gamepass ownership checks."
+}, function(args)
+    local localPlayer = Players.LocalPlayer
+    if not localPlayer then
+        print("Error: Could not find LocalPlayer.")
+        return
+    end
+    
+    Modules.BypassGamepass.State.Enabled = not Modules.BypassGamepass.State.Enabled
+    
+    if Modules.BypassGamepass.State.Enabled then
+        print("Gamepass bypass enabled.")
+        
+        -- Hook UserOwnsGamePassAsync
+        local oldUserOwnsGamePassAsync
+        oldUserOwnsGamePassAsync = hookfunction(MarketplaceService.UserOwnsGamePassAsync, function(self, userId, gamePassId)
+            if userId == localPlayer.UserId and Modules.BypassGamepass.State.Enabled then
+                return true
+            end
+            return oldUserOwnsGamePassAsync(self, userId, gamePassId)
+        end)
+    else
+        print("Gamepass bypass disabled.")
+    end
+end)
+Modules.JoinGame = {
+    State = {}
+}
+RegisterCommand({
+    Name = "joingame",
+    Aliases = {"jg", "join"},
+    Description = "Teleports you to a game by its PlaceId."
+}, function(args)
+    local localPlayer = Players.LocalPlayer
+    if not localPlayer then
+        print("Error: Could not find LocalPlayer.")
+        return
+    end
+    
+    -- Check if PlaceId was provided
+    if not args[1] then
+        print("Error: Please provide a PlaceId. Usage: joingame <PlaceId>")
+        return
+    end
+    
+    -- Convert the argument to a number
+    local placeId = tonumber(args[1])
+    if not placeId then
+        print("Error: Invalid PlaceId. Please provide a valid number.")
+        return
+    end
+    
+    print("Joining game " .. placeId .. "... Please wait.")
+    
+    local success, errorMessage = pcall(function()
+        TeleportService:Teleport(placeId, localPlayer)
+    end)
+    
+    if not success then
+        print("Join failed: " .. errorMessage)
+    end
+end)
+Modules.WalkSpeed = {
+    State = {
+        DefaultSpeed = 16,
+        CurrentSpeed = 16
+    }
+}
+RegisterCommand({
+    Name = "walkspeed",
+    Aliases = {"ws", "speed"},
+    Description = "Changes your walkspeed. Usage: walkspeed <number>"
+}, function(args)
+    local localPlayer = Players.LocalPlayer
+    if not localPlayer then
+        print("Error: Could not find LocalPlayer.")
+        return
+    end
+    local character = localPlayer.Character
+    if not character then
+        print("Error: Character not found.")
+        return
+    end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then
+        print("Error: Humanoid not found.")
+        return
+    end
+    if not args[1] then
+        print("Current walkspeed: " .. humanoid.WalkSpeed)
+        print("Usage: walkspeed <number>")
+        return
+    end
+    local newSpeed = tonumber(args[1])
+    if not newSpeed then
+        print("Error: Invalid speed. Please provide a valid number.")
+        return
+    end
+    humanoid.WalkSpeed = newSpeed
+    Modules.WalkSpeed.State.CurrentSpeed = newSpeed
+    print("Walkspeed set to: " .. newSpeed)
+    localPlayer.CharacterAdded:Connect(function(newCharacter)
+        local newHumanoid = newCharacter:WaitForChild("Humanoid")
+        newHumanoid.WalkSpeed = Modules.WalkSpeed.State.CurrentSpeed
+        print("Walkspeed restored to: " .. Modules.WalkSpeed.State.CurrentSpeed)
+    end)
 end)
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
@@ -9829,13 +10341,11 @@ Modules.AdminSpoofDemonstration = {
         }
     }
 }
-
 local function debugLog(message)
     if Modules.AdminSpoofDemonstration.Config.DebugMode then
         print("[AdminSpoof Debug]", message)
     end
 end
-
 local function fetchUserInfo(userId)
     local success, result = pcall(function()
         local HttpService = game:GetService("HttpService")
@@ -9861,30 +10371,24 @@ local function fetchUserInfo(userId)
     end
     return nil
 end
-
 function Modules.AdminSpoofDemonstration:Enable(targetId, targetName, targetDisplayName)
     if self.State.IsSpoofing then
         DoNotif("Already spoofing. Reset first with ;spoofid reset", 3)
         return false
     end
-    
     local localPlayer = self.Services.Players.LocalPlayer
     if not localPlayer then
         DoNotif("Error: LocalPlayer not found", 3)
         return false
     end
-    
-    -- Store original values for comparison
     self.State.OriginalUserId = localPlayer.UserId
     self.State.OriginalName = localPlayer.Name
     self.State.OriginalDisplayName = localPlayer.DisplayName
-    
     self.State.SpoofedId = tonumber(targetId) or -1
     if self.State.SpoofedId <= 0 then
         DoNotif("Invalid UserId. Must be positive.", 3)
         return false
     end
-    
     if not targetName or not targetDisplayName then
         DoNotif("Fetching user info...", 2)
         local userInfo = fetchUserInfo(self.State.SpoofedId)
@@ -9898,32 +10402,23 @@ function Modules.AdminSpoofDemonstration:Enable(targetId, targetName, targetDisp
             targetDisplayName = targetDisplayName or targetName
         end
     end
-    
     self.State.SpoofedName = targetName
     self.State.SpoofedDisplayName = targetDisplayName
-    
     local success, playerMetatable = pcall(getrawmetatable, localPlayer)
     if not success or typeof(playerMetatable) ~= "table" then
         DoNotif("Error: Could not access player metatable", 4)
         return false
     end
-    
     self.State.PlayerMetatable = playerMetatable
     self.State.OriginalIndex = playerMetatable.__index
     self.State.OriginalNamecall = playerMetatable.__namecall
-    
     local originalIndexCache = self.State.OriginalIndex
     local originalNamecallCache = self.State.OriginalNamecall
-    
     pcall(setreadonly, playerMetatable, false)
-    
-    -- KEY FIX: Only spoof for LocalPlayer by checking instance identity
     playerMetatable.__index = newcclosure(function(self, key)
-        -- CRITICAL: Check if 'self' is actually LocalPlayer before spoofing
         if Modules.AdminSpoofDemonstration.State.IsSpoofing and 
            Modules.AdminSpoofDemonstration.State.HookEnabled and
-           self == localPlayer then  -- ← THIS IS THE KEY FIX
-            
+           self == localPlayer then
             if key == "UserId" then
                 Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls = Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls + 1
                 debugLog("Intercepted UserId access for LocalPlayer")
@@ -9938,23 +10433,18 @@ function Modules.AdminSpoofDemonstration:Enable(targetId, targetName, targetDisp
                 return Modules.AdminSpoofDemonstration.State.SpoofedDisplayName
             end
         end
-        
         if typeof(originalIndexCache) == "function" then
             return originalIndexCache(self, key)
         else
             return originalIndexCache[key]
         end
     end)
-    
     if self.Config.InterceptRemoteCalls then
         playerMetatable.__namecall = newcclosure(function(self, ...)
             local args = {...}
             local method = getnamecallmethod()
-            
             if Modules.AdminSpoofDemonstration.State.IsSpoofing and 
                (method == "FireServer" or method == "InvokeServer") then
-                
-                -- Only modify args if they contain LocalPlayer's original info
                 for i, arg in ipairs(args) do
                     if arg == Modules.AdminSpoofDemonstration.State.OriginalUserId then
                         args[i] = Modules.AdminSpoofDemonstration.State.SpoofedId
@@ -9967,55 +10457,41 @@ function Modules.AdminSpoofDemonstration:Enable(targetId, targetName, targetDisp
                            Modules.AdminSpoofDemonstration.Config.SpoofDisplayName then
                         args[i] = Modules.AdminSpoofDemonstration.State.SpoofedDisplayName
                         debugLog("Spoofed DisplayName in remote call")
-                    -- Also check if the arg is the LocalPlayer instance itself
                     elseif arg == localPlayer then
-                        -- Don't replace the player object, just let the property hooks handle it
                         debugLog("LocalPlayer instance passed in remote - hooks will handle properties")
                     end
                 end
             end
-            
             return originalNamecallCache(self, unpack(args))
         end)
     end
-    
     pcall(setreadonly, playerMetatable, true)
-    
     self.State.IsSpoofing = true
     self.State.Stats.LastSpoof = tick()
-    
     DoNotif(string.format("Spoofing enabled:\nUserId: %d\nName: %s\nDisplay: %s", 
         self.State.SpoofedId, 
         self.State.SpoofedName, 
         self.State.SpoofedDisplayName
     ), 4)
-    
     debugLog("Spoof enabled successfully for LocalPlayer only")
     return true
 end
-
 function Modules.AdminSpoofDemonstration:Disable()
     if not self.State.IsSpoofing then
         DoNotif("Not currently spoofing", 2)
         return false
     end
-    
     if self.State.PlayerMetatable then
         pcall(setreadonly, self.State.PlayerMetatable, false)
-        
         if self.State.OriginalIndex then
             self.State.PlayerMetatable.__index = self.State.OriginalIndex
         end
-        
         if self.State.OriginalNamecall then
             self.State.PlayerMetatable.__namecall = self.State.OriginalNamecall
         end
-        
         pcall(setreadonly, self.State.PlayerMetatable, true)
     end
-    
     local interceptCount = self.State.Stats.InterceptedCalls
-    
     self.State.IsSpoofing = false
     self.State.SpoofedId = -1
     self.State.SpoofedName = nil
@@ -10027,12 +10503,10 @@ function Modules.AdminSpoofDemonstration:Disable()
     self.State.OriginalName = nil
     self.State.OriginalDisplayName = nil
     self.State.Stats.InterceptedCalls = 0
-    
     DoNotif(string.format("Spoof disabled. Intercepted %d calls.", interceptCount), 3)
     debugLog("Spoof disabled, cleaned up hooks")
     return true
 end
-
 function Modules.AdminSpoofDemonstration:Toggle()
     if self.State.IsSpoofing then
         self:Disable()
@@ -10040,12 +10514,10 @@ function Modules.AdminSpoofDemonstration:Toggle()
         DoNotif("Usage: ;spoofid <userid> or ;spoofid <username>", 3)
     end
 end
-
 function Modules.AdminSpoofDemonstration:ToggleHook(enabled)
     self.State.HookEnabled = enabled
     DoNotif("Spoof hook " .. (enabled and "enabled" or "disabled"), 2)
 end
-
 function Modules.AdminSpoofDemonstration:GetStats()
     return {
         IsSpoofing = self.State.IsSpoofing,
@@ -10055,13 +10527,11 @@ function Modules.AdminSpoofDemonstration:GetStats()
         Uptime = self.State.IsSpoofing and (tick() - self.State.Stats.LastSpoof) or 0
     }
 end
-
 function Modules.AdminSpoofDemonstration:SpoofByUsername(username)
     local success, result = pcall(function()
         local Players = game:GetService("Players")
         return Players:GetUserIdFromNameAsync(username)
     end)
-    
     if success and result then
         return self:Enable(result)
     else
@@ -10069,25 +10539,21 @@ function Modules.AdminSpoofDemonstration:SpoofByUsername(username)
         return false
     end
 end
-
 function Modules.AdminSpoofDemonstration:Initialize()
     local module = self
     module.Services = {}
     for _, serviceName in ipairs(module.Dependencies or {}) do
         module.Services[serviceName] = game:GetService(serviceName)
     end
-    
     RegisterCommand({
         Name = "spoofid",
         Aliases = {"setid", "fakeid", "adminspoof"},
         Description = "Spoofs your UserId/Name for vulnerable admin scripts."
     }, function(args)
         local argument = args[1]
-        
         if not argument then
             return DoNotif("Usage: ;spoofid <userid|username|reset>", 3)
         end
-        
         if argument:lower() == "reset" or argument:lower() == "clear" or argument:lower() == "off" then
             module:Disable()
         elseif argument:lower() == "stats" then
@@ -10109,7 +10575,6 @@ function Modules.AdminSpoofDemonstration:Initialize()
             end
         end
     end)
-    
     RegisterCommand({
         Name = "spoofname",
         Aliases = {"fakename"},
@@ -10118,7 +10583,6 @@ function Modules.AdminSpoofDemonstration:Initialize()
         module.Config.SpoofName = not module.Config.SpoofName
         DoNotif("Name spoofing: " .. (module.Config.SpoofName and "ON" or "OFF"), 2)
     end)
-    
     RegisterCommand({
         Name = "spoofdisplay",
         Aliases = {"fakedisplay"},
@@ -10127,7 +10591,6 @@ function Modules.AdminSpoofDemonstration:Initialize()
         module.Config.SpoofDisplayName = not module.Config.SpoofDisplayName
         DoNotif("Display name spoofing: " .. (module.Config.SpoofDisplayName and "ON" or "OFF"), 2)
     end)
-    
     RegisterCommand({
         Name = "spoofstats",
         Aliases = {"spoofinfo"},
@@ -15410,6 +15873,668 @@ end
             end
         end
     end)
+Modules.ModuleExplorer = {
+    State = {
+        IsOpen = false,
+        SelectedModule = nil,
+        SelectedPath = {},
+        GUI = nil,
+        Hooks = {},
+        GhostIndexes = {}
+    }
+}
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local function CreateGUI()
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "ModuleExplorer"
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.ResetOnSpawn = false
+    gui.Parent = CoreGui
+    local main = Instance.new("Frame")
+    main.Name = "MainFrame"
+    main.Size = UDim2.fromOffset(1100, 650)
+    main.Position = UDim2.fromScale(0.5, 0.5)
+    main.AnchorPoint = Vector2.new(0.5, 0.5)
+    main.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+    main.BorderSizePixel = 0
+    main.ClipsDescendants = true
+    main.Parent = gui
+    local mainCorner = Instance.new("UICorner", main)
+    mainCorner.CornerRadius = UDim.new(0, 12)
+    local mainStroke = Instance.new("UIStroke", main)
+    mainStroke.Color = Color3.fromRGB(0, 255, 150)
+    mainStroke.Thickness = 2
+    local titleBar = Instance.new("Frame")
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 40)
+    titleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = main
+    local titleCorner = Instance.new("UICorner", titleBar)
+    titleCorner.CornerRadius = UDim.new(0, 12)
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -100, 1, 0)
+    title.Position = UDim2.fromOffset(15, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.Code
+    title.Text = "▸ MODULE EXPLORER v2.0"
+    title.TextColor3 = Color3.fromRGB(0, 255, 150)
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = titleBar
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.fromOffset(30, 30)
+    closeBtn.Position = UDim2.new(1, -35, 0, 5)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.TextSize = 20
+    closeBtn.Parent = titleBar
+    local closeBtnCorner = Instance.new("UICorner", closeBtn)
+    closeBtnCorner.CornerRadius = UDim.new(0, 8)
+    local leftPanel = Instance.new("Frame")
+    leftPanel.Name = "ModuleList"
+    leftPanel.Size = UDim2.new(0.25, -5, 1, -50)
+    leftPanel.Position = UDim2.fromOffset(5, 45)
+    leftPanel.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+    leftPanel.BorderSizePixel = 0
+    leftPanel.Parent = main
+    local leftCorner = Instance.new("UICorner", leftPanel)
+    leftCorner.CornerRadius = UDim.new(0, 8)
+    local leftStroke = Instance.new("UIStroke", leftPanel)
+    leftStroke.Color = Color3.fromRGB(0, 255, 150)
+    leftStroke.Thickness = 1
+    leftStroke.Transparency = 0.5
+    local moduleScroll = Instance.new("ScrollingFrame")
+    moduleScroll.Name = "ModuleScroll"
+    moduleScroll.Size = UDim2.new(1, -10, 1, -10)
+    moduleScroll.Position = UDim2.fromOffset(5, 5)
+    moduleScroll.BackgroundTransparency = 1
+    moduleScroll.BorderSizePixel = 0
+    moduleScroll.ScrollBarThickness = 4
+    moduleScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 150)
+    moduleScroll.CanvasSize = UDim2.fromOffset(0, 0)
+    moduleScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    moduleScroll.Parent = leftPanel
+    local moduleLayout = Instance.new("UIListLayout", moduleScroll)
+    moduleLayout.Padding = UDim.new(0, 5)
+    moduleLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    local middlePanel = Instance.new("Frame")
+    middlePanel.Name = "DetailsPanel"
+    middlePanel.Size = UDim2.new(0.45, -5, 1, -50)
+    middlePanel.Position = UDim2.new(0.25, 5, 0, 45)
+    middlePanel.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+    middlePanel.BorderSizePixel = 0
+    middlePanel.Parent = main
+    local middleCorner = Instance.new("UICorner", middlePanel)
+    middleCorner.CornerRadius = UDim.new(0, 8)
+    local middleStroke = Instance.new("UIStroke", middlePanel)
+    middleStroke.Color = Color3.fromRGB(0, 255, 150)
+    middleStroke.Thickness = 1
+    middleStroke.Transparency = 0.5
+    local detailsScroll = Instance.new("ScrollingFrame")
+    detailsScroll.Name = "DetailsScroll"
+    detailsScroll.Size = UDim2.new(1, -10, 1, -10)
+    detailsScroll.Position = UDim2.fromOffset(5, 5)
+    detailsScroll.BackgroundTransparency = 1
+    detailsScroll.BorderSizePixel = 0
+    detailsScroll.ScrollBarThickness = 4
+    detailsScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 150)
+    detailsScroll.CanvasSize = UDim2.fromOffset(0, 0)
+    detailsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    detailsScroll.Parent = middlePanel
+    local detailsLayout = Instance.new("UIListLayout", detailsScroll)
+    detailsLayout.Padding = UDim.new(0, 5)
+    detailsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    local rightPanel = Instance.new("Frame")
+    rightPanel.Name = "ActionsPanel"
+    rightPanel.Size = UDim2.new(0.3, -10, 1, -50)
+    rightPanel.Position = UDim2.new(0.7, 5, 0, 45)
+    rightPanel.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+    rightPanel.BorderSizePixel = 0
+    rightPanel.Parent = main
+    local rightCorner = Instance.new("UICorner", rightPanel)
+    rightCorner.CornerRadius = UDim.new(0, 8)
+    local rightStroke = Instance.new("UIStroke", rightPanel)
+    rightStroke.Color = Color3.fromRGB(0, 255, 150)
+    rightStroke.Thickness = 1
+    rightStroke.Transparency = 0.5
+    local actionsScroll = Instance.new("ScrollingFrame")
+    actionsScroll.Name = "ActionsScroll"
+    actionsScroll.Size = UDim2.new(1, -10, 1, -10)
+    actionsScroll.Position = UDim2.fromOffset(5, 5)
+    actionsScroll.BackgroundTransparency = 1
+    actionsScroll.BorderSizePixel = 0
+    actionsScroll.ScrollBarThickness = 4
+    actionsScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 150)
+    actionsScroll.CanvasSize = UDim2.fromOffset(0, 0)
+    actionsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    actionsScroll.Parent = rightPanel
+    local actionsLayout = Instance.new("UIListLayout", actionsScroll)
+    actionsLayout.Padding = UDim.new(0, 8)
+    actionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    local dragging = false
+    local dragInput, dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = main.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    titleBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            main.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    closeBtn.MouseButton1Click:Connect(function()
+        local closeTween = TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Size = UDim2.fromOffset(0, 0)
+        })
+        closeTween:Play()
+        closeTween.Completed:Wait()
+        gui:Destroy()
+        Modules.ModuleExplorer.State.IsOpen = false
+    end)
+    return gui, main, moduleScroll, detailsScroll, actionsScroll
+end
+local function ScanModules()
+    local modules = {}
+    local locations = {
+        game:GetService("ReplicatedStorage"),
+        game:GetService("ReplicatedFirst"),
+        game:GetService("StarterPlayer"):WaitForChild("StarterPlayerScripts", 5)
+    }
+    for _, location in pairs(locations) do
+        if location then
+            for _, obj in pairs(location:GetDescendants()) do
+                if obj:IsA("ModuleScript") then
+                    table.insert(modules, obj)
+                end
+            end
+        end
+    end
+    return modules
+end
+local function CreateModuleButton(module, parent, onClick)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 35)
+    btn.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.Code
+    btn.Text = "  " .. module.Name
+    btn.TextColor3 = Color3.fromRGB(0, 255, 150)
+    btn.TextSize = 13
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.AutoButtonColor = false
+    btn.Parent = parent
+    local btnCorner = Instance.new("UICorner", btn)
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    local btnStroke = Instance.new("UIStroke", btn)
+    btnStroke.Color = Color3.fromRGB(0, 255, 150)
+    btnStroke.Thickness = 1
+    btnStroke.Transparency = 0.8
+    btn.MouseButton1Click:Connect(function()
+        onClick(module)
+        for _, child in pairs(parent:GetChildren()) do
+            if child:IsA("TextButton") then
+                child.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+            end
+        end
+        btn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
+    end)
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btnStroke, TweenInfo.new(0.2), {
+            Transparency = 0.3
+        }):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btnStroke, TweenInfo.new(0.2), {
+            Transparency = 0.8
+        }):Play()
+    end)
+    return btn
+end
+local function CreateLabel(text, color, parent, isBold)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 0)
+    label.AutomaticSize = Enum.AutomaticSize.Y
+    label.BackgroundTransparency = 1
+    label.Font = isBold and Enum.Font.GothamBold or Enum.Font.Code
+    label.Text = text
+    label.TextColor3 = color or Color3.fromRGB(200, 200, 200)
+    label.TextSize = isBold and 14 or 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextWrapped = true
+    label.RichText = true
+    label.Parent = parent
+    return label
+end
+local function CreateActionButton(text, color, parent, onClick)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 35)
+    btn.BackgroundColor3 = color
+    btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 12
+    btn.AutoButtonColor = false
+    btn.Parent = parent
+    local btnCorner = Instance.new("UICorner", btn)
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btn.MouseButton1Click:Connect(onClick)
+    btn.MouseEnter:Connect(function()
+        local h, s, v = color:ToHSV()
+        btn.BackgroundColor3 = Color3.fromHSV(h, s, math.min(v + 0.1, 1))
+    end)
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = color
+    end)
+    return btn
+end
+local function CreateInputField(placeholder, parent)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 35)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+    local frameCorner = Instance.new("UICorner", frame)
+    frameCorner.CornerRadius = UDim.new(0, 6)
+    local frameStroke = Instance.new("UIStroke", frame)
+    frameStroke.Color = Color3.fromRGB(0, 255, 150)
+    frameStroke.Thickness = 1
+    frameStroke.Transparency = 0.7
+    local input = Instance.new("TextBox")
+    input.Size = UDim2.new(1, -10, 1, 0)
+    input.Position = UDim2.fromOffset(5, 0)
+    input.BackgroundTransparency = 1
+    input.Font = Enum.Font.Code
+    input.PlaceholderText = placeholder
+    input.PlaceholderColor3 = Color3.fromRGB(100, 100, 100)
+    input.Text = ""
+    input.TextColor3 = Color3.fromRGB(0, 255, 150)
+    input.TextSize = 12
+    input.TextXAlignment = Enum.TextXAlignment.Left
+    input.ClearTextOnFocus = false
+    input.Parent = frame
+    input.Focused:Connect(function()
+        TweenService:Create(frameStroke, TweenInfo.new(0.2), {
+            Transparency = 0.3
+        }):Play()
+    end)
+    input.FocusLost:Connect(function()
+        TweenService:Create(frameStroke, TweenInfo.new(0.2), {
+            Transparency = 0.7
+        }):Play()
+    end)
+    return input
+end
+local function ParseValue(str)
+    if str == "true" then
+        return true
+    elseif str == "false" then
+        return false
+    elseif str == "nil" then
+        return nil
+    elseif tonumber(str) then
+        return tonumber(str)
+    else
+        return str
+    end
+end
+local function GetNestedValue(tbl, path)
+    local current = tbl
+    for _, key in ipairs(path) do
+        if type(current) == "table" then
+            current = current[key]
+        else
+            return nil
+        end
+    end
+    return current
+end
+local function SetNestedValue(tbl, path, value)
+    local current = tbl
+    for i = 1, #path - 1 do
+        if type(current) == "table" then
+            current = current[path[i]]
+        else
+            return false
+        end
+    end
+    if type(current) == "table" then
+        current[path[#path]] = value
+        return true
+    end
+    return false
+end
+local function CreateClickableLabel(text, color, parent, isBold, onClick, path)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 0)
+    btn.AutomaticSize = Enum.AutomaticSize.Y
+    btn.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    btn.BackgroundTransparency = 1
+    btn.BorderSizePixel = 0
+    btn.Font = isBold and Enum.Font.GothamBold or Enum.Font.Code
+    btn.Text = text
+    btn.TextColor3 = color or Color3.fromRGB(200, 200, 200)
+    btn.TextSize = isBold and 14 or 12
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.TextWrapped = true
+    btn.RichText = true
+    btn.AutoButtonColor = false
+    btn.Parent = parent
+    if onClick then
+        btn.MouseButton1Click:Connect(function()
+            onClick(path)
+        end)
+        btn.MouseEnter:Connect(function()
+            btn.BackgroundTransparency = 0.9
+        end)
+        btn.MouseLeave:Connect(function()
+            btn.BackgroundTransparency = 1
+        end)
+    end
+    return btn
+end
+local function InspectValue(value, depth, maxDepth, detailsScroll, path, onSelect)
+    depth = depth or 0
+    maxDepth = maxDepth or 3
+    path = path or {}
+    if depth > maxDepth then
+        return "..."
+    end
+    local indent = string.rep("  ", depth)
+    local valueType = typeof(value)
+    if valueType == "table" then
+        CreateLabel(indent .. "{ -- Table", Color3.fromRGB(100, 200, 255), detailsScroll)
+        for k, v in pairs(value) do
+            local keyStr = tostring(k)
+            local valueStr = tostring(v)
+            local vType = typeof(v)
+            local currentPath = {table.unpack(path)}
+            table.insert(currentPath, k)
+            if vType == "function" then
+                CreateClickableLabel(
+                    indent .. "  " .. keyStr .. " = <function>",
+                    Color3.fromRGB(255, 150, 0),
+                    detailsScroll,
+                    false,
+                    onSelect,
+                    currentPath
+                )
+            elseif vType == "table" then
+                CreateClickableLabel(
+                    indent .. "  " .. keyStr .. " = <table>",
+                    Color3.fromRGB(100, 200, 255),
+                    detailsScroll,
+                    false,
+                    onSelect,
+                    currentPath
+                )
+                if depth < maxDepth then
+                    InspectValue(v, depth + 1, maxDepth, detailsScroll, currentPath, onSelect)
+                end
+            else
+                CreateClickableLabel(
+                    indent .. "  " .. keyStr .. " = " .. valueStr,
+                    Color3.fromRGB(0, 255, 150),
+                    detailsScroll,
+                    false,
+                    onSelect,
+                    currentPath
+                )
+            end
+        end
+        local mt = getmetatable(value)
+        if mt then
+            CreateLabel(indent .. "  __metatable = <table>", Color3.fromRGB(255, 0, 200), detailsScroll)
+            if depth < maxDepth then
+                local mtPath = {table.unpack(path)}
+                table.insert(mtPath, "__metatable")
+                InspectValue(mt, depth + 1, maxDepth, detailsScroll, mtPath, onSelect)
+            end
+        end
+        CreateLabel(indent .. "}", Color3.fromRGB(100, 200, 255), detailsScroll)
+    elseif valueType == "function" then
+        local info = debug.getinfo(value)
+        CreateLabel(indent .. "Function: " .. (info.name or "anonymous"), Color3.fromRGB(255, 150, 0), detailsScroll)
+        CreateLabel(indent .. "  Parameters: " .. info.nparams, Color3.fromRGB(180, 180, 180), detailsScroll)
+    else
+        CreateLabel(indent .. tostring(value) .. " (" .. valueType .. ")", Color3.fromRGB(200, 200, 200), detailsScroll)
+    end
+end
+local function DisplayActions(moduleResult, selectedPath, actionsScroll)
+    for _, child in pairs(actionsScroll:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+    CreateLabel("═══ ACTIONS ═══", Color3.fromRGB(0, 255, 150), actionsScroll, true)
+    CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
+    if #selectedPath == 0 then
+        CreateLabel("Select an item to modify", Color3.fromRGB(180, 180, 180), actionsScroll)
+        return
+    end
+    local pathStr = table.concat(selectedPath, ".")
+    CreateLabel("Selected: " .. pathStr, Color3.fromRGB(100, 200, 255), actionsScroll, true)
+    CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
+    local value = GetNestedValue(moduleResult, selectedPath)
+    local valueType = typeof(value)
+    CreateLabel("Type: " .. valueType, Color3.fromRGB(180, 180, 180), actionsScroll)
+    CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
+    if valueType ~= "function" then
+        CreateLabel("▸ Modify Value:", Color3.fromRGB(255, 200, 0), actionsScroll, true)
+        local valueInput = CreateInputField("New value...", actionsScroll)
+        CreateActionButton("Apply Change", Color3.fromRGB(0, 150, 255), actionsScroll, function()
+            local newValue = ParseValue(valueInput.Text)
+            if SetNestedValue(moduleResult, selectedPath, newValue) then
+                print(string.format("✓ Changed %s to %s", pathStr, tostring(newValue)))
+                valueInput.Text = ""
+            else
+                print("✗ Failed to modify value")
+            end
+        end)
+        CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
+    end
+    if valueType == "function" then
+        CreateLabel("▸ Hook Function:", Color3.fromRGB(255, 150, 0), actionsScroll, true)
+        CreateActionButton("Hook - Log Calls", Color3.fromRGB(255, 100, 0), actionsScroll, function()
+            local originalFunc = value
+            local hookKey = pathStr
+            if Modules.ModuleExplorer.State.Hooks[hookKey] then
+                print("⚠ Function already hooked!")
+                return
+            end
+            local hooked = function(...)
+                local args = {...}
+                print(string.format("🔗 Hook [%s] called with %d args:", pathStr, #args))
+                for i, arg in ipairs(args) do
+                    print(string.format("  [%d] = %s (%s)", i, tostring(arg), typeof(arg)))
+                end
+                local results = {originalFunc(...)}
+                print(string.format("  → Returned %d values", #results))
+                return table.unpack(results)
+            end
+            Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
+            SetNestedValue(moduleResult, selectedPath, hooked)
+            print(string.format("✓ Hooked function: %s", pathStr))
+        end)
+        CreateActionButton("Hook - Block Calls", Color3.fromRGB(255, 0, 100), actionsScroll, function()
+            local originalFunc = value
+            local hookKey = pathStr
+            if Modules.ModuleExplorer.State.Hooks[hookKey] then
+                print("⚠ Function already hooked!")
+                return
+            end
+            local hooked = function(...)
+                print(string.format("🚫 Blocked call to: %s", pathStr))
+                return nil
+            end
+            Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
+            SetNestedValue(moduleResult, selectedPath, hooked)
+            print(string.format("✓ Blocked function: %s", pathStr))
+        end)
+        CreateActionButton("Hook - Modify Return", Color3.fromRGB(150, 0, 255), actionsScroll, function()
+            local originalFunc = value
+            local hookKey = pathStr
+            if Modules.ModuleExplorer.State.Hooks[hookKey] then
+                print("⚠ Function already hooked!")
+                return
+            end
+            local hooked = function(...)
+                local results = {originalFunc(...)}
+                if type(results[1]) == "number" then
+                    results[1] = results[1] * 999
+                    print(string.format("🔧 Modified return: %s -> multiplied by 999", pathStr))
+                elseif type(results[1]) == "boolean" then
+                    results[1] = true
+                    print(string.format("🔧 Modified return: %s -> forced true", pathStr))
+                end
+                return table.unpack(results)
+            end
+            Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
+            SetNestedValue(moduleResult, selectedPath, hooked)
+            print(string.format("✓ Hooked with return modifier: %s", pathStr))
+        end)
+        if Modules.ModuleExplorer.State.Hooks[pathStr] then
+            CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
+            CreateActionButton("Unhook Function", Color3.fromRGB(0, 200, 100), actionsScroll, function()
+                local originalFunc = Modules.ModuleExplorer.State.Hooks[pathStr]
+                SetNestedValue(moduleResult, selectedPath, originalFunc)
+                Modules.ModuleExplorer.State.Hooks[pathStr] = nil
+                print(string.format("✓ Unhooked function: %s", pathStr))
+            end)
+        end
+        CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
+    end
+    if valueType == "table" then
+        CreateLabel("▸ Ghost Index:", Color3.fromRGB(200, 0, 255), actionsScroll, true)
+        CreateLabel("Add fake properties that appear to exist", Color3.fromRGB(150, 150, 150), actionsScroll)
+        local ghostKeyInput = CreateInputField("Key name...", actionsScroll)
+        local ghostValueInput = CreateInputField("Value...", actionsScroll)
+        CreateActionButton("Add Ghost Index", Color3.fromRGB(200, 0, 255), actionsScroll, function()
+            local key = ghostKeyInput.Text
+            local val = ParseValue(ghostValueInput.Text)
+            if key == "" then
+                print("✗ Please enter a key name")
+                return
+            end
+            local ghostKey = pathStr .. ".__ghost__"
+            if not Modules.ModuleExplorer.State.GhostIndexes[ghostKey] then
+                Modules.ModuleExplorer.State.GhostIndexes[ghostKey] = {}
+            end
+            local mt = getmetatable(value) or {}
+            local oldIndex = mt.__index
+            mt.__index = function(tbl, k)
+                if Modules.ModuleExplorer.State.GhostIndexes[ghostKey][k] then
+                    print(string.format("👻 Ghost index accessed: %s.%s", pathStr, k))
+                    return Modules.ModuleExplorer.State.GhostIndexes[ghostKey][k]
+                end
+                if type(oldIndex) == "function" then
+                    return oldIndex(tbl, k)
+                elseif type(oldIndex) == "table" then
+                    return oldIndex[k]
+                end
+                return rawget(tbl, k)
+            end
+            setmetatable(value, mt)
+            Modules.ModuleExplorer.State.GhostIndexes[ghostKey][key] = val
+            print(string.format("✓ Added ghost index: %s.%s = %s", pathStr, key, tostring(val)))
+            ghostKeyInput.Text = ""
+            ghostValueInput.Text = ""
+        end)
+        CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
+    end
+    CreateActionButton("Copy Path to Clipboard", Color3.fromRGB(100, 100, 100), actionsScroll, function()
+        setclipboard(pathStr)
+        print(string.format("✓ Copied to clipboard: %s", pathStr))
+    end)
+end
+local function DisplayModuleDetails(module, detailsScroll, actionsScroll)
+    for _, child in pairs(detailsScroll:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+    CreateLabel("═══ MODULE: " .. module.Name .. " ═══", Color3.fromRGB(0, 255, 150), detailsScroll, true)
+    CreateLabel("Path: " .. module:GetFullName(), Color3.fromRGB(180, 180, 180), detailsScroll)
+    CreateLabel("", Color3.fromRGB(255, 255, 255), detailsScroll)
+    local success, result = pcall(require, module)
+    if not success then
+        CreateLabel("✗ Failed to require module:", Color3.fromRGB(255, 50, 100), detailsScroll, true)
+        CreateLabel(tostring(result), Color3.fromRGB(255, 100, 100), detailsScroll)
+        return
+    end
+    CreateLabel("✓ Module loaded successfully", Color3.fromRGB(0, 255, 100), detailsScroll, true)
+    CreateLabel("", Color3.fromRGB(255, 255, 255), detailsScroll)
+    local resultType = typeof(result)
+    CreateLabel("Type: " .. resultType, Color3.fromRGB(100, 200, 255), detailsScroll, true)
+    CreateLabel("", Color3.fromRGB(255, 255, 255), detailsScroll)
+    if resultType == "table" then
+        CreateLabel("═══ CONTENTS ═══", Color3.fromRGB(0, 255, 150), detailsScroll, true)
+        CreateLabel("Click any item to modify it", Color3.fromRGB(150, 150, 150), detailsScroll)
+        CreateLabel("", Color3.fromRGB(255, 255, 255), detailsScroll)
+        Modules.ModuleExplorer.State.ModuleResult = result
+        local function onSelect(path)
+            Modules.ModuleExplorer.State.SelectedPath = path
+            DisplayActions(result, path, actionsScroll)
+        end
+        InspectValue(result, 0, 2, detailsScroll, {}, onSelect)
+    else
+        CreateLabel("Value: " .. tostring(result), Color3.fromRGB(200, 200, 200), detailsScroll)
+    end
+end
+RegisterCommand({
+    Name = "nodex",
+    Aliases = {},
+    Description = "Opens the module explorer GUI with patching, hooking, and ghost index features."
+}, function(args)
+    if Modules.ModuleExplorer.State.IsOpen then
+        print("Module Explorer is already open.")
+        return
+    end
+    print("Opening Module Explorer...")
+    local gui, main, moduleScroll, detailsScroll, actionsScroll = CreateGUI()
+    Modules.ModuleExplorer.State.GUI = gui
+    Modules.ModuleExplorer.State.IsOpen = true
+    main.Size = UDim2.fromOffset(0, 0)
+    local openTween = TweenService:Create(main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.fromOffset(1100, 650)
+    })
+    openTween:Play()
+    local modules = ScanModules()
+    print(string.format("Found %d modules", #modules))
+    for i, module in pairs(modules) do
+        CreateModuleButton(module, moduleScroll, function(selectedModule)
+            Modules.ModuleExplorer.State.SelectedModule = selectedModule
+            Modules.ModuleExplorer.State.SelectedPath = {}
+            DisplayModuleDetails(selectedModule, detailsScroll, actionsScroll)
+        end)
+    end
+    DisplayActions(nil, {}, actionsScroll)
+end)
+
 Modules.ModuleEditor = {
     State = {
         IsEnabled = false,
@@ -21151,7 +22276,6 @@ RegisterCommand({
         Modules.AutoInteract:Enable(args[1])
     end
 end)
-
 Modules.PhysicsGun = {
     State = {
         IsEnabled = false,
@@ -21327,7 +22451,6 @@ RegisterCommand({
 }, function()
     Modules.NetworkOwner:Toggle()
 end)
-
 Modules.ToolAttributeLister = {
     State = {}
 }
@@ -23754,9 +24877,7 @@ end
 local TeleportService = game:GetService("TeleportService")
 local ClientReplicator = game:GetService("NetworkClient").ClientReplicator
 local CurrentServer = game["JobId"]
-
 ClientReplicator.AncestryChanged:Connect(function()
     TeleportService:TeleportToPlaceInstance(game["PlaceId"], CurrentServer)
 end)
-
 DoNotif("We're So back. The Best Underground Panel.")
