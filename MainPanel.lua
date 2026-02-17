@@ -6385,7 +6385,7 @@ function Modules.PathfinderFollow:Initialize()
     end
     RegisterCommand({
         Name = "pathfind",
-        Aliases = {"follow"},
+        Aliases = {},
         Description = "Follow a player using PathfindingService."
     }, function(args)
         local argument = args[1]
@@ -6401,6 +6401,614 @@ function Modules.PathfinderFollow:Initialize()
         end
     end)
 end
+Modules.GUICreator = {
+    State = {
+        IsEnabled = false,
+        UI = nil,
+        Connections = {},
+        CreatedGUIs = {},
+        SelectedElement = nil,
+        DraggingElement = nil,
+        ResizingElement = nil,
+        PropertyPanel = nil,
+        CurrentProject = {
+            Name = "Untitled",
+            Elements = {}
+        }
+    },
+    Config = {
+        GridSize = 5,
+        SnapToGrid = false,
+        ShowGrid = true,
+        DefaultSize = UDim2.fromOffset(200, 100)
+    }
+}
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+function Modules.GUICreator:_createUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "GUICreator_Zuka"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    self.State.UI = screenGui
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.fromOffset(1100, 650)
+    mainFrame.Position = UDim2.fromScale(0.5, 0.5)
+    mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
+    local stroke = Instance.new("UIStroke", mainFrame)
+    stroke.Color = Color3.fromRGB(100, 150, 255)
+    stroke.Thickness = 2
+    local titleBar = Instance.new("Frame", mainFrame)
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 40)
+    titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    titleBar.BorderSizePixel = 0
+    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
+    local title = Instance.new("TextLabel", titleBar)
+    title.Size = UDim2.new(1, -100, 1, 0)
+    title.Position = UDim2.fromOffset(15, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.Code
+    title.Text = "▸ GUI CREATOR"
+    title.TextColor3 = Color3.fromRGB(100, 150, 255)
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    local closeBtn = Instance.new("TextButton", titleBar)
+    closeBtn.Size = UDim2.fromOffset(30, 30)
+    closeBtn.Position = UDim2.new(1, -35, 0, 5)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 20
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Disable()
+    end)
+    self:MakeDraggable(titleBar, mainFrame)
+    local leftPanel = Instance.new("Frame", mainFrame)
+    leftPanel.Name = "Toolbox"
+    leftPanel.Size = UDim2.new(0.2, 0, 1, -50)
+    leftPanel.Position = UDim2.fromOffset(10, 45)
+    leftPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    leftPanel.BorderSizePixel = 0
+    Instance.new("UICorner", leftPanel).CornerRadius = UDim.new(0, 8)
+    local toolboxLabel = Instance.new("TextLabel", leftPanel)
+    toolboxLabel.Size = UDim2.new(1, 0, 0, 30)
+    toolboxLabel.BackgroundTransparency = 1
+    toolboxLabel.Font = Enum.Font.GothamBold
+    toolboxLabel.Text = "ELEMENTS"
+    toolboxLabel.TextColor3 = Color3.new(1, 1, 1)
+    toolboxLabel.TextSize = 14
+    local toolboxScroll = Instance.new("ScrollingFrame", leftPanel)
+    toolboxScroll.Size = UDim2.new(1, -10, 1, -40)
+    toolboxScroll.Position = UDim2.fromOffset(5, 35)
+    toolboxScroll.BackgroundTransparency = 1
+    toolboxScroll.BorderSizePixel = 0
+    toolboxScroll.ScrollBarThickness = 4
+    toolboxScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 150, 255)
+    toolboxScroll.CanvasSize = UDim2.fromOffset(0, 0)
+    toolboxScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    local toolboxLayout = Instance.new("UIListLayout", toolboxScroll)
+    toolboxLayout.Padding = UDim.new(0, 5)
+    toolboxLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    local canvasPanel = Instance.new("Frame", mainFrame)
+    canvasPanel.Name = "Canvas"
+    canvasPanel.Size = UDim2.new(0.5, -20, 1, -50)
+    canvasPanel.Position = UDim2.new(0.2, 10, 0, 45)
+    canvasPanel.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    canvasPanel.BorderSizePixel = 0
+    Instance.new("UICorner", canvasPanel).CornerRadius = UDim.new(0, 8)
+    local canvasLabel = Instance.new("TextLabel", canvasPanel)
+    canvasLabel.Size = UDim2.new(1, 0, 0, 30)
+    canvasLabel.BackgroundTransparency = 1
+    canvasLabel.Font = Enum.Font.GothamBold
+    canvasLabel.Text = "CANVAS (480x360)"
+    canvasLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    canvasLabel.TextSize = 12
+    local workspace = Instance.new("Frame", canvasPanel)
+    workspace.Name = "Workspace"
+    workspace.Size = UDim2.fromOffset(480, 360)
+    workspace.Position = UDim2.new(0.5, 0, 0.5, 0)
+    workspace.AnchorPoint = Vector2.new(0.5, 0.5)
+    workspace.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    workspace.BorderSizePixel = 0
+    local workspaceStroke = Instance.new("UIStroke", workspace)
+    workspaceStroke.Color = Color3.fromRGB(100, 100, 120)
+    workspaceStroke.Thickness = 2
+    local rightPanel = Instance.new("Frame", mainFrame)
+    rightPanel.Name = "Properties"
+    rightPanel.Size = UDim2.new(0.3, -20, 1, -50)
+    rightPanel.Position = UDim2.new(0.7, 10, 0, 45)
+    rightPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    rightPanel.BorderSizePixel = 0
+    Instance.new("UICorner", rightPanel).CornerRadius = UDim.new(0, 8)
+    local propertiesLabel = Instance.new("TextLabel", rightPanel)
+    propertiesLabel.Size = UDim2.new(1, 0, 0, 30)
+    propertiesLabel.BackgroundTransparency = 1
+    propertiesLabel.Font = Enum.Font.GothamBold
+    propertiesLabel.Text = "PROPERTIES"
+    propertiesLabel.TextColor3 = Color3.new(1, 1, 1)
+    propertiesLabel.TextSize = 14
+    local propertiesScroll = Instance.new("ScrollingFrame", rightPanel)
+    propertiesScroll.Name = "PropertiesScroll"
+    propertiesScroll.Size = UDim2.new(1, -10, 1, -40)
+    propertiesScroll.Position = UDim2.fromOffset(5, 35)
+    propertiesScroll.BackgroundTransparency = 1
+    propertiesScroll.BorderSizePixel = 0
+    propertiesScroll.ScrollBarThickness = 4
+    propertiesScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 150, 255)
+    propertiesScroll.CanvasSize = UDim2.fromOffset(0, 0)
+    propertiesScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    local propertiesLayout = Instance.new("UIListLayout", propertiesScroll)
+    propertiesLayout.Padding = UDim.new(0, 8)
+    propertiesLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    self.State.PropertyPanel = propertiesScroll
+    screenGui.Parent = CoreGui
+    self:PopulateToolbox(toolboxScroll)
+    self:CreateTopBar(mainFrame)
+    return workspace
+end
+function Modules.GUICreator:MakeDraggable(handle, object)
+    local dragging = false
+    local dragStart, startPos
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = object.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    handle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            if dragging then
+                local delta = input.Position - dragStart
+                object.Position = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + delta.X,
+                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                )
+            end
+        end
+    end)
+end
+function Modules.GUICreator:CreateTopBar(parent)
+    local topBar = Instance.new("Frame", parent)
+    topBar.Name = "TopBar"
+    topBar.Size = UDim2.new(1, -20, 0, 35)
+    topBar.Position = UDim2.fromOffset(10, 45)
+    topBar.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    topBar.BorderSizePixel = 0
+    topBar.ZIndex = 10
+    Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 6)
+    local layout = Instance.new("UIListLayout", topBar)
+    layout.FillDirection = Enum.FillDirection.Horizontal
+    layout.Padding = UDim.new(0, 5)
+    layout.VerticalAlignment = Enum.VerticalAlignment.Center
+    local padding = Instance.new("UIPadding", topBar)
+    padding.PaddingLeft = UDim.new(0, 10)
+    local exportBtn = self:CreateButton("EXPORT CODE", Color3.fromRGB(0, 200, 100), topBar)
+    exportBtn.MouseButton1Click:Connect(function()
+        self:ExportCode()
+    end)
+    local clearBtn = self:CreateButton("CLEAR ALL", Color3.fromRGB(255, 100, 50), topBar)
+    clearBtn.MouseButton1Click:Connect(function()
+        self:ClearCanvas()
+    end)
+    local gridBtn = self:CreateButton("GRID: ON", Color3.fromRGB(100, 100, 200), topBar)
+    gridBtn.MouseButton1Click:Connect(function()
+        self.Config.ShowGrid = not self.Config.ShowGrid
+        gridBtn.Text = "GRID: " .. (self.Config.ShowGrid and "ON" or "OFF")
+    end)
+    local snapBtn = self:CreateButton("SNAP: OFF", Color3.fromRGB(150, 100, 200), topBar)
+    snapBtn.MouseButton1Click:Connect(function()
+        self.Config.SnapToGrid = not self.Config.SnapToGrid
+        snapBtn.Text = "SNAP: " .. (self.Config.SnapToGrid and "ON" or "OFF")
+        snapBtn.BackgroundColor3 = self.Config.SnapToGrid and Color3.fromRGB(200, 100, 255) or Color3.fromRGB(150, 100, 200)
+    end)
+    parent:FindFirstChild("Canvas").Position = UDim2.new(0.2, 10, 0, 90)
+    parent:FindFirstChild("Canvas").Size = UDim2.new(0.5, -20, 1, -95)
+    parent:FindFirstChild("Toolbox").Position = UDim2.fromOffset(10, 90)
+    parent:FindFirstChild("Toolbox").Size = UDim2.new(0.2, 0, 1, -95)
+    parent:FindFirstChild("Properties").Position = UDim2.new(0.7, 10, 0, 90)
+    parent:FindFirstChild("Properties").Size = UDim2.new(0.3, -20, 1, -95)
+end
+function Modules.GUICreator:CreateButton(text, color, parent)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.fromOffset(100, 25)
+    btn.BackgroundColor3 = color
+    btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.TextSize = 10
+    btn.AutoButtonColor = false
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    btn.MouseEnter:Connect(function()
+        local h, s, v = color:ToHSV()
+        btn.BackgroundColor3 = Color3.fromHSV(h, s, math.min(v + 0.1, 1))
+    end)
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = color
+    end)
+    return btn
+end
+function Modules.GUICreator:PopulateToolbox(parent)
+    local elements = {
+        {Name = "Frame", Color = Color3.fromRGB(100, 150, 200), Icon = "▭"},
+        {Name = "TextLabel", Color = Color3.fromRGB(150, 200, 100), Icon = "T"},
+        {Name = "TextButton", Color = Color3.fromRGB(200, 150, 100), Icon = "B"},
+        {Name = "TextBox", Color = Color3.fromRGB(200, 100, 150), Icon = "I"},
+        {Name = "ImageLabel", Color = Color3.fromRGB(150, 100, 200), Icon = "🖼"},
+        {Name = "ScrollingFrame", Color = Color3.fromRGB(100, 200, 150), Icon = "⇅"},
+    }
+    for _, elem in ipairs(elements) do
+        local btn = Instance.new("TextButton", parent)
+        btn.Size = UDim2.new(1, 0, 0, 40)
+        btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        btn.BorderSizePixel = 0
+        btn.Font = Enum.Font.GothamBold
+        btn.Text = elem.Icon .. " " .. elem.Name
+        btn.TextColor3 = elem.Color
+        btn.TextSize = 12
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        btn.AutoButtonColor = false
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        local padding = Instance.new("UIPadding", btn)
+        padding.PaddingLeft = UDim.new(0, 10)
+        btn.MouseButton1Click:Connect(function()
+            self:CreateElement(elem.Name)
+        end)
+        btn.MouseEnter:Connect(function()
+            btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        end)
+        btn.MouseLeave:Connect(function()
+            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        end)
+    end
+end
+function Modules.GUICreator:CreateElement(elementType)
+    local workspace = self.State.UI.MainFrame.Canvas.Workspace
+    local element = Instance.new(elementType)
+    element.Name = elementType .. "_" .. #self.State.CreatedGUIs + 1
+    element.Size = self.Config.DefaultSize
+    element.Position = UDim2.fromOffset(
+        math.random(50, 300),
+        math.random(50, 200)
+    )
+    element.BackgroundColor3 = Color3.fromRGB(
+        math.random(100, 200),
+        math.random(100, 200),
+        math.random(100, 200)
+    )
+    element.BorderSizePixel = 0
+    if elementType == "TextLabel" or elementType == "TextButton" or elementType == "TextBox" then
+        element.Text = element.Name
+        element.TextColor3 = Color3.new(1, 1, 1)
+        element.Font = Enum.Font.Gotham
+        element.TextSize = 14
+    end
+    if elementType == "TextBox" then
+        element.PlaceholderText = "Enter text..."
+        element.ClearTextOnFocus = false
+    end
+    if elementType == "ImageLabel" then
+        element.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+    end
+    if elementType == "ScrollingFrame" then
+        element.ScrollBarThickness = 6
+        element.CanvasSize = UDim2.fromOffset(480, 720)
+    end
+    Instance.new("UICorner", element).CornerRadius = UDim.new(0, 8)
+    element.Parent = workspace
+    self:MakeElementSelectable(element)
+    table.insert(self.State.CreatedGUIs, {
+        Element = element,
+        Type = elementType,
+        Properties = {}
+    })
+    print(string.format("✓ Created %s", element.Name))
+end
+function Modules.GUICreator:MakeElementSelectable(element)
+    local selectionBox = Instance.new("Frame")
+    selectionBox.Name = "SelectionBox"
+    selectionBox.Size = UDim2.new(1, 4, 1, 4)
+    selectionBox.Position = UDim2.fromOffset(-2, -2)
+    selectionBox.BackgroundTransparency = 1
+    selectionBox.BorderSizePixel = 0
+    selectionBox.Visible = false
+    selectionBox.ZIndex = 100
+    local stroke = Instance.new("UIStroke", selectionBox)
+    stroke.Color = Color3.fromRGB(0, 255, 255)
+    stroke.Thickness = 2
+    selectionBox.Parent = element
+    element.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            self:SelectElement(element)
+        end
+    end)
+    local dragging = false
+    local dragStart, startPos
+    element.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                dragging = true
+                dragStart = input.Position
+                startPos = element.Position
+            end
+        end
+    end)
+    element.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+            local delta = input.Position - dragStart
+            local newPos = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+            if self.Config.SnapToGrid then
+                local x = math.floor((newPos.X.Offset + self.Config.GridSize/2) / self.Config.GridSize) * self.Config.GridSize
+                local y = math.floor((newPos.Y.Offset + self.Config.GridSize/2) / self.Config.GridSize) * self.Config.GridSize
+                element.Position = UDim2.fromOffset(x, y)
+            else
+                element.Position = newPos
+            end
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+end
+function Modules.GUICreator:SelectElement(element)
+    if self.State.SelectedElement then
+        local oldBox = self.State.SelectedElement:FindFirstChild("SelectionBox")
+        if oldBox then
+            oldBox.Visible = false
+        end
+    end
+    self.State.SelectedElement = element
+    local box = element:FindFirstChild("SelectionBox")
+    if box then
+        box.Visible = true
+    end
+    self:UpdatePropertiesPanel(element)
+    print(string.format("✓ Selected: %s", element.Name))
+end
+function Modules.GUICreator:UpdatePropertiesPanel(element)
+    local panel = self.State.PropertyPanel
+    for _, child in pairs(panel:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+    if not element then return end
+    self:CreateProperty(panel, "Name", element.Name, "String", function(value)
+        element.Name = value
+    end)
+    self:CreateProperty(panel, "Size (X)", tostring(element.Size.X.Offset), "Number", function(value)
+        element.Size = UDim2.fromOffset(tonumber(value) or 200, element.Size.Y.Offset)
+    end)
+    self:CreateProperty(panel, "Size (Y)", tostring(element.Size.Y.Offset), "Number", function(value)
+        element.Size = UDim2.fromOffset(element.Size.X.Offset, tonumber(value) or 100)
+    end)
+    self:CreateProperty(panel, "Position (X)", tostring(element.Position.X.Offset), "Number", function(value)
+        element.Position = UDim2.fromOffset(tonumber(value) or 0, element.Position.Y.Offset)
+    end)
+    self:CreateProperty(panel, "Position (Y)", tostring(element.Position.Y.Offset), "Number", function(value)
+        element.Position = UDim2.fromOffset(element.Position.X.Offset, tonumber(value) or 0)
+    end)
+    self:CreateColorProperty(panel, "BG Color", element.BackgroundColor3, function(color)
+        element.BackgroundColor3 = color
+    end)
+    self:CreateProperty(panel, "Transparency", tostring(element.BackgroundTransparency), "Number", function(value)
+        element.BackgroundTransparency = math.clamp(tonumber(value) or 0, 0, 1)
+    end)
+    if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
+        self:CreateProperty(panel, "Text", element.Text, "String", function(value)
+            element.Text = value
+        end)
+        self:CreateProperty(panel, "TextSize", tostring(element.TextSize), "Number", function(value)
+            element.TextSize = tonumber(value) or 14
+        end)
+        self:CreateColorProperty(panel, "Text Color", element.TextColor3, function(color)
+            element.TextColor3 = color
+        end)
+    end
+    local deleteBtn = Instance.new("TextButton", panel)
+    deleteBtn.Size = UDim2.new(1, -10, 0, 35)
+    deleteBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    deleteBtn.BorderSizePixel = 0
+    deleteBtn.Font = Enum.Font.GothamBold
+    deleteBtn.Text = "DELETE ELEMENT"
+    deleteBtn.TextColor3 = Color3.new(1, 1, 1)
+    deleteBtn.TextSize = 12
+    Instance.new("UICorner", deleteBtn).CornerRadius = UDim.new(0, 6)
+    deleteBtn.MouseButton1Click:Connect(function()
+        self:DeleteElement(element)
+    end)
+end
+function Modules.GUICreator:CreateProperty(panel, name, value, propType, onChange)
+    local container = Instance.new("Frame", panel)
+    container.Size = UDim2.new(1, -10, 0, 50)
+    container.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    container.BorderSizePixel = 0
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
+    local label = Instance.new("TextLabel", container)
+    label.Size = UDim2.new(1, -10, 0, 20)
+    label.Position = UDim2.fromOffset(5, 5)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.GothamBold
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    label.TextSize = 11
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    local input = Instance.new("TextBox", container)
+    input.Size = UDim2.new(1, -10, 0, 20)
+    input.Position = UDim2.fromOffset(5, 25)
+    input.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    input.BorderSizePixel = 0
+    input.Font = Enum.Font.Code
+    input.Text = value
+    input.TextColor3 = Color3.new(1, 1, 1)
+    input.TextSize = 11
+    input.ClearTextOnFocus = false
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 4)
+    input.FocusLost:Connect(function()
+        onChange(input.Text)
+    end)
+end
+function Modules.GUICreator:CreateColorProperty(panel, name, color, onChange)
+    local container = Instance.new("Frame", panel)
+    container.Size = UDim2.new(1, -10, 0, 50)
+    container.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    container.BorderSizePixel = 0
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
+    local label = Instance.new("TextLabel", container)
+    label.Size = UDim2.new(1, -40, 0, 20)
+    label.Position = UDim2.fromOffset(5, 5)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.GothamBold
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    label.TextSize = 11
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    local preview = Instance.new("Frame", container)
+    preview.Size = UDim2.fromOffset(25, 25)
+    preview.Position = UDim2.new(1, -30, 0, 5)
+    preview.BackgroundColor3 = color
+    preview.BorderSizePixel = 0
+    Instance.new("UICorner", preview).CornerRadius = UDim.new(0, 4)
+    local input = Instance.new("TextBox", container)
+    input.Size = UDim2.new(1, -10, 0, 20)
+    input.Position = UDim2.fromOffset(5, 25)
+    input.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    input.BorderSizePixel = 0
+    input.Font = Enum.Font.Code
+    input.Text = string.format("%d, %d, %d", color.R * 255, color.G * 255, color.B * 255)
+    input.TextColor3 = Color3.new(1, 1, 1)
+    input.TextSize = 11
+    input.PlaceholderText = "R, G, B"
+    input.ClearTextOnFocus = false
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 4)
+    input.FocusLost:Connect(function()
+        local parts = string.split(input.Text, ",")
+        if #parts == 3 then
+            local r = tonumber(parts[1])
+            local g = tonumber(parts[2])
+            local b = tonumber(parts[3])
+            if r and g and b then
+                local newColor = Color3.fromRGB(r, g, b)
+                preview.BackgroundColor3 = newColor
+                onChange(newColor)
+            end
+        end
+    end)
+end
+function Modules.GUICreator:DeleteElement(element)
+    for i, data in ipairs(self.State.CreatedGUIs) do
+        if data.Element == element then
+            table.remove(self.State.CreatedGUIs, i)
+            break
+        end
+    end
+    element:Destroy()
+    self.State.SelectedElement = nil
+    self:UpdatePropertiesPanel(nil)
+    print("✓ Deleted element")
+end
+function Modules.GUICreator:ClearCanvas()
+    for _, data in ipairs(self.State.CreatedGUIs) do
+        if data.Element then
+            data.Element:Destroy()
+        end
+    end
+    self.State.CreatedGUIs = {}
+    self.State.SelectedElement = nil
+    self:UpdatePropertiesPanel(nil)
+    print("✓ Cleared canvas")
+end
+function Modules.GUICreator:ExportCode()
+    local code = "-- Generated GUI Code\n"
+    code = code .. "local ScreenGui = Instance.new('ScreenGui')\n"
+    code = code .. "ScreenGui.Name = '" .. self.State.CurrentProject.Name .. "'\n"
+    code = code .. "ScreenGui.ResetOnSpawn = false\n"
+    code = code .. "ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild('PlayerGui')\n\n"
+    for _, data in ipairs(self.State.CreatedGUIs) do
+        local elem = data.Element
+        code = code .. string.format("local %s = Instance.new('%s')\n", elem.Name, data.Type)
+        code = code .. string.format("%s.Name = '%s'\n", elem.Name, elem.Name)
+        code = code .. string.format("%s.Size = UDim2.fromOffset(%d, %d)\n", elem.Name, elem.Size.X.Offset, elem.Size.Y.Offset)
+        code = code .. string.format("%s.Position = UDim2.fromOffset(%d, %d)\n", elem.Name, elem.Position.X.Offset, elem.Position.Y.Offset)
+        code = code .. string.format("%s.BackgroundColor3 = Color3.fromRGB(%d, %d, %d)\n", elem.Name, elem.BackgroundColor3.R * 255, elem.BackgroundColor3.G * 255, elem.BackgroundColor3.B * 255)
+        code = code .. string.format("%s.BackgroundTransparency = %f\n", elem.Name, elem.BackgroundTransparency)
+        code = code .. string.format("%s.BorderSizePixel = 0\n", elem.Name)
+        if elem:IsA("TextLabel") or elem:IsA("TextButton") or elem:IsA("TextBox") then
+            code = code .. string.format("%s.Text = '%s'\n", elem.Name, elem.Text)
+            code = code .. string.format("%s.TextColor3 = Color3.fromRGB(%d, %d, %d)\n", elem.Name, elem.TextColor3.R * 255, elem.TextColor3.G * 255, elem.TextColor3.B * 255)
+            code = code .. string.format("%s.TextSize = %d\n", elem.Name, elem.TextSize)
+            code = code .. string.format("%s.Font = Enum.Font.%s\n", elem.Name, tostring(elem.Font):gsub("Enum.Font.", ""))
+        end
+        code = code .. string.format("%s.Parent = ScreenGui\n\n", elem.Name)
+    end
+    if setclipboard then
+        setclipboard(code)
+        print("✓ Code copied to clipboard!")
+    else
+        print(code)
+        print("✓ Code printed to console (F9)")
+    end
+end
+function Modules.GUICreator:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    self:_createUI()
+    print("✓ GUI Creator enabled")
+    print("Tip: Hold CTRL and drag to move elements")
+end
+function Modules.GUICreator:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    for _, conn in pairs(self.State.Connections) do
+        if conn then
+            conn:Disconnect()
+        end
+    end
+    table.clear(self.State.Connections)
+    if self.State.UI then
+        self.State.UI:Destroy()
+        self.State.UI = nil
+    end
+    self.State.CreatedGUIs = {}
+    self.State.SelectedElement = nil
+    print("✓ GUI Creator disabled")
+end
+function Modules.GUICreator:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+RegisterCommand({
+    Name = "guicreator",
+    Aliases = {"guic", "guimaker", "guibuild"},
+    Description = "Opens a visual GUI creator with drag-and-drop elements and code export."
+}, function()
+    Modules.GUICreator:Toggle()
+end)
 Modules.CharacterMorph = {
     State = {
         IsMorphed = false,
@@ -12802,6 +13410,555 @@ function Modules.StareController:Initialize()
         DoNotif("Nearest Stare disabled.", 2)
     end)
 end
+Modules.ProximityPromptTP = {
+    State = {
+        IsEnabled = false,
+        FoundPrompts = {},
+        SelectedPrompt = nil,
+        OriginalPosition = nil,
+        UI = nil,
+        Connections = {},
+        AutoTeleport = false,
+        IsExecuting = false
+    },
+    Config = {
+        MaxDistance = 1000,
+        ShowHighlight = true,
+        HighlightColor = Color3.fromRGB(255, 200, 0),
+        ReturnDelay = 0.5,
+        AutoScan = true,
+        ScanInterval = 2
+    }
+}
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ProximityPromptService = game:GetService("ProximityPromptService")
+function Modules.ProximityPromptTP:_createUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "ProximityPromptTP_Zuka"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    self.State.UI = screenGui
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.fromOffset(400, 620)
+    mainFrame.Position = UDim2.new(1, -410, 0.5, -310)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+    local stroke = Instance.new("UIStroke", mainFrame)
+    stroke.Color = Color3.fromRGB(255, 200, 0)
+    stroke.Thickness = 2
+    local glowTween = TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+        Thickness = 3
+    })
+    glowTween:Play()
+    local titleBar = Instance.new("Frame", mainFrame)
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 35)
+    titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    titleBar.BorderSizePixel = 0
+    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
+    local title = Instance.new("TextLabel", titleBar)
+    title.Size = UDim2.new(1, -100, 1, 0)
+    title.Position = UDim2.fromOffset(10, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.Code
+    title.Text = "▸ PROXIMITY TP"
+    title.TextColor3 = Color3.fromRGB(255, 200, 0)
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    local statusIndicator = Instance.new("TextLabel", titleBar)
+    statusIndicator.Name = "StatusIndicator"
+    statusIndicator.Size = UDim2.fromOffset(100, 20)
+    statusIndicator.Position = UDim2.new(1, -170, 0.5, -10)
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    statusIndicator.BorderSizePixel = 0
+    statusIndicator.Font = Enum.Font.GothamBold
+    statusIndicator.Text = "0 PROMPTS"
+    statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statusIndicator.TextSize = 10
+    Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
+    local closeBtn = Instance.new("TextButton", titleBar)
+    closeBtn.Size = UDim2.fromOffset(30, 30)
+    closeBtn.Position = UDim2.new(1, -32, 0, 2)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 20
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Disable()
+    end)
+    local dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            local moveConn, endConn
+            moveConn = game:GetService("UserInputService").InputChanged:Connect(function(moveInput)
+                if moveInput.UserInputType == Enum.UserInputType.MouseMovement then
+                    local delta = moveInput.Position - dragStart
+                    mainFrame.Position = UDim2.new(
+                        startPos.X.Scale, startPos.X.Offset + delta.X,
+                        startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                    )
+                end
+            end)
+            endConn = game:GetService("UserInputService").InputEnded:Connect(function(endInput)
+                if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                    moveConn:Disconnect()
+                    endConn:Disconnect()
+                end
+            end)
+        end
+    end)
+    local content = Instance.new("Frame", mainFrame)
+    content.Name = "Content"
+    content.Size = UDim2.new(1, -20, 1, -45)
+    content.Position = UDim2.fromOffset(10, 40)
+    content.BackgroundTransparency = 1
+    local selectionLabel = Instance.new("TextLabel", content)
+    selectionLabel.Name = "SelectionLabel"
+    selectionLabel.Size = UDim2.new(1, 0, 0, 35)
+    selectionLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    selectionLabel.BorderSizePixel = 0
+    selectionLabel.Font = Enum.Font.GothamMedium
+    selectionLabel.Text = "No prompt selected"
+    selectionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    selectionLabel.TextSize = 12
+    Instance.new("UICorner", selectionLabel).CornerRadius = UDim.new(0, 6)
+    local settingsLabel = Instance.new("TextLabel", content)
+    settingsLabel.Size = UDim2.new(1, 0, 0, 20)
+    settingsLabel.Position = UDim2.fromOffset(0, 45)
+    settingsLabel.BackgroundTransparency = 1
+    settingsLabel.Font = Enum.Font.GothamBold
+    settingsLabel.Text = "Settings:"
+    settingsLabel.TextColor3 = Color3.new(1, 1, 1)
+    settingsLabel.TextSize = 13
+    settingsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local distanceLabel = Instance.new("TextLabel", content)
+    distanceLabel.Size = UDim2.new(1, 0, 0, 18)
+    distanceLabel.Position = UDim2.fromOffset(0, 70)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.Font = Enum.Font.Gotham
+    distanceLabel.Text = "Max Distance: 1000"
+    distanceLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    distanceLabel.TextSize = 11
+    distanceLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local distanceInput = Instance.new("TextBox", content)
+    distanceInput.Size = UDim2.new(1, 0, 0, 30)
+    distanceInput.Position = UDim2.fromOffset(0, 92)
+    distanceInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    distanceInput.BorderSizePixel = 0
+    distanceInput.Font = Enum.Font.Code
+    distanceInput.Text = "1000"
+    distanceInput.TextColor3 = Color3.new(1, 1, 1)
+    distanceInput.TextSize = 12
+    distanceInput.PlaceholderText = "Scan radius..."
+    Instance.new("UICorner", distanceInput).CornerRadius = UDim.new(0, 6)
+    distanceInput.FocusLost:Connect(function()
+        local value = tonumber(distanceInput.Text)
+        if value and value > 0 then
+            self.Config.MaxDistance = value
+            distanceLabel.Text = "Max Distance: " .. value
+        else
+            distanceInput.Text = tostring(self.Config.MaxDistance)
+        end
+    end)
+    local delayLabel = Instance.new("TextLabel", content)
+    delayLabel.Size = UDim2.new(1, 0, 0, 18)
+    delayLabel.Position = UDim2.fromOffset(0, 130)
+    delayLabel.BackgroundTransparency = 1
+    delayLabel.Font = Enum.Font.Gotham
+    delayLabel.Text = "Return Delay: 0.5s"
+    delayLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    delayLabel.TextSize = 11
+    delayLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local delayInput = Instance.new("TextBox", content)
+    delayInput.Size = UDim2.new(1, 0, 0, 30)
+    delayInput.Position = UDim2.fromOffset(0, 152)
+    delayInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    delayInput.BorderSizePixel = 0
+    delayInput.Font = Enum.Font.Code
+    delayInput.Text = "0.5"
+    delayInput.TextColor3 = Color3.new(1, 1, 1)
+    delayInput.TextSize = 12
+    delayInput.PlaceholderText = "Delay before returning..."
+    Instance.new("UICorner", delayInput).CornerRadius = UDim.new(0, 6)
+    delayInput.FocusLost:Connect(function()
+        local value = tonumber(delayInput.Text)
+        if value and value >= 0 then
+            self.Config.ReturnDelay = value
+            delayLabel.Text = "Return Delay: " .. value .. "s"
+        else
+            delayInput.Text = tostring(self.Config.ReturnDelay)
+        end
+    end)
+    local autoScanToggle = Instance.new("TextButton", content)
+    autoScanToggle.Name = "AutoScanToggle"
+    autoScanToggle.Size = UDim2.new(1, 0, 0, 30)
+    autoScanToggle.Position = UDim2.fromOffset(0, 192)
+    autoScanToggle.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+    autoScanToggle.BorderSizePixel = 0
+    autoScanToggle.Font = Enum.Font.GothamBold
+    autoScanToggle.Text = "AUTO-SCAN: ON"
+    autoScanToggle.TextColor3 = Color3.new(1, 1, 1)
+    autoScanToggle.TextSize = 11
+    Instance.new("UICorner", autoScanToggle).CornerRadius = UDim.new(0, 6)
+    autoScanToggle.MouseButton1Click:Connect(function()
+        self.Config.AutoScan = not self.Config.AutoScan
+        autoScanToggle.Text = "AUTO-SCAN: " .. (self.Config.AutoScan and "ON" or "OFF")
+        autoScanToggle.BackgroundColor3 = self.Config.AutoScan and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(50, 50, 65)
+    end)
+    local scanBtn = Instance.new("TextButton", content)
+    scanBtn.Name = "ScanButton"
+    scanBtn.Size = UDim2.new(1, 0, 0, 35)
+    scanBtn.Position = UDim2.fromOffset(0, 232)
+    scanBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+    scanBtn.BorderSizePixel = 0
+    scanBtn.Font = Enum.Font.GothamBold
+    scanBtn.Text = "SCAN FOR PROMPTS"
+    scanBtn.TextColor3 = Color3.new(1, 1, 1)
+    scanBtn.TextSize = 12
+    Instance.new("UICorner", scanBtn).CornerRadius = UDim.new(0, 6)
+    scanBtn.MouseButton1Click:Connect(function()
+        self:ScanForPrompts()
+    end)
+    local actionsLabel = Instance.new("TextLabel", content)
+    actionsLabel.Size = UDim2.new(1, 0, 0, 20)
+    actionsLabel.Position = UDim2.fromOffset(0, 277)
+    actionsLabel.BackgroundTransparency = 1
+    actionsLabel.Font = Enum.Font.GothamBold
+    actionsLabel.Text = "Actions:"
+    actionsLabel.TextColor3 = Color3.new(1, 1, 1)
+    actionsLabel.TextSize = 13
+    actionsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local executeBtn = Instance.new("TextButton", content)
+    executeBtn.Name = "ExecuteButton"
+    executeBtn.Size = UDim2.new(1, 0, 0, 45)
+    executeBtn.Position = UDim2.fromOffset(0, 302)
+    executeBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+    executeBtn.BorderSizePixel = 0
+    executeBtn.Font = Enum.Font.GothamBold
+    executeBtn.Text = "EXECUTE PROMPT"
+    executeBtn.TextColor3 = Color3.new(1, 1, 1)
+    executeBtn.TextSize = 14
+    Instance.new("UICorner", executeBtn).CornerRadius = UDim.new(0, 6)
+    executeBtn.MouseButton1Click:Connect(function()
+        self:ExecutePrompt()
+    end)
+    local tpBtn = Instance.new("TextButton", content)
+    tpBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    tpBtn.Position = UDim2.fromOffset(0, 357)
+    tpBtn.BackgroundColor3 = Color3.fromRGB(150, 100, 255)
+    tpBtn.BorderSizePixel = 0
+    tpBtn.Font = Enum.Font.GothamBold
+    tpBtn.Text = "TP ONLY"
+    tpBtn.TextColor3 = Color3.new(1, 1, 1)
+    tpBtn.TextSize = 11
+    Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 6)
+    tpBtn.MouseButton1Click:Connect(function()
+        self:TeleportToPrompt()
+    end)
+    local returnBtn = Instance.new("TextButton", content)
+    returnBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    returnBtn.Position = UDim2.new(0.52, 0, 0, 357)
+    returnBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+    returnBtn.BorderSizePixel = 0
+    returnBtn.Font = Enum.Font.GothamBold
+    returnBtn.Text = "RETURN"
+    returnBtn.TextColor3 = Color3.new(1, 1, 1)
+    returnBtn.TextSize = 11
+    Instance.new("UICorner", returnBtn).CornerRadius = UDim.new(0, 6)
+    returnBtn.MouseButton1Click:Connect(function()
+        self:ReturnToOriginal()
+    end)
+    local listLabel = Instance.new("TextLabel", content)
+    listLabel.Size = UDim2.new(1, 0, 0, 20)
+    listLabel.Position = UDim2.fromOffset(0, 402)
+    listLabel.BackgroundTransparency = 1
+    listLabel.Font = Enum.Font.GothamBold
+    listLabel.Text = "Found Prompts:"
+    listLabel.TextColor3 = Color3.new(1, 1, 1)
+    listLabel.TextSize = 13
+    listLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local promptList = Instance.new("ScrollingFrame", content)
+    promptList.Name = "PromptList"
+    promptList.Size = UDim2.new(1, 0, 0, 173)
+    promptList.Position = UDim2.fromOffset(0, 427)
+    promptList.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    promptList.BorderSizePixel = 0
+    promptList.ScrollBarThickness = 4
+    promptList.ScrollBarImageColor3 = Color3.fromRGB(255, 200, 0)
+    promptList.CanvasSize = UDim2.fromOffset(0, 0)
+    promptList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Instance.new("UICorner", promptList).CornerRadius = UDim.new(0, 6)
+    local listLayout = Instance.new("UIListLayout", promptList)
+    listLayout.Padding = UDim.new(0, 3)
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    screenGui.Parent = CoreGui
+    return selectionLabel, statusIndicator, promptList
+end
+function Modules.ProximityPromptTP:ScanForPrompts()
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
+        print("✗ Character not found")
+        return
+    end
+    local myPos = myChar.HumanoidRootPart.Position
+    self.State.FoundPrompts = {}
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then
+            local promptPart = obj.Parent
+            if promptPart and promptPart:IsA("BasePart") then
+                local distance = (promptPart.Position - myPos).Magnitude
+                if distance <= self.Config.MaxDistance then
+                    table.insert(self.State.FoundPrompts, {
+                        Prompt = obj,
+                        Part = promptPart,
+                        Distance = distance,
+                        Name = obj.ObjectText ~= "" and obj.ObjectText or promptPart.Name,
+                        ActionText = obj.ActionText
+                    })
+                end
+            end
+        end
+    end
+    table.sort(self.State.FoundPrompts, function(a, b)
+        return a.Distance < b.Distance
+    end)
+    print(string.format("✓ Found %d prompts", #self.State.FoundPrompts))
+    self:UpdateDisplay()
+end
+function Modules.ProximityPromptTP:SelectPrompt(promptData)
+    if not promptData then return end
+    if self.State.SelectedPrompt and self.State.SelectedPrompt.Part then
+        local oldHighlight = self.State.SelectedPrompt.Part:FindFirstChild("ProximityTP_Highlight")
+        if oldHighlight then
+            oldHighlight:Destroy()
+        end
+    end
+    self.State.SelectedPrompt = promptData
+    if self.Config.ShowHighlight and promptData.Part then
+        local highlight = Instance.new("SelectionBox")
+        highlight.Name = "ProximityTP_Highlight"
+        highlight.Adornee = promptData.Part
+        highlight.LineThickness = 0.05
+        highlight.Color3 = self.Config.HighlightColor
+        highlight.Parent = promptData.Part
+    end
+    print(string.format("✓ Selected: %s", promptData.Name))
+    self:UpdateDisplay()
+end
+function Modules.ProximityPromptTP:TeleportToPrompt()
+    if not self.State.SelectedPrompt then
+        print("⚠ No prompt selected")
+        return
+    end
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
+        print("✗ Character not found")
+        return
+    end
+    local promptPart = self.State.SelectedPrompt.Part
+    if not promptPart or not promptPart.Parent then
+        print("✗ Prompt no longer exists")
+        return
+    end
+    self.State.OriginalPosition = myChar.HumanoidRootPart.CFrame
+    local offset = Vector3.new(0, 3, 0)
+    myChar.HumanoidRootPart.CFrame = CFrame.new(promptPart.Position + offset)
+    print(string.format("✓ Teleported to: %s", self.State.SelectedPrompt.Name))
+end
+function Modules.ProximityPromptTP:ReturnToOriginal()
+    if not self.State.OriginalPosition then
+        print("⚠ No saved position")
+        return
+    end
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
+        print("✗ Character not found")
+        return
+    end
+    myChar.HumanoidRootPart.CFrame = self.State.OriginalPosition
+    print("✓ Returned to original position")
+end
+function Modules.ProximityPromptTP:ExecutePrompt()
+    if not self.State.SelectedPrompt then
+        print("⚠ No prompt selected")
+        return
+    end
+    if self.State.IsExecuting then
+        print("⚠ Already executing a prompt")
+        return
+    end
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
+        print("✗ Character not found")
+        return
+    end
+    local prompt = self.State.SelectedPrompt.Prompt
+    local promptPart = self.State.SelectedPrompt.Part
+    if not prompt or not prompt.Parent or not promptPart or not promptPart.Parent then
+        print("✗ Prompt no longer exists")
+        return
+    end
+    self.State.IsExecuting = true
+    self.State.OriginalPosition = myChar.HumanoidRootPart.CFrame
+    print(string.format("💾 Saved position: %.1f, %.1f, %.1f", self.State.OriginalPosition.X, self.State.OriginalPosition.Y, self.State.OriginalPosition.Z))
+    local offset = Vector3.new(0, 3, 0)
+    myChar.HumanoidRootPart.CFrame = CFrame.new(promptPart.Position + offset)
+    print(string.format("📍 Teleported to: %s", self.State.SelectedPrompt.Name))
+    task.wait(0.1)
+    local success = pcall(function()
+        fireproximityprompt(prompt)
+    end)
+    if success then
+        print(string.format("✓ Triggered prompt: %s", self.State.SelectedPrompt.ActionText))
+    else
+        print("⚠ Failed to trigger prompt")
+    end
+    task.wait(self.Config.ReturnDelay)
+    if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+        myChar.HumanoidRootPart.CFrame = self.State.OriginalPosition
+        print("↩ Returned to original position")
+    end
+    self.State.IsExecuting = false
+end
+function Modules.ProximityPromptTP:UpdateDisplay()
+    if not self.State.UI then return end
+    local selectionLabel = self.State.UI.MainFrame.Content.SelectionLabel
+    local statusIndicator = self.State.UI.MainFrame.TitleBar.StatusIndicator
+    local promptList = self.State.UI.MainFrame.Content.PromptList
+    if self.State.SelectedPrompt then
+        selectionLabel.Text = string.format("Selected: %s (%.1fm)", 
+            self.State.SelectedPrompt.Name, 
+            self.State.SelectedPrompt.Distance
+        )
+        selectionLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
+    else
+        selectionLabel.Text = "No prompt selected"
+        selectionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    end
+    local count = #self.State.FoundPrompts
+    statusIndicator.Text = count .. " PROMPTS"
+    statusIndicator.BackgroundColor3 = count > 0 and Color3.fromRGB(255, 200, 0) or Color3.fromRGB(50, 50, 50)
+    statusIndicator.TextColor3 = count > 0 and Color3.new(1, 1, 1) or Color3.fromRGB(200, 200, 200)
+    for _, child in pairs(promptList:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+    for i, promptData in ipairs(self.State.FoundPrompts) do
+        local entry = Instance.new("TextButton")
+        entry.Size = UDim2.new(1, -5, 0, 40)
+        entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        entry.BorderSizePixel = 0
+        entry.Font = Enum.Font.Code
+        entry.Text = ""
+        entry.TextColor3 = Color3.fromRGB(255, 200, 0)
+        entry.TextSize = 10
+        entry.TextXAlignment = Enum.TextXAlignment.Left
+        entry.AutoButtonColor = false
+        entry.Parent = promptList
+        Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 4)
+        local nameLabel = Instance.new("TextLabel", entry)
+        nameLabel.Size = UDim2.new(1, -10, 0, 18)
+        nameLabel.Position = UDim2.fromOffset(8, 3)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Font = Enum.Font.GothamBold
+        nameLabel.Text = string.format("[%d] %s", i, promptData.Name)
+        nameLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+        nameLabel.TextSize = 11
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        local actionLabel = Instance.new("TextLabel", entry)
+        actionLabel.Size = UDim2.new(1, -10, 0, 15)
+        actionLabel.Position = UDim2.fromOffset(8, 21)
+        actionLabel.BackgroundTransparency = 1
+        actionLabel.Font = Enum.Font.Gotham
+        actionLabel.Text = string.format("%.1fm - %s", promptData.Distance, promptData.ActionText)
+        actionLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+        actionLabel.TextSize = 9
+        actionLabel.TextXAlignment = Enum.TextXAlignment.Left
+        actionLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        entry.MouseButton1Click:Connect(function()
+            self:SelectPrompt(promptData)
+            for _, child in pairs(promptList:GetChildren()) do
+                if child:IsA("TextButton") then
+                    child.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+                end
+            end
+            entry.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
+        end)
+        entry.MouseEnter:Connect(function()
+            if entry.BackgroundColor3 ~= Color3.fromRGB(200, 150, 0) then
+                entry.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+            end
+        end)
+        entry.MouseLeave:Connect(function()
+            if entry.BackgroundColor3 ~= Color3.fromRGB(200, 150, 0) then
+                entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+            end
+        end)
+    end
+end
+function Modules.ProximityPromptTP:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    self:_createUI()
+    self:ScanForPrompts()
+    self.State.Connections.AutoScan = RunService.Heartbeat:Connect(function()
+        if self.Config.AutoScan then
+            task.wait(self.Config.ScanInterval)
+            self:ScanForPrompts()
+        end
+    end)
+    print("✓ Proximity Prompt TP enabled")
+end
+function Modules.ProximityPromptTP:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    if self.State.SelectedPrompt and self.State.SelectedPrompt.Part then
+        local highlight = self.State.SelectedPrompt.Part:FindFirstChild("ProximityTP_Highlight")
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+    for _, conn in pairs(self.State.Connections) do
+        if conn then
+            conn:Disconnect()
+        end
+    end
+    table.clear(self.State.Connections)
+    if self.State.UI then
+        self.State.UI:Destroy()
+        self.State.UI = nil
+    end
+    self.State.FoundPrompts = {}
+    self.State.SelectedPrompt = nil
+    print("✓ Proximity Prompt TP disabled")
+end
+function Modules.ProximityPromptTP:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+RegisterCommand({
+    Name = "proximitytp",
+    Aliases = {"ptp", "prompttp", "proxtp"},
+    Description = "Teleports to proximity prompts from any distance and returns you to original position."
+}, function()
+    Modules.ProximityPromptTP:Toggle()
+end)
 Modules.ProximityStalker = {
     State = {
         IsEnabled = false,
@@ -20265,83 +21422,604 @@ function Modules.HumanShield:Initialize(): ()
         end
     end)
 end
-Modules.NetworkOwnership = {
+Modules.NetworkClaim = {
     State = {
         IsEnabled = false,
-        TargetPart = nil,
-        Connection = nil,
-        OriginalVelocity = nil
+        ClaimedObjects = {},
+        SelectedObject = nil,
+        UI = nil,
+        Connections = {},
+        AutoClaim = false
     },
     Config = {
-        NETWORK_VELOCITY = Vector3.new(0, 30.01, 0),
-        SEARCH_RADIUS = 50
-    },
-    Dependencies = {"RunService", "Players", "Workspace"},
-    Services = {}
+        HighlightColor = Color3.fromRGB(255, 100, 0),
+        ClaimMethod = "ownership",
+        UpdateRate = 0.03,
+        ShowVisuals = true
+    }
 }
-function Modules.NetworkOwnership:Claim(part: BasePart)
-    if not part or not part:IsA("BasePart") then
-        return DoNotif("NetworkOwner: Invalid Part Target.", 3)
-    end
-    if part.Anchored then
-        return DoNotif("NetworkOwner: Cannot claim anchored objects.", 3)
-    end
-    self:Release()
-    self.State.TargetPart = part
-    self.State.IsEnabled = true
-    self.State.Connection = self.Services.RunService.Heartbeat:Connect(function()
-        if not self.State.IsEnabled or not part or not part.Parent then
-            self:Release()
-            return
-        end
-        pcall(function()
-            part.AssemblyLinearVelocity = self.Config.NETWORK_VELOCITY
-        end)
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+function Modules.NetworkClaim:_createUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "NetworkClaim_Zuka"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    self.State.UI = screenGui
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.fromOffset(380, 560)
+    mainFrame.Position = UDim2.new(1, -390, 0.5, -280)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+    local stroke = Instance.new("UIStroke", mainFrame)
+    stroke.Color = Color3.fromRGB(255, 100, 0)
+    stroke.Thickness = 2
+    local glowTween = TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+        Thickness = 3
+    })
+    glowTween:Play()
+    local titleBar = Instance.new("Frame", mainFrame)
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 35)
+    titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    titleBar.BorderSizePixel = 0
+    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
+    local title = Instance.new("TextLabel", titleBar)
+    title.Size = UDim2.new(1, -90, 1, 0)
+    title.Position = UDim2.fromOffset(10, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.Code
+    title.Text = "▸ NETWORK CLAIM"
+    title.TextColor3 = Color3.fromRGB(255, 100, 0)
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    local statusIndicator = Instance.new("TextLabel", titleBar)
+    statusIndicator.Name = "StatusIndicator"
+    statusIndicator.Size = UDim2.fromOffset(90, 20)
+    statusIndicator.Position = UDim2.new(1, -160, 0.5, -10)
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    statusIndicator.BorderSizePixel = 0
+    statusIndicator.Font = Enum.Font.GothamBold
+    statusIndicator.Text = "0 CLAIMED"
+    statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statusIndicator.TextSize = 10
+    Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
+    local closeBtn = Instance.new("TextButton", titleBar)
+    closeBtn.Size = UDim2.fromOffset(30, 30)
+    closeBtn.Position = UDim2.new(1, -32, 0, 2)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 20
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Disable()
     end)
-    DoNotif("NetworkOwner: Claimed " .. part.Name, 2)
-end
-function Modules.NetworkOwnership:Release()
-    if self.State.Connection then
-        self.State.Connection:Disconnect()
-        self.State.Connection = nil
-    end
-    self.State.TargetPart = nil
-    self.State.IsEnabled = false
-end
-function Modules.NetworkOwnership:Initialize()
-    local module = self
-    for _, serviceName in ipairs(module.Dependencies) do
-        module.Services[serviceName] = game:GetService(serviceName)
-    end
-    RegisterCommand({
-        Name = "claim",
-        Aliases = {"netown", "setowner", "take"},
-        Description = "Forcibly claims network ownership of a part. Usage: ;claim [PartName] or ;claim tool"
-    }, function(args)
-        local input = args[1] and args[1]:lower() or "tool"
-        local targetPart = nil
-        if input == "off" or input == "stop" or input == "release" then
-            module:Release()
-            return DoNotif("NetworkOwner: Released control.", 2)
+    local dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            local moveConn, endConn
+            moveConn = game:GetService("UserInputService").InputChanged:Connect(function(moveInput)
+                if moveInput.UserInputType == Enum.UserInputType.MouseMovement then
+                    local delta = moveInput.Position - dragStart
+                    mainFrame.Position = UDim2.new(
+                        startPos.X.Scale, startPos.X.Offset + delta.X,
+                        startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                    )
+                end
+            end)
+            endConn = game:GetService("UserInputService").InputEnded:Connect(function(endInput)
+                if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                    moveConn:Disconnect()
+                    endConn:Disconnect()
+                end
+            end)
         end
-        local char = self.Services.Players.LocalPlayer.Character
-        if input == "tool" and char then
-            local tool = char:FindFirstChildOfClass("Tool")
-            if tool then
-                targetPart = tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart")
+    end)
+    local content = Instance.new("Frame", mainFrame)
+    content.Name = "Content"
+    content.Size = UDim2.new(1, -20, 1, -45)
+    content.Position = UDim2.fromOffset(10, 40)
+    content.BackgroundTransparency = 1
+    local selectionLabel = Instance.new("TextLabel", content)
+    selectionLabel.Name = "SelectionLabel"
+    selectionLabel.Size = UDim2.new(1, 0, 0, 35)
+    selectionLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    selectionLabel.BorderSizePixel = 0
+    selectionLabel.Font = Enum.Font.GothamMedium
+    selectionLabel.Text = "Click an object to select"
+    selectionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    selectionLabel.TextSize = 12
+    Instance.new("UICorner", selectionLabel).CornerRadius = UDim.new(0, 6)
+    local methodLabel = Instance.new("TextLabel", content)
+    methodLabel.Size = UDim2.new(1, 0, 0, 20)
+    methodLabel.Position = UDim2.fromOffset(0, 45)
+    methodLabel.BackgroundTransparency = 1
+    methodLabel.Font = Enum.Font.GothamBold
+    methodLabel.Text = "Claim Method:"
+    methodLabel.TextColor3 = Color3.new(1, 1, 1)
+    methodLabel.TextSize = 13
+    methodLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local methodButtons = {}
+    local methods = {
+        {id = "ownership", name = "OWNERSHIP", desc = "Set network owner"},
+        {id = "velocity", name = "VELOCITY", desc = "Spam velocity changes"},
+        {id = "cframe", name = "CFRAME", desc = "Spam CFrame updates"}
+    }
+    for i, method in ipairs(methods) do
+        local btn = Instance.new("TextButton", content)
+        btn.Name = method.id .. "Btn"
+        btn.Size = UDim2.fromOffset(110, 30)
+        btn.Position = UDim2.fromOffset((i-1) * 120, 70)
+        btn.BackgroundColor3 = method.id == "ownership" and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(50, 50, 65)
+        btn.BorderSizePixel = 0
+        btn.Font = Enum.Font.GothamSemibold
+        btn.Text = method.name
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.TextSize = 10
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        methodButtons[method.id] = btn
+        btn.MouseButton1Click:Connect(function()
+            self.Config.ClaimMethod = method.id
+            for m, b in pairs(methodButtons) do
+                b.BackgroundColor3 = m == method.id and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(50, 50, 65)
+            end
+            print(string.format("✓ Claim method: %s", method.name))
+        end)
+        local tooltip = Instance.new("TextLabel", btn)
+        tooltip.Size = UDim2.new(1, 0, 0, 15)
+        tooltip.Position = UDim2.new(0, 0, 1, 2)
+        tooltip.BackgroundTransparency = 1
+        tooltip.Font = Enum.Font.Gotham
+        tooltip.Text = method.desc
+        tooltip.TextColor3 = Color3.fromRGB(150, 150, 150)
+        tooltip.TextSize = 8
+        tooltip.TextWrapped = true
+    end
+    local autoClaimToggle = Instance.new("TextButton", content)
+    autoClaimToggle.Name = "AutoClaimToggle"
+    autoClaimToggle.Size = UDim2.new(1, 0, 0, 35)
+    autoClaimToggle.Position = UDim2.fromOffset(0, 120)
+    autoClaimToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+    autoClaimToggle.BorderSizePixel = 0
+    autoClaimToggle.Font = Enum.Font.GothamBold
+    autoClaimToggle.Text = "AUTO-CLAIM: OFF"
+    autoClaimToggle.TextColor3 = Color3.new(1, 1, 1)
+    autoClaimToggle.TextSize = 12
+    Instance.new("UICorner", autoClaimToggle).CornerRadius = UDim.new(0, 6)
+    autoClaimToggle.MouseButton1Click:Connect(function()
+        self.State.AutoClaim = not self.State.AutoClaim
+        autoClaimToggle.Text = "AUTO-CLAIM: " .. (self.State.AutoClaim and "ON" or "OFF")
+        autoClaimToggle.BackgroundColor3 = self.State.AutoClaim and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(50, 50, 65)
+        print(string.format("✓ Auto-claim: %s", self.State.AutoClaim and "ON" or "OFF"))
+    end)
+    local actionsLabel = Instance.new("TextLabel", content)
+    actionsLabel.Size = UDim2.new(1, 0, 0, 20)
+    actionsLabel.Position = UDim2.fromOffset(0, 165)
+    actionsLabel.BackgroundTransparency = 1
+    actionsLabel.Font = Enum.Font.GothamBold
+    actionsLabel.Text = "Actions:"
+    actionsLabel.TextColor3 = Color3.new(1, 1, 1)
+    actionsLabel.TextSize = 13
+    actionsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local claimBtn = Instance.new("TextButton", content)
+    claimBtn.Name = "ClaimButton"
+    claimBtn.Size = UDim2.new(1, 0, 0, 40)
+    claimBtn.Position = UDim2.fromOffset(0, 190)
+    claimBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+    claimBtn.BorderSizePixel = 0
+    claimBtn.Font = Enum.Font.GothamBold
+    claimBtn.Text = "CLAIM SELECTED"
+    claimBtn.TextColor3 = Color3.new(1, 1, 1)
+    claimBtn.TextSize = 14
+    Instance.new("UICorner", claimBtn).CornerRadius = UDim.new(0, 6)
+    claimBtn.MouseButton1Click:Connect(function()
+        self:ClaimSelected()
+    end)
+    local releaseBtn = Instance.new("TextButton", content)
+    releaseBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    releaseBtn.Position = UDim2.fromOffset(0, 240)
+    releaseBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
+    releaseBtn.BorderSizePixel = 0
+    releaseBtn.Font = Enum.Font.GothamBold
+    releaseBtn.Text = "RELEASE"
+    releaseBtn.TextColor3 = Color3.new(1, 1, 1)
+    releaseBtn.TextSize = 12
+    Instance.new("UICorner", releaseBtn).CornerRadius = UDim.new(0, 6)
+    releaseBtn.MouseButton1Click:Connect(function()
+        self:ReleaseSelected()
+    end)
+    local releaseAllBtn = Instance.new("TextButton", content)
+    releaseAllBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    releaseAllBtn.Position = UDim2.new(0.52, 0, 0, 240)
+    releaseAllBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    releaseAllBtn.BorderSizePixel = 0
+    releaseAllBtn.Font = Enum.Font.GothamBold
+    releaseAllBtn.Text = "RELEASE ALL"
+    releaseAllBtn.TextColor3 = Color3.new(1, 1, 1)
+    releaseAllBtn.TextSize = 12
+    Instance.new("UICorner", releaseAllBtn).CornerRadius = UDim.new(0, 6)
+    releaseAllBtn.MouseButton1Click:Connect(function()
+        self:ReleaseAll()
+    end)
+    local bulkLabel = Instance.new("TextLabel", content)
+    bulkLabel.Size = UDim2.new(1, 0, 0, 20)
+    bulkLabel.Position = UDim2.fromOffset(0, 285)
+    bulkLabel.BackgroundTransparency = 1
+    bulkLabel.Font = Enum.Font.GothamBold
+    bulkLabel.Text = "Bulk Actions:"
+    bulkLabel.TextColor3 = Color3.new(1, 1, 1)
+    bulkLabel.TextSize = 13
+    bulkLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local claimModelBtn = Instance.new("TextButton", content)
+    claimModelBtn.Size = UDim2.new(1, 0, 0, 35)
+    claimModelBtn.Position = UDim2.fromOffset(0, 310)
+    claimModelBtn.BackgroundColor3 = Color3.fromRGB(150, 80, 200)
+    claimModelBtn.BorderSizePixel = 0
+    claimModelBtn.Font = Enum.Font.GothamBold
+    claimModelBtn.Text = "CLAIM ENTIRE MODEL"
+    claimModelBtn.TextColor3 = Color3.new(1, 1, 1)
+    claimModelBtn.TextSize = 12
+    Instance.new("UICorner", claimModelBtn).CornerRadius = UDim.new(0, 6)
+    claimModelBtn.MouseButton1Click:Connect(function()
+        self:ClaimEntireModel()
+    end)
+    local claimChildrenBtn = Instance.new("TextButton", content)
+    claimChildrenBtn.Size = UDim2.new(1, 0, 0, 35)
+    claimChildrenBtn.Position = UDim2.fromOffset(0, 352)
+    claimChildrenBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 200)
+    claimChildrenBtn.BorderSizePixel = 0
+    claimChildrenBtn.Font = Enum.Font.GothamBold
+    claimChildrenBtn.Text = "CLAIM ALL DESCENDANTS"
+    claimChildrenBtn.TextColor3 = Color3.new(1, 1, 1)
+    claimChildrenBtn.TextSize = 12
+    Instance.new("UICorner", claimChildrenBtn).CornerRadius = UDim.new(0, 6)
+    claimChildrenBtn.MouseButton1Click:Connect(function()
+        self:ClaimAllDescendants()
+    end)
+    local infoLabel = Instance.new("TextLabel", content)
+    infoLabel.Size = UDim2.new(1, 0, 0, 20)
+    infoLabel.Position = UDim2.fromOffset(0, 397)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.Font = Enum.Font.GothamBold
+    infoLabel.Text = "Claimed Objects:"
+    infoLabel.TextColor3 = Color3.new(1, 1, 1)
+    infoLabel.TextSize = 13
+    infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local claimedList = Instance.new("ScrollingFrame", content)
+    claimedList.Name = "ClaimedList"
+    claimedList.Size = UDim2.new(1, 0, 0, 118)
+    claimedList.Position = UDim2.fromOffset(0, 422)
+    claimedList.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    claimedList.BorderSizePixel = 0
+    claimedList.ScrollBarThickness = 4
+    claimedList.ScrollBarImageColor3 = Color3.fromRGB(255, 100, 0)
+    claimedList.CanvasSize = UDim2.fromOffset(0, 0)
+    claimedList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Instance.new("UICorner", claimedList).CornerRadius = UDim.new(0, 6)
+    local listLayout = Instance.new("UIListLayout", claimedList)
+    listLayout.Padding = UDim.new(0, 3)
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    screenGui.Parent = CoreGui
+    return selectionLabel, statusIndicator, claimedList
+end
+function Modules.NetworkClaim:GetAllParts(obj)
+    local parts = {}
+    if obj:IsA("BasePart") then
+        table.insert(parts, obj)
+    elseif obj:IsA("Model") then
+        for _, part in pairs(obj:GetDescendants()) do
+            if part:IsA("BasePart") then
+                table.insert(parts, part)
             end
         end
-        if not targetPart and args[1] then
-            local nameLookup = table.concat(args, " ")
-            targetPart = self.Services.Workspace:FindFirstChild(nameLookup, true)
+    end
+    return parts
+end
+function Modules.NetworkClaim:ClaimPart(part)
+    if not part:IsA("BasePart") then return false end
+    local method = self.Config.ClaimMethod
+    local connection
+    if method == "ownership" then
+        local success = pcall(function()
+            part:SetNetworkOwner(LocalPlayer)
+        end)
+        if not success then
+            connection = RunService.Heartbeat:Connect(function()
+                if part and part.Parent then
+                    part.Velocity = Vector3.new(0, 0.01, 0)
+                end
+            end)
         end
-        if targetPart and targetPart:IsA("BasePart") then
-            module:Claim(targetPart)
-        else
-            DoNotif("NetworkOwner: Target part not found.", 3)
+    elseif method == "velocity" then
+        connection = RunService.Heartbeat:Connect(function()
+            if part and part.Parent then
+                part.Velocity = Vector3.new(0, 0.01, 0)
+                part.RotVelocity = Vector3.new(0, 0, 0)
+            end
+        end)
+    elseif method == "cframe" then
+        local originalCF = part.CFrame
+        connection = RunService.Heartbeat:Connect(function()
+            if part and part.Parent then
+                part.CFrame = originalCF
+            end
+        end)
+    end
+    return connection
+end
+function Modules.NetworkClaim:ClaimSelected()
+    if not self.State.SelectedObject then
+        print("⚠ No object selected")
+        return
+    end
+    local obj = self.State.SelectedObject
+    local parts = self:GetAllParts(obj)
+    if #parts == 0 then
+        print("✗ No valid parts found")
+        return
+    end
+    for _, data in pairs(self.State.ClaimedObjects) do
+        if data.Object == obj then
+            print("⚠ Object already claimed")
+            return
+        end
+    end
+    local connections = {}
+    local claimedCount = 0
+    for _, part in ipairs(parts) do
+        local conn = self:ClaimPart(part)
+        if conn then
+            table.insert(connections, conn)
+        end
+        claimedCount = claimedCount + 1
+    end
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "NetworkClaim_Highlight"
+    highlight.FillColor = self.Config.HighlightColor
+    highlight.OutlineColor = self.Config.HighlightColor
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    if obj:IsA("Model") then
+        highlight.Adornee = obj
+        highlight.Parent = obj
+    else
+        highlight.Adornee = obj
+        highlight.Parent = obj
+    end
+    table.insert(self.State.ClaimedObjects, {
+        Object = obj,
+        Connections = connections,
+        Highlight = highlight,
+        Name = obj.Name,
+        PartCount = claimedCount
+    })
+    print(string.format("✓ Claimed: %s (%d parts)", obj.Name, claimedCount))
+    self:UpdateDisplay()
+end
+function Modules.NetworkClaim:ClaimEntireModel()
+    if not self.State.SelectedObject then
+        print("⚠ No object selected")
+        return
+    end
+    local obj = self.State.SelectedObject
+    local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+    if not model then
+        print("⚠ Selected object is not in a model")
+        return
+    end
+    self.State.SelectedObject = model
+    self:ClaimSelected()
+end
+function Modules.NetworkClaim:ClaimAllDescendants()
+    if not self.State.SelectedObject then
+        print("⚠ No object selected")
+        return
+    end
+    local obj = self.State.SelectedObject
+    local descendants = obj:GetDescendants()
+    local claimedCount = 0
+    for _, descendant in ipairs(descendants) do
+        if descendant:IsA("BasePart") then
+            self:ClaimPart(descendant)
+            claimedCount = claimedCount + 1
+        end
+    end
+    print(string.format("✓ Claimed %d descendants", claimedCount))
+end
+function Modules.NetworkClaim:ReleaseSelected()
+    if not self.State.SelectedObject then
+        print("⚠ No object selected")
+        return
+    end
+    for i, data in ipairs(self.State.ClaimedObjects) do
+        if data.Object == self.State.SelectedObject then
+            for _, conn in ipairs(data.Connections) do
+                if conn then
+                    conn:Disconnect()
+                end
+            end
+            if data.Highlight then
+                data.Highlight:Destroy()
+            end
+            for _, part in ipairs(self:GetAllParts(data.Object)) do
+                pcall(function()
+                    part:SetNetworkOwnershipAuto()
+                end)
+            end
+            table.remove(self.State.ClaimedObjects, i)
+            print(string.format("✓ Released: %s", data.Name))
+            self:UpdateDisplay()
+            return
+        end
+    end
+    print("⚠ Selected object is not claimed")
+end
+function Modules.NetworkClaim:ReleaseAll()
+    if #self.State.ClaimedObjects == 0 then
+        print("⚠ No objects to release")
+        return
+    end
+    local count = #self.State.ClaimedObjects
+    for _, data in ipairs(self.State.ClaimedObjects) do
+        for _, conn in ipairs(data.Connections) do
+            if conn then
+                conn:Disconnect()
+            end
+        end
+        if data.Highlight then
+            data.Highlight:Destroy()
+        end
+        for _, part in ipairs(self:GetAllParts(data.Object)) do
+            pcall(function()
+                part:SetNetworkOwnershipAuto()
+            end)
+        end
+    end
+    self.State.ClaimedObjects = {}
+    print(string.format("✓ Released %d objects", count))
+    self:UpdateDisplay()
+end
+function Modules.NetworkClaim:SelectObject(obj)
+    if not obj or (not obj:IsA("Model") and not obj:IsA("BasePart")) then
+        print("⚠ Invalid object selected")
+        return
+    end
+    if self.State.SelectedObject then
+        local oldHighlight = self.State.SelectedObject:FindFirstChild("NetworkClaim_Selection")
+        if oldHighlight then
+            oldHighlight:Destroy()
+        end
+    end
+    self.State.SelectedObject = obj
+    local selectionBox = Instance.new("SelectionBox")
+    selectionBox.Name = "NetworkClaim_Selection"
+    selectionBox.Adornee = obj
+    selectionBox.LineThickness = 0.05
+    selectionBox.Color3 = Color3.fromRGB(255, 255, 0)
+    selectionBox.Parent = obj
+    print(string.format("✓ Selected: %s", obj.Name))
+    self:UpdateDisplay()
+end
+function Modules.NetworkClaim:UpdateDisplay()
+    if not self.State.UI then return end
+    local selectionLabel = self.State.UI.MainFrame.Content.SelectionLabel
+    local statusIndicator = self.State.UI.MainFrame.TitleBar.StatusIndicator
+    local claimedList = self.State.UI.MainFrame.Content.ClaimedList
+    if self.State.SelectedObject then
+        local objType = self.State.SelectedObject:IsA("Model") and "Model" or "Part"
+        selectionLabel.Text = string.format("Selected: %s (%s)", self.State.SelectedObject.Name, objType)
+        selectionLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    else
+        selectionLabel.Text = "Click an object to select"
+        selectionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    end
+    local count = #self.State.ClaimedObjects
+    statusIndicator.Text = count .. " CLAIMED"
+    statusIndicator.BackgroundColor3 = count > 0 and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(50, 50, 50)
+    statusIndicator.TextColor3 = count > 0 and Color3.new(1, 1, 1) or Color3.fromRGB(200, 200, 200)
+    for _, child in pairs(claimedList:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+    for i, data in ipairs(self.State.ClaimedObjects) do
+        local entry = Instance.new("TextButton")
+        entry.Size = UDim2.new(1, -5, 0, 30)
+        entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        entry.BorderSizePixel = 0
+        entry.Font = Enum.Font.Code
+        entry.Text = string.format("[%d] %s (%d parts)", i, data.Name, data.PartCount)
+        entry.TextColor3 = Color3.fromRGB(255, 150, 0)
+        entry.TextSize = 10
+        entry.TextXAlignment = Enum.TextXAlignment.Left
+        entry.AutoButtonColor = false
+        entry.Parent = claimedList
+        Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 4)
+        local padding = Instance.new("UIPadding", entry)
+        padding.PaddingLeft = UDim.new(0, 8)
+        entry.MouseButton1Click:Connect(function()
+            self.State.SelectedObject = data.Object
+            self:SelectObject(data.Object)
+        end)
+        entry.MouseEnter:Connect(function()
+            entry.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        end)
+        entry.MouseLeave:Connect(function()
+            entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        end)
+    end
+end
+function Modules.NetworkClaim:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    self:_createUI()
+    self.State.Connections.MouseClick = game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local mouse = LocalPlayer:GetMouse()
+            local target = mouse.Target
+            if target then
+                local obj = target:IsA("Model") and target or target.Parent
+                if obj and (obj:IsA("Model") or obj:IsA("BasePart")) then
+                    self:SelectObject(obj)
+                    if self.State.AutoClaim then
+                        task.wait(0.1)
+                        self:ClaimSelected()
+                    end
+                end
+            end
         end
     end)
+    print("✓ Network Claim enabled - Click objects to select")
 end
+function Modules.NetworkClaim:Disable()
+    if not self.State.IsEnabled then return end
+    self:ReleaseAll()
+    self.State.IsEnabled = false
+    if self.State.SelectedObject then
+        local highlight = self.State.SelectedObject:FindFirstChild("NetworkClaim_Selection")
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+    for _, conn in pairs(self.State.Connections) do
+        if conn then
+            conn:Disconnect()
+        end
+    end
+    table.clear(self.State.Connections)
+    if self.State.UI then
+        self.State.UI:Destroy()
+        self.State.UI = nil
+    end
+    self.State.SelectedObject = nil
+    print("✓ Network Claim disabled")
+end
+function Modules.NetworkClaim:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+RegisterCommand({
+    Name = "networkclaim",
+    Aliases = {"claim", "netclaim"},
+    Description = "Forces network ownership of any workspace object. Click to select, then claim."
+}, function()
+    Modules.NetworkClaim:Toggle()
+end)
+
 Modules.MapStripper = {
     State = { IsEnabled = false, Connection = nil },
     Dependencies = {"Players", "UserInputService"}
@@ -20857,6 +22535,650 @@ function Modules.ClickDetectorTools:Initialize()
         DoNotif("Fired " .. count .. " ClickDetector(s).", 2)
     end)
 end
+Modules.PlayerAttach = {
+    State = {
+        IsEnabled = false,
+        AttachedTo = nil,
+        OriginalCFrame = nil,
+        UI = nil,
+        Connections = {},
+        IsAttached = false
+    },
+    Config = {
+        Distance = 5,
+        VerticalOffset = 2,
+        HorizontalOffset = 0,
+        RotationOffset = 0,
+        FollowRotation = true,
+        SmoothFollow = false,
+        SmoothSpeed = 0.5,
+        HighlightColor = Color3.fromRGB(100, 255, 255)
+    }
+}
+
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+function Modules.PlayerAttach:_createUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "PlayerAttach_Zuka"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    self.State.UI = screenGui
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.fromOffset(380, 580)
+    mainFrame.Position = UDim2.new(1, -390, 0.5, -290)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+    
+    local stroke = Instance.new("UIStroke", mainFrame)
+    stroke.Color = Color3.fromRGB(100, 255, 255)
+    stroke.Thickness = 2
+    
+    local glowTween = TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+        Thickness = 3
+    })
+    glowTween:Play()
+    
+    -- Title Bar
+    local titleBar = Instance.new("Frame", mainFrame)
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 35)
+    titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    titleBar.BorderSizePixel = 0
+    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
+    
+    local title = Instance.new("TextLabel", titleBar)
+    title.Size = UDim2.new(1, -90, 1, 0)
+    title.Position = UDim2.fromOffset(10, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.Code
+    title.Text = "▸ PLAYER ATTACH"
+    title.TextColor3 = Color3.fromRGB(100, 255, 255)
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local statusIndicator = Instance.new("TextLabel", titleBar)
+    statusIndicator.Name = "StatusIndicator"
+    statusIndicator.Size = UDim2.fromOffset(90, 20)
+    statusIndicator.Position = UDim2.new(1, -160, 0.5, -10)
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    statusIndicator.BorderSizePixel = 0
+    statusIndicator.Font = Enum.Font.GothamBold
+    statusIndicator.Text = "DETACHED"
+    statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statusIndicator.TextSize = 10
+    Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
+    
+    local closeBtn = Instance.new("TextButton", titleBar)
+    closeBtn.Size = UDim2.fromOffset(30, 30)
+    closeBtn.Position = UDim2.new(1, -32, 0, 2)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 20
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+    
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Disable()
+    end)
+    
+    -- Make draggable
+    local dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            
+            local moveConn, endConn
+            moveConn = game:GetService("UserInputService").InputChanged:Connect(function(moveInput)
+                if moveInput.UserInputType == Enum.UserInputType.MouseMovement then
+                    local delta = moveInput.Position - dragStart
+                    mainFrame.Position = UDim2.new(
+                        startPos.X.Scale, startPos.X.Offset + delta.X,
+                        startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                    )
+                end
+            end)
+            
+            endConn = game:GetService("UserInputService").InputEnded:Connect(function(endInput)
+                if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                    moveConn:Disconnect()
+                    endConn:Disconnect()
+                end
+            end)
+        end
+    end)
+    
+    local content = Instance.new("Frame", mainFrame)
+    content.Name = "Content"
+    content.Size = UDim2.new(1, -20, 1, -45)
+    content.Position = UDim2.fromOffset(10, 40)
+    content.BackgroundTransparency = 1
+    
+    -- Target Selection
+    local targetLabel = Instance.new("TextLabel", content)
+    targetLabel.Name = "TargetLabel"
+    targetLabel.Size = UDim2.new(1, 0, 0, 35)
+    targetLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    targetLabel.BorderSizePixel = 0
+    targetLabel.Font = Enum.Font.GothamMedium
+    targetLabel.Text = "No target selected"
+    targetLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    targetLabel.TextSize = 12
+    Instance.new("UICorner", targetLabel).CornerRadius = UDim.new(0, 6)
+    
+    -- Player List
+    local playersLabel = Instance.new("TextLabel", content)
+    playersLabel.Size = UDim2.new(1, 0, 0, 20)
+    playersLabel.Position = UDim2.fromOffset(0, 45)
+    playersLabel.BackgroundTransparency = 1
+    playersLabel.Font = Enum.Font.GothamBold
+    playersLabel.Text = "Select Player:"
+    playersLabel.TextColor3 = Color3.new(1, 1, 1)
+    playersLabel.TextSize = 13
+    playersLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local playerList = Instance.new("ScrollingFrame", content)
+    playerList.Name = "PlayerList"
+    playerList.Size = UDim2.new(1, 0, 0, 100)
+    playerList.Position = UDim2.fromOffset(0, 70)
+    playerList.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    playerList.BorderSizePixel = 0
+    playerList.ScrollBarThickness = 4
+    playerList.ScrollBarImageColor3 = Color3.fromRGB(100, 255, 255)
+    playerList.CanvasSize = UDim2.fromOffset(0, 0)
+    playerList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Instance.new("UICorner", playerList).CornerRadius = UDim.new(0, 6)
+    
+    local listLayout = Instance.new("UIListLayout", playerList)
+    listLayout.Padding = UDim.new(0, 3)
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    -- Position Settings
+    local settingsLabel = Instance.new("TextLabel", content)
+    settingsLabel.Size = UDim2.new(1, 0, 0, 20)
+    settingsLabel.Position = UDim2.fromOffset(0, 180)
+    settingsLabel.BackgroundTransparency = 1
+    settingsLabel.Font = Enum.Font.GothamBold
+    settingsLabel.Text = "Position Settings:"
+    settingsLabel.TextColor3 = Color3.new(1, 1, 1)
+    settingsLabel.TextSize = 13
+    settingsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- Distance
+    local distanceLabel = Instance.new("TextLabel", content)
+    distanceLabel.Size = UDim2.new(1, 0, 0, 18)
+    distanceLabel.Position = UDim2.fromOffset(0, 205)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.Font = Enum.Font.Gotham
+    distanceLabel.Text = "Distance: 5"
+    distanceLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    distanceLabel.TextSize = 11
+    distanceLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local distanceInput = Instance.new("TextBox", content)
+    distanceInput.Size = UDim2.new(1, 0, 0, 30)
+    distanceInput.Position = UDim2.fromOffset(0, 227)
+    distanceInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    distanceInput.BorderSizePixel = 0
+    distanceInput.Font = Enum.Font.Code
+    distanceInput.Text = "5"
+    distanceInput.TextColor3 = Color3.new(1, 1, 1)
+    distanceInput.TextSize = 12
+    distanceInput.PlaceholderText = "Distance behind target..."
+    Instance.new("UICorner", distanceInput).CornerRadius = UDim.new(0, 6)
+    
+    distanceInput.FocusLost:Connect(function()
+        local value = tonumber(distanceInput.Text)
+        if value then
+            self.Config.Distance = value
+            distanceLabel.Text = "Distance: " .. value
+        else
+            distanceInput.Text = tostring(self.Config.Distance)
+        end
+    end)
+    
+    -- Vertical Offset
+    local verticalLabel = Instance.new("TextLabel", content)
+    verticalLabel.Size = UDim2.new(1, 0, 0, 18)
+    verticalLabel.Position = UDim2.fromOffset(0, 265)
+    verticalLabel.BackgroundTransparency = 1
+    verticalLabel.Font = Enum.Font.Gotham
+    verticalLabel.Text = "Vertical Offset: 2"
+    verticalLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    verticalLabel.TextSize = 11
+    verticalLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local verticalInput = Instance.new("TextBox", content)
+    verticalInput.Size = UDim2.new(1, 0, 0, 30)
+    verticalInput.Position = UDim2.fromOffset(0, 287)
+    verticalInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    verticalInput.BorderSizePixel = 0
+    verticalInput.Font = Enum.Font.Code
+    verticalInput.Text = "2"
+    verticalInput.TextColor3 = Color3.new(1, 1, 1)
+    verticalInput.TextSize = 12
+    verticalInput.PlaceholderText = "Height offset..."
+    Instance.new("UICorner", verticalInput).CornerRadius = UDim.new(0, 6)
+    
+    verticalInput.FocusLost:Connect(function()
+        local value = tonumber(verticalInput.Text)
+        if value then
+            self.Config.VerticalOffset = value
+            verticalLabel.Text = "Vertical Offset: " .. value
+        else
+            verticalInput.Text = tostring(self.Config.VerticalOffset)
+        end
+    end)
+    
+    -- Horizontal Offset
+    local horizontalLabel = Instance.new("TextLabel", content)
+    horizontalLabel.Size = UDim2.new(1, 0, 0, 18)
+    horizontalLabel.Position = UDim2.fromOffset(0, 325)
+    horizontalLabel.BackgroundTransparency = 1
+    horizontalLabel.Font = Enum.Font.Gotham
+    horizontalLabel.Text = "Horizontal Offset: 0"
+    horizontalLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    horizontalLabel.TextSize = 11
+    horizontalLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local horizontalInput = Instance.new("TextBox", content)
+    horizontalInput.Size = UDim2.new(1, 0, 0, 30)
+    horizontalInput.Position = UDim2.fromOffset(0, 347)
+    horizontalInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    horizontalInput.BorderSizePixel = 0
+    horizontalInput.Font = Enum.Font.Code
+    horizontalInput.Text = "0"
+    horizontalInput.TextColor3 = Color3.new(1, 1, 1)
+    horizontalInput.TextSize = 12
+    horizontalInput.PlaceholderText = "Side offset..."
+    Instance.new("UICorner", horizontalInput).CornerRadius = UDim.new(0, 6)
+    
+    horizontalInput.FocusLost:Connect(function()
+        local value = tonumber(horizontalInput.Text)
+        if value then
+            self.Config.HorizontalOffset = value
+            horizontalLabel.Text = "Horizontal Offset: " .. value
+        else
+            horizontalInput.Text = tostring(self.Config.HorizontalOffset)
+        end
+    end)
+    
+    -- Follow Settings
+    local followLabel = Instance.new("TextLabel", content)
+    followLabel.Size = UDim2.new(1, 0, 0, 20)
+    followLabel.Position = UDim2.fromOffset(0, 387)
+    followLabel.BackgroundTransparency = 1
+    followLabel.Font = Enum.Font.GothamBold
+    followLabel.Text = "Follow Settings:"
+    followLabel.TextColor3 = Color3.new(1, 1, 1)
+    followLabel.TextSize = 13
+    followLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local followRotationToggle = Instance.new("TextButton", content)
+    followRotationToggle.Name = "FollowRotationToggle"
+    followRotationToggle.Size = UDim2.new(0.48, 0, 0, 30)
+    followRotationToggle.Position = UDim2.fromOffset(0, 412)
+    followRotationToggle.BackgroundColor3 = Color3.fromRGB(0, 200, 150)
+    followRotationToggle.BorderSizePixel = 0
+    followRotationToggle.Font = Enum.Font.GothamBold
+    followRotationToggle.Text = "ROTATION: ON"
+    followRotationToggle.TextColor3 = Color3.new(1, 1, 1)
+    followRotationToggle.TextSize = 10
+    Instance.new("UICorner", followRotationToggle).CornerRadius = UDim.new(0, 6)
+    
+    followRotationToggle.MouseButton1Click:Connect(function()
+        self.Config.FollowRotation = not self.Config.FollowRotation
+        followRotationToggle.Text = "ROTATION: " .. (self.Config.FollowRotation and "ON" or "OFF")
+        followRotationToggle.BackgroundColor3 = self.Config.FollowRotation and Color3.fromRGB(0, 200, 150) or Color3.fromRGB(50, 50, 65)
+    end)
+    
+    local smoothToggle = Instance.new("TextButton", content)
+    smoothToggle.Name = "SmoothToggle"
+    smoothToggle.Size = UDim2.new(0.48, 0, 0, 30)
+    smoothToggle.Position = UDim2.new(0.52, 0, 0, 412)
+    smoothToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+    smoothToggle.BorderSizePixel = 0
+    smoothToggle.Font = Enum.Font.GothamBold
+    smoothToggle.Text = "SMOOTH: OFF"
+    smoothToggle.TextColor3 = Color3.new(1, 1, 1)
+    smoothToggle.TextSize = 10
+    Instance.new("UICorner", smoothToggle).CornerRadius = UDim.new(0, 6)
+    
+    smoothToggle.MouseButton1Click:Connect(function()
+        self.Config.SmoothFollow = not self.Config.SmoothFollow
+        smoothToggle.Text = "SMOOTH: " .. (self.Config.SmoothFollow and "ON" or "OFF")
+        smoothToggle.BackgroundColor3 = self.Config.SmoothFollow and Color3.fromRGB(0, 200, 150) or Color3.fromRGB(50, 50, 65)
+    end)
+    
+    -- Actions
+    local actionsLabel = Instance.new("TextLabel", content)
+    actionsLabel.Size = UDim2.new(1, 0, 0, 20)
+    actionsLabel.Position = UDim2.fromOffset(0, 452)
+    actionsLabel.BackgroundTransparency = 1
+    actionsLabel.Font = Enum.Font.GothamBold
+    actionsLabel.Text = "Actions:"
+    actionsLabel.TextColor3 = Color3.new(1, 1, 1)
+    actionsLabel.TextSize = 13
+    actionsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local attachBtn = Instance.new("TextButton", content)
+    attachBtn.Name = "AttachButton"
+    attachBtn.Size = UDim2.new(1, 0, 0, 40)
+    attachBtn.Position = UDim2.fromOffset(0, 477)
+    attachBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+    attachBtn.BorderSizePixel = 0
+    attachBtn.Font = Enum.Font.GothamBold
+    attachBtn.Text = "ATTACH TO PLAYER"
+    attachBtn.TextColor3 = Color3.new(1, 1, 1)
+    attachBtn.TextSize = 14
+    Instance.new("UICorner", attachBtn).CornerRadius = UDim.new(0, 6)
+    
+    attachBtn.MouseButton1Click:Connect(function()
+        if self.State.IsAttached then
+            self:DetachFromPlayer()
+        else
+            self:AttachToPlayer()
+        end
+    end)
+    
+    local detachBtn = Instance.new("TextButton", content)
+    detachBtn.Size = UDim2.new(1, 0, 0, 35)
+    detachBtn.Position = UDim2.fromOffset(0, 527)
+    detachBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 50)
+    detachBtn.BorderSizePixel = 0
+    detachBtn.Font = Enum.Font.GothamBold
+    detachBtn.Text = "DETACH"
+    detachBtn.TextColor3 = Color3.new(1, 1, 1)
+    detachBtn.TextSize = 12
+    Instance.new("UICorner", detachBtn).CornerRadius = UDim.new(0, 6)
+    
+    detachBtn.MouseButton1Click:Connect(function()
+        self:DetachFromPlayer()
+    end)
+    
+    screenGui.Parent = CoreGui
+    
+    return targetLabel, statusIndicator, playerList, attachBtn
+end
+
+function Modules.PlayerAttach:PopulatePlayerList()
+    if not self.State.UI then return end
+    
+    local playerList = self.State.UI.MainFrame.Content.PlayerList
+    
+    -- Clear existing entries
+    for _, child in pairs(playerList:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+    
+    -- Add players
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local entry = Instance.new("TextButton")
+            entry.Size = UDim2.new(1, -5, 0, 30)
+            entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+            entry.BorderSizePixel = 0
+            entry.Font = Enum.Font.Code
+            entry.Text = "  " .. player.Name .. " (@" .. player.DisplayName .. ")"
+            entry.TextColor3 = Color3.fromRGB(100, 255, 255)
+            entry.TextSize = 11
+            entry.TextXAlignment = Enum.TextXAlignment.Left
+            entry.AutoButtonColor = false
+            entry.Parent = playerList
+            
+            Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 4)
+            
+            entry.MouseButton1Click:Connect(function()
+                self:SelectPlayer(player)
+                
+                -- Highlight selected
+                for _, child in pairs(playerList:GetChildren()) do
+                    if child:IsA("TextButton") then
+                        child.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+                    end
+                end
+                entry.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+            end)
+            
+            entry.MouseEnter:Connect(function()
+                if entry.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+                    entry.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+                end
+            end)
+            
+            entry.MouseLeave:Connect(function()
+                if entry.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+                    entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+                end
+            end)
+        end
+    end
+end
+
+function Modules.PlayerAttach:SelectPlayer(player)
+    if not player or not player.Character then
+        print("⚠ Invalid player selected")
+        return
+    end
+    
+    self.State.AttachedTo = player
+    print(string.format("✓ Selected: %s", player.Name))
+    self:UpdateDisplay()
+end
+
+function Modules.PlayerAttach:AttachToPlayer()
+    if not self.State.AttachedTo then
+        print("⚠ No player selected")
+        return
+    end
+    
+    local targetPlayer = self.State.AttachedTo
+    local targetChar = targetPlayer.Character
+    local myChar = LocalPlayer.Character
+    
+    if not targetChar or not targetChar:FindFirstChild("HumanoidRootPart") then
+        print("✗ Target character not found")
+        return
+    end
+    
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
+        print("✗ Your character not found")
+        return
+    end
+    
+    self.State.IsAttached = true
+    self.State.OriginalCFrame = myChar.HumanoidRootPart.CFrame
+    
+    -- Create highlight on target
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "PlayerAttach_Highlight"
+    highlight.FillColor = self.Config.HighlightColor
+    highlight.OutlineColor = self.Config.HighlightColor
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.Adornee = targetChar
+    highlight.Parent = targetChar
+    
+    -- Attach loop
+    self.State.Connections.AttachLoop = RunService.Heartbeat:Connect(function()
+        local tChar = targetPlayer.Character
+        local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        
+        if not (tRoot and myRoot and tRoot.Parent) then
+            self:DetachFromPlayer()
+            return
+        end
+        
+        -- Calculate position behind target
+        local offset = CFrame.new(
+            self.Config.HorizontalOffset,
+            self.Config.VerticalOffset,
+            self.Config.Distance
+        )
+        
+        local targetCFrame
+        if self.Config.FollowRotation then
+            targetCFrame = tRoot.CFrame * offset
+        else
+            targetCFrame = CFrame.new(tRoot.Position) * offset
+        end
+        
+        -- Apply position
+        if self.Config.SmoothFollow then
+            myRoot.CFrame = myRoot.CFrame:Lerp(targetCFrame, self.Config.SmoothSpeed)
+        else
+            myRoot.CFrame = targetCFrame
+        end
+        
+        -- Reset velocity to prevent falling
+        myRoot.Velocity = Vector3.new(0, 0, 0)
+        myRoot.RotVelocity = Vector3.new(0, 0, 0)
+    end)
+    
+    print(string.format("✓ Attached to: %s", targetPlayer.Name))
+    self:UpdateDisplay()
+end
+
+function Modules.PlayerAttach:DetachFromPlayer()
+    if not self.State.IsAttached then
+        print("⚠ Not currently attached")
+        return
+    end
+    
+    self.State.IsAttached = false
+    
+    -- Disconnect attach loop
+    if self.State.Connections.AttachLoop then
+        self.State.Connections.AttachLoop:Disconnect()
+        self.State.Connections.AttachLoop = nil
+    end
+    
+    -- Remove highlight
+    if self.State.AttachedTo and self.State.AttachedTo.Character then
+        local highlight = self.State.AttachedTo.Character:FindFirstChild("PlayerAttach_Highlight")
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+    
+    print("✓ Detached from player")
+    self:UpdateDisplay()
+end
+
+function Modules.PlayerAttach:UpdateDisplay()
+    if not self.State.UI then return end
+    
+    local targetLabel = self.State.UI.MainFrame.Content.TargetLabel
+    local statusIndicator = self.State.UI.MainFrame.TitleBar.StatusIndicator
+    local attachBtn = self.State.UI.MainFrame.Content.AttachButton
+    
+    -- Update target label
+    if self.State.AttachedTo then
+        targetLabel.Text = "Target: " .. self.State.AttachedTo.Name
+        targetLabel.TextColor3 = Color3.fromRGB(100, 255, 255)
+    else
+        targetLabel.Text = "No target selected"
+        targetLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    end
+    
+    -- Update status
+    if self.State.IsAttached then
+        statusIndicator.Text = "ATTACHED"
+        statusIndicator.BackgroundColor3 = Color3.fromRGB(0, 200, 150)
+        statusIndicator.TextColor3 = Color3.new(1, 1, 1)
+        attachBtn.Text = "DETACH FROM PLAYER"
+        attachBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 50)
+    else
+        statusIndicator.Text = "DETACHED"
+        statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
+        attachBtn.Text = "ATTACH TO PLAYER"
+        attachBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+    end
+end
+
+function Modules.PlayerAttach:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    
+    self:_createUI()
+    self:PopulatePlayerList()
+    
+    -- Refresh player list when players join/leave
+    self.State.Connections.PlayerAdded = Players.PlayerAdded:Connect(function()
+        task.wait(0.1)
+        self:PopulatePlayerList()
+    end)
+    
+    self.State.Connections.PlayerRemoving = Players.PlayerRemoving:Connect(function(player)
+        if self.State.AttachedTo == player then
+            self:DetachFromPlayer()
+        end
+        task.wait(0.1)
+        self:PopulatePlayerList()
+    end)
+    
+    print("✓ Player Attach enabled")
+end
+
+function Modules.PlayerAttach:Disable()
+    if not self.State.IsEnabled then return end
+    
+    -- Detach if attached
+    if self.State.IsAttached then
+        self:DetachFromPlayer()
+    end
+    
+    self.State.IsEnabled = false
+    
+    -- Disconnect all connections
+    for _, conn in pairs(self.State.Connections) do
+        if conn then
+            conn:Disconnect()
+        end
+    end
+    table.clear(self.State.Connections)
+    
+    -- Destroy UI
+    if self.State.UI then
+        self.State.UI:Destroy()
+        self.State.UI = nil
+    end
+    
+    self.State.AttachedTo = nil
+    
+    print("✓ Player Attach disabled")
+end
+
+function Modules.PlayerAttach:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+
+RegisterCommand({
+    Name = "attach",
+    Aliases = {"playerattach", "follow", "stick"},
+    Description = "Attaches you behind a target player like an auto-farmer. Float and follow them anywhere."
+}, function()
+    Modules.PlayerAttach:Toggle()
+end)
 Modules.ProximityPromptTools = {
     State = {
         InstantPromptConnection = nil
