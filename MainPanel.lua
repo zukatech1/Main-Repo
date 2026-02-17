@@ -6,158 +6,7 @@ Made By Zuka. @OverZuka on ROBLOX.
 
 ]]
 
-do
-    local adonisThreads = {}
-    local hdAdminThreads = {}
-    local function safeDebugInfo(thread, flag)
-        local success, result = pcall(function()
-            return debug.getinfo(thread, flag)
-        end)
-        return success and result or nil
-    end
-    local function detectAdonis()
-        if not getreg or not getgc then
-            return false
-        end
-        local detected = false
-        for _, thread in getreg() do
-            if type(thread) ~= 'thread' then
-                continue
-            end
-            local src = safeDebugInfo(thread, 's')
-            if src and (
-                src:find('.Core.Anti') or 
-                src:find('.Plugins.Anti_Cheat') or
-                src:find('HD_Admin') or
-                src:find('HDAdmin')
-            ) then
-                detected = true
-                table.insert(adonisThreads, thread)
-            end
-        end
-        return detected
-    end
-    local function hookAdonisDetections(adonisTables)
-        for _, t in ipairs(adonisTables) do
-            for _, fn in pairs(t) do
-                if type(fn) ~= 'function' then
-                    continue
-                end
-                if isfunctionhooked and isfunctionhooked(fn) then
-                    continue
-                end
-                local function blocker(...)
-                    coroutine.yield(coroutine.running())
-                    return task.wait(9e9)
-                end
-                if hookfunction then
-                    pcall(hookfunction, fn, blocker)
-                elseif hook then
-                    pcall(hook, fn, clonefunction and clonefunction(blocker) or blocker)
-                end
-            end
-        end
-    end
-    local function bypassAdonis()
-        for _, thread in ipairs(adonisThreads) do
-            pcall(close, thread)
-        end
-        local adonisTables = {}
-        if filtergc then
-            local ok, cont = pcall(
-                filtergc,
-                'table',
-                { Keys = { 'Detected', 'RLocked', 'ban', 'kick' } },
-                false
-            )
-            if ok and type(cont) == 'table' then
-                for _, tbl in ipairs(cont) do
-                    local hasDetected = typeof(rawget(tbl, 'Detected')) == 'function'
-                    local hasBan = typeof(rawget(tbl, 'ban')) == 'function'
-                    local hasKick = typeof(rawget(tbl, 'kick')) == 'function'
-                    if hasDetected or hasBan or hasKick then
-                        table.insert(adonisTables, tbl)
-                    end
-                end
-            end
-        end
-        if #adonisTables == 0 and getgc then
-            for _, tbl in ipairs(getgc(true)) do
-                if type(tbl) ~= 'table' then
-                    continue
-                end
-                local detectFn = rawget(tbl, 'Detected')
-                if typeof(detectFn) == 'function' and rawget(tbl, 'RLocked') then
-                    table.insert(adonisTables, tbl)
-                end
-                local banFn = rawget(tbl, 'ban')
-                local kickFn = rawget(tbl, 'kick')
-                if typeof(banFn) == 'function' or typeof(kickFn) == 'function' then
-                    table.insert(adonisTables, tbl)
-                end
-            end
-        end
-        hookAdonisDetections(adonisTables)
-    end
-    local function bypassHDAdmin()
-        pcall(function()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            for _, remote in pairs(ReplicatedStorage:GetDescendants()) do
-                if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
-                    local name = remote.Name:lower()
-                    if name:find("hdadmin") or name:find("ban") or name:find("kick") then
-                        if remote:IsA("RemoteEvent") then
-                            remote.FireServer = function() end
-                        elseif remote:IsA("RemoteFunction") then
-                            remote.InvokeServer = function() end
-                        end
-                    end
-                end
-            end
-        end)
-    end
-    if not getgenv().adonismorelikeadonisnt then
-        local detected = pcall(detectAdonis) and detectAdonis() or false
-        if detected then
-            bypassAdonis()
-            bypassHDAdmin()
-            getgenv().SimpleSpyAdonisBypassed = true
-            print("✓ Admin bypass executed (Adonis + HD Admin)")
-        else
-            bypassHDAdmin()
-            print("✓ HD Admin bypass executed")
-        end
-    end
-end
-local function bypassCustomAC()
-    pcall(function()
-        local PlayerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-        PlayerGui.DescendantAdded:Connect(function(gui)
-            if gui:IsA("ScreenGui") or gui:IsA("Frame") then
-                local name = gui.Name:lower()
-                if name:find("scare") or name:find("jumpscare") or name:find("anti") or name:find("cheat") then
-                    task.wait(0.1)
-                    gui:Destroy()
-                end
-            end
-        end)
-        local mt = getrawmetatable(game)
-        local oldNamecall = mt.__namecall
-        setreadonly(mt, false)
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            local args = {...}
-            if method == "FireServer" or method == "InvokeServer" then
-                local remoteName = self.Name:lower()
-                if remoteName:find("report") or remoteName:find("detect") or remoteName:find("anticheat") or remoteName:find("ac") then
-                    return nil
-                end
-            end
-            return oldNamecall(self, ...)
-        end)
-        setreadonly(mt, true)
-    end)
-end
+
 print("- Zukas Panel -")
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
@@ -27877,301 +27726,179 @@ RegisterCommand({Name = "reachfix", Aliases = {"fix"}, Description = "Makes your
 RegisterCommand({Name = "worldofstands", Aliases = {"wos"}, Description = "For https://www.roblox.com/games/6728870912/World-of-Stands - Removes dash cooldown"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/WOS.lua", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "zfucker", Aliases = {}, Description = "zfucker for the zl series."}, function() loadstringCmd("https://raw.githubusercontent.com/osukfcdays/zlfucker/refs/heads/main/main.luau", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "calesp", Aliases = {}, Description = "Selective ESP UI Made by the Callum-AI."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/AIESP.lua", "Loading, Wait a sec.") end)
-Modules.InfiniteYieldPlugins = {
+Modules.PluginManager = {
     State = {
-        LoadedPlugins = {},
-        PluginCache = {},
-        IsEnabled = true,
-        PluginFolders = {"plugins", "workspace/plugins"}
+        IsEnabled = false,
+        PluginsTable = {},
+        PluginCache = nil,
     },
-    Config = {
-        PLUGIN_DIR = "plugins",
-        PLUGIN_EXT = ".iy",
-        AUTO_LOAD = false,
-        CACHE_PLUGINS = true,
-        MAX_FILE_SIZE = 1000000
-    },
-    Dependencies = {"HttpService"}
 }
-function Modules.InfiniteYieldPlugins:LoadPluginFile(filePath: string): (boolean, string?)
-    if not readfile then
-        return false, "readfile not available in this executor"
-    end
-    local success, result = pcall(function()
-        if not filePath:lower():find(self.Config.PLUGIN_EXT, 1, true) then
-            return false, "File must have " .. self.Config.PLUGIN_EXT .. " extension"
-        end
-        if not isfile or not isfile(filePath) then
-            return false, "File does not exist: " .. filePath
-        end
-        local fileContent = readfile(filePath)
-        if not fileContent or fileContent == "" then
-            return false, "File is empty or cannot be read"
-        end
-        if #fileContent > self.Config.MAX_FILE_SIZE then
-            return false, "File too large (max " .. self.Config.MAX_FILE_SIZE .. " bytes)"
-        end
-        local testLoad, testErr = loadstring(fileContent)
-        if not testLoad then
-            return false, "Syntax error: " .. tostring(testErr)
-        end
-        return true, fileContent
-    end)
-    if not success then
-        return false, "Error loading file: " .. tostring(result)
-    end
-    return result
-end
-function Modules.InfiniteYieldPlugins:ExecutePluginCode(pluginName: string, code: string): (boolean, string?)
-    local success, result = pcall(function()
-        local pluginEnv = setmetatable({
-            print = print,
-            warn = warn,
-            error = error,
-            assert = assert,
-            type = type,
-            typeof = typeof,
-            tostring = tostring,
-            tonumber = tonumber,
-            next = next,
-            pairs = pairs,
-            ipairs = ipairs,
-            pcall = pcall,
-            xpcall = xpcall,
-            select = select,
-            task = task,
-            table = table,
-            string = string,
-            math = math,
-            utf8 = utf8,
-            coroutine = coroutine,
-            game = game,
-            workspace = workspace,
-            Instance = Instance,
-            Vector3 = Vector3,
-            Vector2 = Vector2,
-            CFrame = CFrame,
-            Color3 = Color3,
-            UDim2 = UDim2,
-            UDim = UDim,
-            Enum = Enum,
-            Players = game:GetService("Players"),
-            RunService = game:GetService("RunService"),
-            UserInputService = game:GetService("UserInputService"),
-            TweenService = game:GetService("TweenService"),
-            DoNotif = DoNotif,
-            Player = game:GetService("Players").LocalPlayer,
-            LocalPlayer = game:GetService("Players").LocalPlayer,
-            _PLUGIN_NAME = pluginName,
-            _PLUGIN_VERSION = "1.0"
-        }, {__index = getgenv and getgenv() or _G})
-        local pluginFunc, loadErr = loadstring(code)
-        if not pluginFunc then
-            return false, "Failed to compile: " .. tostring(loadErr)
-        end
-        setfenv(pluginFunc, pluginEnv)
-        local pluginTable = pluginFunc()
-        if type(pluginTable) == "table" then
-            if pluginTable.Commands then
-                local cmdCount = 0
-                for cmdName, cmdData in pairs(pluginTable.Commands) do
-                    if type(cmdData) == "table" and type(cmdData.Function) == "function" then
-                        RegisterCommand({
-                            Name = cmdName,
-                            Aliases = cmdData.Aliases or {},
-                            Description = cmdData.Description or ("IY Plugin: " .. pluginName)
-                        }, function(args)
-                            local success, err = pcall(function()
-                                cmdData.Function(args, game:GetService("Players").LocalPlayer)
-                            end)
-                            if not success then
-                                warn("[" .. pluginName .. "] Command error: " .. tostring(err))
-                                DoNotif("Command error - see console", 3)
-                            end
-                        end)
-                        cmdCount = cmdCount + 1
-                    end
-                end
-                return true, "Loaded " .. cmdCount .. " command(s)"
-            elseif pluginTable.Init then
-                local initSuccess, initErr = pcall(pluginTable.Init)
-                if not initSuccess then
-                    return false, "Init failed: " .. tostring(initErr)
-                end
-                return true, "Plugin initialized"
-            end
-        end
-        return true, "Plugin executed (no commands registered)"
-    end)
-    if not success then
-        return false, "Execution error: " .. tostring(result)
-    end
-    return result
-end
-function Modules.InfiniteYieldPlugins:LoadPlugin(pluginPath: string): boolean
-    if not self.State.IsEnabled then
-        warn("[IY Plugin] System is disabled")
-        return false
-    end
-    local fileName = pluginPath:match("([^/\\]+)$") or pluginPath
-    local pluginName = fileName:gsub(self.Config.PLUGIN_EXT, "")
-    if self.State.LoadedPlugins[pluginName] then
-        DoNotif("Plugin '" .. pluginName .. "' already loaded", 2)
-        return false
-    end
-    local success, content = self:LoadPluginFile(pluginPath)
-    if not success then
-        warn("[IY Plugin] Failed to load '" .. pluginName .. "': " .. tostring(content))
-        DoNotif("Failed to load: " .. pluginName, 3)
-        return false
-    end
-    if self.Config.CACHE_PLUGINS then
-        self.State.PluginCache[pluginName] = content
-    end
-    local execSuccess, execMsg = self:ExecutePluginCode(pluginName, content)
-    if execSuccess then
-        self.State.LoadedPlugins[pluginName] = {
-            path = pluginPath,
-            loaded = os.time(),
-            message = execMsg
-        }
-        DoNotif("✓ Loaded: " .. pluginName, 2)
-        print("[IY Plugin] Integrated '" .. pluginName .. "' - " .. tostring(execMsg))
-        return true
-    else
-        warn("[IY Plugin] Failed to execute '" .. pluginName .. "': " .. tostring(execMsg))
-        DoNotif("✗ Failed: " .. pluginName, 3)
-        return false
-    end
-end
-function Modules.InfiniteYieldPlugins:UnloadPlugin(pluginName: string): boolean
-    if self.State.LoadedPlugins[pluginName] then
-        self.State.LoadedPlugins[pluginName] = nil
-        self.State.PluginCache[pluginName] = nil
-        DoNotif("Unloaded: " .. pluginName, 2)
-        return true
+local function FindInTable(tbl, val)
+    for _, v in pairs(tbl) do
+        if v == val then return true end
     end
     return false
 end
-function Modules.InfiniteYieldPlugins:ScanDirectory(directory: string): number
-    if not listfiles then
-        warn("[IY Plugin] listfiles not available")
-        return 0
-    end
-    local count = 0
-    local success, files = pcall(function()
-        return listfiles(directory)
-    end)
-    if not success then
-        warn("[IY Plugin] Failed to scan directory: " .. directory)
-        return 0
-    end
-    if not files then
-        return 0
-    end
-    for _, filePath in ipairs(files) do
-        if filePath:lower():match(self.Config.PLUGIN_EXT .. "$") then
-            if self:LoadPlugin(filePath) then
-                count = count + 1
-            end
-        end
-    end
-    return count
+local function isNumber(val)
+    return tonumber(val) ~= nil
 end
-function Modules.InfiniteYieldPlugins:Initialize()
-    RegisterCommand({
-        Name = "iyscan",
-        Aliases = {"refreshplugins", "iyr", "scanplugins"},
-        Description = "Scans plugin folders and loads all .iy files"
-    }, function(args)
-        if not listfiles then
-            return DoNotif("Executor doesn't support 'listfiles'", 3)
-        end
-        local totalCount = 0
-        local foldersChecked = 0
-        for _, folder in ipairs(self.State.PluginFolders) do
-            local count = self:ScanDirectory(folder)
-            totalCount = totalCount + count
-            if count > 0 then
-                foldersChecked = foldersChecked + 1
-                print("[IY Plugin] Found " .. count .. " plugin(s) in: " .. folder)
+function Modules.PluginManager:RefreshPlugins(dontSave)
+    local state = self.State
+    DoNotif("Refreshed plugins: " .. #state.PluginsTable .. " loaded", 2)
+end
+function Modules.PluginManager:LoadPlugin(val, startup)
+    local state = self.State
+    local plugin
+    local function CatchedPluginLoad()
+        plugin = loadfile(val)()
+    end
+    local function handlePluginError(plerror)
+        DoNotif("Plugin Error: '" .. val .. "' could not be loaded", 3)
+        if FindInTable(state.PluginsTable, val) then
+            for i, v in pairs(state.PluginsTable) do
+                if v == val then
+                    table.remove(state.PluginsTable, i)
+                end
             end
         end
-        if totalCount > 0 then
-            DoNotif("✓ Loaded " .. totalCount .. " plugin(s) from " .. foldersChecked .. " folder(s)", 3)
-        else
-            DoNotif("No plugins found in plugin folders", 3)
+        warn("Original Error: " .. tostring(plerror))
+        warn("Plugin Error, stack traceback: " .. tostring(debug.traceback()))
+        plugin = nil
+        return false
+    end
+    xpcall(CatchedPluginLoad, handlePluginError)
+    if plugin ~= nil then
+        if not startup then
+            DoNotif("Loaded Plugin: " .. plugin["PluginName"] .. " | " .. plugin["PluginDescription"], 4)
         end
-    end)
-    RegisterCommand({
-        Name = "iyload",
-        Aliases = {"loadplugin", "iyl"},
-        Description = "Load a specific .iy plugin file. Usage: ;iyload <filepath>"
-    }, function(args)
-        if not args[1] then
-            return DoNotif("Usage: ;iyload <filepath>", 3)
-        end
-        local filePath = table.concat(args, " ")
-        self:LoadPlugin(filePath)
-    end)
-    RegisterCommand({
-        Name = "iylist",
-        Aliases = {"listplugins", "plugins"},
-        Description = "Lists all loaded IY plugins"
-    }, function()
-        local count = 0
-        print("=== Loaded IY Plugins ===")
-        for name, data in pairs(self.State.LoadedPlugins) do
-            count = count + 1
-            print(count .. ". " .. name .. " - " .. (data.message or ""))
-        end
-        if count == 0 then
-            DoNotif("No plugins loaded", 2)
-        else
-            DoNotif(count .. " plugin(s) loaded", 2)
-        end
-    end)
-    RegisterCommand({
-        Name = "iyunload",
-        Aliases = {"unloadplugin"},
-        Description = "Unload a specific plugin. Usage: ;iyunload <name>"
-    }, function(args)
-        if not args[1] then
-            return DoNotif("Usage: ;iyunload <plugin_name>", 3)
-        end
-        local pluginName = table.concat(args, " ")
-        if self:UnloadPlugin(pluginName) then
-            DoNotif("Unloaded: " .. pluginName, 2)
-        else
-            DoNotif("Plugin not found: " .. pluginName, 3)
-        end
-    end)
-    RegisterCommand({
-        Name = "iyclear",
-        Aliases = {"clearplugins"},
-        Description = "Unload all IY plugins"
-    }, function()
-        local count = 0
-        for name in pairs(self.State.LoadedPlugins) do
-            self:UnloadPlugin(name)
-            count = count + 1
-        end
-        DoNotif("Cleared " .. count .. " plugin(s)", 2)
-    end)
-    print("[IY Plugin] System initialized")
-    if self.Config.AUTO_LOAD and listfiles then
-        task.defer(function()
-            task.wait(1)
-            local total = 0
-            for _, folder in ipairs(self.State.PluginFolders) do
-                total = total + self:ScanDirectory(folder)
+        if plugin["Commands"] then
+            for cmdKey, cmdData in pairs(plugin["Commands"]) do
+                local cmdExt = ''
+                local cmdName = cmdKey
+                local function handleNames()
+                    cmdName = cmdKey
+                    if Commands[cmdName .. cmdExt] then
+                        if isNumber(cmdExt) then
+                            cmdExt = cmdExt + 1
+                        else
+                            cmdExt = 1
+                        end
+                        handleNames()
+                    else
+                        cmdName = cmdName .. cmdExt
+                    end
+                end
+                handleNames()
+                RegisterCommand({
+                    Name = cmdName,
+                    Aliases = cmdData["Aliases"] or {},
+                    Description = cmdData["Description"] or "No description"
+                }, cmdData["Function"])
             end
-            if total > 0 then
-                print("[IY Plugin] Auto-loaded " .. total .. " plugin(s)")
-            end
-        end)
+        end
+        DoNotif("Plugin '" .. plugin["PluginName"] .. "' registered successfully", 2)
     end
 end
+function Modules.PluginManager:AddPlugin(name)
+    local state = self.State
+    if name:lower() == 'plugin file name' or name:lower() == 'iy_fe.iy' or name == 'iy_fe' or name == "" then
+        DoNotif("Plugin Error: Please enter a valid plugin name", 3)
+        return
+    end
+    local file
+    local fileName
+    if name:sub(-3) == '.iy' then
+        pcall(function() file = readfile(name) end)
+        fileName = name
+    else
+        pcall(function() file = readfile(name .. '.iy') end)
+        fileName = name .. '.iy'
+    end
+    if file then
+        if not FindInTable(state.PluginsTable, fileName) then
+            table.insert(state.PluginsTable, fileName)
+            self:LoadPlugin(fileName)
+            self:RefreshPlugins()
+            DoNotif("Plugin added: " .. fileName, 2)
+        else
+            DoNotif("Plugin Error: '" .. fileName .. "' is already added", 3)
+        end
+    else
+        DoNotif("Plugin Error: Cannot locate '" .. fileName .. "'. Is the file in the correct folder?", 4)
+    end
+end
+function Modules.PluginManager:DeletePlugin(name)
+    local state = self.State
+    local pName = name .. '.iy'
+    if name:sub(-3) == '.iy' then
+        pName = name
+    end
+    for i, v in pairs(state.PluginsTable) do
+        if v == pName then
+            table.remove(state.PluginsTable, i)
+            DoNotif("Removed Plugin: " .. pName, 2)
+        end
+    end
+    self:RefreshPlugins()
+end
+function Modules.PluginManager:FindAndLoadAll()
+    local state = self.State
+    if state.PluginsTable ~= nil and type(state.PluginsTable) == "table" then
+        for _, v in pairs(state.PluginsTable) do
+            self:LoadPlugin(v, true)
+        end
+        self:RefreshPlugins(true)
+        DoNotif("All plugins loaded: " .. #state.PluginsTable .. " total", 2)
+    else
+        DoNotif("No plugins found to load", 2)
+    end
+end
+function Modules.PluginManager:ListPlugins()
+    local state = self.State
+    if #state.PluginsTable == 0 then
+        DoNotif("No plugins currently loaded", 2)
+        return
+    end
+    for i, v in pairs(state.PluginsTable) do
+        DoNotif("[" .. i .. "] " .. v, 2)
+    end
+end
+RegisterCommand({
+    Name = "addplugin",
+    Aliases = { "loadplugin", "plugin" },
+    Description = "Add a plugin by file name. Usage: ;addplugin filename"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;addplugin <filename>", 2)
+        return
+    end
+    Modules.PluginManager:AddPlugin(args[1])
+end)
+RegisterCommand({
+    Name = "removeplugin",
+    Aliases = { "deleteplugin", "delplugin" },
+    Description = "Remove a loaded plugin. Usage: ;removeplugin filename"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;removeplugin <filename>", 2)
+        return
+    end
+    Modules.PluginManager:DeletePlugin(args[1])
+end)
+RegisterCommand({
+    Name = "reloadplugins",
+    Aliases = { "refreshplugins" },
+    Description = "Reload all plugins from the plugins table"
+}, function(args)
+    Modules.PluginManager:FindAndLoadAll()
+end)
+RegisterCommand({
+    Name = "listplugins",
+    Aliases = { "plugins" },
+    Description = "List all currently loaded plugins"
+}, function(args)
+    Modules.PluginManager:ListPlugins()
+end)
 Modules.CommandAdapter = {
     State = {
         AdaptedCommands = {},
@@ -28705,3 +28432,4 @@ ClientReplicator.AncestryChanged:Connect(function()
     TeleportService:TeleportToPlaceInstance(game["PlaceId"], CurrentServer)
 end)
 DoNotif("We're So back. The Best Underground Panel.")
+
