@@ -3,6 +3,7 @@ import re
 import subprocess
 import tempfile
 import os
+import fnmatch
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QTextEdit, QVBoxLayout,
@@ -16,6 +17,9 @@ from PyQt6.QtGui import (
     QPainter, QTextFormat, QAction, QIcon, QTextDocument
 )
 from PyQt6.QtCore import Qt, QRect, QSize, QDir
+
+from PyQt6.QtCore import QFileSystemWatcher, QTimer
+
 
 # --- Line Number Area Widget ---
 class LineNumberArea(QWidget):
@@ -402,11 +406,621 @@ class FindReplaceDialog(QDialog):
         self.setLayout(layout)
 
 
+# --- Obfuscator Dialog ---
+class ObfuscatorDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Obfuscator")
+        self.setModal(True)
+        self.setMinimumWidth(500)
+        
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel("Obfuscate")
+        title.setStyleSheet("font-size: 14pt; font-weight: bold; color: #E81123;")
+        layout.addWidget(title)
+        
+        desc = QLabel("Select obfuscation options below:")
+        desc.setStyleSheet("color: #666666; margin-bottom: 10px;")
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+        
+        # Preset selection
+        preset_layout = QHBoxLayout()
+        preset_label = QLabel("Preset:")
+        preset_label.setMinimumWidth(120)
+        self.preset_combo = QComboBox()
+        self.preset_combo.addItems(["Light", "Medium", "Heavy", "Maximum", "Custom"])
+        self.preset_combo.currentTextChanged.connect(self.apply_preset)
+        preset_layout.addWidget(preset_label)
+        preset_layout.addWidget(self.preset_combo)
+        preset_layout.addStretch()
+        layout.addLayout(preset_layout)
+        
+        layout.addSpacing(10)
+        
+        # Options group
+        options_group = QWidget()
+        options_layout = QVBoxLayout(options_group)
+        options_layout.setContentsMargins(10, 10, 10, 10)
+        options_group.setStyleSheet("QWidget { background-color: #F5F5F5; border-radius: 5px; }")
+        
+        # Variable renaming
+        self.rename_vars = QCheckBox("Rename Variables")
+        self.rename_vars.setChecked(True)
+        self.rename_vars.setToolTip("Rename local variables to random meaningless names")
+        options_layout.addWidget(self.rename_vars)
+        
+        # String encoding
+        self.encode_strings = QCheckBox("Encode Strings")
+        self.encode_strings.setChecked(True)
+        self.encode_strings.setToolTip("Convert strings to byte arrays or encoded format")
+        options_layout.addWidget(self.encode_strings)
+        
+        # Number encoding
+        self.encode_numbers = QCheckBox("Encode Numbers")
+        self.encode_numbers.setChecked(False)
+        self.encode_numbers.setToolTip("Obfuscate numeric literals")
+        options_layout.addWidget(self.encode_numbers)
+        
+        # Control flow
+        self.control_flow = QCheckBox("Control Flow Obfuscation")
+        self.control_flow.setChecked(True)
+        self.control_flow.setToolTip("Add fake conditional branches and complex control flow")
+        options_layout.addWidget(self.control_flow)
+        
+        # Dead code
+        self.add_junk = QCheckBox("Insert Junk Code")
+        self.add_junk.setChecked(False)
+        self.add_junk.setToolTip("Add random non-functional code")
+        options_layout.addWidget(self.add_junk)
+        
+        # Minify
+        self.minify = QCheckBox("Minify (Remove Whitespace)")
+        self.minify.setChecked(True)
+        self.minify.setToolTip("Remove all unnecessary whitespace and comments")
+        options_layout.addWidget(self.minify)
+        
+        # Anti-debug
+        self.anti_debug = QCheckBox("Anti-Debug Protection")
+        self.anti_debug.setChecked(False)
+        self.anti_debug.setToolTip("Add anti-debugging and anti-tampering checks")
+        options_layout.addWidget(self.anti_debug)
+        
+        # Wrap in function
+        self.wrap_function = QCheckBox("Wrap in Anonymous Function")
+        self.wrap_function.setChecked(True)
+        self.wrap_function.setToolTip("Wrap entire code in a self-executing function")
+        options_layout.addWidget(self.wrap_function)
+
+        # ProxifyLocals
+        self.proxify_locals = QCheckBox("Proxify Locals  [Prometheus]")
+        self.proxify_locals.setChecked(False)
+        self.proxify_locals.setToolTip(
+            "Wrap local variables in metatable proxy objects so reads/writes go through "
+            "__index/__newindex metamethods (inspired by Prometheus ProxifyLocals)"
+        )
+        self.proxify_locals.setStyleSheet("color: #6600CC; font-weight: bold;")
+        options_layout.addWidget(self.proxify_locals)
+
+        # Vmify
+        self.vmify = QCheckBox("Vmify — Bytecode VM Encoding  [Prometheus]")
+        self.vmify.setChecked(False)
+        self.vmify.setToolTip(
+            "XOR-encrypt the entire script and wrap it in a custom Luau VM loader that "
+            "decodes and executes it at runtime (inspired by Prometheus Vmify). "
+            "Applied last — overrides wrap_function."
+        )
+        self.vmify.setStyleSheet("color: #CC0000; font-weight: bold;")
+        options_layout.addWidget(self.vmify)
+        
+        layout.addWidget(options_group)
+        
+        layout.addSpacing(10)
+        
+        # Warning
+        warning = QLabel("Heavily obfuscated code may run slower and be harder to debug. "
+                         "Vmify is the strongest option — it encodes the entire script.")
+        warning.setStyleSheet("color: #FF8800; font-size: 9pt;")
+        warning.setWordWrap(True)
+        layout.addWidget(warning)
+        
+        # Buttons
+        btn_layout = QHBoxLayout()
+        
+        self.btn_obfuscate = QPushButton("Obfuscate")
+        self.btn_obfuscate.setStyleSheet("""
+            QPushButton {
+                background-color: #E81123;
+                color: white;
+                font-weight: bold;
+                padding: 8px 20px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #C50F1F;
+            }
+        """)
+        
+        btn_cancel = QPushButton("Cancel")
+        
+        btn_layout.addStretch()
+        btn_layout.addWidget(btn_cancel)
+        btn_layout.addWidget(self.btn_obfuscate)
+        
+        layout.addLayout(btn_layout)
+        
+        self.setLayout(layout)
+        
+        # Connect buttons
+        btn_cancel.clicked.connect(self.reject)
+        self.btn_obfuscate.clicked.connect(self.accept)
+        
+        # Apply default preset
+        self.apply_preset("Medium")
+    
+    def apply_preset(self, preset):
+        """Apply a preset configuration."""
+        # Reset new options first
+        self.proxify_locals.setChecked(False)
+        self.vmify.setChecked(False)
+
+        if preset == "Light":
+            self.rename_vars.setChecked(True)
+            self.encode_strings.setChecked(False)
+            self.encode_numbers.setChecked(False)
+            self.control_flow.setChecked(False)
+            self.add_junk.setChecked(False)
+            self.minify.setChecked(True)
+            self.anti_debug.setChecked(False)
+            self.wrap_function.setChecked(True)
+        elif preset == "Medium":
+            self.rename_vars.setChecked(True)
+            self.encode_strings.setChecked(True)
+            self.encode_numbers.setChecked(False)
+            self.control_flow.setChecked(True)
+            self.add_junk.setChecked(False)
+            self.minify.setChecked(True)
+            self.anti_debug.setChecked(False)
+            self.wrap_function.setChecked(True)
+        elif preset == "Heavy":
+            self.rename_vars.setChecked(True)
+            self.encode_strings.setChecked(True)
+            self.encode_numbers.setChecked(True)
+            self.control_flow.setChecked(True)
+            self.add_junk.setChecked(True)
+            self.minify.setChecked(True)
+            self.anti_debug.setChecked(True)
+            self.wrap_function.setChecked(True)
+            self.proxify_locals.setChecked(True)
+        elif preset == "Maximum":
+            self.rename_vars.setChecked(True)
+            self.encode_strings.setChecked(True)
+            self.encode_numbers.setChecked(True)
+            self.control_flow.setChecked(True)
+            self.add_junk.setChecked(True)
+            self.minify.setChecked(True)
+            self.anti_debug.setChecked(True)
+            self.wrap_function.setChecked(True)
+            self.proxify_locals.setChecked(True)
+            self.vmify.setChecked(True)
+        # Custom doesn't change anything
+    
+    def get_options(self):
+        """Return the selected options as a dictionary."""
+        return {
+            'rename_vars': self.rename_vars.isChecked(),
+            'encode_strings': self.encode_strings.isChecked(),
+            'encode_numbers': self.encode_numbers.isChecked(),
+            'control_flow': self.control_flow.isChecked(),
+            'add_junk': self.add_junk.isChecked(),
+            'minify': self.minify.isChecked(),
+            'anti_debug': self.anti_debug.isChecked(),
+            'wrap_function': self.wrap_function.isChecked(),
+            'proxify_locals': self.proxify_locals.isChecked(),
+            'vmify': self.vmify.isChecked(),
+        }
+
+
+# --- Lua Obfuscator ---
+class LuaObfuscator:
+    """Obfuscate Lua code with various techniques."""
+    
+    def __init__(self, options):
+        self.options = options
+        self.var_map = {}
+        self.var_counter = 0
+        
+    def obfuscate(self, code):
+        """Main obfuscation function."""
+        result = code
+        
+        # Step 1: Rename variables (before other transformations)
+        if self.options['rename_vars']:
+            result = self.rename_variables(result)
+        
+        # Step 2: ProxifyLocals — wrap locals in metatable proxies
+        if self.options.get('proxify_locals'):
+            result = LuaProxifyLocals().proxify(result)
+
+        # Step 3: Encode strings
+        if self.options['encode_strings']:
+            result = self.encode_strings(result)
+        
+        # Step 4: Encode numbers
+        if self.options['encode_numbers']:
+            result = self.encode_numbers(result)
+        
+        # Step 5: Control flow obfuscation
+        if self.options['control_flow']:
+            result = self.add_control_flow(result)
+        
+        # Step 6: Add junk code
+        if self.options['add_junk']:
+            result = self.add_junk_code(result)
+        
+        # Step 7: Anti-debug
+        if self.options['anti_debug']:
+            result = self.add_anti_debug(result)
+        
+        # Step 8: Wrap in function (skipped if vmify is on — vmify wraps it)
+        if self.options['wrap_function'] and not self.options.get('vmify'):
+            result = self.wrap_in_function(result)
+        
+        # Step 9: Minify (before vmify so payload is smaller)
+        if self.options['minify']:
+            result = self.minify_code(result)
+
+        # Step 10: Vmify — XOR-encode entire payload in a custom VM loader (applied last)
+        if self.options.get('vmify'):
+            result = LuaVmify().vmify(result)
+        
+        return result
+    
+    def generate_var_name(self):
+        """Generate a random variable name."""
+        # Use confusing character combinations
+        chars = 'Il1O0_'
+        name = ''
+        for _ in range(8):
+            name += chars[self.var_counter % len(chars)]
+            self.var_counter += 1
+        return '_' + name
+    
+    def rename_variables(self, code):
+        """Rename local variables to random names."""
+        # This is a simplified version - a full implementation would need proper parsing
+        lines = code.split('\n')
+        result_lines = []
+        
+        for line in lines:
+            # Find local variable declarations
+            if 'local ' in line and not line.strip().startswith('--'):
+                # Extract variable names after 'local'
+                match = re.search(r'local\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+                if match:
+                    old_name = match.group(1)
+                    if old_name not in self.var_map:
+                        self.var_map[old_name] = self.generate_var_name()
+            
+            result_lines.append(line)
+        
+        # Replace all occurrences
+        result = '\n'.join(result_lines)
+        for old_name, new_name in self.var_map.items():
+            # Use word boundaries to avoid partial replacements
+            result = re.sub(r'\b' + old_name + r'\b', new_name, result)
+        
+        return result
+    
+    def encode_strings(self, code):
+        """Encode string literals."""
+        def replace_string(match):
+            string_content = match.group(1)
+            # Convert to byte array
+            bytes_arr = [str(ord(c)) for c in string_content]
+            return f'string.char({",".join(bytes_arr)})'
+        
+        # Replace double-quoted strings
+        code = re.sub(r'"([^"]*)"', replace_string, code)
+        
+        # Replace single-quoted strings
+        code = re.sub(r"'([^']*)'", replace_string, code)
+        
+        return code
+    
+    def encode_numbers(self, code):
+        """Obfuscate numeric literals."""
+        def replace_number(match):
+            num = int(match.group(0))
+            # Convert to mathematical expression
+            if num > 10:
+                # Split into sum
+                a = num // 2
+                b = num - a
+                return f'({a}+{b})'
+            return match.group(0)
+        
+        # Replace standalone numbers
+        code = re.sub(r'\b\d+\b', replace_number, code)
+        
+        return code
+    
+    def add_control_flow(self, code):
+        """Add fake control flow."""
+        # Add dummy conditionals that always evaluate to false
+        junk_conditions = [
+            'if false then return end\n',
+            'if 1 > 2 then error("x") end\n',
+            'while false do end\n'
+        ]
+        
+        lines = code.split('\n')
+        result_lines = []
+        
+        for i, line in enumerate(lines):
+            result_lines.append(line)
+            # Randomly insert junk conditions
+            if i % 10 == 0 and not line.strip().startswith('--'):
+                import random
+                result_lines.append(random.choice(junk_conditions).rstrip())
+        
+        return '\n'.join(result_lines)
+    
+    def add_junk_code(self, code):
+        """Add non-functional junk code."""
+        junk_snippets = [
+            'local _ = function() return nil end',
+            'local __ = {}',
+            'local ___ = 0',
+            'if nil then end',
+        ]
+        
+        lines = code.split('\n')
+        result_lines = []
+        
+        import random
+        for i, line in enumerate(lines):
+            result_lines.append(line)
+            if i % 15 == 0:
+                result_lines.append(random.choice(junk_snippets))
+        
+        return '\n'.join(result_lines)
+    
+    def add_anti_debug(self, code):
+        """Add anti-debugging checks."""
+        anti_debug_code = '''
+-- Anti-debug checks
+local function _check()
+    if getfenv then
+        local env = getfenv(2)
+        if env.script then return end
+    end
+end
+_check()
+'''
+        return anti_debug_code + '\n' + code
+    
+    def wrap_in_function(self, code):
+        """Wrap code in a self-executing anonymous function."""
+        return f'(function()\n{code}\nend)()'
+    
+    def minify_code(self, code):
+        """Remove whitespace and minimize code size."""
+        # Remove comments
+        code = re.sub(r'--[^\n]*', '', code)
+        
+        # Remove multi-line comments
+        code = re.sub(r'--\[\[.*?\]\]', '', code, flags=re.DOTALL)
+        
+        # Remove extra whitespace
+        lines = code.split('\n')
+        lines = [line.strip() for line in lines if line.strip()]
+        
+        # Join with minimal spacing
+        result = ' '.join(lines)
+        
+        # Clean up spacing around operators
+        result = re.sub(r'\s+', ' ', result)
+        result = re.sub(r'\s*([=+\-*/<>~,;:])\s*', r'\1', result)
+        
+        return result
+
+
+# --- ProxifyLocals Obfuscation ---
+class LuaProxifyLocals:
+    """
+    Inspired by Prometheus's ProxifyLocals step.
+    Wraps local variable declarations in metatable proxy objects so that
+    every read/write goes through __index / __newindex metamethods,
+    hiding the real value from static analysis.
+    """
+
+    # Metatable metamethod pairs we can use for set/get
+    META_OPS = [
+        ("__add",    "__sub"),
+        ("__sub",    "__add"),
+        ("__mul",    "__div"),
+        ("__div",    "__mul"),
+        ("__mod",    "__pow"),
+        ("__pow",    "__mod"),
+        ("__concat", "__len"),
+    ]
+
+    def __init__(self):
+        import random
+        self._rng = random
+        self._counter = 0
+
+    def _uid(self):
+        self._counter += 1
+        chars = 'lI1O0_'
+        out = ''
+        n = self._counter
+        for _ in range(8):
+            out += chars[n % len(chars)]
+            n //= len(chars)
+        return '_' + out
+
+    def _random_key(self):
+        """Generate a random string key for the hidden value slot."""
+        import random
+        letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        return ''.join(random.choice(letters) for _ in range(self._rng.randint(6, 12)))
+
+    def _make_proxy(self, val_expr: str, set_meta: str, get_meta: str, key: str) -> str:
+        """
+        Emit Lua code for:
+            setmetatable({[key]=val_expr}, {
+                [set_meta] = function(t,v) t[key]=v end,
+                [get_meta] = function(t,x) return rawget(t,key) end,
+            })
+        Returns a Lua expression string.
+        """
+        return (
+            f'setmetatable({{{key}={val_expr}}},{{'
+            f'{set_meta}=function(_t,_v) _t["{key}"]=_v end,'
+            f'{get_meta}=function(_t,_x) return rawget(_t,"{key}") end'
+            f'}})'
+        )
+
+    def proxify(self, code: str) -> str:
+        """
+        Scan for   local <name> = <expr>   patterns and replace each one with
+        a proxy-wrapped version.  Then replace all subsequent bare uses of
+        <name> with the appropriate getter expression.
+
+        Limitations (text-based, no real AST):
+        - Only handles simple single-assignment   local x = ...   forms.
+        - Skips function declarations (local function ...) and for-loop vars.
+        - Won't proxy function arguments or loop variables.
+        """
+        import random
+
+        lines = code.split('\n')
+        # Map: varname -> (proxy_varname, get_meta, key)
+        var_info: dict = {}
+
+        result_lines = []
+        for line in lines:
+            stripped = line.lstrip()
+
+            # Skip comments
+            if stripped.startswith('--'):
+                result_lines.append(line)
+                continue
+
+            # Skip local function declarations
+            if re.match(r'local\s+function\s+', stripped):
+                result_lines.append(line)
+                continue
+
+            # Match:  local <name> = <expr>   (single var, simple assignment)
+            m = re.match(r'^(\s*)local\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$', line)
+            if m:
+                indent, varname, expr = m.group(1), m.group(2), m.group(3)
+
+                # Pick random metamethod pair
+                set_meta, get_meta = random.choice(self.META_OPS)
+                key = self._random_key()
+                proxy_name = self._uid()
+
+                var_info[varname] = (proxy_name, get_meta, key)
+
+                proxy_expr = self._make_proxy(expr.rstrip(), set_meta, get_meta, key)
+                result_lines.append(f'{indent}local {proxy_name} = {proxy_expr}')
+                continue
+
+            # For all other lines: replace known variable names with getter calls
+            new_line = line
+            for varname, (proxy_name, get_meta, key) in var_info.items():
+                # Replace bare usage: varname  ->  proxy_name[key]
+                # Use word-boundary to avoid partial matches
+                # Avoid replacing if it appears after 'local ' (re-declaration)
+                new_line = re.sub(
+                    r'(?<!\w)' + re.escape(varname) + r'(?!\w)',
+                    f'{proxy_name}["{key}"]',
+                    new_line
+                )
+            result_lines.append(new_line)
+
+        return '\n'.join(result_lines)
+
+
+# --- Vmify (Bytecode-style VM Encoding) ---
+class LuaVmify:
+    """
+    Inspired by Prometheus's Vmify step.
+    Since we're text-based (no real Lua AST/compiler), we implement the
+    practical equivalent: encode the entire script payload as a compressed
+    byte-string and emit a tiny Luau-compatible loader/VM that decodes and
+    executes it at runtime via loadstring / load.
+
+    Pipeline:
+      1. XOR-encrypt the source bytes with a random key stream.
+      2. Encode the ciphertext as decimal byte values embedded in a Lua table.
+      3. Emit a self-contained Lua 'VM' preamble that:
+           a. Reconstructs the key stream using the same seed.
+           b. XOR-decrypts back to the original source.
+           c. Calls loadstring / load on the recovered source.
+    """
+
+    def vmify(self, code: str) -> str:
+        import random
+
+        # --- 1. Build a random XOR key stream ---
+        seed = random.randint(1, 0xFFFF)
+        key_len = random.randint(16, 64)   # key period
+        rng = random.Random(seed)
+        key_stream = [rng.randint(1, 255) for _ in range(key_len)]
+
+        # --- 2. XOR-encrypt the source ---
+        src_bytes = code.encode('utf-8')
+        cipher = []
+        for i, b in enumerate(src_bytes):
+            cipher.append(b ^ key_stream[i % key_len])
+
+        # --- 3. Build the Lua byte-table literal ---
+        # Chunk into rows of 20 for readability (it'll be minified anyway)
+        chunk_size = 20
+        rows = []
+        for i in range(0, len(cipher), chunk_size):
+            rows.append(','.join(str(x) for x in cipher[i:i + chunk_size]))
+        byte_table = '{' + ','.join(rows) + '}'
+
+        # --- 4. Emit the VM loader ---
+        # We use variable names that look like VM registers to add authenticity.
+        # The loader reconstructs the key stream from the same seed, XORs back,
+        # assembles the string, then executes it.
+        loader = f'''\
+(function()
+local _R={{{seed},{key_len}}}
+local _K={{}}
+local _rng=_R[1]
+for _i=1,_R[2] do
+_rng=((_rng*6364136223846793005+1442695040888963407)&0xFFFFFFFF)
+_K[_i]=(_rng>>8)&0xFF
+if _K[_i]==0 then _K[_i]=1 end
+end
+local _B={byte_table}
+local _S={{}}
+for _i=1,#_B do
+_S[_i]=string.char(_B[_i]~_K[((_i-1)%_R[2])+1])
+end
+local _src=table.concat(_S)
+local _fn,_err=(loadstring or load)(_src)
+if not _fn then error("[VM] Decode error: "..(tostring(_err))) end
+return _fn()
+end)()'''
+        return loader
+
+
 # --- Main Application Window ---
 class LuaIDE(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LuaBox v2.0 - Module Poisoning Edition")
+        self.setWindowTitle("LuaBox v2.7 	(̿▀̿ ̿Ĺ̯̿̿▀̿ ̿)̄")
         self.setGeometry(100, 100, 1400, 850)
         
         self.current_file = None
@@ -548,8 +1162,9 @@ class LuaIDE(QMainWindow):
         btn_find_replace = QPushButton("Find & Replace")
         btn_find_replace.clicked.connect(self.show_find_replace)
         
-        btn_format = QPushButton("Format Code")
-        btn_format.clicked.connect(self.format_current_code)
+        btn_obfuscate = QPushButton("Obfuscate")
+        btn_obfuscate.setStyleSheet("background-color: #FFE6E6;")
+        btn_obfuscate.clicked.connect(self.show_obfuscator)
         
         # Recent files dropdown button
         self.btn_recent = QPushButton("Recent Files ▼")
@@ -561,7 +1176,7 @@ class LuaIDE(QMainWindow):
         toolbar_layout.addWidget(self.btn_recent)
         toolbar_layout.addWidget(create_separator())
         toolbar_layout.addWidget(btn_find_replace)
-        toolbar_layout.addWidget(btn_format)
+        toolbar_layout.addWidget(btn_obfuscate)
         toolbar_layout.addWidget(create_separator())
         toolbar_layout.addWidget(btn_settings)
         toolbar_layout.addWidget(create_separator())
@@ -610,29 +1225,18 @@ class LuaIDE(QMainWindow):
         
         explorer_label = QLabel("Explorer")
         explorer_label.setStyleSheet("font-weight: bold;")
-        
-        btn_browse = QPushButton("📁")
-        btn_browse.setMaximumWidth(30)
-        btn_browse.setToolTip("Browse for directory")
-        btn_browse.clicked.connect(self.browse_directory)
-        
         btn_refresh = QPushButton("⟳")
         btn_refresh.setMaximumWidth(30)
-        btn_refresh.setToolTip("Refresh explorer")
         btn_refresh.clicked.connect(self.refresh_explorer)
         
         explorer_header_layout.addWidget(explorer_label)
         explorer_header_layout.addStretch()
-        explorer_header_layout.addWidget(btn_browse)
         explorer_header_layout.addWidget(btn_refresh)
         
         self.file_tree = QTreeWidget()
         self.file_tree.setHeaderLabels(["Name", "Size"])
         self.file_tree.setColumnWidth(0, 150)
         self.file_tree.itemDoubleClicked.connect(self.tree_item_double_clicked)
-        self.file_tree.itemExpanded.connect(self.tree_item_expanded)
-        self.file_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.file_tree.customContextMenuRequested.connect(self.show_tree_context_menu)
         
         explorer_tab_layout.addWidget(explorer_header)
         explorer_tab_layout.addWidget(self.file_tree)
@@ -775,162 +1379,29 @@ class LuaIDE(QMainWindow):
                 self.tab_widget.setTabText(0, "Untitled")
 
     def refresh_explorer(self):
-        """Refresh the file explorer with directory tree."""
+        """Refresh the file explorer."""
         self.file_tree.clear()
         
-        # Add current path as root
-        root_item = QTreeWidgetItem(self.file_tree)
-        root_item.setText(0, self.current_directory)
-        root_item.setText(1, "")
-        root_item.setData(0, Qt.ItemDataRole.UserRole, self.current_directory)
-        root_item.setExpanded(True)
+        directory = QDir(self.current_directory)
+        files = directory.entryInfoList(QDir.Filter.Files | QDir.Filter.NoDotAndDotDot)
         
-        # Populate directory tree
-        self.populate_directory_tree(root_item, self.current_directory)
-    
-    def populate_directory_tree(self, parent_item, directory_path):
-        """Recursively populate directory tree."""
-        try:
-            directory = QDir(directory_path)
-            
-            # Get directories first
-            dirs = directory.entryInfoList(
-                QDir.Filter.Dirs | QDir.Filter.NoDotAndDotDot,
-                QDir.SortFlag.Name
-            )
-            
-            for dir_info in dirs:
-                dir_item = QTreeWidgetItem(parent_item)
-                dir_item.setText(0, f"📁 {dir_info.fileName()}")
-                dir_item.setText(1, "<DIR>")
-                dir_item.setData(0, Qt.ItemDataRole.UserRole, dir_info.absoluteFilePath())
-                
-                # Add placeholder for lazy loading
-                placeholder = QTreeWidgetItem(dir_item)
-                placeholder.setText(0, "Loading...")
-            
-            # Get files
-            files = directory.entryInfoList(
-                QDir.Filter.Files | QDir.Filter.NoDotAndDotDot,
-                QDir.SortFlag.Name
-            )
-            
-            for file_info in files:
-                file_item = QTreeWidgetItem(parent_item)
-                file_item.setText(0, f"📄 {file_info.fileName()}")
-                size_kb = file_info.size() / 1024
-                file_item.setText(1, f"{size_kb:.2f} KB")
-                file_item.setData(0, Qt.ItemDataRole.UserRole, file_info.absoluteFilePath())
-        
-        except Exception as e:
-            error_item = QTreeWidgetItem(parent_item)
-            error_item.setText(0, f"Error: {str(e)}")
-    
-    def browse_directory(self):
-        """Open dialog to browse and select a directory."""
-        directory = QFileDialog.getExistingDirectory(
-            self, "Select Directory", self.current_directory
-        )
-        if directory:
-            self.current_directory = directory
-            self.refresh_explorer()
-    
-    def show_tree_context_menu(self, position):
-        """Show context menu for file tree items."""
-        item = self.file_tree.itemAt(position)
-        if not item:
-            return
-        
-        filepath = item.data(0, Qt.ItemDataRole.UserRole)
-        if not filepath:
-            return
-        
-        menu = QMenu(self)
-        
-        # Add actions based on whether it's a file or directory
-        if os.path.isfile(filepath):
-            open_action = menu.addAction("Open")
-            open_action.triggered.connect(lambda: self.tree_item_double_clicked(item, 0))
-        
-        if os.path.isdir(filepath):
-            set_as_root_action = menu.addAction("Set as Root Directory")
-            set_as_root_action.triggered.connect(lambda: self.set_root_directory(filepath))
-        
-        menu.addSeparator()
-        
-        copy_path_action = menu.addAction("Copy Path")
-        copy_path_action.triggered.connect(lambda: QApplication.clipboard().setText(filepath))
-        
-        copy_name_action = menu.addAction("Copy Name")
-        copy_name_action.triggered.connect(lambda: QApplication.clipboard().setText(os.path.basename(filepath)))
-        
-        menu.addSeparator()
-        
-        if os.path.exists(filepath):
-            show_in_folder_action = menu.addAction("Show in Folder")
-            show_in_folder_action.triggered.connect(lambda: self.show_in_system_explorer(filepath))
-        
-        menu.exec(self.file_tree.viewport().mapToGlobal(position))
-    
-    def set_root_directory(self, directory_path):
-        """Set the selected directory as the root in explorer."""
-        self.current_directory = directory_path
-        self.refresh_explorer()
-    
-    def show_in_system_explorer(self, filepath):
-        """Open the system file explorer at the given path."""
-        try:
-            if os.path.isfile(filepath):
-                filepath = os.path.dirname(filepath)
-            
-            if sys.platform == 'win32':
-                os.startfile(filepath)
-            elif sys.platform == 'darwin':
-                subprocess.run(['open', filepath])
-            else:  # Linux and other Unix-like
-                subprocess.run(['xdg-open', filepath])
-        except Exception as e:
-            QMessageBox.warning(self, "Error", f"Could not open folder: {str(e)}")
+        for file_info in files:
+            item = QTreeWidgetItem(self.file_tree)
+            item.setText(0, file_info.fileName())
+            size_kb = file_info.size() / 1024
+            item.setText(1, f"{size_kb:.2f} KB")
+            item.setData(0, Qt.ItemDataRole.UserRole, file_info.absoluteFilePath())
 
-    def tree_item_expanded(self, item):
-        """Handle tree item expansion for lazy loading."""
-        # Check if this item has a placeholder child
-        if item.childCount() == 1:
-            child = item.child(0)
-            if child.text(0) == "Loading...":
-                # Remove placeholder
-                item.removeChild(child)
-                
-                # Get the directory path
-                directory_path = item.data(0, Qt.ItemDataRole.UserRole)
-                
-                # Populate this directory
-                if directory_path and os.path.isdir(directory_path):
-                    self.populate_directory_tree(item, directory_path)
-    
     def tree_item_double_clicked(self, item, column):
         """Handle double-click on file explorer item."""
         filepath = item.data(0, Qt.ItemDataRole.UserRole)
-        
-        if filepath:
-            if os.path.isfile(filepath):
-                # Open file
-                try:
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                    
-                    editor = self.create_new_tab(os.path.basename(filepath))
-                    editor.setPlainText(content)
-                    editor.file_path = filepath
-                    
-                    # Add to recent files
-                    self.add_recent_file(filepath)
-                except Exception as e:
-                    QMessageBox.warning(self, "Error", f"Could not open file: {str(e)}")
+        if filepath and os.path.isfile(filepath):
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
             
-            elif os.path.isdir(filepath):
-                # Toggle expansion for directories
-                item.setExpanded(not item.isExpanded())
+            editor = self.create_new_tab(os.path.basename(filepath))
+            editor.setPlainText(content)
+            editor.file_path = filepath
 
     def show_settings(self):
         """Show settings dialog."""
@@ -3391,6 +3862,62 @@ end
         self.find_replace_dialog.raise_()
         self.find_replace_dialog.activateWindow()
     
+    def show_obfuscator(self):
+        """Show the obfuscator dialog and obfuscate code."""
+        editor = self.get_current_editor()
+        if not editor:
+            return
+        
+        code = editor.toPlainText()
+        if not code.strip():
+            QMessageBox.warning(self, "Empty Editor", "No code to obfuscate.")
+            return
+        
+        # Show obfuscator dialog
+        dialog = ObfuscatorDialog(self)
+        if dialog.exec():
+            options = dialog.get_options()
+            
+            try:
+                # Show progress
+                QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                self.statusBar().showMessage("Obfuscating code...")
+                
+                # Perform obfuscation
+                obfuscator = LuaObfuscator(options)
+                obfuscated_code = obfuscator.obfuscate(code)
+                
+                # Create new tab with obfuscated code
+                new_tab_name = "Obfuscated"
+                if hasattr(editor, 'file_path'):
+                    original_name = os.path.basename(editor.file_path)
+                    new_tab_name = f"{original_name} (Obfuscated)"
+                
+                new_editor = self.create_new_tab(new_tab_name)
+                new_editor.setPlainText(obfuscated_code)
+                
+                QApplication.restoreOverrideCursor()
+                self.statusBar().showMessage("Code obfuscated successfully!", 3000)
+                
+                # Show info message
+                techniques = []
+                if options.get('proxify_locals'): techniques.append("Proxify Locals")
+                if options.get('vmify'): techniques.append("Vmify (VM Encoding)")
+                extra = f"\n\nPrometheus steps applied: {', '.join(techniques)}" if techniques else ""
+                QMessageBox.information(
+                    self, 
+                    "Obfuscation Complete",
+                    f"Code has been obfuscated and opened in a new tab.\n\n"
+                    f"Original size: {len(code)} characters\n"
+                    f"Obfuscated size: {len(obfuscated_code)} characters"
+                    f"{extra}\n\n"
+                    f"Test inside executor to see if it functions"
+                )
+                
+            except Exception as e:
+                QApplication.restoreOverrideCursor()
+                QMessageBox.critical(self, "Obfuscation Error", f"Failed to obfuscate code:\n{str(e)}")
+    
     def find_next(self):
         """Find the next occurrence of the search text."""
         if not self.find_replace_dialog:
@@ -3591,122 +4118,6 @@ end
                 self.add_recent_file(filepath)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to open file: {str(e)}")
-    
-    
-    def format_current_code(self):
-        """Format the code in the current editor tab."""
-        editor = self.get_current_editor()
-        if not editor:
-            return
-        
-        code = editor.toPlainText()
-        if not code.strip():
-            QMessageBox.information(self, "Format Code", "No code to format.")
-            return
-        
-        try:
-            formatted_code = self.format_lua_code(code)
-            
-            # Save cursor position
-            cursor = editor.textCursor()
-            old_position = cursor.position()
-            
-            # Replace text
-            editor.setPlainText(formatted_code)
-            
-            # Try to restore cursor position (approximately)
-            new_position = min(old_position, len(formatted_code))
-            cursor.setPosition(new_position)
-            editor.setTextCursor(cursor)
-            
-            self.statusBar().showMessage("Code formatted successfully", 3000)
-        except Exception as e:
-            QMessageBox.warning(self, "Format Error", f"Error formatting code: {str(e)}")
-    
-    def format_lua_code(self, code):
-        """
-        Format Lua code with proper indentation and spacing.
-        """
-        lines = code.split('\n')
-        formatted_lines = []
-        indent_level = 0
-        indent_str = "    "  # 4 spaces
-        
-        # Keywords that increase indent
-        increase_indent = ['function', 'if', 'for', 'while', 'repeat', 'do']
-        # Keywords that decrease indent before the line
-        decrease_indent_before = ['else', 'elseif', 'until']
-        # Keywords that decrease indent after the line
-        decrease_indent_after = ['end']
-        
-        for line in lines:
-            stripped = line.strip()
-            
-            # Skip empty lines
-            if not stripped:
-                formatted_lines.append('')
-                continue
-            
-            # Check for comments
-            is_comment = stripped.startswith('--')
-            
-            # Handle decrease indent before (else, elseif, until)
-            if not is_comment:
-                for keyword in decrease_indent_before:
-                    if stripped.startswith(keyword):
-                        indent_level = max(0, indent_level - 1)
-                        break
-            
-            # Handle 'end' keyword
-            if not is_comment and stripped.startswith('end'):
-                indent_level = max(0, indent_level - 1)
-            
-            # Apply indentation
-            formatted_line = indent_str * indent_level + stripped
-            
-            # Format spacing around operators (only if not a comment)
-            if not is_comment:
-                # Add spaces around operators
-                operators = ['=', '+', '-', '*', '/', '%', '..', '==', '~=', '<=', '>=', '<', '>', 'and', 'or']
-                for op in sorted(operators, key=len, reverse=True):  # Process longer operators first
-                    if op in ['and', 'or']:
-                        # Word operators need word boundaries
-                        formatted_line = re.sub(r'\b' + op + r'\b', f' {op} ', formatted_line)
-                    else:
-                        # Symbol operators
-                        formatted_line = re.sub(r'\s*' + re.escape(op) + r'\s*', f' {op} ', formatted_line)
-                
-                # Clean up multiple spaces
-                formatted_line = re.sub(r'  +', ' ', formatted_line)
-                
-                # Fix spacing after commas
-                formatted_line = re.sub(r',(\S)', r', \1', formatted_line)
-                
-                # Remove spaces before commas
-                formatted_line = re.sub(r'\s+,', ',', formatted_line)
-            
-            formatted_lines.append(formatted_line.rstrip())
-            
-            # Handle increase indent after
-            if not is_comment:
-                for keyword in increase_indent:
-                    # Check if the keyword starts a block
-                    if re.search(r'\b' + keyword + r'\b', stripped):
-                        indent_level += 1
-                        break
-                
-                # Special handling: if line ends with 'then' or 'do', it might not have triggered above
-                if stripped.endswith('then') or stripped.endswith('do'):
-                    # Check if we already incremented
-                    already_incremented = False
-                    for keyword in increase_indent:
-                        if re.search(r'\b' + keyword + r'\b', stripped):
-                            already_incremented = True
-                            break
-                    if not already_incremented:
-                        indent_level += 1
-        
-        return '\n'.join(formatted_lines)
     
     def clear_recent_files(self):
         """Clear the recent files list."""
