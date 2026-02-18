@@ -32950,11 +32950,10 @@ RegisterCommand({Name = "tptoswords", Aliases = {}, Description = "For Dumb boss
 RegisterCommand({Name = "removeff", Aliases = {}, Description = "Removes Forcefields on the client, can be useful with low security"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/removeforcefield.txt", " Loading.. ") end)
 RegisterCommand({Name = "AttachHub", Aliases = {}, Description = "Anthony's Script 2"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/AttachHub.lua", " Loading.. ") end)
 RegisterCommand({Name = "simplespy", Aliases = {"sz"}, Description = "Better than ketamine."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/simplespy.lua", " Loading.. ") end)
-RegisterCommand({Name = "azyhub", Aliases = {}, Description = "Script Lookup"}, function() loadstringCmd("https://raw.githubusercontent.com/AZYsGithub/chillz-workshop/main/ScriptSearcher", " Loading.. ") end)
+RegisterCommand({Name = "buildts", Aliases = {}, Description = "Script Lookup"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/bts.lua", " Loading.. ") end)
 RegisterCommand({Name = "teleporter", Aliases = {"tpui"}, Description = "Loads the Game Universe."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameFinder.lua", "stolen from nameless-admin") end)
 RegisterCommand({Name = "autofling", Aliases = {"pwned"}, Description = "Pwned Flinger"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/Ultimatefling.lua", "Loaded!") end)
-RegisterCommand({Name = "wallwalk", Aliases = {}, Description = "walk on walls."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/wallwalk.lua", "Wait a sec.") end)
-RegisterCommand({Name = "npcbreaker", Aliases = {}, Description = "WIP"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/CamFixNPCBreaker.txt", "Anti Gay Shield Activated.") end)
+RegisterCommand({Name = "wallwalk", Aliases = {"ww"}, Description = "WIP"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/WorkINPro.lua", "Anti Gay Shield Activated.") end)
 RegisterCommand({Name = "plag", Aliases = {}, Description = "For https://www.roblox.com/games/115286378269814/Protect-The-House-From-Monsters"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameLaggerPlauncher.lua", "Loading Modification") end)
 RegisterCommand({Name = "pumpkin", Aliases = {}, Description = "For https://www.roblox.com/games/115286378269814/Protect-The-House-From-Monsters"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/RAPIDFIREPumpkinlauncher.lua", "Loading") end)
 RegisterCommand({Name = "zukahub", Aliases = {"zuka"}, Description = "Loads the Zuka Hub"}, function() loadstringCmd("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/ZukaHub.lua", "Loading Zuka's Hub...") end)
@@ -33888,3 +33887,44 @@ ClientReplicator.AncestryChanged:Connect(function()
     TeleportService:TeleportToPlaceInstance(game["PlaceId"], CurrentServer)
 end)
 DoNotif("We're So back. The Best Underground Panel.")
+
+
+--[[local getgenv, getnamecallmethod, hookmetamethod, newcclosure, checkcaller, stringlower = getgenv, getnamecallmethod, hookmetamethod, newcclosure, checkcaller, string.lower;
+local function ClonedService(name)
+	local Service = game.GetService;
+	local Reference = cloneref or function(reference)
+		return reference;
+	end;
+	return Reference(Service(game, name));
+end;
+if (getgenv()).ED_AntiKick then
+	return;
+end;
+local Players, StarterGui, OldNamecall = ClonedService("Players"), ClonedService("StarterGui");
+(getgenv()).ED_AntiKick = {
+	Enabled = true,
+	SendNotifications = true,
+	CheckCaller = true
+};
+OldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
+	if ((getgenv()).ED_AntiKick.CheckCaller and (not checkcaller()) or true) and stringlower(getnamecallmethod()) == "kick" and ED_AntiKick.Enabled then
+		if (getgenv()).ED_AntiKick.SendNotifications then
+			StarterGui:SetCore("SendNotification", {
+				Title = "Zuka Tech",
+				Text = "The script has successfully intercepted an attempted kick.",
+				Icon = "rbxassetid://6238540373",
+				Duration = 2
+			});
+		end;
+		return nil;
+	end;
+	return OldNamecall(...);
+end));
+if (getgenv()).ED_AntiKick.SendNotifications then
+	StarterGui:SetCore("SendNotification", {
+		Title = "Zuka Tech",
+		Text = "Shield Loaded",
+		Icon = "rbxassetid://6238537240",
+		Duration = 3
+	});
+end;--]]
