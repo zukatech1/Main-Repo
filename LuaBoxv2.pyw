@@ -636,6 +636,13 @@ class LuaObfuscator:
         """Main obfuscation function."""
         result = code
         
+        # Add watermark at the top
+        watermark = """--[[Obfuscated with LuaBox v3 by Zuka]]"""
+        result = watermark + result
+        
+        # Step 1: Rename variables
+        
+        
         # Step 1: Rename variables (before other transformations)
         if self.options['rename_vars']:
             result = self.rename_variables(result)
@@ -677,6 +684,11 @@ class LuaObfuscator:
             result = LuaVmify().vmify(result)
         
         return result
+        
+        # Add footer watermark if not vmified
+        if not self.options.get('vmify'):
+            footer = "\n--[[Obfuscated with LuaBox v2.7 by Zuka]]"
+            result = result + footer
     
     def generate_var_name(self):
         """Generate a random variable name."""
@@ -970,10 +982,13 @@ class LuaVmify:
         import random
 
         # --- 1. Build a random XOR key stream ---
-        seed = random.randint(1, 0xFFFF)
-        key_len = random.randint(16, 64)   # key period
-        rng = random.Random(seed)
-        key_stream = [rng.randint(1, 255) for _ in range(key_len)]
+        seed = random.randint(1, 0x7FFFFFFF)
+        key_len = random.randint(16, 64)
+        rng_state = seed
+        key_stream = []
+        for _ in range(key_len):
+            rng_state = (rng_state * 48271) % 0x7FFFFFFF
+            key_stream.append((rng_state % 255) + 1)
 
         # --- 2. XOR-encrypt the source ---
         src_bytes = code.encode('utf-8')
@@ -993,15 +1008,13 @@ class LuaVmify:
         # We use variable names that look like VM registers to add authenticity.
         # The loader reconstructs the key stream from the same seed, XORs back,
         # assembles the string, then executes it.
-        loader = f'''\
-(function()
+        loader = f'''(function()
 local _R={{{seed},{key_len}}}
 local _K={{}}
 local _rng=_R[1]
-for _i=1,_R[2] do
-_rng=((_rng*6364136223846793005+1442695040888963407)&0xFFFFFFFF)
-_K[_i]=(_rng>>8)&0xFF
-if _K[_i]==0 then _K[_i]=1 end
+for _i=1,_R[2]do
+_rng=(_rng*48271)%0x7FFFFFFF
+_K[_i]=(_rng%255)+1
 end
 local _B={byte_table}
 local _S={{}}
@@ -1010,9 +1023,10 @@ _S[_i]=string.char(_B[_i]~_K[((_i-1)%_R[2])+1])
 end
 local _src=table.concat(_S)
 local _fn,_err=(loadstring or load)(_src)
-if not _fn then error("[VM] Decode error: "..(tostring(_err))) end
+if not _fn then error("[VM] Decode error: "..tostring(_err))end
 return _fn()
 end)()'''
+        return loader
         return loader
 
 
@@ -1020,7 +1034,7 @@ end)()'''
 class LuaIDE(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LuaBox v2.7 	(̿▀̿ ̿Ĺ̯̿̿▀̿ ̿)̄")
+        self.setWindowTitle("LuaBox v3")
         self.setGeometry(100, 100, 1400, 850)
         
         self.current_file = None
