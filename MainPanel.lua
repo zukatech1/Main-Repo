@@ -6353,25 +6353,71 @@ Modules.GUICreator = {
         Connections = {},
         CreatedGUIs = {},
         SelectedElement = nil,
-        DraggingElement = nil,
-        ResizingElement = nil,
         PropertyPanel = nil,
+        HierarchyPanel = nil,
+        UndoStack = {},
+        RedoStack = {},
         CurrentProject = {
             Name = "Untitled",
             Elements = {}
         }
     },
     Config = {
-        GridSize = 5,
+        GridSize = 20,
         SnapToGrid = false,
         ShowGrid = true,
         DefaultSize = UDim2.fromOffset(200, 100)
     }
 }
-local TweenService = game:GetService("TweenService")
+local TweenService    = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local Players         = game:GetService("Players")
+local LocalPlayer     = Players.LocalPlayer
+function Modules.GUICreator:PushUndo(action)
+    table.insert(self.State.UndoStack, action)
+    self.State.RedoStack = {}
+    if #self.State.UndoStack > 50 then
+        table.remove(self.State.UndoStack, 1)
+    end
+end
+function Modules.GUICreator:Undo()
+    local action = table.remove(self.State.UndoStack)
+    if not action then print("Nothing to undo") return end
+    table.insert(self.State.RedoStack, action)
+    action.Undo()
+    self:RefreshHierarchy()
+end
+function Modules.GUICreator:Redo()
+    local action = table.remove(self.State.RedoStack)
+    if not action then print("Nothing to redo") return end
+    table.insert(self.State.UndoStack, action)
+    action.Do()
+    self:RefreshHierarchy()
+end
+function Modules.GUICreator:SnapValue(v)
+    if not self.Config.SnapToGrid then return v end
+    local g = self.Config.GridSize
+    return math.floor((v + g / 2) / g) * g
+end
+function Modules.GUICreator:CreateButton(text, color, parent)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.fromOffset(110, 26)
+    btn.BackgroundColor3 = color
+    btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.TextSize = 10
+    btn.AutoButtonColor = false
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    btn.MouseEnter:Connect(function()
+        local h, s, v = color:ToHSV()
+        btn.BackgroundColor3 = Color3.fromHSV(h, s, math.min(v + 0.12, 1))
+    end)
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = color end)
+    return btn
+end
 function Modules.GUICreator:_createUI()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "GUICreator_Zuka"
@@ -6380,30 +6426,30 @@ function Modules.GUICreator:_createUI()
     self.State.UI = screenGui
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.fromOffset(1100, 650)
+    mainFrame.Size = UDim2.fromOffset(1200, 700)
     mainFrame.Position = UDim2.fromScale(0.5, 0.5)
     mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
     local stroke = Instance.new("UIStroke", mainFrame)
-    stroke.Color = Color3.fromRGB(100, 150, 255)
+    stroke.Color = Color3.fromRGB(90, 140, 255)
     stroke.Thickness = 2
     local titleBar = Instance.new("Frame", mainFrame)
     titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, 0, 0, 40)
-    titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    titleBar.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
     titleBar.BorderSizePixel = 0
     Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
     local title = Instance.new("TextLabel", titleBar)
-    title.Size = UDim2.new(1, -100, 1, 0)
+    title.Size = UDim2.new(1, -110, 1, 0)
     title.Position = UDim2.fromOffset(15, 0)
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.Code
-    title.Text = "▸ GUI CREATOR"
-    title.TextColor3 = Color3.fromRGB(100, 150, 255)
-    title.TextSize = 16
+    title.Text = "▸ GUI CREATOR  —  Ctrl+Z Undo  |  Ctrl+Y Redo"
+    title.TextColor3 = Color3.fromRGB(90, 140, 255)
+    title.TextSize = 14
     title.TextXAlignment = Enum.TextXAlignment.Left
     local closeBtn = Instance.new("TextButton", titleBar)
     closeBtn.Size = UDim2.fromOffset(30, 30)
@@ -6415,96 +6461,217 @@ function Modules.GUICreator:_createUI()
     closeBtn.Font = Enum.Font.GothamBold
     closeBtn.TextSize = 20
     Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
-    closeBtn.MouseButton1Click:Connect(function()
-        self:Disable()
-    end)
+    closeBtn.MouseButton1Click:Connect(function() self:Disable() end)
     self:MakeDraggable(titleBar, mainFrame)
+    local topBar = Instance.new("Frame", mainFrame)
+    topBar.Name = "TopBar"
+    topBar.Size = UDim2.new(1, -20, 0, 36)
+    topBar.Position = UDim2.fromOffset(10, 44)
+    topBar.BackgroundColor3 = Color3.fromRGB(32, 32, 44)
+    topBar.BorderSizePixel = 0
+    topBar.ZIndex = 10
+    Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 6)
+    local topLayout = Instance.new("UIListLayout", topBar)
+    topLayout.FillDirection = Enum.FillDirection.Horizontal
+    topLayout.Padding = UDim.new(0, 6)
+    topLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    Instance.new("UIPadding", topBar).PaddingLeft = UDim.new(0, 10)
+    local exportBtn = self:CreateButton("⬆ EXPORT CODE", Color3.fromRGB(0, 190, 95), topBar)
+    exportBtn.MouseButton1Click:Connect(function() self:ExportCode() end)
+    local undoBtn = self:CreateButton("↩ UNDO", Color3.fromRGB(90, 140, 255), topBar)
+    undoBtn.Size = UDim2.fromOffset(80, 26)
+    undoBtn.MouseButton1Click:Connect(function() self:Undo() end)
+    local redoBtn = self:CreateButton("↪ REDO", Color3.fromRGB(90, 140, 255), topBar)
+    redoBtn.Size = UDim2.fromOffset(80, 26)
+    redoBtn.MouseButton1Click:Connect(function() self:Redo() end)
+    local clearBtn = self:CreateButton("🗑 CLEAR", Color3.fromRGB(230, 80, 50), topBar)
+    clearBtn.Size = UDim2.fromOffset(80, 26)
+    clearBtn.MouseButton1Click:Connect(function() self:ClearCanvas() end)
+    local gridBtn = self:CreateButton("GRID: ON", Color3.fromRGB(80, 80, 180), topBar)
+    gridBtn.Size = UDim2.fromOffset(90, 26)
+    gridBtn.MouseButton1Click:Connect(function()
+        self.Config.ShowGrid = not self.Config.ShowGrid
+        gridBtn.Text = "GRID: " .. (self.Config.ShowGrid and "ON" or "OFF")
+        self:DrawGrid()
+    end)
+    local snapBtn = self:CreateButton("SNAP: OFF", Color3.fromRGB(120, 80, 200), topBar)
+    snapBtn.Size = UDim2.fromOffset(90, 26)
+    snapBtn.MouseButton1Click:Connect(function()
+        self.Config.SnapToGrid = not self.Config.SnapToGrid
+        snapBtn.Text = "SNAP: " .. (self.Config.SnapToGrid and "ON" or "OFF")
+        snapBtn.BackgroundColor3 = self.Config.SnapToGrid
+            and Color3.fromRGB(180, 80, 255)
+            or  Color3.fromRGB(120, 80, 200)
+    end)
     local leftPanel = Instance.new("Frame", mainFrame)
     leftPanel.Name = "Toolbox"
-    leftPanel.Size = UDim2.new(0.2, 0, 1, -50)
-    leftPanel.Position = UDim2.fromOffset(10, 45)
-    leftPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    leftPanel.Size = UDim2.new(0, 165, 1, -90)
+    leftPanel.Position = UDim2.fromOffset(10, 86)
+    leftPanel.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
     leftPanel.BorderSizePixel = 0
     Instance.new("UICorner", leftPanel).CornerRadius = UDim.new(0, 8)
     local toolboxLabel = Instance.new("TextLabel", leftPanel)
-    toolboxLabel.Size = UDim2.new(1, 0, 0, 30)
+    toolboxLabel.Size = UDim2.new(1, 0, 0, 28)
     toolboxLabel.BackgroundTransparency = 1
     toolboxLabel.Font = Enum.Font.GothamBold
     toolboxLabel.Text = "ELEMENTS"
-    toolboxLabel.TextColor3 = Color3.new(1, 1, 1)
-    toolboxLabel.TextSize = 14
+    toolboxLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
+    toolboxLabel.TextSize = 12
     local toolboxScroll = Instance.new("ScrollingFrame", leftPanel)
-    toolboxScroll.Size = UDim2.new(1, -10, 1, -40)
-    toolboxScroll.Position = UDim2.fromOffset(5, 35)
+    toolboxScroll.Size = UDim2.new(1, -8, 1, -34)
+    toolboxScroll.Position = UDim2.fromOffset(4, 30)
     toolboxScroll.BackgroundTransparency = 1
     toolboxScroll.BorderSizePixel = 0
-    toolboxScroll.ScrollBarThickness = 4
-    toolboxScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 150, 255)
+    toolboxScroll.ScrollBarThickness = 3
+    toolboxScroll.ScrollBarImageColor3 = Color3.fromRGB(90, 140, 255)
     toolboxScroll.CanvasSize = UDim2.fromOffset(0, 0)
     toolboxScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     local toolboxLayout = Instance.new("UIListLayout", toolboxScroll)
-    toolboxLayout.Padding = UDim.new(0, 5)
+    toolboxLayout.Padding = UDim.new(0, 4)
     toolboxLayout.SortOrder = Enum.SortOrder.LayoutOrder
     local canvasPanel = Instance.new("Frame", mainFrame)
     canvasPanel.Name = "Canvas"
-    canvasPanel.Size = UDim2.new(0.5, -20, 1, -50)
-    canvasPanel.Position = UDim2.new(0.2, 10, 0, 45)
-    canvasPanel.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    canvasPanel.Size = UDim2.new(1, -560, 1, -90)
+    canvasPanel.Position = UDim2.fromOffset(183, 86)
+    canvasPanel.BackgroundColor3 = Color3.fromRGB(36, 36, 48)
     canvasPanel.BorderSizePixel = 0
     Instance.new("UICorner", canvasPanel).CornerRadius = UDim.new(0, 8)
+    canvasPanel.ClipsDescendants = true
     local canvasLabel = Instance.new("TextLabel", canvasPanel)
-    canvasLabel.Size = UDim2.new(1, 0, 0, 30)
+    canvasLabel.Size = UDim2.new(1, 0, 0, 24)
     canvasLabel.BackgroundTransparency = 1
     canvasLabel.Font = Enum.Font.GothamBold
-    canvasLabel.Text = "CANVAS (480x360)"
-    canvasLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-    canvasLabel.TextSize = 12
+    canvasLabel.Text = "CANVAS  (480 × 360)"
+    canvasLabel.TextColor3 = Color3.fromRGB(120, 120, 140)
+    canvasLabel.TextSize = 11
     local workspace = Instance.new("Frame", canvasPanel)
     workspace.Name = "Workspace"
     workspace.Size = UDim2.fromOffset(480, 360)
     workspace.Position = UDim2.new(0.5, 0, 0.5, 0)
     workspace.AnchorPoint = Vector2.new(0.5, 0.5)
-    workspace.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    workspace.BackgroundColor3 = Color3.fromRGB(46, 46, 58)
     workspace.BorderSizePixel = 0
-    local workspaceStroke = Instance.new("UIStroke", workspace)
-    workspaceStroke.Color = Color3.fromRGB(100, 100, 120)
-    workspaceStroke.Thickness = 2
-    local rightPanel = Instance.new("Frame", mainFrame)
+    workspace.ClipsDescendants = true
+    local wsStroke = Instance.new("UIStroke", workspace)
+    wsStroke.Color = Color3.fromRGB(80, 80, 110)
+    wsStroke.Thickness = 2
+    local gridFrame = Instance.new("Frame", workspace)
+    gridFrame.Name = "GridOverlay"
+    gridFrame.Size = UDim2.new(1, 0, 1, 0)
+    gridFrame.BackgroundTransparency = 1
+    gridFrame.BorderSizePixel = 0
+    gridFrame.ZIndex = 1
+    self.State.GridFrame = gridFrame
+    self:DrawGrid()
+    local rightCol = Instance.new("Frame", mainFrame)
+    rightCol.Name = "RightCol"
+    rightCol.Size = UDim2.new(0, 240, 1, -90)
+    rightCol.Position = UDim2.new(1, -250, 0, 86)
+    rightCol.BackgroundTransparency = 1
+    rightCol.BorderSizePixel = 0
+    local rightPanel = Instance.new("Frame", rightCol)
     rightPanel.Name = "Properties"
-    rightPanel.Size = UDim2.new(0.3, -20, 1, -50)
-    rightPanel.Position = UDim2.new(0.7, 10, 0, 45)
-    rightPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    rightPanel.Size = UDim2.new(1, 0, 0.52, -4)
+    rightPanel.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
     rightPanel.BorderSizePixel = 0
     Instance.new("UICorner", rightPanel).CornerRadius = UDim.new(0, 8)
     local propertiesLabel = Instance.new("TextLabel", rightPanel)
-    propertiesLabel.Size = UDim2.new(1, 0, 0, 30)
+    propertiesLabel.Size = UDim2.new(1, 0, 0, 28)
     propertiesLabel.BackgroundTransparency = 1
     propertiesLabel.Font = Enum.Font.GothamBold
     propertiesLabel.Text = "PROPERTIES"
-    propertiesLabel.TextColor3 = Color3.new(1, 1, 1)
-    propertiesLabel.TextSize = 14
+    propertiesLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
+    propertiesLabel.TextSize = 12
     local propertiesScroll = Instance.new("ScrollingFrame", rightPanel)
     propertiesScroll.Name = "PropertiesScroll"
-    propertiesScroll.Size = UDim2.new(1, -10, 1, -40)
-    propertiesScroll.Position = UDim2.fromOffset(5, 35)
+    propertiesScroll.Size = UDim2.new(1, -8, 1, -32)
+    propertiesScroll.Position = UDim2.fromOffset(4, 30)
     propertiesScroll.BackgroundTransparency = 1
     propertiesScroll.BorderSizePixel = 0
-    propertiesScroll.ScrollBarThickness = 4
-    propertiesScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 150, 255)
+    propertiesScroll.ScrollBarThickness = 3
+    propertiesScroll.ScrollBarImageColor3 = Color3.fromRGB(90, 140, 255)
     propertiesScroll.CanvasSize = UDim2.fromOffset(0, 0)
     propertiesScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    local propertiesLayout = Instance.new("UIListLayout", propertiesScroll)
-    propertiesLayout.Padding = UDim.new(0, 8)
-    propertiesLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    local propLayout = Instance.new("UIListLayout", propertiesScroll)
+    propLayout.Padding = UDim.new(0, 6)
+    propLayout.SortOrder = Enum.SortOrder.LayoutOrder
     self.State.PropertyPanel = propertiesScroll
+    local hierPanel = Instance.new("Frame", rightCol)
+    hierPanel.Name = "Hierarchy"
+    hierPanel.Size = UDim2.new(1, 0, 0.48, -4)
+    hierPanel.Position = UDim2.new(0, 0, 0.52, 4)
+    hierPanel.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    hierPanel.BorderSizePixel = 0
+    Instance.new("UICorner", hierPanel).CornerRadius = UDim.new(0, 8)
+    local hierLabel = Instance.new("TextLabel", hierPanel)
+    hierLabel.Size = UDim2.new(1, 0, 0, 28)
+    hierLabel.BackgroundTransparency = 1
+    hierLabel.Font = Enum.Font.GothamBold
+    hierLabel.Text = "HIERARCHY"
+    hierLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
+    hierLabel.TextSize = 12
+    local hierScroll = Instance.new("ScrollingFrame", hierPanel)
+    hierScroll.Name = "HierarchyScroll"
+    hierScroll.Size = UDim2.new(1, -8, 1, -32)
+    hierScroll.Position = UDim2.fromOffset(4, 30)
+    hierScroll.BackgroundTransparency = 1
+    hierScroll.BorderSizePixel = 0
+    hierScroll.ScrollBarThickness = 3
+    hierScroll.ScrollBarImageColor3 = Color3.fromRGB(90, 140, 255)
+    hierScroll.CanvasSize = UDim2.fromOffset(0, 0)
+    hierScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    local hierLayout = Instance.new("UIListLayout", hierScroll)
+    hierLayout.Padding = UDim.new(0, 3)
+    hierLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    self.State.HierarchyPanel = hierScroll
     screenGui.Parent = CoreGui
     self:PopulateToolbox(toolboxScroll)
-    self:CreateTopBar(mainFrame)
+    self:_bindKeyboard()
     return workspace
 end
+function Modules.GUICreator:DrawGrid()
+    local gf = self.State.GridFrame
+    if not gf then return end
+    for _, c in ipairs(gf:GetChildren()) do c:Destroy() end
+    if not self.Config.ShowGrid then return end
+    local W, H = 480, 360
+    local g = self.Config.GridSize
+    local lineColor = Color3.fromRGB(65, 65, 85)
+    local function makeLine(x, y, w, h)
+        local f = Instance.new("Frame", gf)
+        f.BorderSizePixel = 0
+        f.BackgroundColor3 = lineColor
+        f.Size = UDim2.fromOffset(w, h)
+        f.Position = UDim2.fromOffset(x, y)
+        f.ZIndex = 1
+    end
+    local x = g
+    while x < W do makeLine(x, 0, 1, H) ; x = x + g end
+    local y = g
+    while y < H do makeLine(0, y, W, 1) ; y = y + g end
+end
+function Modules.GUICreator:_bindKeyboard()
+    local conn = UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        local ctrl = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
+            or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)
+        if ctrl and input.KeyCode == Enum.KeyCode.Z then self:Undo() end
+        if ctrl and input.KeyCode == Enum.KeyCode.Y then self:Redo() end
+        if ctrl and input.KeyCode == Enum.KeyCode.D then
+            if self.State.SelectedElement then
+                self:DuplicateElement(self.State.SelectedElement)
+            end
+        end
+        if input.KeyCode == Enum.KeyCode.Delete then
+            if self.State.SelectedElement then
+                self:DeleteElement(self.State.SelectedElement)
+            end
+        end
+    end)
+    table.insert(self.State.Connections, conn)
+end
 function Modules.GUICreator:MakeDraggable(handle, object)
-    local dragging = false
-    local dragStart, startPos
+    local dragging, dragStart, startPos = false, nil, nil
     handle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
@@ -6517,397 +6684,591 @@ function Modules.GUICreator:MakeDraggable(handle, object)
             end)
         end
     end)
-    handle.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            if dragging then
-                local delta = input.Position - dragStart
-                object.Position = UDim2.new(
-                    startPos.X.Scale, startPos.X.Offset + delta.X,
-                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                )
-            end
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local d = input.Position - dragStart
+            object.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + d.X,
+                startPos.Y.Scale, startPos.Y.Offset + d.Y
+            )
         end
     end)
-end
-function Modules.GUICreator:CreateTopBar(parent)
-    local topBar = Instance.new("Frame", parent)
-    topBar.Name = "TopBar"
-    topBar.Size = UDim2.new(1, -20, 0, 35)
-    topBar.Position = UDim2.fromOffset(10, 45)
-    topBar.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-    topBar.BorderSizePixel = 0
-    topBar.ZIndex = 10
-    Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 6)
-    local layout = Instance.new("UIListLayout", topBar)
-    layout.FillDirection = Enum.FillDirection.Horizontal
-    layout.Padding = UDim.new(0, 5)
-    layout.VerticalAlignment = Enum.VerticalAlignment.Center
-    local padding = Instance.new("UIPadding", topBar)
-    padding.PaddingLeft = UDim.new(0, 10)
-    local exportBtn = self:CreateButton("EXPORT CODE", Color3.fromRGB(0, 200, 100), topBar)
-    exportBtn.MouseButton1Click:Connect(function()
-        self:ExportCode()
-    end)
-    local clearBtn = self:CreateButton("CLEAR ALL", Color3.fromRGB(255, 100, 50), topBar)
-    clearBtn.MouseButton1Click:Connect(function()
-        self:ClearCanvas()
-    end)
-    local gridBtn = self:CreateButton("GRID: ON", Color3.fromRGB(100, 100, 200), topBar)
-    gridBtn.MouseButton1Click:Connect(function()
-        self.Config.ShowGrid = not self.Config.ShowGrid
-        gridBtn.Text = "GRID: " .. (self.Config.ShowGrid and "ON" or "OFF")
-    end)
-    local snapBtn = self:CreateButton("SNAP: OFF", Color3.fromRGB(150, 100, 200), topBar)
-    snapBtn.MouseButton1Click:Connect(function()
-        self.Config.SnapToGrid = not self.Config.SnapToGrid
-        snapBtn.Text = "SNAP: " .. (self.Config.SnapToGrid and "ON" or "OFF")
-        snapBtn.BackgroundColor3 = self.Config.SnapToGrid and Color3.fromRGB(200, 100, 255) or Color3.fromRGB(150, 100, 200)
-    end)
-    parent:FindFirstChild("Canvas").Position = UDim2.new(0.2, 10, 0, 90)
-    parent:FindFirstChild("Canvas").Size = UDim2.new(0.5, -20, 1, -95)
-    parent:FindFirstChild("Toolbox").Position = UDim2.fromOffset(10, 90)
-    parent:FindFirstChild("Toolbox").Size = UDim2.new(0.2, 0, 1, -95)
-    parent:FindFirstChild("Properties").Position = UDim2.new(0.7, 10, 0, 90)
-    parent:FindFirstChild("Properties").Size = UDim2.new(0.3, -20, 1, -95)
-end
-function Modules.GUICreator:CreateButton(text, color, parent)
-    local btn = Instance.new("TextButton", parent)
-    btn.Size = UDim2.fromOffset(100, 25)
-    btn.BackgroundColor3 = color
-    btn.BorderSizePixel = 0
-    btn.Font = Enum.Font.GothamBold
-    btn.Text = text
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.TextSize = 10
-    btn.AutoButtonColor = false
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-    btn.MouseEnter:Connect(function()
-        local h, s, v = color:ToHSV()
-        btn.BackgroundColor3 = Color3.fromHSV(h, s, math.min(v + 0.1, 1))
-    end)
-    btn.MouseLeave:Connect(function()
-        btn.BackgroundColor3 = color
-    end)
-    return btn
 end
 function Modules.GUICreator:PopulateToolbox(parent)
     local elements = {
-        {Name = "Frame", Color = Color3.fromRGB(100, 150, 200), Icon = "▭"},
-        {Name = "TextLabel", Color = Color3.fromRGB(150, 200, 100), Icon = "T"},
-        {Name = "TextButton", Color = Color3.fromRGB(200, 150, 100), Icon = "B"},
-        {Name = "TextBox", Color = Color3.fromRGB(200, 100, 150), Icon = "I"},
-        {Name = "ImageLabel", Color = Color3.fromRGB(150, 100, 200), Icon = "🖼"},
-        {Name = "ScrollingFrame", Color = Color3.fromRGB(100, 200, 150), Icon = "⇅"},
+        {Name = "Frame",          Color = Color3.fromRGB(100, 150, 220), Icon = "▭"},
+        {Name = "TextLabel",      Color = Color3.fromRGB(140, 210,  90), Icon = "T"},
+        {Name = "TextButton",     Color = Color3.fromRGB(220, 150,  80), Icon = "B"},
+        {Name = "TextBox",        Color = Color3.fromRGB(210,  90, 150), Icon = "I"},
+        {Name = "ImageLabel",     Color = Color3.fromRGB(150,  90, 220), Icon = "🖼"},
+        {Name = "ScrollingFrame", Color = Color3.fromRGB(80,  200, 150), Icon = "⇅"},
     }
     for _, elem in ipairs(elements) do
         local btn = Instance.new("TextButton", parent)
-        btn.Size = UDim2.new(1, 0, 0, 40)
-        btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        btn.Size = UDim2.new(1, 0, 0, 38)
+        btn.BackgroundColor3 = Color3.fromRGB(36, 36, 48)
         btn.BorderSizePixel = 0
         btn.Font = Enum.Font.GothamBold
-        btn.Text = elem.Icon .. " " .. elem.Name
+        btn.Text = elem.Icon .. "  " .. elem.Name
         btn.TextColor3 = elem.Color
-        btn.TextSize = 12
+        btn.TextSize = 11
         btn.TextXAlignment = Enum.TextXAlignment.Left
         btn.AutoButtonColor = false
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-        local padding = Instance.new("UIPadding", btn)
-        padding.PaddingLeft = UDim.new(0, 10)
-        btn.MouseButton1Click:Connect(function()
-            self:CreateElement(elem.Name)
-        end)
-        btn.MouseEnter:Connect(function()
-            btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-        end)
-        btn.MouseLeave:Connect(function()
-            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-        end)
+        Instance.new("UIPadding", btn).PaddingLeft = UDim.new(0, 10)
+        btn.MouseButton1Click:Connect(function() self:CreateElement(elem.Name) end)
+        btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(50, 50, 66) end)
+        btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(36, 36, 48) end)
     end
 end
-function Modules.GUICreator:CreateElement(elementType)
+function Modules.GUICreator:CreateElement(elementType, snapshot)
     local workspace = self.State.UI.MainFrame.Canvas.Workspace
     local element = Instance.new(elementType)
-    element.Name = elementType .. "_" .. #self.State.CreatedGUIs + 1
-    element.Size = self.Config.DefaultSize
-    element.Position = UDim2.fromOffset(
-        math.random(50, 300),
-        math.random(50, 200)
+    local idx = #self.State.CreatedGUIs + 1
+    element.Name = elementType .. "_" .. idx
+    element.Size = snapshot and snapshot.Size or self.Config.DefaultSize
+    element.Position = snapshot and snapshot.Position or UDim2.fromOffset(
+        self:SnapValue(math.random(40, 260)),
+        self:SnapValue(math.random(40, 180))
     )
-    element.BackgroundColor3 = Color3.fromRGB(
-        math.random(100, 200),
-        math.random(100, 200),
-        math.random(100, 200)
-    )
+    element.BackgroundColor3 = snapshot and snapshot.BackgroundColor3
+        or Color3.fromRGB(math.random(90, 200), math.random(90, 200), math.random(90, 200))
     element.BorderSizePixel = 0
+    element.ZIndex = snapshot and snapshot.ZIndex or idx + 2
     if elementType == "TextLabel" or elementType == "TextButton" or elementType == "TextBox" then
-        element.Text = element.Name
-        element.TextColor3 = Color3.new(1, 1, 1)
-        element.Font = Enum.Font.Gotham
-        element.TextSize = 14
+        element.Text        = snapshot and snapshot.Text or element.Name
+        element.TextColor3  = snapshot and snapshot.TextColor3 or Color3.new(1, 1, 1)
+        element.Font        = Enum.Font.Gotham
+        element.TextSize    = snapshot and snapshot.TextSize or 14
     end
     if elementType == "TextBox" then
-        element.PlaceholderText = "Enter text..."
+        element.PlaceholderText  = "Enter text…"
         element.ClearTextOnFocus = false
     end
     if elementType == "ImageLabel" then
-        element.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+        element.Image = snapshot and snapshot.Image
+            or "rbxasset://textures/ui/GuiImagePlaceholder.png"
     end
     if elementType == "ScrollingFrame" then
         element.ScrollBarThickness = 6
-        element.CanvasSize = UDim2.fromOffset(480, 720)
+        element.CanvasSize         = UDim2.fromOffset(480, 720)
     end
     Instance.new("UICorner", element).CornerRadius = UDim.new(0, 8)
     element.Parent = workspace
-    self:MakeElementSelectable(element)
-    table.insert(self.State.CreatedGUIs, {
-        Element = element,
-        Type = elementType,
-        Properties = {}
-    })
+    local data = {Element = element, Type = elementType}
+    table.insert(self.State.CreatedGUIs, data)
+    self:MakeElementInteractive(element)
+    self:RefreshHierarchy()
+    self:SelectElement(element)
+    if not snapshot then
+        self:PushUndo({
+            Do = function()
+                element.Parent = workspace
+                table.insert(self.State.CreatedGUIs, data)
+                self:RefreshHierarchy()
+            end,
+            Undo = function()
+                element.Parent = nil
+                for i, d in ipairs(self.State.CreatedGUIs) do
+                    if d.Element == element then table.remove(self.State.CreatedGUIs, i) break end
+                end
+                self.State.SelectedElement = nil
+                self:UpdatePropertiesPanel(nil)
+                self:RefreshHierarchy()
+            end
+        })
+    end
     print(string.format("✓ Created %s", element.Name))
+    return element
 end
-function Modules.GUICreator:MakeElementSelectable(element)
-    local selectionBox = Instance.new("Frame")
-    selectionBox.Name = "SelectionBox"
-    selectionBox.Size = UDim2.new(1, 4, 1, 4)
-    selectionBox.Position = UDim2.fromOffset(-2, -2)
-    selectionBox.BackgroundTransparency = 1
-    selectionBox.BorderSizePixel = 0
-    selectionBox.Visible = false
-    selectionBox.ZIndex = 100
-    local stroke = Instance.new("UIStroke", selectionBox)
-    stroke.Color = Color3.fromRGB(0, 255, 255)
-    stroke.Thickness = 2
-    selectionBox.Parent = element
-    element.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            self:SelectElement(element)
-        end
-    end)
+function Modules.GUICreator:DuplicateElement(element)
+    local snap = {
+        Size             = UDim2.fromOffset(element.Size.X.Offset, element.Size.Y.Offset),
+        Position         = UDim2.fromOffset(element.Position.X.Offset + 15, element.Position.Y.Offset + 15),
+        BackgroundColor3 = element.BackgroundColor3,
+        ZIndex           = element.ZIndex,
+    }
+    if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
+        snap.Text       = element.Text
+        snap.TextColor3 = element.TextColor3
+        snap.TextSize   = element.TextSize
+    end
+    if element:IsA("ImageLabel") then
+        snap.Image = element.Image
+    end
+    local elemType = "Frame"
+    for _, d in ipairs(self.State.CreatedGUIs) do
+        if d.Element == element then elemType = d.Type break end
+    end
+    self:CreateElement(elemType, snap)
+    print("✓ Duplicated element (Ctrl+D)")
+end
+function Modules.GUICreator:MakeElementInteractive(element)
+    local selBox = Instance.new("Frame", element)
+    selBox.Name = "SelectionBox"
+    selBox.Size = UDim2.new(1, 6, 1, 6)
+    selBox.Position = UDim2.fromOffset(-3, -3)
+    selBox.BackgroundTransparency = 1
+    selBox.BorderSizePixel = 0
+    selBox.Visible = false
+    selBox.ZIndex = 200
+    local selStroke = Instance.new("UIStroke", selBox)
+    selStroke.Color = Color3.fromRGB(0, 230, 255)
+    selStroke.Thickness = 2
+    local handles = {
+        {name="NW", ax=0,   ay=0,   cx=true,  cy=true},
+        {name="N",  ax=0.5, ay=0,   cx=false, cy=true},
+        {name="NE", ax=1,   ay=0,   cx=true,  cy=true},
+        {name="W",  ax=0,   ay=0.5, cx=true,  cy=false},
+        {name="E",  ax=1,   ay=0.5, cx=true,  cy=false},
+        {name="SW", ax=0,   ay=1,   cx=true,  cy=true},
+        {name="S",  ax=0.5, ay=1,   cx=false, cy=true},
+        {name="SE", ax=1,   ay=1,   cx=true,  cy=true},
+    }
+    local handleInstances = {}
+    for _, hd in ipairs(handles) do
+        local h = Instance.new("Frame", selBox)
+        h.Name = "Handle_" .. hd.name
+        h.Size = UDim2.fromOffset(8, 8)
+        h.AnchorPoint = Vector2.new(0.5, 0.5)
+        h.Position = UDim2.new(hd.ax, 0, hd.ay, 0)
+        h.BackgroundColor3 = Color3.fromRGB(0, 230, 255)
+        h.BorderSizePixel = 0
+        h.ZIndex = 201
+        Instance.new("UICorner", h).CornerRadius = UDim.new(0, 2)
+        handleInstances[hd.name] = {frame = h, meta = hd}
+    end
     local dragging = false
-    local dragStart, startPos
+    local dragStart, startPos, startSize
+    local resizing = false
+    local resizeHandle = nil
+    for name, hdata in pairs(handleInstances) do
+        hdata.frame.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+            self:SelectElement(element)
+            resizing = true
+            resizeHandle = hdata.meta
+            dragStart = input.Position
+            startPos  = {X = element.Position.X.Offset, Y = element.Position.Y.Offset}
+            startSize = {W = element.Size.X.Offset,     H = element.Size.Y.Offset}
+        end)
+    end
     element.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-                dragging = true
-                dragStart = input.Position
-                startPos = element.Position
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        self:SelectElement(element)
+        if resizing then return end
+        dragging  = true
+        dragStart = input.Position
+        startPos  = {X = element.Position.X.Offset, Y = element.Position.Y.Offset}
+        startSize = {W = element.Size.X.Offset,     H = element.Size.Y.Offset}
+    end)
+    local prevPos, prevSize
+    local moveConn = UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+        local delta = input.Position - dragStart
+        if dragging and not resizing then
+            local nx = self:SnapValue(startPos.X + delta.X)
+            local ny = self:SnapValue(startPos.Y + delta.Y)
+            element.Position = UDim2.fromOffset(nx, ny)
+        end
+        if resizing and resizeHandle then
+            local h = resizeHandle
+            local dx = delta.X
+            local dy = delta.Y
+            local nx, ny = startPos.X, startPos.Y
+            local nw, nh = startSize.W, startSize.H
+            if h.cx then
+                if h.ax == 0 then
+                    nw = math.max(20, startSize.W - dx)
+                    nx = startPos.X + (startSize.W - nw)
+                else
+                    nw = math.max(20, startSize.W + dx)
+                end
+            end
+            if h.cy then
+                if h.ay == 0 then
+                    nh = math.max(20, startSize.H - dy)
+                    ny = startPos.Y + (startSize.H - nh)
+                else
+                    nh = math.max(20, startSize.H + dy)
+                end
+            end
+            nx = self:SnapValue(nx)
+            ny = self:SnapValue(ny)
+            nw = self:SnapValue(nw)
+            nh = self:SnapValue(nh)
+            element.Position = UDim2.fromOffset(nx, ny)
+            element.Size     = UDim2.fromOffset(nw, nh)
+            self:UpdatePropertiesPanel(element)
+        end
+    end)
+    local releaseConn = UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if (dragging or resizing) and startPos then
+            local oldPos  = UDim2.fromOffset(startPos.X, startPos.Y)
+            local oldSize = UDim2.fromOffset(startSize.W, startSize.H)
+            local newPos  = element.Position
+            local newSize = element.Size
+            if oldPos ~= newPos or oldSize ~= newSize then
+                self:PushUndo({
+                    Do = function()
+                        element.Position = newPos
+                        element.Size     = newSize
+                        self:UpdatePropertiesPanel(element)
+                    end,
+                    Undo = function()
+                        element.Position = oldPos
+                        element.Size     = oldSize
+                        self:UpdatePropertiesPanel(element)
+                    end
+                })
             end
         end
+        dragging = false
+        resizing = false
+        resizeHandle = nil
     end)
-    element.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
-            local delta = input.Position - dragStart
-            local newPos = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-            if self.Config.SnapToGrid then
-                local x = math.floor((newPos.X.Offset + self.Config.GridSize/2) / self.Config.GridSize) * self.Config.GridSize
-                local y = math.floor((newPos.Y.Offset + self.Config.GridSize/2) / self.Config.GridSize) * self.Config.GridSize
-                element.Position = UDim2.fromOffset(x, y)
-            else
-                element.Position = newPos
-            end
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
+    table.insert(self.State.Connections, moveConn)
+    table.insert(self.State.Connections, releaseConn)
 end
 function Modules.GUICreator:SelectElement(element)
+    if self.State.SelectedElement == element then return end
     if self.State.SelectedElement then
-        local oldBox = self.State.SelectedElement:FindFirstChild("SelectionBox")
-        if oldBox then
-            oldBox.Visible = false
-        end
+        local ob = self.State.SelectedElement:FindFirstChild("SelectionBox")
+        if ob then ob.Visible = false end
     end
     self.State.SelectedElement = element
     local box = element:FindFirstChild("SelectionBox")
-    if box then
-        box.Visible = true
-    end
+    if box then box.Visible = true end
     self:UpdatePropertiesPanel(element)
-    print(string.format("✓ Selected: %s", element.Name))
+    self:RefreshHierarchy()
+end
+function Modules.GUICreator:RefreshHierarchy()
+    local panel = self.State.HierarchyPanel
+    if not panel then return end
+    for _, c in ipairs(panel:GetChildren()) do
+        if not c:IsA("UIListLayout") then c:Destroy() end
+    end
+    for _, data in ipairs(self.State.CreatedGUIs) do
+        local elem = data.Element
+        if not elem or not elem.Parent then continue end
+        local row = Instance.new("TextButton", panel)
+        row.Size = UDim2.new(1, -6, 0, 26)
+        row.BorderSizePixel = 0
+        row.Font = Enum.Font.Code
+        row.TextSize = 11
+        row.TextXAlignment = Enum.TextXAlignment.Left
+        row.AutoButtonColor = false
+        local isSelected = (self.State.SelectedElement == elem)
+        row.BackgroundColor3 = isSelected
+            and Color3.fromRGB(50, 80, 160)
+            or  Color3.fromRGB(36, 36, 50)
+        row.TextColor3 = isSelected
+            and Color3.new(1, 1, 1)
+            or  Color3.fromRGB(180, 180, 200)
+        row.Text = "  [Z:" .. tostring(elem.ZIndex) .. "]  " .. elem.Name
+        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
+        row.MouseButton1Click:Connect(function()
+            self:SelectElement(elem)
+        end)
+        local upBtn = Instance.new("TextButton", row)
+        upBtn.Size = UDim2.fromOffset(18, 18)
+        upBtn.Position = UDim2.new(1, -42, 0.5, -9)
+        upBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 100)
+        upBtn.BorderSizePixel = 0
+        upBtn.Font = Enum.Font.GothamBold
+        upBtn.Text = "▲"
+        upBtn.TextSize = 9
+        upBtn.TextColor3 = Color3.new(1, 1, 1)
+        Instance.new("UICorner", upBtn).CornerRadius = UDim.new(0, 3)
+        upBtn.MouseButton1Click:Connect(function()
+            self:ChangeZIndex(elem, 1)
+        end)
+        local downBtn = Instance.new("TextButton", row)
+        downBtn.Size = UDim2.fromOffset(18, 18)
+        downBtn.Position = UDim2.new(1, -21, 0.5, -9)
+        downBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 100)
+        downBtn.BorderSizePixel = 0
+        downBtn.Font = Enum.Font.GothamBold
+        downBtn.Text = "▼"
+        downBtn.TextSize = 9
+        downBtn.TextColor3 = Color3.new(1, 1, 1)
+        Instance.new("UICorner", downBtn).CornerRadius = UDim.new(0, 3)
+        downBtn.MouseButton1Click:Connect(function()
+            self:ChangeZIndex(elem, -1)
+        end)
+    end
+end
+function Modules.GUICreator:ChangeZIndex(element, delta)
+    local oldZ = element.ZIndex
+    local newZ = math.max(3, oldZ + delta)
+    element.ZIndex = newZ
+    self:PushUndo({
+        Do   = function() element.ZIndex = newZ ; self:RefreshHierarchy() end,
+        Undo = function() element.ZIndex = oldZ ; self:RefreshHierarchy() end
+    })
+    self:RefreshHierarchy()
+    self:UpdatePropertiesPanel(element)
+    print(string.format("✓ ZIndex %s → %d", element.Name, newZ))
 end
 function Modules.GUICreator:UpdatePropertiesPanel(element)
     local panel = self.State.PropertyPanel
-    for _, child in pairs(panel:GetChildren()) do
-        if not child:IsA("UIListLayout") then
-            child:Destroy()
-        end
+    for _, child in ipairs(panel:GetChildren()) do
+        if not child:IsA("UIListLayout") then child:Destroy() end
     end
     if not element then return end
-    self:CreateProperty(panel, "Name", element.Name, "String", function(value)
-        element.Name = value
+    self:CreateProperty(panel, "Name", element.Name, function(v)
+        local old = element.Name
+        element.Name = v
+        self:PushUndo({
+            Do   = function() element.Name = v   ; self:RefreshHierarchy() end,
+            Undo = function() element.Name = old ; self:RefreshHierarchy() end
+        })
+        self:RefreshHierarchy()
     end)
-    self:CreateProperty(panel, "Size (X)", tostring(element.Size.X.Offset), "Number", function(value)
-        element.Size = UDim2.fromOffset(tonumber(value) or 200, element.Size.Y.Offset)
+    self:CreateProperty(panel, "Size X", tostring(element.Size.X.Offset), function(v)
+        element.Size = UDim2.fromOffset(tonumber(v) or 200, element.Size.Y.Offset)
     end)
-    self:CreateProperty(panel, "Size (Y)", tostring(element.Size.Y.Offset), "Number", function(value)
-        element.Size = UDim2.fromOffset(element.Size.X.Offset, tonumber(value) or 100)
+    self:CreateProperty(panel, "Size Y", tostring(element.Size.Y.Offset), function(v)
+        element.Size = UDim2.fromOffset(element.Size.X.Offset, tonumber(v) or 100)
     end)
-    self:CreateProperty(panel, "Position (X)", tostring(element.Position.X.Offset), "Number", function(value)
-        element.Position = UDim2.fromOffset(tonumber(value) or 0, element.Position.Y.Offset)
+    self:CreateProperty(panel, "Pos X", tostring(element.Position.X.Offset), function(v)
+        element.Position = UDim2.fromOffset(tonumber(v) or 0, element.Position.Y.Offset)
     end)
-    self:CreateProperty(panel, "Position (Y)", tostring(element.Position.Y.Offset), "Number", function(value)
-        element.Position = UDim2.fromOffset(element.Position.X.Offset, tonumber(value) or 0)
+    self:CreateProperty(panel, "Pos Y", tostring(element.Position.Y.Offset), function(v)
+        element.Position = UDim2.fromOffset(element.Position.X.Offset, tonumber(v) or 0)
     end)
-    self:CreateColorProperty(panel, "BG Color", element.BackgroundColor3, function(color)
-        element.BackgroundColor3 = color
+    self:CreateProperty(panel, "ZIndex", tostring(element.ZIndex), function(v)
+        local old = element.ZIndex
+        local nz = math.max(3, tonumber(v) or 3)
+        element.ZIndex = nz
+        self:PushUndo({
+            Do   = function() element.ZIndex = nz  ; self:RefreshHierarchy() end,
+            Undo = function() element.ZIndex = old ; self:RefreshHierarchy() end
+        })
+        self:RefreshHierarchy()
     end)
-    self:CreateProperty(panel, "Transparency", tostring(element.BackgroundTransparency), "Number", function(value)
-        element.BackgroundTransparency = math.clamp(tonumber(value) or 0, 0, 1)
+    self:CreateProperty(panel, "AnchorPoint X", tostring(element.AnchorPoint.X), function(v)
+        element.AnchorPoint = Vector2.new(math.clamp(tonumber(v) or 0, 0, 1), element.AnchorPoint.Y)
+    end)
+    self:CreateProperty(panel, "AnchorPoint Y", tostring(element.AnchorPoint.Y), function(v)
+        element.AnchorPoint = Vector2.new(element.AnchorPoint.X, math.clamp(tonumber(v) or 0, 0, 1))
+    end)
+    self:CreateColorProperty(panel, "BG Color", element.BackgroundColor3, function(c)
+        element.BackgroundColor3 = c
+    end)
+    self:CreateProperty(panel, "Transparency", tostring(element.BackgroundTransparency), function(v)
+        element.BackgroundTransparency = math.clamp(tonumber(v) or 0, 0, 1)
     end)
     if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
-        self:CreateProperty(panel, "Text", element.Text, "String", function(value)
-            element.Text = value
+        self:CreateProperty(panel, "Text", element.Text, function(v) element.Text = v end)
+        self:CreateProperty(panel, "TextSize", tostring(element.TextSize), function(v)
+            element.TextSize = tonumber(v) or 14
         end)
-        self:CreateProperty(panel, "TextSize", tostring(element.TextSize), "Number", function(value)
-            element.TextSize = tonumber(value) or 14
-        end)
-        self:CreateColorProperty(panel, "Text Color", element.TextColor3, function(color)
-            element.TextColor3 = color
+        self:CreateColorProperty(panel, "Text Color", element.TextColor3, function(c)
+            element.TextColor3 = c
         end)
     end
     local deleteBtn = Instance.new("TextButton", panel)
-    deleteBtn.Size = UDim2.new(1, -10, 0, 35)
-    deleteBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    deleteBtn.Size = UDim2.new(1, -6, 0, 32)
+    deleteBtn.BackgroundColor3 = Color3.fromRGB(220, 45, 90)
     deleteBtn.BorderSizePixel = 0
     deleteBtn.Font = Enum.Font.GothamBold
-    deleteBtn.Text = "DELETE ELEMENT"
+    deleteBtn.Text = "🗑  DELETE ELEMENT"
     deleteBtn.TextColor3 = Color3.new(1, 1, 1)
-    deleteBtn.TextSize = 12
+    deleteBtn.TextSize = 11
     Instance.new("UICorner", deleteBtn).CornerRadius = UDim.new(0, 6)
-    deleteBtn.MouseButton1Click:Connect(function()
-        self:DeleteElement(element)
-    end)
+    deleteBtn.MouseButton1Click:Connect(function() self:DeleteElement(element) end)
+    local dupBtn = Instance.new("TextButton", panel)
+    dupBtn.Size = UDim2.new(1, -6, 0, 32)
+    dupBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 220)
+    dupBtn.BorderSizePixel = 0
+    dupBtn.Font = Enum.Font.GothamBold
+    dupBtn.Text = "⧉  DUPLICATE (Ctrl+D)"
+    dupBtn.TextColor3 = Color3.new(1, 1, 1)
+    dupBtn.TextSize = 11
+    Instance.new("UICorner", dupBtn).CornerRadius = UDim.new(0, 6)
+    dupBtn.MouseButton1Click:Connect(function() self:DuplicateElement(element) end)
 end
-function Modules.GUICreator:CreateProperty(panel, name, value, propType, onChange)
+function Modules.GUICreator:CreateProperty(panel, name, value, onChange)
     local container = Instance.new("Frame", panel)
-    container.Size = UDim2.new(1, -10, 0, 50)
-    container.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    container.Size = UDim2.new(1, -6, 0, 48)
+    container.BackgroundColor3 = Color3.fromRGB(36, 36, 50)
     container.BorderSizePixel = 0
-    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 5)
     local label = Instance.new("TextLabel", container)
-    label.Size = UDim2.new(1, -10, 0, 20)
-    label.Position = UDim2.fromOffset(5, 5)
+    label.Size = UDim2.new(1, -10, 0, 18)
+    label.Position = UDim2.fromOffset(6, 4)
     label.BackgroundTransparency = 1
     label.Font = Enum.Font.GothamBold
     label.Text = name
-    label.TextColor3 = Color3.fromRGB(200, 200, 200)
-    label.TextSize = 11
+    label.TextColor3 = Color3.fromRGB(180, 180, 200)
+    label.TextSize = 10
     label.TextXAlignment = Enum.TextXAlignment.Left
     local input = Instance.new("TextBox", container)
-    input.Size = UDim2.new(1, -10, 0, 20)
-    input.Position = UDim2.fromOffset(5, 25)
-    input.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    input.Size = UDim2.new(1, -12, 0, 20)
+    input.Position = UDim2.fromOffset(6, 24)
+    input.BackgroundColor3 = Color3.fromRGB(26, 26, 38)
     input.BorderSizePixel = 0
     input.Font = Enum.Font.Code
-    input.Text = value
+    input.Text = tostring(value)
     input.TextColor3 = Color3.new(1, 1, 1)
-    input.TextSize = 11
+    input.TextSize = 10
     input.ClearTextOnFocus = false
     Instance.new("UICorner", input).CornerRadius = UDim.new(0, 4)
-    input.FocusLost:Connect(function()
-        onChange(input.Text)
-    end)
+    input.FocusLost:Connect(function() onChange(input.Text) end)
 end
 function Modules.GUICreator:CreateColorProperty(panel, name, color, onChange)
     local container = Instance.new("Frame", panel)
-    container.Size = UDim2.new(1, -10, 0, 50)
-    container.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    container.Size = UDim2.new(1, -6, 0, 48)
+    container.BackgroundColor3 = Color3.fromRGB(36, 36, 50)
     container.BorderSizePixel = 0
-    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 5)
     local label = Instance.new("TextLabel", container)
-    label.Size = UDim2.new(1, -40, 0, 20)
-    label.Position = UDim2.fromOffset(5, 5)
+    label.Size = UDim2.new(1, -46, 0, 18)
+    label.Position = UDim2.fromOffset(6, 4)
     label.BackgroundTransparency = 1
     label.Font = Enum.Font.GothamBold
     label.Text = name
-    label.TextColor3 = Color3.fromRGB(200, 200, 200)
-    label.TextSize = 11
+    label.TextColor3 = Color3.fromRGB(180, 180, 200)
+    label.TextSize = 10
     label.TextXAlignment = Enum.TextXAlignment.Left
     local preview = Instance.new("Frame", container)
-    preview.Size = UDim2.fromOffset(25, 25)
-    preview.Position = UDim2.new(1, -30, 0, 5)
+    preview.Size = UDim2.fromOffset(22, 22)
+    preview.Position = UDim2.new(1, -28, 0, 4)
     preview.BackgroundColor3 = color
     preview.BorderSizePixel = 0
     Instance.new("UICorner", preview).CornerRadius = UDim.new(0, 4)
     local input = Instance.new("TextBox", container)
-    input.Size = UDim2.new(1, -10, 0, 20)
-    input.Position = UDim2.fromOffset(5, 25)
-    input.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    input.Size = UDim2.new(1, -12, 0, 20)
+    input.Position = UDim2.fromOffset(6, 24)
+    input.BackgroundColor3 = Color3.fromRGB(26, 26, 38)
     input.BorderSizePixel = 0
     input.Font = Enum.Font.Code
-    input.Text = string.format("%d, %d, %d", color.R * 255, color.G * 255, color.B * 255)
+    input.Text = string.format("%d,%d,%d", color.R*255, color.G*255, color.B*255)
     input.TextColor3 = Color3.new(1, 1, 1)
-    input.TextSize = 11
-    input.PlaceholderText = "R, G, B"
+    input.TextSize = 10
+    input.PlaceholderText = "R,G,B"
     input.ClearTextOnFocus = false
     Instance.new("UICorner", input).CornerRadius = UDim.new(0, 4)
     input.FocusLost:Connect(function()
-        local parts = string.split(input.Text, ",")
-        if #parts == 3 then
-            local r = tonumber(parts[1])
-            local g = tonumber(parts[2])
-            local b = tonumber(parts[3])
+        local p = string.split(input.Text, ",")
+        if #p == 3 then
+            local r, g, b = tonumber(p[1]), tonumber(p[2]), tonumber(p[3])
             if r and g and b then
-                local newColor = Color3.fromRGB(r, g, b)
-                preview.BackgroundColor3 = newColor
-                onChange(newColor)
+                local nc = Color3.fromRGB(r, g, b)
+                preview.BackgroundColor3 = nc
+                onChange(nc)
             end
         end
     end)
 end
 function Modules.GUICreator:DeleteElement(element)
+    local savedType, savedData
     for i, data in ipairs(self.State.CreatedGUIs) do
         if data.Element == element then
+            savedType = data.Type
+            savedData = data
             table.remove(self.State.CreatedGUIs, i)
             break
         end
     end
+    local snap = {
+        Size             = element.Size,
+        Position         = element.Position,
+        BackgroundColor3 = element.BackgroundColor3,
+        ZIndex           = element.ZIndex,
+    }
+    if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
+        snap.Text       = element.Text
+        snap.TextColor3 = element.TextColor3
+        snap.TextSize   = element.TextSize
+    end
+    if element:IsA("ImageLabel") then snap.Image = element.Image end
     element:Destroy()
     self.State.SelectedElement = nil
     self:UpdatePropertiesPanel(nil)
+    self:RefreshHierarchy()
+    self:PushUndo({
+        Undo = function()
+            self:CreateElement(savedType, snap)
+        end,
+        Do = function()
+        end
+    })
     print("✓ Deleted element")
 end
 function Modules.GUICreator:ClearCanvas()
     for _, data in ipairs(self.State.CreatedGUIs) do
-        if data.Element then
-            data.Element:Destroy()
-        end
+        if data.Element then data.Element:Destroy() end
     end
     self.State.CreatedGUIs = {}
+    self.State.UndoStack   = {}
+    self.State.RedoStack   = {}
     self.State.SelectedElement = nil
     self:UpdatePropertiesPanel(nil)
+    self:RefreshHierarchy()
     print("✓ Cleared canvas")
 end
 function Modules.GUICreator:ExportCode()
-    local code = "-- Generated GUI Code\n"
-    code = code .. "local ScreenGui = Instance.new('ScreenGui')\n"
-    code = code .. "ScreenGui.Name = '" .. self.State.CurrentProject.Name .. "'\n"
-    code = code .. "ScreenGui.ResetOnSpawn = false\n"
-    code = code .. "ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild('PlayerGui')\n\n"
+    local lines = {}
+    local function w(s) table.insert(lines, s) end
+    w("-- ════════════════════════════════════════")
+    w("-- Generated by GUI Creator (Zuka)")
+    w("-- ════════════════════════════════════════")
+    w("local Players    = game:GetService('Players')")
+    w("local LocalPlayer = Players.LocalPlayer")
+    w("")
+    w("local ScreenGui = Instance.new('ScreenGui')")
+    w("ScreenGui.Name = '" .. self.State.CurrentProject.Name .. "'")
+    w("ScreenGui.ResetOnSpawn = false")
+    w("ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling")
+    w("ScreenGui.Parent = LocalPlayer:WaitForChild('PlayerGui')")
+    w("")
     for _, data in ipairs(self.State.CreatedGUIs) do
-        local elem = data.Element
-        code = code .. string.format("local %s = Instance.new('%s')\n", elem.Name, data.Type)
-        code = code .. string.format("%s.Name = '%s'\n", elem.Name, elem.Name)
-        code = code .. string.format("%s.Size = UDim2.fromOffset(%d, %d)\n", elem.Name, elem.Size.X.Offset, elem.Size.Y.Offset)
-        code = code .. string.format("%s.Position = UDim2.fromOffset(%d, %d)\n", elem.Name, elem.Position.X.Offset, elem.Position.Y.Offset)
-        code = code .. string.format("%s.BackgroundColor3 = Color3.fromRGB(%d, %d, %d)\n", elem.Name, elem.BackgroundColor3.R * 255, elem.BackgroundColor3.G * 255, elem.BackgroundColor3.B * 255)
-        code = code .. string.format("%s.BackgroundTransparency = %f\n", elem.Name, elem.BackgroundTransparency)
-        code = code .. string.format("%s.BorderSizePixel = 0\n", elem.Name)
-        if elem:IsA("TextLabel") or elem:IsA("TextButton") or elem:IsA("TextBox") then
-            code = code .. string.format("%s.Text = '%s'\n", elem.Name, elem.Text)
-            code = code .. string.format("%s.TextColor3 = Color3.fromRGB(%d, %d, %d)\n", elem.Name, elem.TextColor3.R * 255, elem.TextColor3.G * 255, elem.TextColor3.B * 255)
-            code = code .. string.format("%s.TextSize = %d\n", elem.Name, elem.TextSize)
-            code = code .. string.format("%s.Font = Enum.Font.%s\n", elem.Name, tostring(elem.Font):gsub("Enum.Font.", ""))
+        local e = data.Element
+        if not e or not e.Parent then continue end
+        w(string.format("-- %s", e.Name))
+        w(string.format("local %s = Instance.new('%s')", e.Name, data.Type))
+        w(string.format("%s.Name                 = '%s'",   e.Name, e.Name))
+        w(string.format("%s.Size                 = UDim2.fromOffset(%d, %d)", e.Name, e.Size.X.Offset, e.Size.Y.Offset))
+        w(string.format("%s.Position             = UDim2.fromOffset(%d, %d)", e.Name, e.Position.X.Offset, e.Position.Y.Offset))
+        w(string.format("%s.AnchorPoint          = Vector2.new(%g, %g)",      e.Name, e.AnchorPoint.X, e.AnchorPoint.Y))
+        w(string.format("%s.BackgroundColor3     = Color3.fromRGB(%d, %d, %d)",
+            e.Name,
+            math.round(e.BackgroundColor3.R * 255),
+            math.round(e.BackgroundColor3.G * 255),
+            math.round(e.BackgroundColor3.B * 255)))
+        w(string.format("%s.BackgroundTransparency = %g",   e.Name, e.BackgroundTransparency))
+        w(string.format("%s.BorderSizePixel       = 0",     e.Name))
+        w(string.format("%s.ZIndex                = %d",    e.Name, e.ZIndex))
+        if e:IsA("TextLabel") or e:IsA("TextButton") or e:IsA("TextBox") then
+            local safeText = e.Text:gsub("'", "\\'")
+            w(string.format("%s.Text                 = '%s'",  e.Name, safeText))
+            w(string.format("%s.TextColor3           = Color3.fromRGB(%d, %d, %d)",
+                e.Name,
+                math.round(e.TextColor3.R * 255),
+                math.round(e.TextColor3.G * 255),
+                math.round(e.TextColor3.B * 255)))
+            w(string.format("%s.TextSize             = %d",    e.Name, e.TextSize))
+            w(string.format("%s.Font                 = Enum.Font.%s",
+                e.Name, tostring(e.Font):gsub("Enum%.Font%.", "")))
+            w(string.format("%s.TextXAlignment       = Enum.TextXAlignment.Left", e.Name))
         end
-        code = code .. string.format("%s.Parent = ScreenGui\n\n", elem.Name)
+        if e:IsA("ImageLabel") or e:IsA("ImageButton") then
+            w(string.format("%s.Image = '%s'", e.Name, e.Image))
+            w(string.format("%s.ScaleType = Enum.ScaleType.Fit", e.Name))
+        end
+        if e:IsA("ScrollingFrame") then
+            w(string.format("%s.ScrollBarThickness = %d", e.Name, e.ScrollBarThickness))
+            w(string.format("%s.CanvasSize = UDim2.fromOffset(%d, %d)",
+                e.Name, e.CanvasSize.X.Offset, e.CanvasSize.Y.Offset))
+        end
+        w(string.format("do local c = Instance.new('UICorner', %s) ; c.CornerRadius = UDim.new(0, 8) end", e.Name))
+        w(string.format("%s.Parent = ScreenGui", e.Name))
+        w("")
     end
+    local code = table.concat(lines, "\n")
     if setclipboard then
         setclipboard(code)
         print("✓ Code copied to clipboard!")
@@ -6921,31 +7282,27 @@ function Modules.GUICreator:Enable()
     self.State.IsEnabled = true
     self:_createUI()
     print("✓ GUI Creator enabled")
-    print("Tip: Hold CTRL and drag to move elements")
+    print("  Drag elements freely  |  Resize via handles  |  Ctrl+Z/Y undo/redo  |  Ctrl+D duplicate  |  Del to delete")
 end
 function Modules.GUICreator:Disable()
     if not self.State.IsEnabled then return end
     self.State.IsEnabled = false
     for _, conn in pairs(self.State.Connections) do
-        if conn then
-            conn:Disconnect()
-        end
+        if conn then conn:Disconnect() end
     end
     table.clear(self.State.Connections)
     if self.State.UI then
         self.State.UI:Destroy()
         self.State.UI = nil
     end
-    self.State.CreatedGUIs = {}
+    self.State.CreatedGUIs     = {}
+    self.State.UndoStack       = {}
+    self.State.RedoStack       = {}
     self.State.SelectedElement = nil
     print("✓ GUI Creator disabled")
 end
 function Modules.GUICreator:Toggle()
-    if self.State.IsEnabled then
-        self:Disable()
-    else
-        self:Enable()
-    end
+    if self.State.IsEnabled then self:Disable() else self:Enable() end
 end
 RegisterCommand({
     Name = "guicreator",
@@ -33927,4 +34284,4 @@ if (getgenv()).ED_AntiKick.SendNotifications then
 		Icon = "rbxassetid://6238537240",
 		Duration = 3
 	});
-end;--]]
+end;]]
