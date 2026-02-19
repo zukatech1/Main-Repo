@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import os
 import fnmatch
+import random
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QTextEdit, QVBoxLayout,
@@ -152,69 +153,157 @@ class LuaSyntaxHighlighter(QSyntaxHighlighter):
         super().__init__(parent)
         self.highlighting_rules = []
 
-        # Keywords (Blue)
+        # --- Keywords (Blue, Bold) ---
         keyword_format = QTextCharFormat()
-        keyword_format.setForeground(QColor("#0000FF"))
-        keyword_format.setFontWeight(QFont.Weight.Bold)
+        keyword_format.setForeground(QColor("#0000CC"))
+        keyword_format.setFontWeight(700)  # Use raw int instead of QFont.Weight.Bold
+
         keywords = [
-            "\\band\\b", "\\bbreak\\b", "\\bdo\\b", "\\belse\\b", "\\belseif\\b",
-            "\\bend\\b", "\\bfalse\\b", "\\bfor\\b", "\\bfunction\\b", "\\bif\\b",
-            "\\bin\\b", "\\blocal\\b", "\\bnil\\b", "\\bnot\\b", "\\bor\\b",
-            "\\brepeat\\b", "\\breturn\\b", "\\bthen\\b", "\\btrue\\b", "\\buntil\\b", "\\bwhile\\b"
+            "and", "break", "do", "else", "elseif", "end", "false",
+            "for", "function", "if", "in", "local", "nil", "not",
+            "or", "repeat", "return", "then", "true", "until", "while",
         ]
-        self.highlighting_rules.extend([(re.compile(pattern), keyword_format) for pattern in keywords])
+        for kw in keywords:
+            self.highlighting_rules.append(
+                (re.compile(r'\b' + kw + r'\b'), keyword_format)
+            )
 
-        # Built-in functions (Purple)
+        # --- Built-ins (Purple) ---
         builtin_format = QTextCharFormat()
-        builtin_format.setForeground(QColor("#8000FF"))
+        builtin_format.setForeground(QColor("#7C00D4"))
+
         builtins = [
-            "\\bprint\\b", "\\btostring\\b", "\\btonumber\\b", "\\btype\\b",
-            "\\bpairs\\b", "\\bipairs\\b", "\\btable\\b", "\\bstring\\b",
-            "\\bmath\\b", "\\bos\\b", "\\bio\\b", "\\brequire\\b"
+            "print", "tostring", "tonumber", "type", "pairs", "ipairs",
+            "unpack", "select", "next", "error", "assert", "pcall",
+            "xpcall", "rawget", "rawset", "rawequal", "setmetatable",
+            "getmetatable", "require", "loadstring", "load", "dofile",
+            "collectgarbage",
+            # Table
+            "table", "string", "math", "os", "io", "coroutine",
+            # Roblox globals
+            "game", "workspace", "script", "task", "warn", "tick",
+            "wait", "spawn", "delay",
         ]
-        self.highlighting_rules.extend([(re.compile(pattern), builtin_format) for pattern in builtins])
+        for b in builtins:
+            self.highlighting_rules.append(
+                (re.compile(r'\b' + b + r'\b'), builtin_format)
+            )
 
-        # Strings (Brown/Dark orange)
-        string_format = QTextCharFormat()
-        string_format.setForeground(QColor("#A31515"))
-        self.highlighting_rules.append((re.compile("\".*?\""), string_format))
-        self.highlighting_rules.append((re.compile("'.*?'"), string_format))
+        # --- Roblox services/objects (Teal) ---
+        roblox_format = QTextCharFormat()
+        roblox_format.setForeground(QColor("#007070"))
 
-        # Numbers (Dark cyan)
+        roblox_names = [
+            "Instance", "Vector3", "Vector2", "CFrame", "Color3",
+            "UDim2", "UDim", "TweenInfo", "Enum", "Drawing",
+            "Players", "RunService", "UserInputService", "TweenService",
+            "ReplicatedStorage", "ServerStorage", "Workspace",
+            "HttpService", "CoreGui", "Lighting",
+        ]
+        for r in roblox_names:
+            self.highlighting_rules.append(
+                (re.compile(r'\b' + r + r'\b'), roblox_format)
+            )
+
+        # --- Numbers (Dark Green) ---
         number_format = QTextCharFormat()
         number_format.setForeground(QColor("#098658"))
-        self.highlighting_rules.append((re.compile("\\b[0-9]+\\.?[0-9]*\\b"), number_format))
+        self.highlighting_rules.append(
+            (re.compile(r'\b\d+(\.\d+)?\b'), number_format)
+        )
 
-        # Comments (Green)
-        comment_format = QTextCharFormat()
-        comment_format.setForeground(QColor("#008000"))
-        self.highlighting_rules.append((re.compile("--[^\\[].*"), comment_format))
+        # --- Double-quoted strings (Dark Red) ---
+        self.string_format = QTextCharFormat()
+        self.string_format.setForeground(QColor("#A31515"))
 
+        # --- Single-quoted strings (Dark Red) ---
+        # (handled in highlightBlock alongside double-quoted)
+
+        # --- Single-line comments (Green, Italic) ---
+        self.comment_format = QTextCharFormat()
+        self.comment_format.setForeground(QColor("#228B22"))
+        self.comment_format.setFontItalic(True)
+
+        # Single-line comment rule (applied after strings in highlightBlock)
+        self.single_comment_re = re.compile(r'--(?!\[\[).*')
+
+        # Multi-line comment delimiters
+        self.ml_start_re = re.compile(r'--\[\[')
+        self.ml_end_str = ']]'
+
+    # ------------------------------------------------------------------
     def highlightBlock(self, text):
-        for pattern, format in self.highlighting_rules:
-            for match in pattern.finditer(text):
-                start, end = match.span()
-                self.setFormat(start, end - start, format)
+        # ---- 1. Apply simple regex rules (keywords, builtins, numbers) ----
+        for pattern, fmt in self.highlighting_rules:
+            for m in pattern.finditer(text):
+                self.setFormat(m.start(), m.end() - m.start(), fmt)
 
-        # Multi-line comment highlighting
+        # ---- 2. Handle strings manually so we don't colour inside comments ----
+        #         and so comments inside strings are ignored.
+        self._highlight_strings(text)
+
+        # ---- 3. Multi-line comment handling ----
         self.setCurrentBlockState(0)
-        comment_format = QTextCharFormat()
-        comment_format.setForeground(QColor("#008000"))
-        
-        start_index = 0
-        if self.previousBlockState() != 1:
-            start_index = text.find('--[[')
-        
-        while start_index >= 0:
-            end_index = text.find(']]', start_index)
-            if end_index == -1:
+
+        if self.previousBlockState() == 1:
+            # We're continuing a multi-line comment from the previous block
+            end = text.find(self.ml_end_str)
+            if end == -1:
+                # Entire line is inside the comment
                 self.setCurrentBlockState(1)
-                comment_len = len(text) - start_index
+                self.setFormat(0, len(text), self.comment_format)
+                return
             else:
-                comment_len = end_index - start_index + 2
-            
-            self.setFormat(start_index, comment_len, comment_format)
-            start_index = text.find('--[[', start_index + comment_len)
+                # Comment ends on this line
+                self.setFormat(0, end + 2, self.comment_format)
+                # Continue scanning for a new --[[ after the ]]
+                scan_from = end + 2
+        else:
+            scan_from = 0
+
+        # Search for --[[ in the current block (outside strings)
+        while True:
+            m = self.ml_start_re.search(text, scan_from)
+            if not m:
+                break
+            start = m.start()
+            end_idx = text.find(self.ml_end_str, start + 4)
+            if end_idx == -1:
+                # Opens but doesn't close — mark rest of block
+                self.setCurrentBlockState(1)
+                self.setFormat(start, len(text) - start, self.comment_format)
+                return
+            else:
+                self.setFormat(start, end_idx + 2 - start, self.comment_format)
+                scan_from = end_idx + 2
+
+        # ---- 4. Single-line comments (applied last so they override everything) ----
+        for m in self.single_comment_re.finditer(text):
+            self.setFormat(m.start(), len(text) - m.start(), self.comment_format)
+
+    # ------------------------------------------------------------------
+    def _highlight_strings(self, text):
+        """Colour string literals, respecting escape sequences."""
+        i = 0
+        n = len(text)
+        while i < n:
+            ch = text[i]
+            if ch in ('"', "'"):
+                quote = ch
+                j = i + 1
+                while j < n:
+                    if text[j] == '\\':
+                        j += 2          # skip escaped char
+                        continue
+                    if text[j] == quote:
+                        j += 1
+                        break
+                    j += 1
+                self.setFormat(i, j - i, self.string_format)
+                i = j
+            else:
+                i += 1
+
 
 
 # --- Smart Comment Remover ---
@@ -865,8 +954,7 @@ _check()
         return anti_debug_code + '\n' + code
     
     def wrap_in_function(self, code):
-        """Wrap code in executor-ready format matching WeAreDev style."""
-        return f'return(function(...)\\n{code}\\nend)(...)'
+        return f'return(function(...)\n{code}\nend)(...)'
     
     
     def minify_code(self, code):
@@ -1013,26 +1101,7 @@ class LuaProxifyLocals:
 
 # --- Vmify (Bytecode-style VM Encoding) ---
 class LuaVmify:
-    """
-    Inspired by Prometheus's Vmify step.
-    Since we're text-based (no real Lua AST/compiler), we implement the
-    practical equivalent: encode the entire script payload as a compressed
-    byte-string and emit a tiny Luau-compatible loader/VM that decodes and
-    executes it at runtime via loadstring / load.
-
-    Pipeline:
-      1. XOR-encrypt the source bytes with a random key stream.
-      2. Encode the ciphertext as decimal byte values embedded in a Lua table.
-      3. Emit a self-contained Lua 'VM' preamble that:
-           a. Reconstructs the key stream using the same seed.
-           b. XOR-decrypts back to the original source.
-           c. Calls loadstring / load on the recovered source.
-    """
-
     def vmify(self, code: str) -> str:
-        import random
-
-        # --- 1. Build a random XOR key stream ---
         seed = random.randint(1, 0x7FFFFFFF)
         key_len = random.randint(16, 64)
         rng_state = seed
@@ -1041,25 +1110,14 @@ class LuaVmify:
             rng_state = (rng_state * 48271) % 0x7FFFFFFF
             key_stream.append((rng_state % 255) + 1)
 
-        # --- 2. XOR-encrypt the source ---
         src_bytes = code.encode('utf-8')
         cipher = []
         for i, b in enumerate(src_bytes):
             cipher.append(b ^ key_stream[i % key_len])
 
-        # --- 3. Build the Lua byte-table literal ---
-        # Chunk into rows of 20 for readability (it'll be minified anyway)
-        chunk_size = 20
-        rows = []
-        for i in range(0, len(cipher), chunk_size):
-            rows.append(','.join(str(x) for x in cipher[i:i + chunk_size]))
-        byte_table = '{' + ','.join(rows) + '}'
+        escaped = ''.join('\\' + str(b).zfill(3) for b in cipher)
 
-        # --- 4. Emit the VM loader ---
-        # We use variable names that look like VM registers to add authenticity.
-        # The loader reconstructs the key stream from the same seed, XORs back,
-        # assembles the string, then executes it.
-        loader = f'''(function()
+        loader = f'''return(function(...)
 local _R={{{seed},{key_len}}}
 local _K={{}}
 local _rng=_R[1]
@@ -1067,17 +1125,17 @@ for _i=1,_R[2]do
 _rng=(_rng*48271)%0x7FFFFFFF
 _K[_i]=(_rng%255)+1
 end
-local _B={byte_table}
+local _B="{escaped}"
 local _S={{}}
 for _i=1,#_B do
-_S[_i]=string.char(_B[_i]~_K[((_i-1)%_R[2])+1])
+_S[_i]=string.char(string.byte(_B,_i)~_K[((_i-1)%_R[2])+1])
 end
 local _src=table.concat(_S)
 local _fn,_err=(loadstring or load)(_src)
-if not _fn then error("[VM] Decode error: "..tostring(_err))end
+if not _fn then error("[VM] "..tostring(_err))end
 return _fn()
-end)()'''
-        return loader
+end)(...)'''
+
         return loader
 
 
@@ -1368,8 +1426,7 @@ class LuaIDE(QMainWindow):
             }
         """)
         editor.setTabStopDistance(editor.fontMetrics().horizontalAdvance(' ') * 4)
-        highlighter = LuaSyntaxHighlighter(editor.document())
-        
+        editor.highlighter = LuaSyntaxHighlighter(editor.document())        
         tab_layout.addWidget(editor)
         
         # Add tab
