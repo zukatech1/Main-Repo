@@ -637,7 +637,7 @@ class LuaObfuscator:
         result = code
         
         # Add watermark at the top
-        watermark = """--[[Obfuscated with LuaBox v3 by Zuka]]"""
+        watermark = "--[[ obfuscated with luabox ]]"
         result = watermark + result
         
         # Step 1: Rename variables
@@ -685,20 +685,54 @@ class LuaObfuscator:
         
         return result
         
-        # Add footer watermark if not vmified
-        if not self.options.get('vmify'):
-            footer = "\n--[[Obfuscated with LuaBox v2.7 by Zuka]]"
-            result = result + footer
+        
     
-    def generate_var_name(self):
-        """Generate a random variable name."""
-        # Use confusing character combinations
+    # Name generation strategies
+    def generate_var_name_mangled(self, var_id):
+        """Mangled name generator from Prometheus."""
+        digits = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'
+        start_digits = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        
+        name = ''
+        d = var_id % len(start_digits)
+        var_id = (var_id - d) // len(start_digits)
+        name = name + start_digits[d]
+        
+        while var_id > 0:
+            d = var_id % len(digits)
+            var_id = (var_id - d) // len(digits)
+            name = name + digits[d]
+        
+        return name
+    
+    def generate_var_name_number(self, var_id):
+        """Simple hex number generator from Prometheus."""
+        return f"_{hex(var_id)[2:]}"
+    
+    def generate_var_name_confusing(self):
+        """Original confusing generator (Il1O0_ characters)."""
         chars = 'Il1O0_'
         name = ''
         for _ in range(8):
             name += chars[self.var_counter % len(chars)]
             self.var_counter += 1
         return '_' + name
+    
+    def generate_var_name(self):
+        """Main var name generator - uses mangled by default."""
+        strategy = self.options.get('var_name_strategy', 'mangled')
+        
+        if strategy == 'mangled':
+            name = self.generate_var_name_mangled(self.var_counter)
+        elif strategy == 'number':
+            name = self.generate_var_name_number(self.var_counter)
+        elif strategy == 'confusing':
+            name = self.generate_var_name_confusing()
+        else:
+            name = self.generate_var_name_mangled(self.var_counter)
+        
+        self.var_counter += 1
+        return name
     
     def rename_variables(self, code):
         """Rename local variables to random names."""
@@ -727,7 +761,23 @@ class LuaObfuscator:
         return result
     
     def encode_strings(self, code):
-        """Encode string literals."""
+        """Encode string literals using Lua escape sequences."""
+        def replace_string(match):
+            string_content = match.group(1)
+            
+            # Convert each character to Lua decimal escape sequence
+            escaped = ''
+            for char in string_content:
+                byte_val = ord(char)
+                escaped += '\\' + str(byte_val).zfill(3)
+            
+            return '"' + escaped + '"'
+        
+        # Replace strings
+        code = re.sub(r'"([^"]*)"', replace_string, code)
+        code = re.sub(r"'([^']*)'", replace_string, code)
+        
+        return code
         def replace_string(match):
             string_content = match.group(1)
             # Convert to byte array
@@ -815,8 +865,9 @@ _check()
         return anti_debug_code + '\n' + code
     
     def wrap_in_function(self, code):
-        """Wrap code in a self-executing anonymous function."""
-        return f'(function()\n{code}\nend)()'
+        """Wrap code in executor-ready format matching WeAreDev style."""
+        return f'return(function(...)\\n{code}\\nend)(...)'
+    
     
     def minify_code(self, code):
         """Remove whitespace and minimize code size."""
@@ -1034,7 +1085,7 @@ end)()'''
 class LuaIDE(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LuaBox v3")
+        self.setWindowTitle("LuaBox v2.7 	(̿▀̿ ̿Ĺ̯̿̿▀̿ ̿)̄")
         self.setGeometry(100, 100, 1400, 850)
         
         self.current_file = None
