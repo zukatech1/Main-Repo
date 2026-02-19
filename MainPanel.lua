@@ -33340,6 +33340,431 @@ RegisterCommand({Name = "reachfix", Aliases = {"fix"}, Description = "Makes your
 RegisterCommand({Name = "worldofstands", Aliases = {"wos"}, Description = "For https://www.roblox.com/games/6728870912/World-of-Stands - Removes dash cooldown"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/WOS.lua", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "zfucker", Aliases = {}, Description = "zfucker for the zl series."}, function() loadstringCmd("https://raw.githubusercontent.com/osukfcdays/zlfucker/refs/heads/main/main.luau", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "antiesp", Aliases = {}, Description = "Testing"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/espwip.lua", "Loading, Wait a sec.") end)
+Modules.AntiESP = {
+    State = {
+        IsEnabled = false,
+        IsActive = false,
+        Character = nil,
+        HumanoidRootPart = nil,
+        Humanoid = nil,
+        OriginalCFrame = nil,
+        FakeCharacter = nil,
+        Connections = {},
+        UI = nil
+    },
+    Config = {
+        VoidDepth = -50000,
+        UpdateRate = 0.03,
+        EnableDummyDecoy = true,
+        DecoyOffset = Vector3.new(50, 0, 50),
+        AntiRaycast = true,
+        SuppressNametags = true
+    }
+}
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+function Modules.AntiESP:_createUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AntiESP_Zuka"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    self.State.UI = screenGui
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.fromOffset(350, 450)
+    mainFrame.Position = UDim2.new(1, -360, 0.5, -225)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
+    local stroke = Instance.new("UIStroke", mainFrame)
+    stroke.Color = Color3.fromRGB(255, 0, 150)
+    stroke.Thickness = 2
+    local glowTween = TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+        Thickness = 3
+    })
+    glowTween:Play()
+    local titleBar = Instance.new("Frame", mainFrame)
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 40)
+    titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    titleBar.BorderSizePixel = 0
+    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
+    local title = Instance.new("TextLabel", titleBar)
+    title.Size = UDim2.new(1, -90, 1, 0)
+    title.Position = UDim2.fromOffset(15, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.Code
+    title.Text = "▸ ANTI-ESP/AIMBOT"
+    title.TextColor3 = Color3.fromRGB(255, 0, 150)
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    local statusIndicator = Instance.new("TextLabel", titleBar)
+    statusIndicator.Name = "StatusIndicator"
+    statusIndicator.Size = UDim2.fromOffset(80, 20)
+    statusIndicator.Position = UDim2.new(1, -150, 0.5, -10)
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    statusIndicator.BorderSizePixel = 0
+    statusIndicator.Font = Enum.Font.GothamBold
+    statusIndicator.Text = "INACTIVE"
+    statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statusIndicator.TextSize = 10
+    Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
+    local closeBtn = Instance.new("TextButton", titleBar)
+    closeBtn.Size = UDim2.fromOffset(30, 30)
+    closeBtn.Position = UDim2.new(1, -35, 0, 5)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 20
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Disable()
+    end)
+    self:MakeDraggable(titleBar, mainFrame)
+    local content = Instance.new("Frame", mainFrame)
+    content.Name = "Content"
+    content.Size = UDim2.new(1, -20, 1, -50)
+    content.Position = UDim2.fromOffset(10, 45)
+    content.BackgroundTransparency = 1
+    local statusLabel = Instance.new("TextLabel", content)
+    statusLabel.Name = "StatusLabel"
+    statusLabel.Size = UDim2.new(1, 0, 0, 80)
+    statusLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    statusLabel.BorderSizePixel = 0
+    statusLabel.Font = Enum.Font.Code
+    statusLabel.Text = "Status: Inactive\nServer Position: Normal\nDecoy: Off"
+    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statusLabel.TextSize = 11
+    statusLabel.TextWrapped = true
+    statusLabel.TextYAlignment = Enum.TextYAlignment.Top
+    Instance.new("UICorner", statusLabel).CornerRadius = UDim.new(0, 6)
+    local padding = Instance.new("UIPadding", statusLabel)
+    padding.PaddingLeft = UDim.new(0, 10)
+    padding.PaddingTop = UDim.new(0, 10)
+    local activateBtn = Instance.new("TextButton", content)
+    activateBtn.Name = "ActivateButton"
+    activateBtn.Size = UDim2.new(1, 0, 0, 50)
+    activateBtn.Position = UDim2.fromOffset(0, 90)
+    activateBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+    activateBtn.BorderSizePixel = 0
+    activateBtn.Font = Enum.Font.GothamBold
+    activateBtn.Text = "ACTIVATE ANTI-ESP"
+    activateBtn.TextColor3 = Color3.new(1, 1, 1)
+    activateBtn.TextSize = 14
+    Instance.new("UICorner", activateBtn).CornerRadius = UDim.new(0, 8)
+    activateBtn.MouseButton1Click:Connect(function()
+        self:ToggleActive()
+    end)
+    local settingsLabel = Instance.new("TextLabel", content)
+    settingsLabel.Size = UDim2.new(1, 0, 0, 20)
+    settingsLabel.Position = UDim2.fromOffset(0, 150)
+    settingsLabel.BackgroundTransparency = 1
+    settingsLabel.Font = Enum.Font.GothamBold
+    settingsLabel.Text = "Settings:"
+    settingsLabel.TextColor3 = Color3.new(1, 1, 1)
+    settingsLabel.TextSize = 13
+    settingsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local decoyToggle = Instance.new("TextButton", content)
+    decoyToggle.Name = "DecoyToggle"
+    decoyToggle.Size = UDim2.new(1, 0, 0, 35)
+    decoyToggle.Position = UDim2.fromOffset(0, 180)
+    decoyToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    decoyToggle.BorderSizePixel = 0
+    decoyToggle.Font = Enum.Font.GothamBold
+    decoyToggle.Text = "DUMMY DECOY: ON"
+    decoyToggle.TextColor3 = Color3.new(1, 1, 1)
+    decoyToggle.TextSize = 12
+    Instance.new("UICorner", decoyToggle).CornerRadius = UDim.new(0, 6)
+    decoyToggle.MouseButton1Click:Connect(function()
+        self.Config.EnableDummyDecoy = not self.Config.EnableDummyDecoy
+        decoyToggle.Text = "DUMMY DECOY: " .. (self.Config.EnableDummyDecoy and "ON" or "OFF")
+        decoyToggle.BackgroundColor3 = self.Config.EnableDummyDecoy and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(50, 50, 65)
+        self:UpdateDisplay()
+    end)
+    local raycastToggle = Instance.new("TextButton", content)
+    raycastToggle.Name = "RaycastToggle"
+    raycastToggle.Size = UDim2.new(1, 0, 0, 35)
+    raycastToggle.Position = UDim2.fromOffset(0, 225)
+    raycastToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    raycastToggle.BorderSizePixel = 0
+    raycastToggle.Font = Enum.Font.GothamBold
+    raycastToggle.Text = "ANTI-RAYCAST: ON"
+    raycastToggle.TextColor3 = Color3.new(1, 1, 1)
+    raycastToggle.TextSize = 12
+    Instance.new("UICorner", raycastToggle).CornerRadius = UDim.new(0, 6)
+    raycastToggle.MouseButton1Click:Connect(function()
+        self.Config.AntiRaycast = not self.Config.AntiRaycast
+        raycastToggle.Text = "ANTI-RAYCAST: " .. (self.Config.AntiRaycast and "ON" or "OFF")
+        raycastToggle.BackgroundColor3 = self.Config.AntiRaycast and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(50, 50, 65)
+    end)
+    local nametagToggle = Instance.new("TextButton", content)
+    nametagToggle.Name = "NametagToggle"
+    nametagToggle.Size = UDim2.new(1, 0, 0, 35)
+    nametagToggle.Position = UDim2.fromOffset(0, 270)
+    nametagToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    nametagToggle.BorderSizePixel = 0
+    nametagToggle.Font = Enum.Font.GothamBold
+    nametagToggle.Text = "HIDE NAMETAGS: ON"
+    nametagToggle.TextColor3 = Color3.new(1, 1, 1)
+    nametagToggle.TextSize = 12
+    Instance.new("UICorner", nametagToggle).CornerRadius = UDim.new(0, 6)
+    nametagToggle.MouseButton1Click:Connect(function()
+        self.Config.SuppressNametags = not self.Config.SuppressNametags
+        nametagToggle.Text = "HIDE NAMETAGS: " .. (self.Config.SuppressNametags and "ON" or "OFF")
+        nametagToggle.BackgroundColor3 = self.Config.SuppressNametags and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(50, 50, 65)
+        if self.State.IsActive then
+            self:SuppressNametags()
+        end
+    end)
+    local infoLabel = Instance.new("TextLabel", content)
+    infoLabel.Size = UDim2.new(1, 0, 0, 80)
+    infoLabel.Position = UDim2.fromOffset(0, 315)
+    infoLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    infoLabel.BorderSizePixel = 0
+    infoLabel.Font = Enum.Font.Code
+    infoLabel.Text = "How it works:\n• Server sees you in the void\n• ESP shows wrong position\n• Aimbot can't hit you"
+    infoLabel.TextColor3 = Color3.fromRGB(150, 150, 200)
+    infoLabel.TextSize = 10
+    infoLabel.TextWrapped = true
+    infoLabel.TextYAlignment = Enum.TextYAlignment.Top
+    Instance.new("UICorner", infoLabel).CornerRadius = UDim.new(0, 6)
+    local infoPadding = Instance.new("UIPadding", infoLabel)
+    infoPadding.PaddingLeft = UDim.new(0, 10)
+    infoPadding.PaddingTop = UDim.new(0, 10)
+    screenGui.Parent = CoreGui
+    return statusLabel, statusIndicator, activateBtn
+end
+function Modules.AntiESP:MakeDraggable(handle, object)
+    local dragging = false
+    local dragStart, startPos
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = object.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    handle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            if dragging then
+                local delta = input.Position - dragStart
+                object.Position = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + delta.X,
+                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                )
+            end
+        end
+    end)
+end
+function Modules.AntiESP:SuppressNametags()
+    if not self.Config.SuppressNametags or not self.State.Character then return end
+    for _, descendant in pairs(self.State.Character:GetDescendants()) do
+        if descendant:IsA("BillboardGui") or descendant:IsA("SurfaceGui") then
+            descendant.Enabled = false
+        end
+    end
+    if self.State.Character:FindFirstChild("Head") then
+        local head = self.State.Character.Head
+        for _, child in pairs(head:GetChildren()) do
+            if child:IsA("BillboardGui") or child.Name:lower():find("nametag") or child.Name:lower():find("tag") then
+                child.Enabled = false
+            end
+        end
+    end
+end
+function Modules.AntiESP:CreateDummyDecoy()
+    if not self.Config.EnableDummyDecoy or not self.State.Character then return end
+    if self.State.FakeCharacter then
+        self.State.FakeCharacter:Destroy()
+    end
+    local fakeChar = self.State.Character:Clone()
+    for _, part in pairs(fakeChar:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+            part.Anchored = true
+            part.Transparency = 0
+        end
+    end
+    for _, obj in pairs(fakeChar:GetDescendants()) do
+        if obj:IsA("Script") or obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
+            obj:Destroy()
+        end
+    end
+    if fakeChar:FindFirstChild("Humanoid") then
+        fakeChar.Humanoid:Destroy()
+    end
+    if self.State.HumanoidRootPart then
+        fakeChar:SetPrimaryPartCFrame(self.State.HumanoidRootPart.CFrame + self.Config.DecoyOffset)
+    end
+    fakeChar.Parent = Workspace
+    fakeChar.Name = LocalPlayer.Name .. "_Decoy"
+    self.State.FakeCharacter = fakeChar
+    print("✓ Dummy decoy created")
+end
+function Modules.AntiESP:UpdateDecoyPosition()
+    if not self.State.FakeCharacter or not self.State.FakeCharacter.Parent or not self.State.HumanoidRootPart then return end
+    local fakePosition = self.State.HumanoidRootPart.CFrame + self.Config.DecoyOffset
+    self.State.FakeCharacter:SetPrimaryPartCFrame(fakePosition)
+end
+function Modules.AntiESP:VoidTeleport()
+    if not self.State.HumanoidRootPart or not self.State.HumanoidRootPart.Parent then return end
+    local currentPos = self.State.HumanoidRootPart.Position
+    local targetY = self.Config.AntiRaycast and -100 or self.Config.VoidDepth
+    local voidPosition = Vector3.new(currentPos.X, targetY, currentPos.Z)
+    self.State.HumanoidRootPart.CFrame = CFrame.new(voidPosition)
+end
+function Modules.AntiESP:MainLoop()
+    while self.State.IsActive and self.State.Character and self.State.Character.Parent do
+        task.wait(self.Config.UpdateRate)
+        self:VoidTeleport()
+        if self.Config.EnableDummyDecoy then
+            self:UpdateDecoyPosition()
+        end
+        if self.Config.SuppressNametags then
+            self:SuppressNametags()
+        end
+    end
+end
+function Modules.AntiESP:ToggleActive()
+    if not self.State.Character or not self.State.HumanoidRootPart then
+        print("✗ Character not ready")
+        return
+    end
+    self.State.IsActive = not self.State.IsActive
+    if self.State.IsActive then
+        self.State.OriginalCFrame = self.State.HumanoidRootPart.CFrame
+        self:SuppressNametags()
+        if self.Config.EnableDummyDecoy then
+            self:CreateDummyDecoy()
+        end
+        task.spawn(function()
+            self:MainLoop()
+        end)
+        print("✓ Anti-ESP ACTIVATED")
+    else
+        if self.State.FakeCharacter then
+            self.State.FakeCharacter:Destroy()
+            self.State.FakeCharacter = nil
+        end
+        if self.State.OriginalCFrame then
+            self.State.HumanoidRootPart.CFrame = self.State.OriginalCFrame
+        end
+        print("✓ Anti-ESP DEACTIVATED")
+    end
+    self:UpdateDisplay()
+end
+function Modules.AntiESP:UpdateDisplay()
+    if not self.State.UI then return end
+    local statusLabel = self.State.UI.MainFrame.Content.StatusLabel
+    local statusIndicator = self.State.UI.MainFrame.TitleBar.StatusIndicator
+    local activateBtn = self.State.UI.MainFrame.Content.ActivateButton
+    if self.State.IsActive then
+        local depth = self.Config.AntiRaycast and "-100" or self.Config.VoidDepth
+        statusLabel.Text = string.format(
+            "Status: ACTIVE\nServer Position: Y=%s\nDecoy: %s\nNametags: %s",
+            depth,
+            self.Config.EnableDummyDecoy and "Active" or "Off",
+            self.Config.SuppressNametags and "Hidden" or "Visible"
+        )
+        statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+        statusIndicator.Text = "ACTIVE"
+        statusIndicator.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+        statusIndicator.TextColor3 = Color3.new(1, 1, 1)
+        activateBtn.Text = "DEACTIVATE"
+        activateBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 50)
+    else
+        statusLabel.Text = "Status: Inactive\nServer Position: Normal\nDecoy: Off"
+        statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        statusIndicator.Text = "INACTIVE"
+        statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
+        activateBtn.Text = "ACTIVATE ANTI-ESP"
+        activateBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+    end
+end
+function Modules.AntiESP:OnCharacterAdded(character)
+    self.State.Character = character
+    self.State.HumanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    self.State.Humanoid = character:WaitForChild("Humanoid")
+    if self.State.FakeCharacter then
+        self.State.FakeCharacter:Destroy()
+        self.State.FakeCharacter = nil
+    end
+    self.State.IsActive = false
+    self:UpdateDisplay()
+    self.State.Humanoid.Died:Connect(function()
+        self.State.IsActive = false
+        if self.State.FakeCharacter then
+            self.State.FakeCharacter:Destroy()
+            self.State.FakeCharacter = nil
+        end
+        self:UpdateDisplay()
+    end)
+end
+function Modules.AntiESP:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    if LocalPlayer.Character then
+        self:OnCharacterAdded(LocalPlayer.Character)
+    end
+    self.State.Connections.CharacterAdded = LocalPlayer.CharacterAdded:Connect(function(character)
+        task.wait(1)
+        self:OnCharacterAdded(character)
+    end)
+    self:_createUI()
+    self:UpdateDisplay()
+    print("✓ Anti-ESP/Aimbot GUI enabled")
+end
+function Modules.AntiESP:Disable()
+    if not self.State.IsEnabled then return end
+    if self.State.IsActive then
+        self.State.IsActive = false
+        if self.State.FakeCharacter then
+            self.State.FakeCharacter:Destroy()
+            self.State.FakeCharacter = nil
+        end
+        if self.State.OriginalCFrame and self.State.HumanoidRootPart then
+            self.State.HumanoidRootPart.CFrame = self.State.OriginalCFrame
+        end
+    end
+    self.State.IsEnabled = false
+    for _, conn in pairs(self.State.Connections) do
+        if conn then
+            conn:Disconnect()
+        end
+    end
+    table.clear(self.State.Connections)
+    if self.State.UI then
+        self.State.UI:Destroy()
+        self.State.UI = nil
+    end
+    print("✓ Anti-ESP/Aimbot disabled")
+end
+function Modules.AntiESP:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+RegisterCommand({
+    Name = "antiesp2",
+    Aliases = {"voidspoof"},
+    Description = "Anti-ESP/Aimbot system. Sends server position to void while keeping client normal."
+}, function()
+    Modules.AntiESP:Toggle()
+end)
 Modules.IYPluginManager = {
     State = {
         IsEnabled = false,
