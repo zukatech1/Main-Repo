@@ -712,272 +712,226 @@ class ObfuscatorDialog(QDialog):
         }
 
 
-# --- Lua Obfuscator ---
 class LuaObfuscator:
-    """Obfuscate Lua code with various techniques."""
-    
     def __init__(self, options):
         self.options = options
         self.var_map = {}
         self.var_counter = 0
-        
+
     def obfuscate(self, code):
-        """Main obfuscation function."""
         result = code
-        
-        # Add watermark at the top
-        watermark = "--[[ obfuscated with luabox ]]"
-        result = watermark + result
-        
+
         # Step 1: Rename variables
-        
-        
-        # Step 1: Rename variables (before other transformations)
         if self.options['rename_vars']:
             result = self.rename_variables(result)
-        
-        # Step 2: ProxifyLocals — wrap locals in metatable proxies
+
+        # Step 2: ProxifyLocals
         if self.options.get('proxify_locals'):
             result = LuaProxifyLocals().proxify(result)
 
         # Step 3: Encode strings
         if self.options['encode_strings']:
             result = self.encode_strings(result)
-        
+
         # Step 4: Encode numbers
         if self.options['encode_numbers']:
             result = self.encode_numbers(result)
-        
-        # Step 5: Control flow obfuscation
+
+        # Step 5: Control flow
         if self.options['control_flow']:
             result = self.add_control_flow(result)
-        
-        # Step 6: Add junk code
+
+        # Step 6: Junk code
         if self.options['add_junk']:
             result = self.add_junk_code(result)
-        
+
         # Step 7: Anti-debug
         if self.options['anti_debug']:
             result = self.add_anti_debug(result)
-        
-        # Step 8: Wrap in function (skipped if vmify is on — vmify wraps it)
+
+        # Step 8: Wrap in function (skipped if vmify)
         if self.options['wrap_function'] and not self.options.get('vmify'):
             result = self.wrap_in_function(result)
-        
-        # Step 9: Minify (before vmify so payload is smaller)
+
+        # Step 9: Minify
         if self.options['minify']:
             result = self.minify_code(result)
 
-        # Step 10: Vmify — XOR-encode entire payload in a custom VM loader (applied last)
+        # Step 10: Vmify last
         if self.options.get('vmify'):
             result = LuaVmify().vmify(result)
-        
+
         return result
-        
-        
-    
-    # Name generation strategies
+
     def generate_var_name_mangled(self, var_id):
-        """Mangled name generator from Prometheus."""
         digits = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'
         start_digits = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        
         name = ''
         d = var_id % len(start_digits)
         var_id = (var_id - d) // len(start_digits)
         name = name + start_digits[d]
-        
         while var_id > 0:
             d = var_id % len(digits)
             var_id = (var_id - d) // len(digits)
             name = name + digits[d]
-        
         return name
-    
-    def generate_var_name_number(self, var_id):
-        """Simple hex number generator from Prometheus."""
-        return f"_{hex(var_id)[2:]}"
-    
-    def generate_var_name_confusing(self):
-        """Original confusing generator (Il1O0_ characters)."""
-        chars = 'Il1O0_'
-        name = ''
-        for _ in range(8):
-            name += chars[self.var_counter % len(chars)]
-            self.var_counter += 1
-        return '_' + name
-    
+
     def generate_var_name(self):
-        """Main var name generator - uses mangled by default."""
-        strategy = self.options.get('var_name_strategy', 'mangled')
-        
-        if strategy == 'mangled':
-            name = self.generate_var_name_mangled(self.var_counter)
-        elif strategy == 'number':
-            name = self.generate_var_name_number(self.var_counter)
-        elif strategy == 'confusing':
-            name = self.generate_var_name_confusing()
-        else:
-            name = self.generate_var_name_mangled(self.var_counter)
-        
+        name = self.generate_var_name_mangled(self.var_counter)
         self.var_counter += 1
         return name
-    
+
     def rename_variables(self, code):
-        """Rename local variables to random names."""
-        # This is a simplified version - a full implementation would need proper parsing
         lines = code.split('\n')
-        result_lines = []
-        
         for line in lines:
-            # Find local variable declarations
             if 'local ' in line and not line.strip().startswith('--'):
-                # Extract variable names after 'local'
                 match = re.search(r'local\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
                 if match:
                     old_name = match.group(1)
                     if old_name not in self.var_map:
                         self.var_map[old_name] = self.generate_var_name()
-            
-            result_lines.append(line)
-        
-        # Replace all occurrences
-        result = '\n'.join(result_lines)
+
+        result = '\n'.join(lines)
         for old_name, new_name in self.var_map.items():
-            # Use word boundaries to avoid partial replacements
-            result = re.sub(r'\b' + old_name + r'\b', new_name, result)
-        
-        return result
-    
-    def encode_strings(self, code):
-        """Encode string literals using Lua escape sequences."""
-        def replace_string(match):
-            string_content = match.group(1)
-            
-            # Convert each character to Lua decimal escape sequence
-            escaped = ''
-            for char in string_content:
-                byte_val = ord(char)
-                escaped += '\\' + str(byte_val).zfill(3)
-            
-            return '"' + escaped + '"'
-        
-        # Replace strings
-        code = re.sub(r'"([^"]*)"', replace_string, code)
-        code = re.sub(r"'([^']*)'", replace_string, code)
-        
-        return code
-        def replace_string(match):
-            string_content = match.group(1)
-            # Convert to byte array
-            bytes_arr = [str(ord(c)) for c in string_content]
-            return f'string.char({",".join(bytes_arr)})'
-        
-        # Replace double-quoted strings
-        code = re.sub(r'"([^"]*)"', replace_string, code)
-        
-        # Replace single-quoted strings
-        code = re.sub(r"'([^']*)'", replace_string, code)
-        
-        return code
-    
-    def encode_numbers(self, code):
-        """Obfuscate numeric literals."""
-        def replace_number(match):
-            num = int(match.group(0))
-            # Convert to mathematical expression
-            if num > 10:
-                # Split into sum
-                a = num // 2
-                b = num - a
-                return f'({a}+{b})'
-            return match.group(0)
-        
-        # Replace standalone numbers
-        code = re.sub(r'\b\d+\b', replace_number, code)
-        
-        return code
-    
-    def add_control_flow(self, code):
-        """Add fake control flow."""
-        # Add dummy conditionals that always evaluate to false
-        junk_conditions = [
-            'if false then return end\n',
-            'if 1 > 2 then error("x") end\n',
-            'while false do end\n'
-        ]
-        
-        lines = code.split('\n')
-        result_lines = []
-        
-        for i, line in enumerate(lines):
-            result_lines.append(line)
-            # Randomly insert junk conditions
-            if i % 10 == 0 and not line.strip().startswith('--'):
-                import random
-                result_lines.append(random.choice(junk_conditions).rstrip())
-        
-        return '\n'.join(result_lines)
-    
-    def add_junk_code(self, code):
-        """Add non-functional junk code."""
-        junk_snippets = [
-            'local _ = function() return nil end',
-            'local __ = {}',
-            'local ___ = 0',
-            'if nil then end',
-        ]
-        
-        lines = code.split('\n')
-        result_lines = []
-        
-        import random
-        for i, line in enumerate(lines):
-            result_lines.append(line)
-            if i % 15 == 0:
-                result_lines.append(random.choice(junk_snippets))
-        
-        return '\n'.join(result_lines)
-    
-    def add_anti_debug(self, code):
-        """Add anti-debugging checks."""
-        anti_debug_code = '''
--- Anti-debug checks
-local function _check()
-    if getfenv then
-        local env = getfenv(2)
-        if env.script then return end
-    end
-end
-_check()
-'''
-        return anti_debug_code + '\n' + code
-    
-    def wrap_in_function(self, code):
-        return f'return(function(...)\n{code}\nend)(...)'
-    
-    
-    def minify_code(self, code):
-        """Remove whitespace and minimize code size."""
-        # Remove comments
-        code = re.sub(r'--[^\n]*', '', code)
-        
-        # Remove multi-line comments
-        code = re.sub(r'--\[\[.*?\]\]', '', code, flags=re.DOTALL)
-        
-        # Remove extra whitespace
-        lines = code.split('\n')
-        lines = [line.strip() for line in lines if line.strip()]
-        
-        # Join with minimal spacing
-        result = ' '.join(lines)
-        
-        # Clean up spacing around operators
-        result = re.sub(r'\s+', ' ', result)
-        result = re.sub(r'\s*([=+\-*/<>~,;:])\s*', r'\1', result)
-        
+            result = re.sub(r'\b' + re.escape(old_name) + r'\b', new_name, result)
         return result
 
+    def encode_strings(self, code):
+        """Encode strings as string.char() calls — safe for executors."""
+        result = []
+        i = 0
+        n = len(code)
+        while i < n:
+            # Skip single-line comments
+            if code[i:i+2] == '--' and code[i:i+4] != '--[[':
+                end = code.find('\n', i)
+                if end == -1:
+                    result.append(code[i:])
+                    break
+                result.append(code[i:end])
+                i = end
+                continue
+
+            # Skip multi-line comments
+            if code[i:i+4] == '--[[':
+                end = code.find(']]', i+4)
+                if end == -1:
+                    result.append(code[i:])
+                    break
+                result.append(code[i:end+2])
+                i = end + 2
+                continue
+
+            # Handle strings
+            if code[i] in ('"', "'"):
+                quote = code[i]
+                j = i + 1
+                content = []
+                while j < n:
+                    if code[j] == '\\' and j + 1 < n:
+                        # Keep escape sequences as-is by getting actual char
+                        esc = code[j:j+2]
+                        # Just collect the raw char after escape
+                        content.append(code[j+1])
+                        j += 2
+                        continue
+                    if code[j] == quote:
+                        j += 1
+                        break
+                    content.append(code[j])
+                    j += 1
+                # Build string.char() expression
+                escaped = ''.join('\\' + str(ord(c)).zfill(3) for c in ''.join(content))
+                result.append(f'"{escaped}"')
+                i = j
+                continue
+
+            result.append(code[i])
+            i += 1
+
+        return ''.join(result)
+
+    def encode_numbers(self, code):
+        """Only encode standalone integer literals, not inside strings or decimals."""
+        def replace_number(match):
+            num_str = match.group(0)
+            num = int(num_str)
+            if num > 10:
+                a = random.randint(1, num - 1)
+                b = num - a
+                return f'({a}+{b})'
+            return num_str
+
+        # Only match integers not preceded/followed by . (avoid floats/decimals)
+        return re.sub(r'(?<![.\w])\b([1-9][0-9]+)\b(?!\s*\.)', replace_number, code)
+
+    def add_control_flow(self, code):
+        """Insert junk control flow only at safe points (end of complete lines)."""
+        junk = [
+            'do local _=nil end',
+            'if false then end',
+            'while false do break end',
+        ]
+        lines = code.split('\n')
+        result = []
+        for i, line in enumerate(lines):
+            result.append(line)
+            stripped = line.strip()
+            # Only insert after lines that are clearly complete statements
+            if (i % 8 == 0 and stripped and
+                not stripped.startswith('--') and
+                not stripped.endswith(',') and
+                not stripped.endswith('(') and
+                not stripped.endswith('{') and
+                not stripped.endswith('and') and
+                not stripped.endswith('or') and
+                not stripped.endswith('=') and
+                not stripped.endswith('..') and
+                stripped not in ('', 'do', 'then', 'else', 'repeat')):
+                result.append(random.choice(junk))
+        return '\n'.join(result)
+
+    def add_junk_code(self, code):
+        """Insert junk locals only at safe points."""
+        junk = [
+            'local _junk0=nil',
+            'local _junk1=0',
+            'local _junk2=false',
+        ]
+        lines = code.split('\n')
+        result = []
+        for i, line in enumerate(lines):
+            result.append(line)
+            stripped = line.strip()
+            if (i % 12 == 0 and stripped and
+                not stripped.startswith('--') and
+                not stripped.endswith(',') and
+                not stripped.endswith('(') and
+                not stripped.endswith('{') and
+                not stripped.endswith('and') and
+                not stripped.endswith('or') and
+                not stripped.endswith('=') and
+                not stripped.endswith('..') and
+                stripped not in ('', 'do', 'then', 'else', 'repeat')):
+                result.append(random.choice(junk))
+        return '\n'.join(result)
+
+    def add_anti_debug(self, code):
+        anti_debug = 'if not game or not game:GetService("Players") then return end\n'
+        return anti_debug + code
+
+    def wrap_in_function(self, code):
+        return f'return(function(...)\n{code}\nend)(...)'
+
+    def minify_code(self, code):
+        # Remove single-line comments
+        code = re.sub(r'--(?!\[\[)[^\n]*', '', code)
+        # Remove multi-line comments
+        code = re.sub(r'--\[\[.*?\]\]', '', code, flags=re.DOTALL)
+        # Strip lines and remove blanks
+        lines = [line.strip() for line in code.split('\n') if line.strip()]
+        # Join with newlines (safer than spaces — avoids keyword merging)
+        return '\n'.join(lines)
 
 # --- ProxifyLocals Obfuscation ---
 class LuaProxifyLocals:
