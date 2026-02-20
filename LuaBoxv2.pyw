@@ -717,6 +717,39 @@ class LuaObfuscator:
         self.options = options
         self.var_map = {}
         self.var_counter = 0
+        self.keywords = {'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function', 
+                         'if', 'in', 'local', 'nil', 'not', 'or', 'repeat', 'return', 'then', 
+                         'true', 'until', 'while', 'goto'}
+        self.roblox_globals = {'game', 'workspace', 'script', 'Instance', 'Vector3', 'CFrame', 
+                               'task', 'wait', 'spawn', 'print', 'warn', 'error', 'shared', 
+                               '_G', 'getgenv', 'getrenv', 'Enum', 'Color3', 'UDim2', 'math', 
+                               'string', 'table', 'pcall', 'xpcall', 'delay', 'tick', 'os'}
+
+
+    def tokenize(self, code):
+        """
+        Breaks Lua code into safe tokens.
+        Ensures we never obfuscate strings, comments, or keywords.
+        """
+        token_specification = [
+            ('COMMENT_MULTI', r'--\[\[.*?\]\]'),          # Multi-line comment
+            ('COMMENT_SINGLE', r'--.*'),                   # Single-line comment
+            ('STRING', r'["\']([^"\\]|\\.)*["\']'),        # String literals
+            ('NUMBER', r'\b\d+\.?\d*\b'),                  # Numbers
+            ('IDENTIFIER', r'[a-zA-Z_][a-zA-Z0-9_]*'),     # Variables/Functions
+            ('OPERATOR', r'[+\-*/%^#=<>~.|:,;{}()\[\]]'),  # Operators/Brackets
+            ('WHITESPACE', r'\s+'),                        # Space/Tabs/Newlines
+            ('MISMATCH', r'.'),                            # Anything else
+        ]
+        tok_regex = '|'.join('(?P<%s>%s)' % pair for pair in token_specification)
+        tokens = []
+        for mo in re.finditer(tok_regex, code, re.DOTALL):
+            kind = mo.lastgroup
+            value = mo.group()
+            tokens.append({'type': kind, 'value': value})
+        return tokens
+
+    
 
     def obfuscate(self, code):
         result = code
@@ -1093,11 +1126,32 @@ end)(...)'''
         return loader
 
 
+class LuaLocalizer:
+    @staticmethod
+    def localize(code):
+        services = set(re.findall(r'game:GetService\(["\'](\w+)["\']\)', code))
+        globals_to_fix = ["Vector3", "CFrame", "Instance", "UDim2", "Color3", "task", "wait", "spawn"]
+        
+        found_globals = [g for g in globals_to_fix if re.search(r'\b' + g + r'\b', code)]
+        
+        header = "-- [[ Callum's Auto-Localization ]]\n"
+        for service in services:
+            header += f'local {service} = game:GetService("{service}")\n'
+        for g in found_globals:
+            header += f'local {g} = {g}\n'
+        
+        # Replace game:GetService calls with direct service variable
+        for service in services:
+            code = code.replace(f'game:GetService("{service}")', service)
+            code = code.replace(f"game:GetService('{service}')", service)
+            
+        return header + "\n" + code
+
 # --- Main Application Window ---
 class LuaIDE(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LuaBox v2.7 	(̿▀̿ ̿Ĺ̯̿̿▀̿ ̿)̄")
+        self.setWindowTitle("LuaBox v4")
         self.setGeometry(100, 100, 1400, 850)
         
         self.current_file = None
@@ -4207,6 +4261,7 @@ end
             self.save_recent_files()
 
 
+    
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ide = LuaIDE()
