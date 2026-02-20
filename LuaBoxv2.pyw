@@ -724,8 +724,6 @@ class LuaObfuscator:
                                'task', 'wait', 'spawn', 'print', 'warn', 'error', 'shared', 
                                '_G', 'getgenv', 'getrenv', 'Enum', 'Color3', 'UDim2', 'math', 
                                'string', 'table', 'pcall', 'xpcall', 'delay', 'tick', 'os'}
-
-
     def tokenize(self, code):
         """
         Breaks Lua code into safe tokens.
@@ -748,8 +746,6 @@ class LuaObfuscator:
             value = mo.group()
             tokens.append({'type': kind, 'value': value})
         return tokens
-
-    
 
     def obfuscate(self, code):
         result = code
@@ -1356,18 +1352,32 @@ class LuaIDE(QMainWindow):
         
         explorer_label = QLabel("Explorer")
         explorer_label.setStyleSheet("font-weight: bold;")
+
+        btn_browse = QPushButton("📁")
+        btn_browse.setMaximumWidth(30)
+        btn_browse.setToolTip("Browse for directory")
+        btn_browse.clicked.connect(self.browse_directory)
+
+
+
+        
         btn_refresh = QPushButton("⟳")
         btn_refresh.setMaximumWidth(30)
+        btn_refresh.setToolTip("Refresh explorer")
         btn_refresh.clicked.connect(self.refresh_explorer)
         
         explorer_header_layout.addWidget(explorer_label)
         explorer_header_layout.addStretch()
+        explorer_header_layout.addWidget(btn_browse)
         explorer_header_layout.addWidget(btn_refresh)
         
         self.file_tree = QTreeWidget()
         self.file_tree.setHeaderLabels(["Name", "Size"])
         self.file_tree.setColumnWidth(0, 150)
         self.file_tree.itemDoubleClicked.connect(self.tree_item_double_clicked)
+        self.file_tree.itemExpanded.connect(self.tree_item_expanded)
+        self.file_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.file_tree.customContextMenuRequested.connect(self.show_tree_context_menu)
         
         explorer_tab_layout.addWidget(explorer_header)
         explorer_tab_layout.addWidget(self.file_tree)
@@ -1509,29 +1519,163 @@ class LuaIDE(QMainWindow):
                 self.tab_widget.setTabText(0, "Untitled")
 
     def refresh_explorer(self):
-        """Refresh the file explorer."""
+        """Refresh the file explorer with directory tree."""
         self.file_tree.clear()
         
-        directory = QDir(self.current_directory)
-        files = directory.entryInfoList(QDir.Filter.Files | QDir.Filter.NoDotAndDotDot)
+        # Add current path as root
+        root_item = QTreeWidgetItem(self.file_tree)
+        root_item.setText(0, self.current_directory)
+        root_item.setText(1, "")
+        root_item.setData(0, Qt.ItemDataRole.UserRole, self.current_directory)
+        root_item.setExpanded(True)
         
-        for file_info in files:
-            item = QTreeWidgetItem(self.file_tree)
-            item.setText(0, file_info.fileName())
-            size_kb = file_info.size() / 1024
-            item.setText(1, f"{size_kb:.2f} KB")
-            item.setData(0, Qt.ItemDataRole.UserRole, file_info.absoluteFilePath())
+        # Populate directory tree
+        self.populate_directory_tree(root_item, self.current_directory)
 
+
+    def populate_directory_tree(self, parent_item, directory_path):
+        """Recursively populate directory tree."""
+        try:
+            directory = QDir(directory_path)
+            
+            # Get directories first
+            dirs = directory.entryInfoList(
+                QDir.Filter.Dirs | QDir.Filter.NoDotAndDotDot,
+                QDir.SortFlag.Name
+            )
+            
+            for dir_info in dirs:
+                dir_item = QTreeWidgetItem(parent_item)
+                dir_item.setText(0, f"📁 {dir_info.fileName()}")
+                dir_item.setText(1, "<DIR>")
+                dir_item.setData(0, Qt.ItemDataRole.UserRole, dir_info.absoluteFilePath())
+                
+                # Add placeholder for lazy loading
+                placeholder = QTreeWidgetItem(dir_item)
+                placeholder.setText(0, "Loading...")
+            
+            # Get files
+            files = directory.entryInfoList(
+                QDir.Filter.Files | QDir.Filter.NoDotAndDotDot,
+                QDir.SortFlag.Name
+            )
+            
+            for file_info in files:
+                file_item = QTreeWidgetItem(parent_item)
+                file_item.setText(0, f"📄 {file_info.fileName()}")
+                size_kb = file_info.size() / 1024
+                file_item.setText(1, f"{size_kb:.2f} KB")
+                file_item.setData(0, Qt.ItemDataRole.UserRole, file_info.absoluteFilePath())
+        
+        except Exception as e:
+            error_item = QTreeWidgetItem(parent_item)
+            error_item.setText(0, f"Error: {str(e)}")
+    
+    def browse_directory(self):
+        """Open dialog to browse and select a directory."""
+        directory = QFileDialog.getExistingDirectory(
+            self, "Select Directory", self.current_directory
+        )
+        if directory:
+            self.current_directory = directory
+            self.refresh_explorer()
+    
+    def show_tree_context_menu(self, position):
+        """Show context menu for file tree items."""
+        item = self.file_tree.itemAt(position)
+        if not item:
+            return
+        
+        filepath = item.data(0, Qt.ItemDataRole.UserRole)
+        if not filepath:
+            return
+        
+        menu = QMenu(self)
+        
+        # Add actions based on whether it's a file or directory
+        if os.path.isfile(filepath):
+            open_action = menu.addAction("Open")
+            open_action.triggered.connect(lambda: self.tree_item_double_clicked(item, 0))
+        
+        if os.path.isdir(filepath):
+            set_as_root_action = menu.addAction("Set as Root Directory")
+            set_as_root_action.triggered.connect(lambda: self.set_root_directory(filepath))
+        
+        menu.addSeparator()
+        
+        copy_path_action = menu.addAction("Copy Path")
+        copy_path_action.triggered.connect(lambda: QApplication.clipboard().setText(filepath))
+        
+        copy_name_action = menu.addAction("Copy Name")
+        copy_name_action.triggered.connect(lambda: QApplication.clipboard().setText(os.path.basename(filepath)))
+        
+        menu.addSeparator()
+        
+        if os.path.exists(filepath):
+            show_in_folder_action = menu.addAction("Show in Folder")
+            show_in_folder_action.triggered.connect(lambda: self.show_in_system_explorer(filepath))
+        
+        menu.exec(self.file_tree.viewport().mapToGlobal(position))
+    
+    def set_root_directory(self, directory_path):
+        """Set the selected directory as the root in explorer."""
+        self.current_directory = directory_path
+        self.refresh_explorer()
+    
+    def show_in_system_explorer(self, filepath):
+        """Open the system file explorer at the given path."""
+        try:
+            if os.path.isfile(filepath):
+                filepath = os.path.dirname(filepath)
+            
+            if sys.platform == 'win32':
+                os.startfile(filepath)
+            elif sys.platform == 'darwin':
+                subprocess.run(['open', filepath])
+            else:  # Linux and other Unix-like
+                subprocess.run(['xdg-open', filepath])
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Could not open folder: {str(e)}")
+
+    def tree_item_expanded(self, item):
+        """Handle tree item expansion for lazy loading."""
+        # Check if this item has a placeholder child
+        if item.childCount() == 1:
+            child = item.child(0)
+            if child.text(0) == "Loading...":
+                # Remove placeholder
+                item.removeChild(child)
+                
+                # Get the directory path
+                directory_path = item.data(0, Qt.ItemDataRole.UserRole)
+                
+                # Populate this directory
+                if directory_path and os.path.isdir(directory_path):
+                    self.populate_directory_tree(item, directory_path)
+    
     def tree_item_double_clicked(self, item, column):
         """Handle double-click on file explorer item."""
         filepath = item.data(0, Qt.ItemDataRole.UserRole)
-        if filepath and os.path.isfile(filepath):
-            with open(filepath, 'r', encoding='utf-8') as f:
-                content = f.read()
+        
+        if filepath:
+            if os.path.isfile(filepath):
+                # Open file
+                try:
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    editor = self.create_new_tab(os.path.basename(filepath))
+                    editor.setPlainText(content)
+                    editor.file_path = filepath
+                    
+                    # Add to recent files
+                    self.add_recent_file(filepath)
+                except Exception as e:
+                    QMessageBox.warning(self, "Error", f"Could not open file: {str(e)}")
             
-            editor = self.create_new_tab(os.path.basename(filepath))
-            editor.setPlainText(content)
-            editor.file_path = filepath
+            elif os.path.isdir(filepath):
+                # Toggle expansion for directories
+                item.setExpanded(not item.isExpanded())
 
     def show_settings(self):
         """Show settings dialog."""
@@ -1545,7 +1689,7 @@ class LuaIDE(QMainWindow):
                 if editor:
                     font = editor.font()
                     font.setPointSize(font_size)
-                    editor.setFont(font)
+                    editor.setFont(font)(font)
 
     def remove_comments(self):
         """Smart comment removal that preserves code structure."""
