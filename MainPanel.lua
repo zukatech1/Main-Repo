@@ -28242,6 +28242,1291 @@ RegisterCommand({
     local itemName = table.concat(args, " ")
     Modules.BadgeSpoofer:BruteForceUnlock(itemName)
 end)
+Modules.Fly22 = {
+    State = {
+        IsFly2ing = false,
+        Connections = {},
+        BodyVelocity = nil,
+        BodyGyro = nil
+    },
+    Config = {
+        Speed = 50,
+        UseVelocitySpoof = true,
+        SpoofVector = Vector3.new(0, 0, 0),
+        ControlMode = "WASD"
+    }
+}
+function Modules.Fly2:_createBodyMovers()
+    local character = LocalPlayer.Character
+    if not character then return false end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    self.State.BodyVelocity = Instance.new("BodyVelocity")
+    self.State.BodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    self.State.BodyVelocity.Velocity = Vector3.zero
+    self.State.BodyVelocity.Parent = hrp
+    self.State.BodyGyro = Instance.new("BodyGyro")
+    self.State.BodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    self.State.BodyGyro.P = 10000
+    self.State.BodyGyro.CFrame = hrp.CFrame
+    self.State.BodyGyro.Parent = hrp
+    return true
+end
+function Modules.Fly2:_destroyBodyMovers()
+    if self.State.BodyVelocity then
+        self.State.BodyVelocity:Destroy()
+        self.State.BodyVelocity = nil
+    end
+    if self.State.BodyGyro then
+        self.State.BodyGyro:Destroy()
+        self.State.BodyGyro = nil
+    end
+end
+function Modules.Fly2:_getMovementVector()
+    local UserInputService = game:GetService("UserInputService")
+    local camera = workspace.CurrentCamera
+    local moveVector = Vector3.zero
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+        moveVector = moveVector + camera.CFrame.LookVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+        moveVector = moveVector - camera.CFrame.LookVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+        moveVector = moveVector - camera.CFrame.RightVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+        moveVector = moveVector + camera.CFrame.RightVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+        moveVector = moveVector + Vector3.new(0, 1, 0)
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or 
+       UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+        moveVector = moveVector - Vector3.new(0, 1, 0)
+    end
+    return moveVector.Unit
+end
+function Modules.Fly2:_spoofVelocity()
+    if not self.Config.UseVelocitySpoof then return end
+    local character = LocalPlayer.Character
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local realVelocity = hrp.AssemblyLinearVelocity
+    hrp.AssemblyLinearVelocity = self.Config.SpoofVector
+    RunService.RenderStepped:Wait()
+    if hrp then
+        hrp.AssemblyLinearVelocity = realVelocity
+    end
+end
+function Modules.Fly2:Enable()
+    if self.State.IsFly2ing then return end
+    local character = LocalPlayer.Character
+    if not character then
+        DoNotif("No character found", 3)
+        return
+    end
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+    end
+    if not self:_createBodyMovers() then
+        DoNotif("Failed to create Fly2 components", 3)
+        return
+    end
+    self.State.IsFly2ing = true
+    self.State.Connections.Fly2Loop = RunService.Heartbeat:Connect(function()
+        local character = LocalPlayer.Character
+        if not character then return end
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local camera = workspace.CurrentCamera
+        local moveVector = self:_getMovementVector()
+        if self.State.BodyVelocity then
+            self.State.BodyVelocity.Velocity = moveVector * self.Config.Speed
+        end
+        if self.State.BodyGyro then
+            self.State.BodyGyro.CFrame = camera.CFrame
+        end
+        if self.Config.UseVelocitySpoof then
+            self:_spoofVelocity()
+        end
+    end)
+    DoNotif(string.format("Fly2: ON (Speed: %d)", self.Config.Speed), 2)
+end
+function Modules.Fly2:Disable()
+    if not self.State.IsFly2ing then return end
+    self.State.IsFly2ing = false
+    for _, conn in pairs(self.State.Connections) do
+        if conn then
+            conn:Disconnect()
+        end
+    end
+    self.State.Connections = {}
+    self:_destroyBodyMovers()
+    local character = LocalPlayer.Character
+    if character then
+        local humanoid = character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+        end
+    end
+    DoNotif("Fly2: OFF", 2)
+end
+function Modules.Fly2:Toggle()
+    if self.State.IsFly2ing then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+function Modules.Fly2:SetSpeed(speed)
+    speed = tonumber(speed)
+    if not speed or speed < 0 then
+        DoNotif("Invalid speed", 3)
+        return
+    end
+    self.Config.Speed = speed
+    DoNotif(string.format("Fly2 speed: %d", speed), 2)
+end
+function Modules.Fly2:ToggleSpoof()
+    self.Config.UseVelocitySpoof = not self.Config.UseVelocitySpoof
+    DoNotif("Velocity Spoof: " .. (self.Config.UseVelocitySpoof and "ON" or "OFF"), 2)
+end
+function Modules.Fly2:SetSpoofVector(x, y, z)
+    x = tonumber(x) or 0
+    y = tonumber(y) or 0
+    z = tonumber(z) or 0
+    self.Config.SpoofVector = Vector3.new(x, y, z)
+    DoNotif(string.format("Spoof vector: (%.1f, %.1f, %.1f)", x, y, z), 2)
+end
+RegisterCommand({
+    Name = "Fly2",
+    Aliases = {"vfly"},
+    Description = "Toggle Fly2 with velocity spoofing. Controls: WASD + Space/Shift"
+}, function()
+    Modules.Fly2:Toggle()
+end)
+RegisterCommand({
+    Name = "Fly2speed",
+    Aliases = {"fs"},
+    Description = "Set Fly2 speed. Usage: ;Fly2speed <speed>"
+}, function(args)
+    if not args[1] then
+        DoNotif(string.format("Current speed: %d", Modules.Fly2.Config.Speed), 2)
+        return
+    end
+    Modules.Fly2:SetSpeed(args[1])
+end)
+RegisterCommand({
+    Name = "Fly2spoof",
+    Aliases = {},
+    Description = "Toggle velocity spoofing for Fly2"
+}, function()
+    Modules.Fly2:ToggleSpoof()
+end)
+RegisterCommand({
+    Name = "spoofvector2",
+    Aliases = {"sv2"},
+    Description = "Set the spoofed velocity vector. Usage: ;spoofvector <x> <y> <z>"
+}, function(args)
+    if #args < 3 then
+        local v = Modules.Fly2.Config.SpoofVector
+        DoNotif(string.format("Current: (%.1f, %.1f, %.1f)", v.X, v.Y, v.Z), 2)
+        return
+    end
+    Modules.Fly2:SetSpoofVector(args[1], args[2], args[3])
+end)
+--[[
+;leech player123 - start leeching them
+;unleech - stop
+;leechoffset 0 2 -5 - position yourself (default: slightly behind and above)
+;leechrotation 0 180 0 - face direction relative to them
+;leechspoof - toggle velocity spoofing (makes you harder to hit)
+;leechspoofvector 0 -5000 0 - what velocity the server sees
+;leechmode - switch between "attach" (smooth) and "teleport" (snapier)
+;leechstrafe - circle around them while following
+;strafeconfig 3 5 - adjust strafe speed/radius
+]]
+Modules.PlayerLeech = {
+    State = {
+        IsLeeching = false,
+        TargetPlayer = nil,
+        Connections = {},
+        LastTargetPos = nil
+    },
+    Config = {
+        OffsetX = 0,
+        OffsetY = 1.5,
+        OffsetZ = -3,
+        RotationX = 0,
+        RotationY = 0,
+        RotationZ = 0,
+        UseVelocitySpoof = true,
+        SpoofVector = Vector3.new(0, -5000, 0),
+        SpoofInterval = 0,
+        FollowMode = "attach",
+        StayBehind = true,
+        EnableStrafing = false,
+        StrafeSpeed = 2,
+        StrafeRadius = 3
+    }
+}
+function Modules.PlayerLeech:_spoofVelocity()
+    if not self.Config.UseVelocitySpoof then return end
+    local character = LocalPlayer.Character
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local realVelocity = hrp.AssemblyLinearVelocity
+    hrp.AssemblyLinearVelocity = self.Config.SpoofVector
+    RunService.RenderStepped:Wait()
+    if hrp then
+        hrp.AssemblyLinearVelocity = realVelocity
+    end
+end
+function Modules.PlayerLeech:_calculatePosition(targetHRP)
+    if not targetHRP then return nil end
+    local offset = Vector3.new(self.Config.OffsetX, self.Config.OffsetY, self.Config.OffsetZ)
+    local rotation = CFrame.Angles(
+        math.rad(self.Config.RotationX),
+        math.rad(self.Config.RotationY),
+        math.rad(self.Config.RotationZ)
+    )
+    if self.Config.StayBehind then
+        return targetHRP.CFrame * CFrame.new(offset) * rotation
+    else
+        return CFrame.new(targetHRP.Position + offset) * rotation
+    end
+end
+function Modules.PlayerLeech:_attachMode()
+    local character = LocalPlayer.Character
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local targetChar = self.State.TargetPlayer.Character
+    if not targetChar then return end
+    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
+    pcall(function()
+        sethiddenproperty(hrp, "PhysicsRepRootPart", targetHRP)
+    end)
+    local baseCFrame = self:_calculatePosition(targetHRP)
+    if self.Config.EnableStrafing then
+        local time = tick() * self.Config.StrafeSpeed
+        local strafeOffset = Vector3.new(
+            math.sin(time) * self.Config.StrafeRadius,
+            0,
+            math.cos(time) * self.Config.StrafeRadius
+        )
+        baseCFrame = baseCFrame * CFrame.new(strafeOffset)
+    end
+    hrp.CFrame = baseCFrame
+    hrp.AssemblyLinearVelocity = Vector3.zero
+    hrp.AssemblyAngularVelocity = Vector3.zero
+    if self.Config.UseVelocitySpoof then
+        self:_spoofVelocity()
+    end
+end
+function Modules.PlayerLeech:_teleportMode()
+    local character = LocalPlayer.Character
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local targetChar = self.State.TargetPlayer.Character
+    if not targetChar then return end
+    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
+    local currentPos = targetHRP.Position
+    if self.State.LastTargetPos then
+        local distance = (currentPos - self.State.LastTargetPos).Magnitude
+        if distance < 5 then return end
+    end
+    self.State.LastTargetPos = currentPos
+    local targetCFrame = self:_calculatePosition(targetHRP)
+    hrp.CFrame = targetCFrame
+    if self.Config.UseVelocitySpoof then
+        self:_spoofVelocity()
+    end
+end
+function Modules.PlayerLeech:Start(playerName)
+    if self.State.IsLeeching then
+        DoNotif("Already leeching someone", 3)
+        return
+    end
+    local targetPlayer = Utilities.findPlayer(playerName)
+    if not targetPlayer then
+        DoNotif("Player not found: " .. playerName, 3)
+        return
+    end
+    if targetPlayer == LocalPlayer then
+        DoNotif("Cannot leech yourself", 3)
+        return
+    end
+    self.State.TargetPlayer = targetPlayer
+    self.State.IsLeeching = true
+    self.State.LastTargetPos = nil
+    local character = LocalPlayer.Character
+    if character then
+        local humanoid = character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        end
+    end
+    self.State.Connections.LeechLoop = RunService.Heartbeat:Connect(function()
+        if not self.State.TargetPlayer or not self.State.TargetPlayer.Parent then
+            DoNotif("Target left game", 3)
+            self:Stop()
+            return
+        end
+        if self.Config.FollowMode == "attach" then
+            self:_attachMode()
+        else
+            self:_teleportMode()
+        end
+    end)
+    DoNotif(string.format("Leeching: %s (%s mode)", targetPlayer.DisplayName, self.Config.FollowMode), 2)
+end
+function Modules.PlayerLeech:Stop()
+    if not self.State.IsLeeching then return end
+    self.State.IsLeeching = false
+    self.State.TargetPlayer = nil
+    self.State.LastTargetPos = nil
+    for _, conn in pairs(self.State.Connections) do
+        if conn then
+            conn:Disconnect()
+        end
+    end
+    self.State.Connections = {}
+    local character = LocalPlayer.Character
+    if character then
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            pcall(function()
+                sethiddenproperty(hrp, "PhysicsRepRootPart", nil)
+            end)
+        end
+        local humanoid = character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+        end
+    end
+    DoNotif("Stopped leeching", 2)
+end
+function Modules.PlayerLeech:SetOffset(x, y, z)
+    self.Config.OffsetX = tonumber(x) or 0
+    self.Config.OffsetY = tonumber(y) or 1.5
+    self.Config.OffsetZ = tonumber(z) or -3
+    DoNotif(string.format("Offset: (%.1f, %.1f, %.1f)", 
+        self.Config.OffsetX, self.Config.OffsetY, self.Config.OffsetZ), 2)
+end
+function Modules.PlayerLeech:SetRotation(x, y, z)
+    self.Config.RotationX = tonumber(x) or 0
+    self.Config.RotationY = tonumber(y) or 0
+    self.Config.RotationZ = tonumber(z) or 0
+    DoNotif(string.format("Rotation: (%.1f, %.1f, %.1f)", 
+        self.Config.RotationX, self.Config.RotationY, self.Config.RotationZ), 2)
+end
+function Modules.PlayerLeech:ToggleSpoof()
+    self.Config.UseVelocitySpoof = not self.Config.UseVelocitySpoof
+    DoNotif("Velocity Spoof: " .. (self.Config.UseVelocitySpoof and "ON" or "OFF"), 2)
+end
+function Modules.PlayerLeech:SetSpoofVector(x, y, z)
+    self.Config.SpoofVector = Vector3.new(
+        tonumber(x) or 0,
+        tonumber(y) or -5000,
+        tonumber(z) or 0
+    )
+    DoNotif(string.format("Spoof vector: (%.1f, %.1f, %.1f)", 
+        self.Config.SpoofVector.X, self.Config.SpoofVector.Y, self.Config.SpoofVector.Z), 2)
+end
+function Modules.PlayerLeech:ToggleMode()
+    if self.Config.FollowMode == "attach" then
+        self.Config.FollowMode = "teleport"
+    else
+        self.Config.FollowMode = "attach"
+    end
+    DoNotif("Follow mode: " .. self.Config.FollowMode:upper(), 2)
+end
+function Modules.PlayerLeech:ToggleStrafing()
+    self.Config.EnableStrafing = not self.Config.EnableStrafing
+    DoNotif("Strafing: " .. (self.Config.EnableStrafing and "ON" or "OFF"), 2)
+end
+function Modules.PlayerLeech:SetStrafeSettings(speed, radius)
+    if speed then
+        self.Config.StrafeSpeed = tonumber(speed) or 2
+    end
+    if radius then
+        self.Config.StrafeRadius = tonumber(radius) or 3
+    end
+    DoNotif(string.format("Strafe: speed=%.1f, radius=%.1f", 
+        self.Config.StrafeSpeed, self.Config.StrafeRadius), 2)
+end
+RegisterCommand({
+    Name = "leech",
+    Aliases = {},
+    Description = "Attach to a player and follow them. Usage: ;leech <player>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;leech <player>", 3)
+        return
+    end
+    local playerName = table.concat(args, " ")
+    Modules.PlayerLeech:Start(playerName)
+end)
+RegisterCommand({
+    Name = "unleech",
+    Aliases = {"stopleech"},
+    Description = "Stop leeching current target"
+}, function()
+    Modules.PlayerLeech:Stop()
+end)
+RegisterCommand({
+    Name = "leechoffset",
+    Aliases = {"loffset"},
+    Description = "Set leech position offset. Usage: ;leechoffset <x> <y> <z>"
+}, function(args)
+    if #args < 3 then
+        DoNotif(string.format("Current: (%.1f, %.1f, %.1f)", 
+            Modules.PlayerLeech.Config.OffsetX,
+            Modules.PlayerLeech.Config.OffsetY,
+            Modules.PlayerLeech.Config.OffsetZ), 2)
+        return
+    end
+    Modules.PlayerLeech:SetOffset(args[1], args[2], args[3])
+end)
+RegisterCommand({
+    Name = "leechrotation",
+    Aliases = {"lrotate"},
+    Description = "Set leech rotation. Usage: ;leechrotation <x> <y> <z>"
+}, function(args)
+    if #args < 3 then
+        DoNotif(string.format("Current: (%.1f, %.1f, %.1f)", 
+            Modules.PlayerLeech.Config.RotationX,
+            Modules.PlayerLeech.Config.RotationY,
+            Modules.PlayerLeech.Config.RotationZ), 2)
+        return
+    end
+    Modules.PlayerLeech:SetRotation(args[1], args[2], args[3])
+end)
+RegisterCommand({
+    Name = "leechspoof",
+    Aliases = {"lspoof"},
+    Description = "Toggle velocity spoofing for leech"
+}, function()
+    Modules.PlayerLeech:ToggleSpoof()
+end)
+RegisterCommand({
+    Name = "leechspoofvector",
+    Aliases = {"lsv"},
+    Description = "Set spoofed velocity. Usage: ;leechspoofvector <x> <y> <z>"
+}, function(args)
+    if #args < 3 then
+        local v = Modules.PlayerLeech.Config.SpoofVector
+        DoNotif(string.format("Current: (%.1f, %.1f, %.1f)", v.X, v.Y, v.Z), 2)
+        return
+    end
+    Modules.PlayerLeech:SetSpoofVector(args[1], args[2], args[3])
+end)
+RegisterCommand({
+    Name = "leechmode",
+    Aliases = {"lmode"},
+    Description = "Toggle between attach and teleport follow modes"
+}, function()
+    Modules.PlayerLeech:ToggleMode()
+end)
+RegisterCommand({
+    Name = "leechstrafe",
+    Aliases = {"lstrafe"},
+    Description = "Toggle circular strafing around target"
+}, function()
+    Modules.PlayerLeech:ToggleStrafing()
+end)
+RegisterCommand({
+    Name = "strafeconfig",
+    Aliases = {"sconfig"},
+    Description = "Configure strafe settings. Usage: ;strafeconfig <speed> <radius>"
+}, function(args)
+    Modules.PlayerLeech:SetStrafeSettings(args[1], args[2])
+end)
+Modules.RaycastBypass = {
+    State = {
+        IsEnabled = false,
+        OriginalFunctions = {},
+        HookedWorkspace = false,
+        IgnoredParts = {},
+        Mode = "delete"
+    },
+    Config = {
+        AutoDetectWalls = true,
+        IgnoreTransparent = true,
+        IgnoreNonCollidable = true,
+        WhitelistNames = {},
+        BlacklistNames = {"Baseplate", "SpawnLocation"},
+    }
+}
+function Modules.RaycastBypass:_isWall(part)
+    if not part:IsA("BasePart") then return false end
+    if part.Parent and (part.Parent:FindFirstChild("Humanoid") or part.Parent.Parent:FindFirstChild("Humanoid")) then
+        return false
+    end
+    for _, name in ipairs(self.Config.BlacklistNames) do
+        if part.Name:lower():find(name:lower()) then
+            return false
+        end
+    end
+    for _, name in ipairs(self.Config.WhitelistNames) do
+        if part.Name:lower():find(name:lower()) then
+            return true
+        end
+    end
+    if self.Config.AutoDetectWalls then
+        if self.Config.IgnoreTransparent and part.Transparency >= 0.95 then
+            return false
+        end
+        if self.Config.IgnoreNonCollidable and not part.CanCollide then
+            return false
+        end
+        local size = part.Size
+        if (size.X > 10 and size.Y < 2) or (size.Z > 10 and size.Y < 2) then
+            return true
+        end
+        if part.Anchored and part.CanCollide then
+            return true
+        end
+    end
+    return false
+end
+function Modules.RaycastBypass:_modifyPart(part, mode)
+    if not part or not part:IsA("BasePart") then return end
+    if not self.State.IgnoredParts[part] then
+        self.State.IgnoredParts[part] = {
+            CanCollide = part.CanCollide,
+            Transparency = part.Transparency,
+            Parent = part.Parent
+        }
+    end
+    if mode == "delete" then
+        part.Parent = nil
+    elseif mode == "transparent" then
+        part.Transparency = 1
+        part.CanCollide = false
+    elseif mode == "cancollide" then
+        part.CanCollide = false
+    end
+end
+function Modules.RaycastBypass:_restorePart(part)
+    local original = self.State.IgnoredParts[part]
+    if not original then return end
+    pcall(function()
+        if original.Parent then
+            part.Parent = original.Parent
+        end
+        part.CanCollide = original.CanCollide
+        part.Transparency = original.Transparency
+    end)
+    self.State.IgnoredParts[part] = nil
+end
+function Modules.RaycastBypass:_hookRaycast()
+    if self.State.HookedWorkspace then return end
+    local workspace = game:GetService("Workspace")
+    self.State.OriginalFunctions.Raycast = workspace.Raycast
+    local module = self
+    workspace.Raycast = function(self, origin, direction, raycastParams)
+        local params = raycastParams or RaycastParams.new()
+        if not params.FilterDescendantsInstances then
+            params.FilterDescendantsInstances = {}
+        end
+        for part, _ in pairs(module.State.IgnoredParts) do
+            if part and part.Parent then
+                table.insert(params.FilterDescendantsInstances, part)
+            end
+        end
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        return module.State.OriginalFunctions.Raycast(workspace, origin, direction, params)
+    end
+    self.State.HookedWorkspace = true
+end
+function Modules.RaycastBypass:_scanAndModify()
+    local count = 0
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if self:_isWall(part) then
+            self:_modifyPart(part, self.State.Mode)
+            count = count + 1
+        end
+    end
+    return count
+end
+function Modules.RaycastBypass:Enable(mode)
+    if self.State.IsEnabled then
+        DoNotif("Already enabled", 3)
+        return
+    end
+    mode = mode or self.State.Mode
+    self.State.Mode = mode
+    self:_hookRaycast()
+    local count = self:_scanAndModify()
+    self.State.IsEnabled = true
+    DoNotif(string.format("Raycast Bypass: ON (%s mode, %d parts)", mode, count), 2)
+end
+function Modules.RaycastBypass:Disable()
+    if not self.State.IsEnabled then return end
+    local count = 0
+    for part, _ in pairs(self.State.IgnoredParts) do
+        self:_restorePart(part)
+        count = count + 1
+    end
+    if self.State.OriginalFunctions.Raycast then
+        workspace.Raycast = self.State.OriginalFunctions.Raycast
+        self.State.HookedWorkspace = false
+    end
+    self.State.IsEnabled = false
+    DoNotif(string.format("Raycast Bypass: OFF (%d parts restored)", count), 2)
+end
+function Modules.RaycastBypass:Toggle(mode)
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable(mode)
+    end
+end
+function Modules.RaycastBypass:AddWhitelist(partName)
+    table.insert(self.Config.WhitelistNames, partName)
+    DoNotif("Added to whitelist: " .. partName, 2)
+end
+function Modules.RaycastBypass:AddBlacklist(partName)
+    table.insert(self.Config.BlacklistNames, partName)
+    DoNotif("Added to blacklist: " .. partName, 2)
+end
+function Modules.RaycastBypass:ClearWhitelist()
+    self.Config.WhitelistNames = {}
+    DoNotif("Whitelist cleared", 2)
+end
+function Modules.RaycastBypass:ListIgnored()
+    print("\n=== BYPASSED PARTS ===")
+    local count = 0
+    for part, original in pairs(self.State.IgnoredParts) do
+        if part then
+            print(string.format("%d. %s (%s)", count + 1, part.Name, part:GetFullName()))
+            count = count + 1
+        end
+    end
+    print(string.format("\nTotal: %d parts", count))
+    DoNotif(string.format("%d parts bypassed (check console)", count), 2)
+end
+function Modules.RaycastBypass:BypassPathToTarget(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then
+        DoNotif("Invalid target", 3)
+        return
+    end
+    local character = LocalPlayer.Character
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp or not targetHRP then return end
+    local direction = (targetHRP.Position - hrp.Position)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {character, targetPlayer.Character}
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    local result = workspace:Raycast(hrp.Position, direction, raycastParams)
+    if result and result.Instance then
+        local hitPart = result.Instance
+        if self:_isWall(hitPart) or true then
+            self:_modifyPart(hitPart, self.State.Mode)
+            DoNotif("Bypassed: " .. hitPart.Name, 2)
+            task.wait(0.05)
+            self:BypassPathToTarget(targetPlayer)
+        end
+    else
+        DoNotif("Clear line of sight to target", 2)
+    end
+end
+RegisterCommand({
+    Name = "bypassray",
+    Aliases = {"nowall", "wallhack"},
+    Description = "Bypass raycasting for aimbots/melee. Modes: delete, transparent, cancollide"
+}, function(args)
+    local mode = args[1] or "delete"
+    if mode ~= "delete" and mode ~= "transparent" and mode ~= "cancollide" then
+        DoNotif("Invalid mode. Use: delete, transparent, or cancollide", 3)
+        return
+    end
+    Modules.RaycastBypass:Toggle(mode)
+end)
+RegisterCommand({
+    Name = "bypassto",
+    Aliases = {"clearpath"},
+    Description = "Bypass only walls between you and target. Usage: ;bypassto <player>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;bypassto <player>", 3)
+        return
+    end
+    if not Modules.RaycastBypass.State.IsEnabled then
+        Modules.RaycastBypass:Enable()
+    end
+    local targetPlayer = Utilities.findPlayer(args[1])
+    if not targetPlayer then
+        DoNotif("Player not found", 3)
+        return
+    end
+    Modules.RaycastBypass:BypassPathToTarget(targetPlayer)
+end)
+RegisterCommand({
+    Name = "bypasswhitelist2",
+    Aliases = {"bwl"},
+    Description = "Add part name to bypass whitelist. Usage: ;bypasswhitelist <partName>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;bypasswhitelist <partName>", 3)
+        return
+    end
+    local partName = table.concat(args, " ")
+    Modules.RaycastBypass:AddWhitelist(partName)
+end)
+RegisterCommand({
+    Name = "bypassblacklist2",
+    Aliases = {"bbl"},
+    Description = "Add part name to bypass blacklist (never modify). Usage: ;bypassblacklist <partName>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;bypassblacklist <partName>", 3)
+        return
+    end
+    local partName = table.concat(args, " ")
+    Modules.RaycastBypass:AddBlacklist(partName)
+end)
+RegisterCommand({
+    Name = "bypasslist2",
+    Aliases = {"listbypass2"},
+    Description = "List all bypassed parts (prints to console)"
+}, function()
+    Modules.RaycastBypass:ListIgnored()
+end)
+RegisterCommand({
+    Name = "clearwhitelist2",
+    Aliases = {},
+    Description = "Clear bypass whitelist"
+}, function()
+    Modules.RaycastBypass:ClearWhitelist()
+end)
+Modules.PrivateServer = {
+    State = {
+        ServerCode = nil,
+        IsCreating = false
+    }
+}
+function Modules.PrivateServer:_getPlaceId()
+    return game.PlaceId
+end
+function Modules.PrivateServer:_getJobId()
+    return game.JobId
+end
+function Modules.PrivateServer:CreateAndJoin()
+    if self.State.IsCreating then
+        DoNotif("Already creating server...", 3)
+        return
+    end
+    self.State.IsCreating = true
+    DoNotif("Creating private server...", 2)
+    local TeleportService = game:GetService("TeleportService")
+    local placeId = self:_getPlaceId()
+    local success, result = pcall(function()
+        local code = TeleportService:ReserveServer(placeId)
+        return code
+    end)
+    if success and result then
+        self.State.ServerCode = result
+        DoNotif("Private server created! Joining...", 2)
+        local teleportSuccess = pcall(function()
+            TeleportService:TeleportToPrivateServer(placeId, result, {LocalPlayer})
+        end)
+        if not teleportSuccess then
+            DoNotif("Failed to join private server", 3)
+            self.State.IsCreating = false
+        end
+    else
+        DoNotif("Failed to create server (ReservedServer method failed)", 3)
+        self.State.IsCreating = false
+    end
+end
+function Modules.PrivateServer:JoinWithCode(code)
+    if not code or code == "" then
+        DoNotif("Invalid server code", 3)
+        return
+    end
+    local TeleportService = game:GetService("TeleportService")
+    local placeId = self:_getPlaceId()
+    DoNotif("Joining private server...", 2)
+    local success = pcall(function()
+        TeleportService:TeleportToPrivateServer(placeId, code, {LocalPlayer})
+    end)
+    if not success then
+        DoNotif("Failed to join (invalid code or server expired)", 3)
+    end
+end
+function Modules.PrivateServer:CreateSoloServer()
+    local TeleportService = game:GetService("TeleportService")
+    local placeId = self:_getPlaceId()
+    DoNotif("Creating solo server...", 2)
+    local success = pcall(function()
+        TeleportService:Teleport(placeId, LocalPlayer)
+    end)
+    if not success then
+        DoNotif("Failed to create solo server", 3)
+    end
+end
+function Modules.PrivateServer:GetCurrentServerInfo()
+    local jobId = self:_getJobId()
+    local placeId = self:_getPlaceId()
+    local playerCount = #game:GetService("Players"):GetPlayers()
+    print("\n=== SERVER INFO ===")
+    print("Place ID: " .. placeId)
+    print("Job ID: " .. jobId)
+    print("Players: " .. playerCount)
+    if self.State.ServerCode then
+        print("Reserved Code: " .. self.State.ServerCode)
+    end
+    DoNotif("Server info printed to console", 2)
+    if setclipboard then
+        setclipboard(jobId)
+        DoNotif("Job ID copied to clipboard", 2)
+    end
+end
+function Modules.PrivateServer:RejoinCurrentServer()
+    local TeleportService = game:GetService("TeleportService")
+    local placeId = self:_getPlaceId()
+    local jobId = self:_getJobId()
+    DoNotif("Rejoining current server...", 2)
+    local success = pcall(function()
+        TeleportService:TeleportToPlaceInstance(placeId, jobId, LocalPlayer)
+    end)
+    if not success then
+        DoNotif("Failed to rejoin", 3)
+    end
+end
+function Modules.PrivateServer:ServerHop()
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local placeId = self:_getPlaceId()
+    DoNotif("Finding new server...", 2)
+    local success, response = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(
+            "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+        ))
+    end)
+    if not success or not response or not response.data then
+        DoNotif("Failed to get server list", 3)
+        return
+    end
+    local currentJobId = self:_getJobId()
+    local servers = response.data
+    for _, server in ipairs(servers) do
+        if server.id ~= currentJobId and server.playing < server.maxPlayers then
+            DoNotif("Hopping to new server...", 2)
+            local hopSuccess = pcall(function()
+                TeleportService:TeleportToPlaceInstance(placeId, server.id, LocalPlayer)
+            end)
+            if not hopSuccess then
+                DoNotif("Failed to hop, trying next server...", 3)
+            else
+                return
+            end
+        end
+    end
+    DoNotif("No available servers found", 3)
+end
+function Modules.PrivateServer:FindEmptyServer()
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local placeId = self:_getPlaceId()
+    DoNotif("Searching for empty server...", 2)
+    local success, response = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(
+            "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+        ))
+    end)
+    if not success or not response or not response.data then
+        DoNotif("Failed to get server list", 3)
+        return
+    end
+    local servers = response.data
+    table.sort(servers, function(a, b)
+        return a.playing < b.playing
+    end)
+    for _, server in ipairs(servers) do
+        if server.playing < 5 then
+            DoNotif(string.format("Found server with %d players, joining...", server.playing), 2)
+            local hopSuccess = pcall(function()
+                TeleportService:TeleportToPlaceInstance(placeId, server.id, LocalPlayer)
+            end)
+            if hopSuccess then
+                return
+            end
+        end
+    end
+    DoNotif("No empty servers found", 3)
+end
+RegisterCommand({
+    Name = "privateserver",
+    Aliases = {},
+    Description = "Create and join a private server (ReservedServer)"
+}, function()
+    Modules.PrivateServer:CreateAndJoin()
+end)
+RegisterCommand({
+    Name = "joinprivate",
+    Aliases = {"joinps"},
+    Description = "Join a private server with code. Usage: ;joinprivate <code>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;joinprivate <code>", 3)
+        return
+    end
+    Modules.PrivateServer:JoinWithCode(args[1])
+end)
+RegisterCommand({
+    Name = "soloserver",
+    Aliases = {"solo"},
+    Description = "Attempt to create a solo server instance"
+}, function()
+    Modules.PrivateServer:CreateSoloServer()
+end)
+RegisterCommand({
+    Name = "serverinfo",
+    Aliases = {"sinfo"},
+    Description = "Get current server info (prints to console + copies Job ID)"
+}, function()
+    Modules.PrivateServer:GetCurrentServerInfo()
+end)
+RegisterCommand({
+    Name = "emptyserver",
+    Aliases = {"empty", "lowplayer"},
+    Description = "Find and join a server with very few players"
+}, function()
+    Modules.PrivateServer:FindEmptyServer()
+end)
+Modules.NetworkFling = {
+    State = {
+        IsFlinging = false,
+        FlingPart = nil,
+        OriginalPartParent = nil,
+        OriginalPartCFrame = nil,
+        TargetPlayer = nil,
+        Connections = {}
+    },
+    Config = {
+        FlingVelocity = 500,
+        JitterSpeed = 50,
+        JitterRadius = 3,
+        PartMass = 500,
+        OrbitMode = false,
+        OrbitSpeed = 10,
+        PreferredPartNames = {"Part", "Block", "Brick"}
+    }
+}
+function Modules.NetworkFling:_findClaimablePart()
+    local character = LocalPlayer.Character
+    if not character then return nil end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    local bestPart = nil
+    local closestDistance = math.huge
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and not obj.Anchored then
+            local isCharacterPart = false
+            local parent = obj.Parent
+            while parent do
+                if parent:FindFirstChild("Humanoid") then
+                    isCharacterPart = true
+                    break
+                end
+                parent = parent.Parent
+            end
+            if not isCharacterPart then
+                local canClaim = pcall(function()
+                    obj:SetNetworkOwner(LocalPlayer)
+                end)
+                if canClaim then
+                    local distance = (obj.Position - hrp.Position).Magnitude
+                    if distance < closestDistance and distance < 100 then
+                        closestDistance = distance
+                        bestPart = obj
+                    end
+                end
+            end
+        end
+    end
+    return bestPart
+end
+function Modules.NetworkFling:_listClaimableParts()
+    local parts = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and not obj.Anchored then
+            local isCharacterPart = false
+            local parent = obj.Parent
+            while parent do
+                if parent:FindFirstChild("Humanoid") then
+                    isCharacterPart = true
+                    break
+                end
+                parent = parent.Parent
+            end
+            if not isCharacterPart then
+                local canClaim = pcall(function()
+                    obj:SetNetworkOwner(LocalPlayer)
+                end)
+                if canClaim then
+                    table.insert(parts, {
+                        Part = obj,
+                        Name = obj.Name,
+                        Path = obj:GetFullName(),
+                        Size = obj.Size
+                    })
+                end
+            end
+        end
+    end
+    return parts
+end
+function Modules.NetworkFling:_claimPart(part)
+    if not part or not part:IsA("BasePart") then return false end
+    self.State.OriginalPartParent = part.Parent
+    self.State.OriginalPartCFrame = part.CFrame
+    local success = pcall(function()
+        part:SetNetworkOwner(LocalPlayer)
+    end)
+    if not success then
+        return false
+    end
+    part.CustomPhysicalProperties = PhysicalProperties.new(
+        self.Config.PartMass,
+        0.3,
+        0.5,
+        1,
+        1
+    )
+    part.CanCollide = true
+    return true
+end
+function Modules.NetworkFling:_restorePart(part)
+    if not part then return end
+    pcall(function()
+        part:SetNetworkOwner(nil)
+        if self.State.OriginalPartCFrame then
+            part.CFrame = self.State.OriginalPartCFrame
+        end
+        part.AssemblyLinearVelocity = Vector3.zero
+        part.AssemblyAngularVelocity = Vector3.zero
+        part.CustomPhysicalProperties = nil
+    end)
+end
+function Modules.NetworkFling:_jitterPart(part, targetPos)
+    if not part or not part.Parent then return end
+    local time = tick() * self.Config.JitterSpeed
+    local jitterOffset = Vector3.new(
+        math.sin(time * 3.7) * self.Config.JitterRadius,
+        math.sin(time * 2.3) * self.Config.JitterRadius,
+        math.cos(time * 4.1) * self.Config.JitterRadius
+    )
+    local targetCFrame = CFrame.new(targetPos + jitterOffset)
+    local direction = (targetCFrame.Position - part.Position).Unit
+    part.AssemblyLinearVelocity = direction * self.Config.FlingVelocity + Vector3.new(
+        math.random(-50, 50),
+        math.random(-50, 50),
+        math.random(-50, 50)
+    )
+    part.AssemblyAngularVelocity = Vector3.new(
+        math.random(-20, 20),
+        math.random(-20, 20),
+        math.random(-20, 20)
+    )
+end
+function Modules.NetworkFling:_orbitPart(part, targetPos)
+    if not part or not part.Parent then return end
+    local time = tick() * self.Config.OrbitSpeed
+    local orbitOffset = Vector3.new(
+        math.sin(time) * self.Config.JitterRadius,
+        0,
+        math.cos(time) * self.Config.JitterRadius
+    )
+    local targetCFrame = CFrame.new(targetPos + orbitOffset)
+    local direction = (targetCFrame.Position - part.Position).Unit
+    part.AssemblyLinearVelocity = direction * self.Config.FlingVelocity
+    part.AssemblyAngularVelocity = Vector3.new(0, 50, 0)
+end
+function Modules.NetworkFling:Start(playerName)
+    if self.State.IsFlinging then
+        DoNotif("Already flinging someone", 3)
+        return
+    end
+    local targetPlayer = Utilities.findPlayer(playerName)
+    if not targetPlayer then
+        DoNotif("Player not found", 3)
+        return
+    end
+    if targetPlayer == LocalPlayer then
+        DoNotif("Cannot fling yourself", 3)
+        return
+    end
+    DoNotif("Searching for claimable part...", 2)
+    local flingPart = self:_findClaimablePart()
+    if not flingPart then
+        DoNotif("No claimable parts found nearby", 3)
+        DoNotif("Use ;listparts to see available parts", 2)
+        return
+    end
+    DoNotif("Found part: " .. flingPart.Name, 2)
+    if not self:_claimPart(flingPart) then
+        DoNotif("Failed to claim part", 3)
+        return
+    end
+    self.State.FlingPart = flingPart
+    self.State.TargetPlayer = targetPlayer
+    self.State.IsFlinging = true
+    DoNotif(string.format("Flinging %s with %s", targetPlayer.DisplayName, flingPart.Name), 2)
+    self.State.Connections.FlingLoop = RunService.Heartbeat:Connect(function()
+        if not self.State.TargetPlayer or not self.State.TargetPlayer.Parent then
+            DoNotif("Target left", 3)
+            self:Stop()
+            return
+        end
+        local targetChar = self.State.TargetPlayer.Character
+        if not targetChar then return end
+        local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+        if not targetHRP then return end
+        if not self.State.FlingPart or not self.State.FlingPart.Parent then
+            DoNotif("Fling part destroyed", 3)
+            self:Stop()
+            return
+        end
+        if self.Config.OrbitMode then
+            self:_orbitPart(self.State.FlingPart, targetHRP.Position)
+        else
+            self:_jitterPart(self.State.FlingPart, targetHRP.Position)
+        end
+    end)
+end
+function Modules.NetworkFling:Stop()
+    if not self.State.IsFlinging then return end
+    self.State.IsFlinging = false
+    self.State.TargetPlayer = nil
+    for _, conn in pairs(self.State.Connections) do
+        if conn then
+            conn:Disconnect()
+        end
+    end
+    self.State.Connections = {}
+    if self.State.FlingPart then
+        self:_restorePart(self.State.FlingPart)
+        self.State.FlingPart = nil
+    end
+    DoNotif("Stopped flinging", 2)
+end
+function Modules.NetworkFling:ListParts()
+    DoNotif("Scanning for claimable parts...", 2)
+    local parts = self:_listClaimableParts()
+    print("\n=== CLAIMABLE PARTS ===")
+    for i, data in ipairs(parts) do
+        print(string.format("%d. %s - Size: (%.1f, %.1f, %.1f) - %s", 
+            i, data.Name, 
+            data.Size.X, data.Size.Y, data.Size.Z,
+            data.Path))
+    end
+    print(string.format("\nTotal: %d parts", #parts))
+    DoNotif(string.format("Found %d claimable parts (check console)", #parts), 2)
+end
+function Modules.NetworkFling:UseSpecificPart(partName)
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name:lower():find(partName:lower()) and not obj.Anchored then
+            local canClaim = pcall(function()
+                obj:SetNetworkOwner(LocalPlayer)
+            end)
+            if canClaim then
+                DoNotif("Will use part: " .. obj.Name, 2)
+                self.State.FlingPart = obj
+                return true
+            end
+        end
+    end
+    DoNotif("Part not found or not claimable", 3)
+    return false
+end
+RegisterCommand({
+    Name = "fling",
+    Aliases = {"netfling"},
+    Description = "Fling a player using existing parts. Usage: ;fling <player>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;fling <player>", 3)
+        return
+    end
+    local playerName = table.concat(args, " ")
+    Modules.NetworkFling:Start(playerName)
+end)
+RegisterCommand({
+    Name = "unnetfling",
+    Aliases = {"stopnfling"},
+    Description = "Stop flinging and restore the part"
+}, function()
+    Modules.NetworkFling:Stop()
+end)
+RegisterCommand({
+    Name = "listparts",
+    Aliases = {"parts", "claimable"},
+    Description = "List all claimable parts in the game (prints to console)"
+}, function()
+    Modules.NetworkFling:ListParts()
+end)
+RegisterCommand({
+    Name = "usepart",
+    Aliases = {"selectpart"},
+    Description = "Manually select a part to use for flinging. Usage: ;usepart <partName>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;usepart <partName>", 3)
+        return
+    end
+    local partName = table.concat(args, " ")
+    Modules.NetworkFling:UseSpecificPart(partName)
+end)
+RegisterCommand({
+    Name = "flingvelocity",
+    Aliases = {"fvel"},
+    Description = "Set fling velocity. Usage: ;flingvelocity <velocity>"
+}, function(args)
+    if not args[1] then
+        DoNotif(string.format("Current: %d", Modules.NetworkFling.Config.FlingVelocity), 2)
+        return
+    end
+    Modules.NetworkFling.Config.FlingVelocity = tonumber(args[1]) or 500
+    DoNotif("Fling velocity: " .. args[1], 2)
+end)
+RegisterCommand({
+    Name = "flingmass",
+    Aliases = {"fmass"},
+    Description = "Set part mass. Usage: ;flingmass <mass>"
+}, function(args)
+    if not args[1] then
+        DoNotif(string.format("Current: %d", Modules.NetworkFling.Config.PartMass), 2)
+        return
+    end
+    Modules.NetworkFling.Config.PartMass = tonumber(args[1]) or 500
+    DoNotif("Part mass: " .. args[1], 2)
+end)
+RegisterCommand({
+    Name = "flingorbit",
+    Aliases = {"forbit"},
+    Description = "Toggle orbit mode"
+}, function()
+    Modules.NetworkFling.Config.OrbitMode = not Modules.NetworkFling.Config.OrbitMode
+    DoNotif("Orbit mode: " .. (Modules.NetworkFling.Config.OrbitMode and "ON" or "OFF"), 2)
+end)
 Modules.HDAdminAccess = {
     State = {
         HasAccess = false,
@@ -38603,8 +39888,6 @@ function Modules.AntiAttach:_voidAttacker(attacker)
             local hrp = character and character:FindFirstChild("HumanoidRootPart")
             
             if hrp then
-                -- Just spike your own velocity downward
-                -- Since they're attached, they inherit it and get dragged down
                 hrp.AssemblyLinearVelocity = Vector3.new(0, self.Config.VoidVelocity, 0)
                 hrp.AssemblyAngularVelocity = Vector3.zero
             else
