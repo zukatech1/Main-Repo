@@ -30907,94 +30907,2135 @@ Modules.Chams = {
     State = {
         IsEnabled = false,
         TrackedCharacters = setmetatable({}, {__mode = "k"}),
-        OriginalProperties = setmetatable({}, {__mode = "k"}),
-        Connections = {}
+        TrackedPlayers = {},
+        Connections = {},
+        UpdateConnection = nil,
     },
     Config = {
         VisibleColor = Color3.fromRGB(0, 255, 0),
         OccludedColor = Color3.fromRGB(255, 0, 0),
+        OutlineColor = Color3.fromRGB(0, 0, 0),
+        FillTransparency = 0.3,
+        OutlineTransparency = 0,
+        ShowTeammates = false,
+        UseTeamColors = false,
+        IncludeLocalPlayer = false,
         Material = Enum.Material.Neon,
-        HighlightTransparency = 0
+        DepthMode = "dual",
+        UpdateInterval = 0.5,
     },
     Services = {
         Players = game:GetService("Players"),
-        RunService = game:GetService("RunService")
+        RunService = game:GetService("RunService"),
+        Teams = game:GetService("Teams"),
     }
 }
-function Modules.Chams:_apply(character)
-    if not character or self.State.TrackedCharacters[character] then return end
-    local highlight = Instance.new("Highlight", character)
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.FillColor = self.Config.OccludedColor
-    highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
-    highlight.FillTransparency = self.Config.HighlightTransparency
-    local innerHighlight = Instance.new("Highlight", character)
-    innerHighlight.DepthMode = Enum.HighlightDepthMode.Occluded
-    innerHighlight.FillColor = self.Config.VisibleColor
-    innerHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    innerHighlight.FillTransparency = self.Config.HighlightTransparency
-    self.State.TrackedCharacters[character] = {highlight, innerHighlight}
+function Modules.Chams:ShouldTrackPlayer(player)
+    if player == self.Services.Players.LocalPlayer then
+        return self.Config.IncludeLocalPlayer
+    end
+    if not self.Config.ShowTeammates and self.Services.Players.LocalPlayer then
+        local localPlayer = self.Services.Players.LocalPlayer
+        if player.Team and localPlayer.Team and player.Team == localPlayer.Team then
+            return false
+        end
+    end
+    return true
 end
-function Modules.Chams:_revert(character)
+function Modules.Chams:GetPlayerColor(player)
+    if self.Config.UseTeamColors and player.Team and player.Team.TeamColor then
+        return player.Team.TeamColor.Color
+    end
+    return self.Config.VisibleColor
+end
+function Modules.Chams:ApplyHighlight(character, player)
+    if not character or not character:IsDescendantOf(workspace) then return end
+    if self.State.TrackedCharacters[character] then return end
+    local highlights = {}
+    local visibleColor = player and self:GetPlayerColor(player) or self.Config.VisibleColor
+    if self.Config.DepthMode == "dual" or self.Config.DepthMode == "always" then
+        local alwaysHighlight = Instance.new("Highlight")
+        alwaysHighlight.Name = "ChamsAlways"
+        alwaysHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        alwaysHighlight.FillColor = self.Config.OccludedColor
+        alwaysHighlight.OutlineColor = self.Config.OutlineColor
+        alwaysHighlight.FillTransparency = self.Config.FillTransparency
+        alwaysHighlight.OutlineTransparency = self.Config.OutlineTransparency
+        alwaysHighlight.Parent = character
+        table.insert(highlights, alwaysHighlight)
+    end
+    if self.Config.DepthMode == "dual" or self.Config.DepthMode == "occluded" then
+        local occludedHighlight = Instance.new("Highlight")
+        occludedHighlight.Name = "ChamsOccluded"
+        occludedHighlight.DepthMode = Enum.HighlightDepthMode.Occluded
+        occludedHighlight.FillColor = visibleColor
+        occludedHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        occludedHighlight.FillTransparency = self.Config.FillTransparency
+        occludedHighlight.OutlineTransparency = self.Config.OutlineTransparency
+        occludedHighlight.Parent = character
+        table.insert(highlights, occludedHighlight)
+    end
+    self.State.TrackedCharacters[character] = highlights
+end
+function Modules.Chams:RemoveHighlight(character)
     if not character or not self.State.TrackedCharacters[character] then return end
-    for _, effect in ipairs(self.State.TrackedCharacters[character]) do
-        pcall(function() effect:Destroy() end)
+    for _, highlight in ipairs(self.State.TrackedCharacters[character]) do
+        pcall(function() highlight:Destroy() end)
     end
     self.State.TrackedCharacters[character] = nil
+end
+function Modules.Chams:UpdatePlayerHighlights(player)
+    if not player or not player.Parent then return end
+    local shouldTrack = self:ShouldTrackPlayer(player)
+    local character = player.Character
+    if shouldTrack and character then
+        if self.State.TrackedCharacters[character] then
+            if self.Config.UseTeamColors then
+                local newColor = self:GetPlayerColor(player)
+                for _, highlight in ipairs(self.State.TrackedCharacters[character]) do
+                    if highlight.DepthMode == Enum.HighlightDepthMode.Occluded then
+                        highlight.FillColor = newColor
+                    end
+                end
+            end
+        else
+            self:ApplyHighlight(character, player)
+        end
+    elseif not shouldTrack and character and self.State.TrackedCharacters[character] then
+        self:RemoveHighlight(character)
+    end
+end
+function Modules.Chams:SetupPlayer(player)
+    if not player or self.State.TrackedPlayers[player] then return end
+    if self:ShouldTrackPlayer(player) and player.Character then
+        self:ApplyHighlight(player.Character, player)
+    end
+    self.State.TrackedPlayers[player] = {}
+    self.State.TrackedPlayers[player].CharacterAdded = player.CharacterAdded:Connect(function(character)
+        task.wait(0.1)
+        if self:ShouldTrackPlayer(player) then
+            self:ApplyHighlight(character, player)
+        end
+    end)
+    self.State.TrackedPlayers[player].CharacterRemoving = player.CharacterRemoving:Connect(function(character)
+        self:RemoveHighlight(character)
+    end)
+    if player:FindFirstChild("Team") then
+        local teamProp = player:GetPropertyChangedSignal("Team")
+        self.State.TrackedPlayers[player].TeamChanged = teamProp:Connect(function()
+            self:UpdatePlayerHighlights(player)
+        end)
+    end
+end
+function Modules.Chams:CleanupPlayer(player)
+    if not self.State.TrackedPlayers[player] then return end
+    for _, conn in pairs(self.State.TrackedPlayers[player]) do
+        pcall(function() conn:Disconnect() end)
+    end
+    if player.Character then
+        self:RemoveHighlight(player.Character)
+    end
+    self.State.TrackedPlayers[player] = nil
 end
 function Modules.Chams:Enable()
     if self.State.IsEnabled then return end
     self.State.IsEnabled = true
-    local function setupPlayer(player)
-        if player == self.Services.Players.LocalPlayer then return end
-        if player.Character then
-            self:_apply(player.Character)
-        end
-        self.State.Connections[player] = {}
-        self.State.Connections[player].CharacterAdded = player.CharacterAdded:Connect(function(char) self:_apply(char) end)
-        self.State.Connections[player].CharacterRemoving = player.CharacterRemoving:Connect(function(char) self:_revert(char) end)
-    end
     for _, player in ipairs(self.Services.Players:GetPlayers()) do
-        setupPlayer(player)
+        self:SetupPlayer(player)
     end
-    self.State.Connections.PlayerAdded = self.Services.Players.PlayerAdded:Connect(setupPlayer)
-    self.State.Connections.PlayerRemoving = self.Services.Players.PlayerRemoving:Connect(function(player)
-        if self.State.Connections[player] then
-            for _, conn in pairs(self.State.Connections[player]) do
-                conn:Disconnect()
-            end
-            self.State.Connections[player] = nil
-        end
+    self.State.Connections.PlayerAdded = self.Services.Players.PlayerAdded:Connect(function(player)
+        self:SetupPlayer(player)
     end)
-    DoNotif("Chams: ENABLED", 2)
+    self.State.Connections.PlayerRemoving = self.Services.Players.PlayerRemoving:Connect(function(player)
+        self:CleanupPlayer(player)
+    end)
+    if self.Config.UpdateInterval > 0 then
+        self.State.UpdateConnection = self.Services.RunService.Heartbeat:Connect(function()
+            if tick() % self.Config.UpdateInterval < self.Services.RunService.Heartbeat:Wait() then
+                for _, player in ipairs(self.Services.Players:GetPlayers()) do
+                    self:UpdatePlayerHighlights(player)
+                end
+            end
+        end)
+    end
+    DoNotif("Chams enabled" .. (self.Config.ShowTeammates and " (inc. teammates)" or ""), 2)
 end
 function Modules.Chams:Disable()
     if not self.State.IsEnabled then return end
     self.State.IsEnabled = false
-    for player, conns in pairs(self.State.Connections) do
-        if type(conns) == "table" then
-            for _, conn in pairs(conns) do
-                conn:Disconnect()
-            end
-        else
-            conns:Disconnect()
-        end
+    for _, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
     end
     table.clear(self.State.Connections)
-    for character, _ in pairs(self.State.TrackedCharacters) do
-        self:_revert(character)
+    if self.State.UpdateConnection then
+        self.State.UpdateConnection:Disconnect()
+        self.State.UpdateConnection = nil
     end
-    DoNotif("Chams: DISABLED", 2)
+    for player, _ in pairs(self.State.TrackedPlayers) do
+        self:CleanupPlayer(player)
+    end
+    for character, _ in pairs(self.State.TrackedCharacters) do
+        self:RemoveHighlight(character)
+    end
+    DoNotif("Chams disabled", 2)
+end
+function Modules.Chams:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+function Modules.Chams:SetTeamColors(enabled)
+    self.Config.UseTeamColors = enabled
+    if self.State.IsEnabled then
+        for _, player in ipairs(self.Services.Players:GetPlayers()) do
+            self:UpdatePlayerHighlights(player)
+        end
+    end
+    DoNotif("Team colors " .. (enabled and "enabled" or "disabled"), 2)
+end
+function Modules.Chams:SetShowTeammates(enabled)
+    self.Config.ShowTeammates = enabled
+    if self.State.IsEnabled then
+        for _, player in ipairs(self.Services.Players:GetPlayers()) do
+            self:UpdatePlayerHighlights(player)
+        end
+    end
+    DoNotif("Teammates " .. (enabled and "shown" or "hidden"), 2)
 end
 RegisterCommand({
     Name = "chams",
     Aliases = {},
-    Description = "Toggles a solid color ESP on all other players."
-}, function()
-    if Modules.Chams.State.IsEnabled then
-        Modules.Chams:Disable()
+    Description = "Toggles player ESP with customizable options."
+}, function(args)
+    if #args == 0 then
+        Modules.Chams:Toggle()
+        return
+    end
+    local subcommand = args[1]:lower()
+    if subcommand == "teammates" then
+        Modules.Chams:SetShowTeammates(not Modules.Chams.Config.ShowTeammates)
+    elseif subcommand == "teamcolors" then
+        Modules.Chams:SetTeamColors(not Modules.Chams.Config.UseTeamColors)
+    elseif subcommand == "mode" and args[2] then
+        local mode = args[2]:lower()
+        if mode == "dual" or mode == "always" or mode == "occluded" then
+            Modules.Chams.Config.DepthMode = mode
+            if Modules.Chams.State.IsEnabled then
+                Modules.Chams:Disable()
+                Modules.Chams:Enable()
+            end
+            DoNotif("Chams mode: " .. mode, 2)
+        else
+            DoNotif("Invalid mode. Use: dual, always, or occluded", 3)
+        end
     else
-        Modules.Chams:Enable()
+        Modules.Chams:Toggle()
+    end
+end)
+Modules.Attach = {
+    State = {
+        IsEnabled = false,
+        UI = nil,
+        TargetPlayer = nil,
+        LastPlayer = nil,
+        SpectateActive = false,
+        AttachActive = false,
+        LivePlayers = {},
+        Connections = {},
+        Position = {X = 0, Y = 0, Z = 0},
+        Rotation = {X = 0, Y = 0, Z = 0},
+    },
+    Config = {
+        MaxPosition = 10,
+        MaxAngle = 360,
+        UISize = UDim2.new(0, 500, 0, 400),
+        Presets = {
+            Speed = {
+                Position = {X = 0, Y = 1, Z = 1},
+                Rotation = {X = -140, Y = 0, Z = 0}
+            },
+            InfJump = {
+                Position = {X = 0, Y = -5, Z = 0},
+                Rotation = {X = 45, Y = 0, Z = 0}
+            },
+            NoJump = {
+                Position = {X = 0, Y = 3, Z = 0},
+                Rotation = {X = -90, Y = 0, Z = 0}
+            },
+            Climb = {
+                Position = {X = 0, Y = -1.5, Z = -1.75},
+                Rotation = {X = -45, Y = 0, Z = 0}
+            },
+            Skydive = {
+                Position = {X = 0, Y = -2, Z = 0},
+                Rotation = {X = 90, Y = 0, Z = 0}
+            }
+        }
+    },
+    Services = {
+        Players = game:GetService("Players"),
+        TweenService = game:GetService("TweenService"),
+        RunService = game:GetService("RunService"),
+        UserInputService = game:GetService("UserInputService"),
+    }
+}
+
+function Modules.Attach:Tween(obj, duration, style, direction, goal)
+    local tween = self.Services.TweenService:Create(
+        obj,
+        TweenInfo.new(duration, Enum.EasingStyle[style], Enum.EasingDirection[direction]),
+        goal
+    )
+    tween:Play()
+    return tween
+end
+
+function Modules.Attach:GetMatchingPlayers(name)
+    local matches = {}
+    
+    if type(name) ~= "string" or name == "" then
+        return matches
+    end
+    
+    name = name:lower()
+    local pattern = "^" .. name
+    
+    for _, player in ipairs(self.Services.Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local username = player.Name:lower()
+            local displayName = player.DisplayName:lower()
+            
+            if username:match(pattern) or displayName:match(pattern) then
+                matches[player] = true
+            end
+        end
+    end
+    
+    return matches
+end
+
+function Modules.Attach:SetupDragging(guiObject, duration, style, direction)
+    task.spawn(function()
+        local dragging = false
+        local dragStart = Vector3.new()
+        local startPosition
+        
+        local function update(input)
+            local delta = input.Position - dragStart
+            local newPosition = UDim2.new(
+                startPosition.X.Scale,
+                startPosition.X.Offset + delta.X,
+                startPosition.Y.Scale,
+                startPosition.Y.Offset + delta.Y
+            )
+            self:Tween(guiObject, duration, style, direction, {Position = newPosition})
+        end
+        
+        guiObject.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+               input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPosition = guiObject.Position
+                
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
+        end)
+        
+        guiObject.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or 
+               input.UserInputType == Enum.UserInputType.Touch then
+                if dragging then
+                    update(input)
+                end
+            end
+        end)
+    end)
+end
+
+function Modules.Attach:CreateSlider(slider, fill, button, min, max, callback)
+    local dragging = false
+    local initialPercent = (-min) / (max - min)
+    fill.Size = UDim2.new(initialPercent, 0, 1, 0)
+    
+    local function updateSlider(input)
+        local sliderPos = math.clamp(
+            input.Position.X - slider.AbsolutePosition.X,
+            0,
+            slider.AbsoluteSize.X
+        )
+        local percent = sliderPos / slider.AbsoluteSize.X
+        local value = min + percent * (max - min)
+        
+        fill.Size = UDim2.new(percent, 0, 1, 0)
+        
+        if callback then
+            callback(string.format("%.2f", value))
+        end
+    end
+    
+    local function beginDrag(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            updateSlider(input)
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end
+    
+    slider.InputBegan:Connect(beginDrag)
+    slider.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
+           input.UserInputType == Enum.UserInputType.Touch) then
+            updateSlider(input)
+        end
+    end)
+    
+    button.InputBegan:Connect(beginDrag)
+    
+    self.Services.UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
+           input.UserInputType == Enum.UserInputType.Touch) then
+            updateSlider(input)
+        end
+    end)
+end
+
+function Modules.Attach:UpdateValues()
+    local function parseText(text)
+        return tonumber(text) or 0
+    end
+    
+    local ui = self.State.UI
+    if not ui then return end
+    
+    -- Parse values
+    self.State.Position.X = parseText(ui.PosX.Text)
+    self.State.Position.Y = parseText(ui.PosY.Text)
+    self.State.Position.Z = parseText(ui.PosZ.Text)
+    
+    self.State.Rotation.X = parseText(ui.RotX.Text)
+    self.State.Rotation.Y = parseText(ui.RotY.Text)
+    self.State.Rotation.Z = parseText(ui.RotZ.Text)
+    
+    -- Update slider fills
+    local function updateFill(frame, value, max)
+        local percent = (math.clamp(value, -max, max) - -max) / (max - -max)
+        frame.Size = UDim2.new(percent, 0, 1, 0)
+    end
+    
+    updateFill(ui.PosFillX, self.State.Position.X, self.Config.MaxPosition)
+    updateFill(ui.PosFillY, self.State.Position.Y, self.Config.MaxPosition)
+    updateFill(ui.PosFillZ, self.State.Position.Z, self.Config.MaxPosition)
+    
+    updateFill(ui.RotFillX, self.State.Rotation.X, self.Config.MaxAngle)
+    updateFill(ui.RotFillY, self.State.Rotation.Y, self.Config.MaxAngle)
+    updateFill(ui.RotFillZ, self.State.Rotation.Z, self.Config.MaxAngle)
+end
+
+function Modules.Attach:SetupDigitFiltering(...)
+    local textBoxes = {...}
+    
+    for _, textBox in ipairs(textBoxes) do
+        textBox:GetPropertyChangedSignal("Text"):Connect(function()
+            local digits = textBox.Text:match("^%-?%d*%.?%d*") or ""
+            
+            if textBox.Text ~= digits then
+                textBox.Text = digits
+            end
+            
+            self:UpdateValues()
+        end)
+    end
+end
+
+function Modules.Attach:ApplyPreset(presetName)
+    local preset = self.Config.Presets[presetName]
+    if not preset or not self.State.UI then return end
+    
+    local ui = self.State.UI
+    
+    ui.PosX.Text = tostring(preset.Position.X)
+    ui.PosY.Text = tostring(preset.Position.Y)
+    ui.PosZ.Text = tostring(preset.Position.Z)
+    
+    ui.RotX.Text = tostring(preset.Rotation.X)
+    ui.RotY.Text = tostring(preset.Rotation.Y)
+    ui.RotZ.Text = tostring(preset.Rotation.Z)
+    
+    self:UpdateValues()
+end
+
+function Modules.Attach:AddPlayerToList(player)
+    if player == LocalPlayer or self.State.LivePlayers[player] then return end
+    
+    local ui = self.State.UI
+    if not ui then return end
+    
+    local success, thumbnail = pcall(function()
+        return self.Services.Players:GetUserThumbnailAsync(
+            player.UserId,
+            Enum.ThumbnailType.HeadShot,
+            Enum.ThumbnailSize.Size420x420
+        )
+    end)
+    
+    if not success then return end
+    
+    local template = ui.PlayerTemplate:Clone()
+    template.Visible = true
+    template.PlayerThumbnail.Image = thumbnail
+    template.PlayerDisplayName.Text = player.DisplayName
+    template.PlayerUsername.Text = player.Name
+    template.Parent = ui.PlayersContainer
+    
+    template.MouseButton1Click:Connect(function()
+        self:SelectPlayer(player)
+    end)
+    
+    self.State.LivePlayers[player] = template
+end
+
+function Modules.Attach:RemovePlayerFromList(player)
+    if player == self.State.TargetPlayer then
+        self.State.TargetPlayer = nil
+    end
+    
+    local template = self.State.LivePlayers[player]
+    if template then
+        template:Destroy()
+        self.State.LivePlayers[player] = nil
+    end
+end
+
+function Modules.Attach:SelectPlayer(player)
+    self.State.TargetPlayer = player
+    self.State.LastPlayer = player
+    
+    local ui = self.State.UI
+    if not ui then return end
+    
+    local success, thumbnail = pcall(function()
+        return self.Services.Players:GetUserThumbnailAsync(
+            player.UserId,
+            Enum.ThumbnailType.HeadShot,
+            Enum.ThumbnailSize.Size420x420
+        )
+    end)
+    
+    if success then
+        ui.SelectedThumbnail.Image = thumbnail
+        ui.SelectedDisplayName.Text = player.DisplayName
+        ui.SelectedUsername.Text = player.Name
+    end
+end
+
+function Modules.Attach:SearchPlayers()
+    local ui = self.State.UI
+    if not ui then return end
+    
+    local searchText = ui.SearchBox.Text
+    local matches = self:GetMatchingPlayers(searchText)
+    
+    if next(matches) then
+        for player, template in pairs(self.State.LivePlayers) do
+            template.Visible = matches[player] == true
+        end
+    else
+        for _, template in pairs(self.State.LivePlayers) do
+            template.Visible = (searchText == "")
+        end
+    end
+end
+
+function Modules.Attach:ToggleSpectate()
+    self.State.SpectateActive = not self.State.SpectateActive
+    local ui = self.State.UI
+    
+    if self.State.SpectateActive then
+        ui.ViewLabel.Text = "Unview"
+        ui.ViewButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        
+        self.State.Connections.Spectate = self.Services.RunService.RenderStepped:Connect(function()
+            if self.State.TargetPlayer and self.State.TargetPlayer.Character then
+                local humanoid = self.State.TargetPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+                if humanoid then
+                    workspace.CurrentCamera.CameraSubject = humanoid
+                end
+            end
+        end)
+    else
+        ui.ViewLabel.Text = "View"
+        ui.ViewButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+        
+        if self.State.Connections.Spectate then
+            self.State.Connections.Spectate:Disconnect()
+            self.State.Connections.Spectate = nil
+        end
+        
+        if LocalPlayer.Character then
+            local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+            if humanoid then
+                workspace.CurrentCamera.CameraSubject = humanoid
+            end
+        end
+    end
+end
+
+function Modules.Attach:ToggleAttach()
+    self.State.AttachActive = not self.State.AttachActive
+    local ui = self.State.UI
+    
+    if self.State.AttachActive then
+        ui.AttachLabel.Text = "Unattach"
+        
+        self.State.Connections.Attach = self.Services.RunService.RenderStepped:Connect(function()
+            if not self.State.TargetPlayer or not LocalPlayer.Character then return end
+            
+            local char = LocalPlayer.Character
+            local targetChar = self.State.TargetPlayer.Character
+            
+            if not char or not targetChar then return end
+            
+            local rootPart = char:FindFirstChild("HumanoidRootPart")
+            local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+            
+            if rootPart and targetRoot then
+                pcall(function()
+                    sethiddenproperty(rootPart, "PhysicsRepRootPart", targetRoot)
+                end)
+                
+                local pos = self.State.Position
+                local rot = self.State.Rotation
+                
+                rootPart.CFrame = targetRoot.CFrame 
+                    * CFrame.new(pos.X, pos.Y, pos.Z)
+                    * CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
+                
+                rootPart.AssemblyLinearVelocity = Vector3.zero
+                rootPart.AssemblyAngularVelocity = Vector3.zero
+            end
+        end)
+    else
+        ui.AttachLabel.Text = "Attach"
+        
+        if self.State.Connections.Attach then
+            self.State.Connections.Attach:Disconnect()
+            self.State.Connections.Attach = nil
+        end
+    end
+end
+
+function Modules.Attach:CreateUI()
+    if self.State.UI then return true end
+    
+    local Players = self.Services.Players
+    
+    local Attach = Instance.new("ScreenGui")
+    Attach.Name = "Attach"
+    Attach.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    Attach.Parent = CoreGui
+
+    local MainContainer = Instance.new("Frame")
+    MainContainer.BackgroundTransparency = 1
+    MainContainer.Name = "MainContainer"
+    MainContainer.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    MainContainer.Size = UDim2.new(1, 0, 1, 0)
+    MainContainer.BorderSizePixel = 0
+    MainContainer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    MainContainer.Parent = Attach
+
+    local UIContainer = Instance.new("Frame")
+    UIContainer.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    UIContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+    UIContainer.BackgroundTransparency = 0.25
+    UIContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
+    UIContainer.Name = "UIContainer"
+    UIContainer.Size = UDim2.new(0, 500, 0, 400)
+    UIContainer.BorderSizePixel = 0
+    UIContainer.BackgroundColor3 = Color3.fromRGB(17, 20, 27)
+    UIContainer.Parent = MainContainer
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.075, 0)
+    UICorner.Parent = UIContainer
+
+    local LeftContainer = Instance.new("Frame")
+    LeftContainer.BackgroundTransparency = 1
+    LeftContainer.Name = "LeftContainer"
+    LeftContainer.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    LeftContainer.Size = UDim2.new(0, 200, 1, 0)
+    LeftContainer.BorderSizePixel = 0
+    LeftContainer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    LeftContainer.Parent = UIContainer
+
+    local Thumbnail = Instance.new("ImageLabel")
+    Thumbnail.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Thumbnail.Name = "Thumbnail"
+    Thumbnail.AnchorPoint = Vector2.new(0, 1)
+    Thumbnail.Image = "rbxthumb://type=AvatarHeadShot&id=1414978355&w=420&h=420"
+    Thumbnail.BackgroundTransparency = 0.95
+    Thumbnail.Position = UDim2.new(0, 20, 1, -15)
+    Thumbnail.Size = UDim2.new(0, 50, 0, 50)
+    Thumbnail.BorderSizePixel = 0
+    Thumbnail.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Thumbnail.Parent = LeftContainer
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(1, 0)
+    UICorner.Parent = Thumbnail
+
+    local DisplayName = Instance.new("TextLabel")
+    DisplayName.TextWrapped = true
+    DisplayName.Name = "DisplayName"
+    DisplayName.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DisplayName.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    DisplayName.Text = "Zuka"
+    DisplayName.Size = UDim2.new(1, -80, 0, 15)
+    DisplayName.Position = UDim2.new(1, 0, 1, -45)
+    DisplayName.AnchorPoint = Vector2.new(1, 1)
+    DisplayName.BorderSizePixel = 0
+    DisplayName.BackgroundTransparency = 1
+    DisplayName.TextXAlignment = Enum.TextXAlignment.Left
+    DisplayName.TextScaled = true
+    DisplayName.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    DisplayName.TextSize = 14
+    DisplayName.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    DisplayName.Parent = LeftContainer
+
+    local Username = Instance.new("TextLabel")
+    Username.TextWrapped = true
+    Username.Name = "Username"
+    Username.TextColor3 = Color3.fromRGB(178, 178, 178)
+    Username.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Username.Text = "OverZuka"
+    Username.Size = UDim2.new(1, -80, 0, 12)
+    Username.Position = UDim2.new(1, 0, 1, -30)
+    Username.AnchorPoint = Vector2.new(1, 1)
+    Username.BorderSizePixel = 0
+    Username.BackgroundTransparency = 1
+    Username.TextXAlignment = Enum.TextXAlignment.Left
+    Username.TextScaled = true
+    Username.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    Username.TextSize = 14
+    Username.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Username.Parent = LeftContainer
+
+    local Icon = Instance.new("ImageLabel")
+    Icon.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Icon.Name = "Icon"
+    Icon.Image = "rbxassetid://131893895617606"
+    Icon.BackgroundTransparency = 1
+    Icon.Position = UDim2.new(0, 15, 0, 15)
+    Icon.Size = UDim2.new(0, 40, 0, 40)
+    Icon.BorderSizePixel = 0
+    Icon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Icon.Parent = LeftContainer
+
+    local Title = Instance.new("TextLabel")
+    Title.TextWrapped = true
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Title.Text = "Attach Hub"
+    Title.Name = "Title"
+    Title.Size = UDim2.new(0, 125, 0, 15)
+    Title.Position = UDim2.new(0, 60, 0, 20)
+    Title.BorderSizePixel = 0
+    Title.BackgroundTransparency = 1
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.TextSize = 14
+    Title.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    Title.TextScaled = true
+    Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Title.Parent = LeftContainer
+
+    local Credits = Instance.new("TextLabel")
+    Credits.TextWrapped = true
+    Credits.TextColor3 = Color3.fromRGB(178, 178, 178)
+    Credits.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Credits.Text = "Made by ZukaIsntHere"
+    Credits.Name = "Credits"
+    Credits.Size = UDim2.new(0, 125, 0, 12)
+    Credits.Position = UDim2.new(0, 60, 0, 35)
+    Credits.BorderSizePixel = 0
+    Credits.BackgroundTransparency = 1
+    Credits.TextXAlignment = Enum.TextXAlignment.Left
+    Credits.TextSize = 14
+    Credits.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    Credits.TextScaled = true
+    Credits.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Credits.Parent = LeftContainer
+
+    local SearchBox = Instance.new("TextBox")
+    SearchBox.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    SearchBox.AnchorPoint = Vector2.new(0.5, 0)
+    SearchBox.PlaceholderColor3 = Color3.fromRGB(178, 178, 178)
+    SearchBox.PlaceholderText = "Displayname/Username"
+    SearchBox.TextSize = 12
+    SearchBox.Size = UDim2.new(1, -20, 0, 20)
+    SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SearchBox.BorderColor3 = Color3.fromRGB(24, 24, 24)
+    SearchBox.ClearTextOnFocus = false
+    SearchBox.Text = ""
+    SearchBox.Name = "SearchBox"
+    SearchBox.BackgroundTransparency = 0.9
+    SearchBox.TextXAlignment = Enum.TextXAlignment.Left
+    SearchBox.TextWrapped = true
+    SearchBox.Position = UDim2.new(0.5, 0, 0, 65)
+    SearchBox.BorderSizePixel = 0
+    SearchBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    SearchBox.ClipsDescendants = true
+    SearchBox.Parent = LeftContainer
+
+    local UIPadding = Instance.new("UIPadding")
+    UIPadding.PaddingLeft = UDim.new(0, 25)
+    UIPadding.Parent = SearchBox
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.3, 0)
+    UICorner.Parent = SearchBox
+
+    local SearchIcon = Instance.new("ImageLabel")
+    SearchIcon.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    SearchIcon.Name = "SearchIcon"
+    SearchIcon.AnchorPoint = Vector2.new(1, 0.5)
+    SearchIcon.Image = "rbxassetid://96049338298945"
+    SearchIcon.BackgroundTransparency = 1
+    SearchIcon.Position = UDim2.new(0, -5, 0.5, 0)
+    SearchIcon.Size = UDim2.new(0, 16, 0, 16)
+    SearchIcon.BorderSizePixel = 0
+    SearchIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    SearchIcon.Parent = SearchBox
+
+    local PlayersContainerFrame = Instance.new("Frame")
+    PlayersContainerFrame.Name = "PlayersContainerFrame"
+    PlayersContainerFrame.BackgroundTransparency = 1
+    PlayersContainerFrame.Position = UDim2.new(0, 0, 0, 95)
+    PlayersContainerFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PlayersContainerFrame.Size = UDim2.new(1, 0, 0, 230)
+    PlayersContainerFrame.BorderSizePixel = 0
+    PlayersContainerFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PlayersContainerFrame.Parent = LeftContainer
+
+    local PlayersContainer = Instance.new("ScrollingFrame")
+    PlayersContainer.Active = true
+    PlayersContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    PlayersContainer.ScrollBarThickness = 0
+    PlayersContainer.Name = "PlayersContainer"
+    PlayersContainer.Size = UDim2.new(1, -20, 1, 0)
+    PlayersContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+    PlayersContainer.ScrollBarImageTransparency = 1
+    PlayersContainer.BackgroundTransparency = 0.9
+    PlayersContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
+    PlayersContainer.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PlayersContainer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PlayersContainer.BorderSizePixel = 0
+    PlayersContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+    PlayersContainer.Parent = PlayersContainerFrame
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.075, 0)
+    UICorner.Parent = PlayersContainer
+
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Padding = UDim.new(0, 5)
+    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    UIListLayout.Parent = PlayersContainer
+
+    local PlayerTemplateContainer = Instance.new("TextButton")
+    PlayerTemplateContainer.BackgroundTransparency = 0.9
+    PlayerTemplateContainer.Name = "PlayerTemplateContainer"
+    PlayerTemplateContainer.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PlayerTemplateContainer.Size = UDim2.new(1, -20, 0, 40)
+    PlayerTemplateContainer.BorderSizePixel = 0
+    PlayerTemplateContainer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PlayerTemplateContainer.Text = ""
+    PlayerTemplateContainer.Visible = false
+    PlayerTemplateContainer.Parent = PlayersContainer
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = PlayerTemplateContainer
+
+    local PlayerThumbnail = Instance.new("ImageLabel")
+    PlayerThumbnail.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PlayerThumbnail.Image = "rbxthumb://type=AvatarHeadShot&id=20460194&w=420&h=420"
+    PlayerThumbnail.BackgroundTransparency = 1
+    PlayerThumbnail.Name = "PlayerThumbnail"
+    PlayerThumbnail.Size = UDim2.new(0, 40, 0, 40)
+    PlayerThumbnail.BorderSizePixel = 0
+    PlayerThumbnail.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PlayerThumbnail.Parent = PlayerTemplateContainer
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.10000000149011612, 0)
+    UICorner.Parent = PlayerThumbnail
+
+    local PlayerDisplayName = Instance.new("TextLabel")
+    PlayerDisplayName.TextWrapped = true
+    PlayerDisplayName.Name = "PlayerDisplayName"
+    PlayerDisplayName.TextColor3 = Color3.fromRGB(255, 255, 255)
+    PlayerDisplayName.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PlayerDisplayName.Text = "Zuka"
+    PlayerDisplayName.Size = UDim2.new(1, -45, 0, 15)
+    PlayerDisplayName.Position = UDim2.new(1, 0, 0, 5)
+    PlayerDisplayName.AnchorPoint = Vector2.new(1, 0)
+    PlayerDisplayName.BorderSizePixel = 0
+    PlayerDisplayName.BackgroundTransparency = 1
+    PlayerDisplayName.TextXAlignment = Enum.TextXAlignment.Left
+    PlayerDisplayName.TextScaled = true
+    PlayerDisplayName.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    PlayerDisplayName.TextSize = 14
+    PlayerDisplayName.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PlayerDisplayName.Parent = PlayerTemplateContainer
+
+    local PlayerUsername = Instance.new("TextLabel")
+    PlayerUsername.TextWrapped = true
+    PlayerUsername.Name = "PlayerUsername"
+    PlayerUsername.TextColor3 = Color3.fromRGB(178, 178, 178)
+    PlayerUsername.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PlayerUsername.Text = "@ZukaIsntHere"
+    PlayerUsername.Size = UDim2.new(1, -45, 0, 12)
+    PlayerUsername.Position = UDim2.new(1, 0, 0, 20)
+    PlayerUsername.AnchorPoint = Vector2.new(1, 0)
+    PlayerUsername.BorderSizePixel = 0
+    PlayerUsername.BackgroundTransparency = 1
+    PlayerUsername.TextXAlignment = Enum.TextXAlignment.Left
+    PlayerUsername.TextScaled = true
+    PlayerUsername.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    PlayerUsername.TextSize = 14
+    PlayerUsername.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PlayerUsername.Parent = PlayerTemplateContainer
+
+    local UIPadding = Instance.new("UIPadding")
+    UIPadding.PaddingBottom = UDim.new(0, 10)
+    UIPadding.PaddingTop = UDim.new(0, 10)
+    UIPadding.Parent = PlayersContainer
+
+    local RightContainer = Instance.new("Frame")
+    RightContainer.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RightContainer.AnchorPoint = Vector2.new(1, 0)
+    RightContainer.BackgroundTransparency = 1
+    RightContainer.Position = UDim2.new(1, 0, 0, 0)
+    RightContainer.Name = "RightContainer"
+    RightContainer.Size = UDim2.new(0, 300, 1, 0)
+    RightContainer.BorderSizePixel = 0
+    RightContainer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RightContainer.Parent = UIContainer
+
+    local Close = Instance.new("TextButton")
+    Close.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    Close.Active = false
+    Close.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Close.Text = ""
+    Close.Name = "Close"
+    Close.AutoButtonColor = false
+    Close.AnchorPoint = Vector2.new(1, 0)
+    Close.Size = UDim2.new(0, 30, 0, 30)
+    Close.BackgroundTransparency = 1
+    Close.Position = UDim2.new(1, -15, 0, 15)
+    Close.BorderSizePixel = 0
+    Close.TextColor3 = Color3.fromRGB(0, 0, 0)
+    Close.TextSize = 14
+    Close.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Close.Parent = RightContainer
+
+    local CloseIcon = Instance.new("ImageLabel")
+    CloseIcon.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    CloseIcon.Name = "CloseIcon"
+    CloseIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+    CloseIcon.Image = "rbxassetid://110786993356448"
+    CloseIcon.BackgroundTransparency = 1
+    CloseIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+    CloseIcon.Size = UDim2.new(0, 16, 0, 16)
+    CloseIcon.BorderSizePixel = 0
+    CloseIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    CloseIcon.Parent = Close
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.25, 0)
+    UICorner.Parent = Close
+
+    local Minimize = Instance.new("TextButton")
+    Minimize.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    Minimize.Active = false
+    Minimize.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Minimize.Text = ""
+    Minimize.Name = "Minimize"
+    Minimize.AutoButtonColor = false
+    Minimize.AnchorPoint = Vector2.new(1, 0)
+    Minimize.Size = UDim2.new(0, 30, 0, 30)
+    Minimize.BackgroundTransparency = 1
+    Minimize.Position = UDim2.new(1, -50, 0, 15)
+    Minimize.BorderSizePixel = 0
+    Minimize.TextColor3 = Color3.fromRGB(0, 0, 0)
+    Minimize.TextSize = 14
+    Minimize.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Minimize.Parent = RightContainer
+
+    local MinimizeIcon = Instance.new("ImageLabel")
+    MinimizeIcon.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    MinimizeIcon.Name = "MinimizeIcon"
+    MinimizeIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+    MinimizeIcon.Image = "rbxassetid://118026365011536"
+    MinimizeIcon.BackgroundTransparency = 1
+    MinimizeIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+    MinimizeIcon.Size = UDim2.new(0, 16, 0, 16)
+    MinimizeIcon.BorderSizePixel = 0
+    MinimizeIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    MinimizeIcon.Parent = Minimize
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.25, 0)
+    UICorner.Parent = Minimize
+
+    local Window = Instance.new("Frame")
+    Window.Name = "Window"
+    Window.BackgroundTransparency = 0.9
+    Window.Position = UDim2.new(0, 0, 0, 50)
+    Window.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Window.Size = UDim2.new(1, -10, 1, -60)
+    Window.BorderSizePixel = 0
+    Window.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Window.Parent = RightContainer
+
+    local ScrollableWindow = Instance.new("ScrollingFrame")
+    ScrollableWindow.ScrollBarImageColor3 = Color3.fromRGB(0, 0, 0)
+    ScrollableWindow.Active = true
+    ScrollableWindow.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    ScrollableWindow.ScrollBarThickness = 0
+    ScrollableWindow.Name = "ScrollableWindow"
+    ScrollableWindow.Size = UDim2.new(1, 0, 0, 230)
+    ScrollableWindow.AnchorPoint = Vector2.new(0, 1)
+    ScrollableWindow.ScrollBarImageTransparency = 1
+    ScrollableWindow.BackgroundTransparency = 1
+    ScrollableWindow.Position = UDim2.new(0, 0, 1, 0)
+    ScrollableWindow.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    ScrollableWindow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    ScrollableWindow.BorderSizePixel = 0
+    ScrollableWindow.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ScrollableWindow.Parent = Window
+
+    local Title3 = Instance.new("TextLabel")
+    Title3.TextWrapped = true
+    Title3.Name = "Title3"
+    Title3.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title3.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Title3.Text = "Rotation"
+    Title3.Size = UDim2.new(1, -45, 0, 20)
+    Title3.Position = UDim2.new(1, 0, 0, 100)
+    Title3.AnchorPoint = Vector2.new(1, 0)
+    Title3.BorderSizePixel = 0
+    Title3.BackgroundTransparency = 1
+    Title3.TextXAlignment = Enum.TextXAlignment.Left
+    Title3.TextScaled = true
+    Title3.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    Title3.TextSize = 14
+    Title3.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Title3.Parent = ScrollableWindow
+
+    local RotationIcon = Instance.new("ImageLabel")
+    RotationIcon.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationIcon.Name = "RotationIcon"
+    RotationIcon.Image = "rbxassetid://117383682863027"
+    RotationIcon.BackgroundTransparency = 1
+    RotationIcon.Position = UDim2.new(0, -25, 0, 0)
+    RotationIcon.Size = UDim2.new(0, 20, 0, 20)
+    RotationIcon.BorderSizePixel = 0
+    RotationIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationIcon.Parent = Title3
+
+    local Title2 = Instance.new("TextLabel")
+    Title2.TextWrapped = true
+    Title2.Name = "Title2"
+    Title2.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title2.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Title2.Text = "Position"
+    Title2.Size = UDim2.new(1, -45, 0, 20)
+    Title2.Position = UDim2.new(1, 0, 0, 0)
+    Title2.AnchorPoint = Vector2.new(1, 0)
+    Title2.BorderSizePixel = 0
+    Title2.BackgroundTransparency = 1
+    Title2.TextXAlignment = Enum.TextXAlignment.Left
+    Title2.TextScaled = true
+    Title2.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    Title2.TextSize = 14
+    Title2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Title2.Parent = ScrollableWindow
+
+    local PositionIcon = Instance.new("ImageLabel")
+    PositionIcon.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionIcon.Name = "PositionIcon"
+    PositionIcon.Image = "rbxassetid://71917905228308"
+    PositionIcon.BackgroundTransparency = 1
+    PositionIcon.Position = UDim2.new(0, -25, 0, 0)
+    PositionIcon.Size = UDim2.new(0, 20, 0, 20)
+    PositionIcon.BorderSizePixel = 0
+    PositionIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionIcon.Parent = Title2
+
+    local PositionSliderZ = Instance.new("TextButton")
+    PositionSliderZ.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    PositionSliderZ.TextColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderZ.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderZ.Text = ""
+    PositionSliderZ.AutoButtonColor = false
+    PositionSliderZ.Name = "PositionSliderZ"
+    PositionSliderZ.BackgroundTransparency = 0.9
+    PositionSliderZ.Position = UDim2.new(0, 70, 0, 80)
+    PositionSliderZ.Size = UDim2.new(1, -130, 0, 5)
+    PositionSliderZ.BorderSizePixel = 0
+    PositionSliderZ.TextSize = 14
+    PositionSliderZ.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionSliderZ.Parent = ScrollableWindow
+
+    local PositionZAxis = Instance.new("TextLabel")
+    PositionZAxis.TextWrapped = true
+    PositionZAxis.TextColor3 = Color3.fromRGB(255, 255, 255)
+    PositionZAxis.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionZAxis.Text = "Z"
+    PositionZAxis.Name = "PositionZAxis"
+    PositionZAxis.Size = UDim2.new(0, 20, 0, 20)
+    PositionZAxis.AnchorPoint = Vector2.new(1, 0.5)
+    PositionZAxis.BorderSizePixel = 0
+    PositionZAxis.BackgroundTransparency = 1
+    PositionZAxis.Position = UDim2.new(0, -5, 0.5, -1)
+    PositionZAxis.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    PositionZAxis.TextSize = 14
+    PositionZAxis.TextScaled = true
+    PositionZAxis.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionZAxis.Parent = PositionSliderZ
+
+    local PositionSliderPercentageFrame_Z = Instance.new("Frame")
+    PositionSliderPercentageFrame_Z.Name = "PositionSliderPercentageFrame_Z"
+    PositionSliderPercentageFrame_Z.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderPercentageFrame_Z.Size = UDim2.new(0, 0, 1, 0)
+    PositionSliderPercentageFrame_Z.BorderSizePixel = 0
+    PositionSliderPercentageFrame_Z.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionSliderPercentageFrame_Z.Parent = PositionSliderZ
+
+    local PositionSliderButton_Z = Instance.new("TextButton")
+    PositionSliderButton_Z.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    PositionSliderButton_Z.TextColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderButton_Z.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderButton_Z.Text = ""
+    PositionSliderButton_Z.AnchorPoint = Vector2.new(0, 0.5)
+    PositionSliderButton_Z.Name = "PositionSliderButton_Z"
+    PositionSliderButton_Z.Position = UDim2.new(1, 0, 0.5, 0)
+    PositionSliderButton_Z.Size = UDim2.new(0, 2, 1, 10)
+    PositionSliderButton_Z.BorderSizePixel = 0
+    PositionSliderButton_Z.TextSize = 14
+    PositionSliderButton_Z.BackgroundColor3 = Color3.fromRGB(112, 112, 112)
+    PositionSliderButton_Z.Parent = PositionSliderPercentageFrame_Z
+
+    local PositionSliderBox_Z = Instance.new("TextBox")
+    PositionSliderBox_Z.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    PositionSliderBox_Z.TextColor3 = Color3.fromRGB(255, 255, 255)
+    PositionSliderBox_Z.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderBox_Z.Text = ""
+    PositionSliderBox_Z.Name = "PositionSliderBox_Z"
+    PositionSliderBox_Z.AnchorPoint = Vector2.new(0, 0.5)
+    PositionSliderBox_Z.Size = UDim2.new(0, 40, 0, 20)
+    PositionSliderBox_Z.BackgroundTransparency = 0.9
+    PositionSliderBox_Z.Position = UDim2.new(1, 10, 0.5, 0)
+    PositionSliderBox_Z.BorderSizePixel = 0
+    PositionSliderBox_Z.ClearTextOnFocus = false
+    PositionSliderBox_Z.PlaceholderText = "0"
+    PositionSliderBox_Z.TextSize = 14
+    PositionSliderBox_Z.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionSliderBox_Z.ClipsDescendants = true
+    PositionSliderBox_Z.Parent = PositionSliderZ
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = PositionSliderBox_Z
+
+    local PositionSliderY = Instance.new("TextButton")
+    PositionSliderY.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    PositionSliderY.TextColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderY.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderY.Text = ""
+    PositionSliderY.AutoButtonColor = false
+    PositionSliderY.Name = "PositionSliderY"
+    PositionSliderY.BackgroundTransparency = 0.9
+    PositionSliderY.Position = UDim2.new(0, 70, 0, 55)
+    PositionSliderY.Size = UDim2.new(1, -130, 0, 5)
+    PositionSliderY.BorderSizePixel = 0
+    PositionSliderY.TextSize = 14
+    PositionSliderY.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionSliderY.Parent = ScrollableWindow
+
+    local PositionYAxis = Instance.new("TextLabel")
+    PositionYAxis.TextWrapped = true
+    PositionYAxis.TextColor3 = Color3.fromRGB(255, 255, 255)
+    PositionYAxis.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionYAxis.Text = "Y"
+    PositionYAxis.Name = "PositionYAxis"
+    PositionYAxis.Size = UDim2.new(0, 20, 0, 20)
+    PositionYAxis.AnchorPoint = Vector2.new(1, 0.5)
+    PositionYAxis.BorderSizePixel = 0
+    PositionYAxis.BackgroundTransparency = 1
+    PositionYAxis.Position = UDim2.new(0, -5, 0.5, -1)
+    PositionYAxis.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    PositionYAxis.TextSize = 14
+    PositionYAxis.TextScaled = true
+    PositionYAxis.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionYAxis.Parent = PositionSliderY
+
+    local PositionSliderPercentageFrame_Y = Instance.new("Frame")
+    PositionSliderPercentageFrame_Y.Name = "PositionSliderPercentageFrame_Y"
+    PositionSliderPercentageFrame_Y.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderPercentageFrame_Y.Size = UDim2.new(0, 0, 1, 0)
+    PositionSliderPercentageFrame_Y.BorderSizePixel = 0
+    PositionSliderPercentageFrame_Y.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionSliderPercentageFrame_Y.Parent = PositionSliderY
+
+    local PositionSliderButton_Y = Instance.new("TextButton")
+    PositionSliderButton_Y.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    PositionSliderButton_Y.TextColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderButton_Y.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderButton_Y.Text = ""
+    PositionSliderButton_Y.AnchorPoint = Vector2.new(0, 0.5)
+    PositionSliderButton_Y.Name = "PositionSliderButton_Y"
+    PositionSliderButton_Y.Position = UDim2.new(1, 0, 0.5, 0)
+    PositionSliderButton_Y.Size = UDim2.new(0, 2, 1, 10)
+    PositionSliderButton_Y.BorderSizePixel = 0
+    PositionSliderButton_Y.TextSize = 14
+    PositionSliderButton_Y.BackgroundColor3 = Color3.fromRGB(112, 112, 112)
+    PositionSliderButton_Y.Parent = PositionSliderPercentageFrame_Y
+
+    local PositionSliderBox_Y = Instance.new("TextBox")
+    PositionSliderBox_Y.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    PositionSliderBox_Y.TextColor3 = Color3.fromRGB(255, 255, 255)
+    PositionSliderBox_Y.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderBox_Y.Text = ""
+    PositionSliderBox_Y.Name = "PositionSliderBox_Y"
+    PositionSliderBox_Y.AnchorPoint = Vector2.new(0, 0.5)
+    PositionSliderBox_Y.Size = UDim2.new(0, 40, 0, 20)
+    PositionSliderBox_Y.BackgroundTransparency = 0.9
+    PositionSliderBox_Y.Position = UDim2.new(1, 10, 0.5, 0)
+    PositionSliderBox_Y.BorderSizePixel = 0
+    PositionSliderBox_Y.ClearTextOnFocus = false
+    PositionSliderBox_Y.PlaceholderText = "0"
+    PositionSliderBox_Y.TextSize = 14
+    PositionSliderBox_Y.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionSliderBox_Y.ClipsDescendants = true
+    PositionSliderBox_Y.Parent = PositionSliderY
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = PositionSliderBox_Y
+
+    local PositionSliderX = Instance.new("TextButton")
+    PositionSliderX.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    PositionSliderX.TextColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderX.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderX.Text = ""
+    PositionSliderX.AutoButtonColor = false
+    PositionSliderX.Name = "PositionSliderX"
+    PositionSliderX.BackgroundTransparency = 0.9
+    PositionSliderX.Position = UDim2.new(0, 70, 0, 30)
+    PositionSliderX.Size = UDim2.new(1, -130, 0, 5)
+    PositionSliderX.BorderSizePixel = 0
+    PositionSliderX.TextSize = 14
+    PositionSliderX.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionSliderX.Parent = ScrollableWindow
+
+    local PositionXAxis = Instance.new("TextLabel")
+    PositionXAxis.TextWrapped = true
+    PositionXAxis.TextColor3 = Color3.fromRGB(255, 255, 255)
+    PositionXAxis.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionXAxis.Text = "X"
+    PositionXAxis.Name = "PositionXAxis"
+    PositionXAxis.Size = UDim2.new(0, 20, 0, 20)
+    PositionXAxis.AnchorPoint = Vector2.new(1, 0.5)
+    PositionXAxis.BorderSizePixel = 0
+    PositionXAxis.BackgroundTransparency = 1
+    PositionXAxis.Position = UDim2.new(0, -5, 0.5, -1)
+    PositionXAxis.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    PositionXAxis.TextSize = 14
+    PositionXAxis.TextScaled = true
+    PositionXAxis.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionXAxis.Parent = PositionSliderX
+
+    local PositionSliderPercentageFrame_X = Instance.new("Frame")
+    PositionSliderPercentageFrame_X.Name = "PositionSliderPercentageFrame_X"
+    PositionSliderPercentageFrame_X.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderPercentageFrame_X.Size = UDim2.new(0, 0, 1, 0)
+    PositionSliderPercentageFrame_X.BorderSizePixel = 0
+    PositionSliderPercentageFrame_X.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionSliderPercentageFrame_X.Parent = PositionSliderX
+
+    local PositionSliderButton_X = Instance.new("TextButton")
+    PositionSliderButton_X.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    PositionSliderButton_X.TextColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderButton_X.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderButton_X.Text = ""
+    PositionSliderButton_X.AnchorPoint = Vector2.new(0, 0.5)
+    PositionSliderButton_X.Name = "PositionSliderButton_X"
+    PositionSliderButton_X.Position = UDim2.new(1, 0, 0.5, 0)
+    PositionSliderButton_X.Size = UDim2.new(0, 2, 1, 10)
+    PositionSliderButton_X.BorderSizePixel = 0
+    PositionSliderButton_X.TextSize = 14
+    PositionSliderButton_X.BackgroundColor3 = Color3.fromRGB(112, 112, 112)
+    PositionSliderButton_X.Parent = PositionSliderPercentageFrame_X
+
+    local PositionSliderBox_X = Instance.new("TextBox")
+    PositionSliderBox_X.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    PositionSliderBox_X.TextColor3 = Color3.fromRGB(255, 255, 255)
+    PositionSliderBox_X.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PositionSliderBox_X.Text = ""
+    PositionSliderBox_X.Name = "PositionSliderBox_X"
+    PositionSliderBox_X.AnchorPoint = Vector2.new(0, 0.5)
+    PositionSliderBox_X.Size = UDim2.new(0, 40, 0, 20)
+    PositionSliderBox_X.BackgroundTransparency = 0.9
+    PositionSliderBox_X.Position = UDim2.new(1, 10, 0.5, 0)
+    PositionSliderBox_X.BorderSizePixel = 0
+    PositionSliderBox_X.ClearTextOnFocus = false
+    PositionSliderBox_X.PlaceholderText = "0"
+    PositionSliderBox_X.TextSize = 14
+    PositionSliderBox_X.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PositionSliderBox_X.ClipsDescendants = true
+    PositionSliderBox_X.Parent = PositionSliderX
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = PositionSliderBox_X
+
+    local RotationSliderZ = Instance.new("TextButton")
+    RotationSliderZ.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    RotationSliderZ.TextColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderZ.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderZ.Text = ""
+    RotationSliderZ.AutoButtonColor = false
+    RotationSliderZ.Name = "RotationSliderZ"
+    RotationSliderZ.BackgroundTransparency = 0.9
+    RotationSliderZ.Position = UDim2.new(0, 70, 0, 180)
+    RotationSliderZ.Size = UDim2.new(1, -130, 0, 5)
+    RotationSliderZ.BorderSizePixel = 0
+    RotationSliderZ.TextSize = 14
+    RotationSliderZ.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationSliderZ.Parent = ScrollableWindow
+
+    local RotationZAxis = Instance.new("TextLabel")
+    RotationZAxis.TextWrapped = true
+    RotationZAxis.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RotationZAxis.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationZAxis.Text = "Z"
+    RotationZAxis.Name = "RotationZAxis"
+    RotationZAxis.Size = UDim2.new(0, 20, 0, 20)
+    RotationZAxis.AnchorPoint = Vector2.new(1, 0.5)
+    RotationZAxis.BorderSizePixel = 0
+    RotationZAxis.BackgroundTransparency = 1
+    RotationZAxis.Position = UDim2.new(0, -5, 0.5, -1)
+    RotationZAxis.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    RotationZAxis.TextSize = 14
+    RotationZAxis.TextScaled = true
+    RotationZAxis.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationZAxis.Parent = RotationSliderZ
+
+    local RotationSliderPercentageFrame_Z = Instance.new("Frame")
+    RotationSliderPercentageFrame_Z.Name = "RotationSliderPercentageFrame_Z"
+    RotationSliderPercentageFrame_Z.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderPercentageFrame_Z.Size = UDim2.new(0, 0, 1, 0)
+    RotationSliderPercentageFrame_Z.BorderSizePixel = 0
+    RotationSliderPercentageFrame_Z.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationSliderPercentageFrame_Z.Parent = RotationSliderZ
+
+    local RotationSliderButton_Z = Instance.new("TextButton")
+    RotationSliderButton_Z.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    RotationSliderButton_Z.TextColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderButton_Z.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderButton_Z.Text = ""
+    RotationSliderButton_Z.AnchorPoint = Vector2.new(0, 0.5)
+    RotationSliderButton_Z.Name = "RotationSliderButton_Z"
+    RotationSliderButton_Z.Position = UDim2.new(1, 0, 0.5, 0)
+    RotationSliderButton_Z.Size = UDim2.new(0, 2, 1, 10)
+    RotationSliderButton_Z.BorderSizePixel = 0
+    RotationSliderButton_Z.TextSize = 14
+    RotationSliderButton_Z.BackgroundColor3 = Color3.fromRGB(112, 112, 112)
+    RotationSliderButton_Z.Parent = RotationSliderPercentageFrame_Z
+
+    local RotationSliderBox_Z = Instance.new("TextBox")
+    RotationSliderBox_Z.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    RotationSliderBox_Z.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RotationSliderBox_Z.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderBox_Z.Text = ""
+    RotationSliderBox_Z.Name = "RotationSliderBox_Z"
+    RotationSliderBox_Z.AnchorPoint = Vector2.new(0, 0.5)
+    RotationSliderBox_Z.Size = UDim2.new(0, 40, 0, 20)
+    RotationSliderBox_Z.BackgroundTransparency = 0.9
+    RotationSliderBox_Z.Position = UDim2.new(1, 10, 0.5, 0)
+    RotationSliderBox_Z.BorderSizePixel = 0
+    RotationSliderBox_Z.ClearTextOnFocus = false
+    RotationSliderBox_Z.PlaceholderText = "0"
+    RotationSliderBox_Z.TextSize = 14
+    RotationSliderBox_Z.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationSliderBox_Z.ClipsDescendants = true
+    RotationSliderBox_Z.Parent = RotationSliderZ
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = RotationSliderBox_Z
+
+    local RotationSliderY = Instance.new("TextButton")
+    RotationSliderY.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    RotationSliderY.TextColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderY.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderY.Text = ""
+    RotationSliderY.AutoButtonColor = false
+    RotationSliderY.Name = "RotationSliderY"
+    RotationSliderY.BackgroundTransparency = 0.9
+    RotationSliderY.Position = UDim2.new(0, 70, 0, 155)
+    RotationSliderY.Size = UDim2.new(1, -130, 0, 5)
+    RotationSliderY.BorderSizePixel = 0
+    RotationSliderY.TextSize = 14
+    RotationSliderY.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationSliderY.Parent = ScrollableWindow
+
+    local RotationYAxis = Instance.new("TextLabel")
+    RotationYAxis.TextWrapped = true
+    RotationYAxis.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RotationYAxis.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationYAxis.Text = "Y"
+    RotationYAxis.Name = "RotationYAxis"
+    RotationYAxis.Size = UDim2.new(0, 20, 0, 20)
+    RotationYAxis.AnchorPoint = Vector2.new(1, 0.5)
+    RotationYAxis.BorderSizePixel = 0
+    RotationYAxis.BackgroundTransparency = 1
+    RotationYAxis.Position = UDim2.new(0, -5, 0.5, -1)
+    RotationYAxis.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    RotationYAxis.TextSize = 14
+    RotationYAxis.TextScaled = true
+    RotationYAxis.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationYAxis.Parent = RotationSliderY
+
+    local RotationSliderPercentageFrame_Y = Instance.new("Frame")
+    RotationSliderPercentageFrame_Y.Name = "RotationSliderPercentageFrame_Y"
+    RotationSliderPercentageFrame_Y.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderPercentageFrame_Y.Size = UDim2.new(0, 0, 1, 0)
+    RotationSliderPercentageFrame_Y.BorderSizePixel = 0
+    RotationSliderPercentageFrame_Y.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationSliderPercentageFrame_Y.Parent = RotationSliderY
+
+    local RotationSliderButton_Y = Instance.new("TextButton")
+    RotationSliderButton_Y.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    RotationSliderButton_Y.TextColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderButton_Y.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderButton_Y.Text = ""
+    RotationSliderButton_Y.AnchorPoint = Vector2.new(0, 0.5)
+    RotationSliderButton_Y.Name = "RotationSliderButton_Y"
+    RotationSliderButton_Y.Position = UDim2.new(1, 0, 0.5, 0)
+    RotationSliderButton_Y.Size = UDim2.new(0, 2, 1, 10)
+    RotationSliderButton_Y.BorderSizePixel = 0
+    RotationSliderButton_Y.TextSize = 14
+    RotationSliderButton_Y.BackgroundColor3 = Color3.fromRGB(112, 112, 112)
+    RotationSliderButton_Y.Parent = RotationSliderPercentageFrame_Y
+
+    local RotationSliderBox_Y = Instance.new("TextBox")
+    RotationSliderBox_Y.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    RotationSliderBox_Y.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RotationSliderBox_Y.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderBox_Y.Text = ""
+    RotationSliderBox_Y.Name = "RotationSliderBox_Y"
+    RotationSliderBox_Y.AnchorPoint = Vector2.new(0, 0.5)
+    RotationSliderBox_Y.Size = UDim2.new(0, 40, 0, 20)
+    RotationSliderBox_Y.BackgroundTransparency = 0.9
+    RotationSliderBox_Y.Position = UDim2.new(1, 10, 0.5, 0)
+    RotationSliderBox_Y.BorderSizePixel = 0
+    RotationSliderBox_Y.ClearTextOnFocus = false
+    RotationSliderBox_Y.PlaceholderText = "0"
+    RotationSliderBox_Y.TextSize = 14
+    RotationSliderBox_Y.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationSliderBox_Y.ClipsDescendants = true
+    RotationSliderBox_Y.Parent = RotationSliderY
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = RotationSliderBox_Y
+
+    local RotationSliderX = Instance.new("TextButton")
+    RotationSliderX.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    RotationSliderX.TextColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderX.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderX.Text = ""
+    RotationSliderX.AutoButtonColor = false
+    RotationSliderX.Name = "RotationSliderX"
+    RotationSliderX.BackgroundTransparency = 0.9
+    RotationSliderX.Position = UDim2.new(0, 70, 0, 130)
+    RotationSliderX.Size = UDim2.new(1, -130, 0, 5)
+    RotationSliderX.BorderSizePixel = 0
+    RotationSliderX.TextSize = 14
+    RotationSliderX.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationSliderX.Parent = ScrollableWindow
+
+    local RotationXAxis = Instance.new("TextLabel")
+    RotationXAxis.TextWrapped = true
+    RotationXAxis.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RotationXAxis.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationXAxis.Text = "X"
+    RotationXAxis.Name = "RotationXAxis"
+    RotationXAxis.Size = UDim2.new(0, 20, 0, 20)
+    RotationXAxis.AnchorPoint = Vector2.new(1, 0.5)
+    RotationXAxis.BorderSizePixel = 0
+    RotationXAxis.BackgroundTransparency = 1
+    RotationXAxis.Position = UDim2.new(0, -5, 0.5, -1)
+    RotationXAxis.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    RotationXAxis.TextSize = 14
+    RotationXAxis.TextScaled = true
+    RotationXAxis.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationXAxis.Parent = RotationSliderX
+
+    local RotationSliderPercentageFrame_X = Instance.new("Frame")
+    RotationSliderPercentageFrame_X.Name = "RotationSliderPercentageFrame_X"
+    RotationSliderPercentageFrame_X.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderPercentageFrame_X.Size = UDim2.new(0, 0, 1, 0)
+    RotationSliderPercentageFrame_X.BorderSizePixel = 0
+    RotationSliderPercentageFrame_X.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationSliderPercentageFrame_X.Parent = RotationSliderX
+
+    local RotationSliderButton_X = Instance.new("TextButton")
+    RotationSliderButton_X.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    RotationSliderButton_X.TextColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderButton_X.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderButton_X.Text = ""
+    RotationSliderButton_X.AnchorPoint = Vector2.new(0, 0.5)
+    RotationSliderButton_X.Name = "RotationSliderButton_X"
+    RotationSliderButton_X.Position = UDim2.new(1, 0, 0.5, 0)
+    RotationSliderButton_X.Size = UDim2.new(0, 2, 1, 10)
+    RotationSliderButton_X.BorderSizePixel = 0
+    RotationSliderButton_X.TextSize = 14
+    RotationSliderButton_X.BackgroundColor3 = Color3.fromRGB(112, 112, 112)
+    RotationSliderButton_X.Parent = RotationSliderPercentageFrame_X
+
+    local RotationSliderBox_X = Instance.new("TextBox")
+    RotationSliderBox_X.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    RotationSliderBox_X.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RotationSliderBox_X.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    RotationSliderBox_X.Text = ""
+    RotationSliderBox_X.Name = "RotationSliderBox_X"
+    RotationSliderBox_X.AnchorPoint = Vector2.new(0, 0.5)
+    RotationSliderBox_X.Size = UDim2.new(0, 40, 0, 20)
+    RotationSliderBox_X.BackgroundTransparency = 0.9
+    RotationSliderBox_X.Position = UDim2.new(1, 10, 0.5, 0)
+    RotationSliderBox_X.BorderSizePixel = 0
+    RotationSliderBox_X.ClearTextOnFocus = false
+    RotationSliderBox_X.PlaceholderText = "0"
+    RotationSliderBox_X.TextSize = 14
+    RotationSliderBox_X.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RotationSliderBox_X.ClipsDescendants = true
+    RotationSliderBox_X.Parent = RotationSliderX
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = RotationSliderBox_X
+
+    local SeparatorFrame = Instance.new("Frame")
+    SeparatorFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    SeparatorFrame.AnchorPoint = Vector2.new(0.5, 0)
+    SeparatorFrame.BackgroundTransparency = 0.95
+    SeparatorFrame.Position = UDim2.new(0.5, 0, 0, 210)
+    SeparatorFrame.Name = "SeparatorFrame"
+    SeparatorFrame.Size = UDim2.new(1, -60, 0, 5)
+    SeparatorFrame.BorderSizePixel = 0
+    SeparatorFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    SeparatorFrame.Parent = ScrollableWindow
+
+    local Title4 = Instance.new("TextLabel")
+    Title4.TextWrapped = true
+    Title4.Name = "Title4"
+    Title4.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title4.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Title4.Text = "Presets"
+    Title4.Size = UDim2.new(1, -45, 0, 20)
+    Title4.Position = UDim2.new(1, 0, 0, 220)
+    Title4.AnchorPoint = Vector2.new(1, 0)
+    Title4.BorderSizePixel = 0
+    Title4.BackgroundTransparency = 1
+    Title4.TextXAlignment = Enum.TextXAlignment.Left
+    Title4.TextScaled = true
+    Title4.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    Title4.TextSize = 14
+    Title4.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Title4.Parent = ScrollableWindow
+
+    local PresetsIcon = Instance.new("ImageLabel")
+    PresetsIcon.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PresetsIcon.Name = "PresetsIcon"
+    PresetsIcon.Image = "rbxassetid://139402130494916"
+    PresetsIcon.BackgroundTransparency = 1
+    PresetsIcon.Position = UDim2.new(0, -25, 0, 0)
+    PresetsIcon.Size = UDim2.new(0, 20, 0, 20)
+    PresetsIcon.BorderSizePixel = 0
+    PresetsIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PresetsIcon.Parent = Title4
+
+    local UIPadding = Instance.new("UIPadding")
+    UIPadding.PaddingBottom = UDim.new(0, 10)
+    UIPadding.Parent = ScrollableWindow
+
+    local PresetsContainer = Instance.new("Frame")
+    PresetsContainer.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    PresetsContainer.AnchorPoint = Vector2.new(0.5, 0)
+    PresetsContainer.BackgroundTransparency = 1
+    PresetsContainer.Position = UDim2.new(0.5, 0, 0, 250)
+    PresetsContainer.Name = "PresetsContainer"
+    PresetsContainer.Size = UDim2.new(1, -30, 0, 50)
+    PresetsContainer.BorderSizePixel = 0
+    PresetsContainer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    PresetsContainer.Parent = ScrollableWindow
+
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Wraps = true
+    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    UIListLayout.Padding = UDim.new(0, 5)
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    UIListLayout.FillDirection = Enum.FillDirection.Horizontal
+    UIListLayout.Parent = PresetsContainer
+
+    local Speed = Instance.new("TextButton")
+    Speed.TextWrapped = true
+    Speed.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Speed.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Speed.Text = "Speed"
+    Speed.Name = "Speed"
+    Speed.Size = UDim2.new(0, 80, 0, 20)
+    Speed.BorderSizePixel = 0
+    Speed.BackgroundTransparency = 0.9
+    Speed.Position = UDim2.new(0, 105, 0, 250)
+    Speed.TextSize = 14
+    Speed.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    Speed.TextScaled = true
+    Speed.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Speed.Parent = PresetsContainer
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = Speed
+
+    local InfJump = Instance.new("TextButton")
+    InfJump.TextWrapped = true
+    InfJump.TextColor3 = Color3.fromRGB(255, 255, 255)
+    InfJump.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    InfJump.Text = "InfJump"
+    InfJump.Name = "InfJump"
+    InfJump.Size = UDim2.new(0, 80, 0, 20)
+    InfJump.BorderSizePixel = 0
+    InfJump.BackgroundTransparency = 0.9
+    InfJump.Position = UDim2.new(0, 20, 0, 250)
+    InfJump.TextSize = 14
+    InfJump.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    InfJump.TextScaled = true
+    InfJump.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    InfJump.Parent = PresetsContainer
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = InfJump
+
+    local NoJump = Instance.new("TextButton")
+    NoJump.TextWrapped = true
+    NoJump.TextColor3 = Color3.fromRGB(255, 255, 255)
+    NoJump.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    NoJump.Text = "NoJump"
+    NoJump.Name = "NoJump"
+    NoJump.Size = UDim2.new(0, 80, 0, 20)
+    NoJump.BorderSizePixel = 0
+    NoJump.BackgroundTransparency = 0.9
+    NoJump.Position = UDim2.new(0, 150, 0, 275)
+    NoJump.TextSize = 14
+    NoJump.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    NoJump.TextScaled = true
+    NoJump.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    NoJump.Parent = PresetsContainer
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = NoJump
+
+    local Climb = Instance.new("TextButton")
+    Climb.TextWrapped = true
+    Climb.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Climb.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Climb.Text = "Climb"
+    Climb.Name = "Climb"
+    Climb.Size = UDim2.new(0, 80, 0, 20)
+    Climb.BorderSizePixel = 0
+    Climb.BackgroundTransparency = 0.9
+    Climb.Position = UDim2.new(0, 65, 0, 275)
+    Climb.TextSize = 14
+    Climb.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    Climb.TextScaled = true
+    Climb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Climb.Parent = PresetsContainer
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = Climb
+
+    local Skydive = Instance.new("TextButton")
+    Skydive.TextWrapped = true
+    Skydive.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Skydive.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Skydive.Text = "Skydive"
+    Skydive.Name = "Skydive"
+    Skydive.Size = UDim2.new(0, 80, 0, 20)
+    Skydive.BorderSizePixel = 0
+    Skydive.BackgroundTransparency = 0.9
+    Skydive.Position = UDim2.new(0, 190, 0, 250)
+    Skydive.TextSize = 14
+    Skydive.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    Skydive.TextScaled = true
+    Skydive.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Skydive.Parent = PresetsContainer
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = Skydive
+
+    local Title1 = Instance.new("TextLabel")
+    Title1.TextWrapped = true
+    Title1.Name = "Title1"
+    Title1.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title1.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Title1.Text = "Selected Player"
+    Title1.Size = UDim2.new(1, -45, 0, 20)
+    Title1.Position = UDim2.new(1, 0, 0, 10)
+    Title1.AnchorPoint = Vector2.new(1, 0)
+    Title1.BorderSizePixel = 0
+    Title1.BackgroundTransparency = 1
+    Title1.TextXAlignment = Enum.TextXAlignment.Left
+    Title1.TextScaled = true
+    Title1.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    Title1.TextSize = 14
+    Title1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Title1.Parent = Window
+
+    local SelectedPlayerIcon = Instance.new("ImageLabel")
+    SelectedPlayerIcon.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    SelectedPlayerIcon.Name = "SelectedPlayerIcon"
+    SelectedPlayerIcon.Image = "rbxassetid://84000073406100"
+    SelectedPlayerIcon.BackgroundTransparency = 1
+    SelectedPlayerIcon.Position = UDim2.new(0, -25, 0, 0)
+    SelectedPlayerIcon.Size = UDim2.new(0, 20, 0, 20)
+    SelectedPlayerIcon.BorderSizePixel = 0
+    SelectedPlayerIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    SelectedPlayerIcon.Parent = Title1
+
+    local ViewButton = Instance.new("TextButton")
+    ViewButton.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    ViewButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+    ViewButton.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    ViewButton.Text = ""
+    ViewButton.Name = "ViewButton"
+    ViewButton.BackgroundTransparency = 0.9
+    ViewButton.Position = UDim2.new(0, 20, 0, 80)
+    ViewButton.Size = UDim2.new(0.5, -18, 0, 20)
+    ViewButton.BorderSizePixel = 0
+    ViewButton.TextSize = 14
+    ViewButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    ViewButton.Parent = Window
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = ViewButton
+
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Padding = UDim.new(0, 5)
+    UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    UIListLayout.FillDirection = Enum.FillDirection.Horizontal
+    UIListLayout.Parent = ViewButton
+
+    local ViewIcon = Instance.new("ImageLabel")
+    ViewIcon.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    ViewIcon.Name = "ViewIcon"
+    ViewIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+    ViewIcon.Image = "rbxassetid://137944988884367"
+    ViewIcon.BackgroundTransparency = 1
+    ViewIcon.Position = UDim2.new(0.5, -35, 0.5, 0)
+    ViewIcon.Size = UDim2.new(0, 15, 0, 15)
+    ViewIcon.BorderSizePixel = 0
+    ViewIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    ViewIcon.Parent = ViewButton
+
+    local ViewLabel = Instance.new("TextLabel")
+    ViewLabel.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    ViewLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ViewLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    ViewLabel.Text = "View"
+    ViewLabel.BackgroundTransparency = 1
+    ViewLabel.Name = "ViewLabel"
+    ViewLabel.Size = UDim2.new(0, 40, 0, 20)
+    ViewLabel.BorderSizePixel = 0
+    ViewLabel.TextSize = 14
+    ViewLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ViewLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    ViewLabel.Parent = ViewButton
+
+    local AttachButton = Instance.new("TextButton")
+    AttachButton.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    AttachButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+    AttachButton.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    AttachButton.Text = ""
+    AttachButton.AnchorPoint = Vector2.new(1, 0)
+    AttachButton.Name = "AttachButton"
+    AttachButton.BackgroundTransparency = 0.9
+    AttachButton.Position = UDim2.new(1, -10, 0, 80)
+    AttachButton.Size = UDim2.new(0.5, -18, 0, 20)
+    AttachButton.BorderSizePixel = 0
+    AttachButton.TextSize = 14
+    AttachButton.BackgroundColor3 = Color3.fromRGB(255, 183, 0)
+    AttachButton.Parent = Window
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = AttachButton
+
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Padding = UDim.new(0, 5)
+    UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    UIListLayout.FillDirection = Enum.FillDirection.Horizontal
+    UIListLayout.Parent = AttachButton
+
+    local AttachIcon = Instance.new("ImageLabel")
+    AttachIcon.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    AttachIcon.Name = "AttachIcon"
+    AttachIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+    AttachIcon.Image = "rbxassetid://79652727279106"
+    AttachIcon.BackgroundTransparency = 1
+    AttachIcon.Position = UDim2.new(0.5, -35, 0.5, 0)
+    AttachIcon.Size = UDim2.new(0, 15, 0, 15)
+    AttachIcon.BorderSizePixel = 0
+    AttachIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    AttachIcon.Parent = AttachButton
+
+    local AttachLabel = Instance.new("TextLabel")
+    AttachLabel.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    AttachLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AttachLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    AttachLabel.Text = "Attach"
+    AttachLabel.BackgroundTransparency = 1
+    AttachLabel.Name = "AttachLabel"
+    AttachLabel.Size = UDim2.new(0, 40, 0, 20)
+    AttachLabel.BorderSizePixel = 0
+    AttachLabel.TextSize = 14
+    AttachLabel.TextXAlignment = Enum.TextXAlignment.Left
+    AttachLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    AttachLabel.Parent = AttachButton
+
+    local SelectedPlayer = Instance.new("Frame")
+    SelectedPlayer.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    SelectedPlayer.AnchorPoint = Vector2.new(1, 0)
+    SelectedPlayer.BackgroundTransparency = 0.9
+    SelectedPlayer.Position = UDim2.new(1, -10, 0, 35)
+    SelectedPlayer.Name = "SelectedPlayer"
+    SelectedPlayer.Size = UDim2.new(1, -30, 0, 40)
+    SelectedPlayer.BorderSizePixel = 0
+    SelectedPlayer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    SelectedPlayer.Parent = Window
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.2, 0)
+    UICorner.Parent = SelectedPlayer
+
+    local SelectedPlayerThumbnail = Instance.new("ImageLabel")
+    SelectedPlayerThumbnail.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    SelectedPlayerThumbnail.Image = "rbxthumb://type=AvatarHeadShot&id=1414978355&w=420&h=420"
+    SelectedPlayerThumbnail.BackgroundTransparency = 1
+    SelectedPlayerThumbnail.Name = "PlayerThumbnail"
+    SelectedPlayerThumbnail.Size = UDim2.new(0, 40, 0, 40)
+    SelectedPlayerThumbnail.BorderSizePixel = 0
+    SelectedPlayerThumbnail.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    SelectedPlayerThumbnail.Parent = SelectedPlayer
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.10000000149011612, 0)
+    UICorner.Parent = SelectedPlayerThumbnail
+
+    local SelectedPlayerDisplayName = Instance.new("TextLabel")
+    SelectedPlayerDisplayName.TextWrapped = true
+    SelectedPlayerDisplayName.Name = "PlayerDisplayName"
+    SelectedPlayerDisplayName.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SelectedPlayerDisplayName.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    SelectedPlayerDisplayName.Text = "Zuka"
+    SelectedPlayerDisplayName.Size = UDim2.new(1, -45, 0, 15)
+    SelectedPlayerDisplayName.Position = UDim2.new(1, 0, 0, 5)
+    SelectedPlayerDisplayName.AnchorPoint = Vector2.new(1, 0)
+    SelectedPlayerDisplayName.BorderSizePixel = 0
+    SelectedPlayerDisplayName.BackgroundTransparency = 1
+    SelectedPlayerDisplayName.TextXAlignment = Enum.TextXAlignment.Left
+    SelectedPlayerDisplayName.TextScaled = true
+    SelectedPlayerDisplayName.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    SelectedPlayerDisplayName.TextSize = 14
+    SelectedPlayerDisplayName.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    SelectedPlayerDisplayName.Parent = SelectedPlayer
+
+    local SelectedPlayerUsername = Instance.new("TextLabel")
+    SelectedPlayerUsername.TextWrapped = true
+    SelectedPlayerUsername.Name = "PlayerUsername"
+    SelectedPlayerUsername.TextColor3 = Color3.fromRGB(178, 178, 178)
+    SelectedPlayerUsername.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    SelectedPlayerUsername.Text = "@OverZuka"
+    SelectedPlayerUsername.Size = UDim2.new(1, -45, 0, 12)
+    SelectedPlayerUsername.Position = UDim2.new(1, 0, 0, 20)
+    SelectedPlayerUsername.AnchorPoint = Vector2.new(1, 0)
+    SelectedPlayerUsername.BorderSizePixel = 0
+    SelectedPlayerUsername.BackgroundTransparency = 1
+    SelectedPlayerUsername.TextXAlignment = Enum.TextXAlignment.Left
+    SelectedPlayerUsername.TextScaled = true
+    SelectedPlayerUsername.FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    SelectedPlayerUsername.TextSize = 14
+    SelectedPlayerUsername.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    SelectedPlayerUsername.Parent = SelectedPlayer
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.075, 0)
+    UICorner.Parent = Window
+    
+    self.State.UI = {
+        ScreenGui = Attach,
+        Container = UIContainer,
+        SearchBox = SearchBox,
+        PlayersContainer = PlayersContainer,
+        PlayerTemplate = PlayerTemplateContainer,
+        
+        SelectedThumbnail = SelectedPlayerThumbnail,
+        SelectedDisplayName = SelectedPlayerDisplayName,
+        SelectedUsername = SelectedPlayerUsername,
+        
+        ViewButton = ViewButton,
+        ViewLabel = ViewLabel,
+        AttachButton = AttachButton,
+        AttachLabel = AttachLabel,
+        CloseButton = Close,
+        MinimizeButton = Minimize,
+        
+        PosX = PositionSliderBox_X,
+        PosY = PositionSliderBox_Y,
+        PosZ = PositionSliderBox_Z,
+        PosFillX = PositionSliderPercentageFrame_X,
+        PosFillY = PositionSliderPercentageFrame_Y,
+        PosFillZ = PositionSliderPercentageFrame_Z,
+        
+        RotX = RotationSliderBox_X,
+        RotY = RotationSliderBox_Y,
+        RotZ = RotationSliderBox_Z,
+        RotFillX = RotationSliderPercentageFrame_X,
+        RotFillY = RotationSliderPercentageFrame_Y,
+        RotFillZ = RotationSliderPercentageFrame_Z,
+        
+        PresetSpeed = Speed,
+        PresetInfJump = InfJump,
+        PresetNoJump = NoJump,
+        PresetClimb = Climb,
+        PresetSkydive = Skydive,
+    }
+    
+    local ui = self.State.UI
+    
+    -- Setup dragging
+    self:SetupDragging(UIContainer, 0.25, "Circular", "Out")
+    
+    -- Setup sliders
+    self:CreateSlider(PositionSliderX, PositionSliderPercentageFrame_X, PositionSliderButton_X, 
+        -self.Config.MaxPosition, self.Config.MaxPosition, 
+        function(value) ui.PosX.Text = value end)
+    
+    self:CreateSlider(PositionSliderY, PositionSliderPercentageFrame_Y, PositionSliderButton_Y, 
+        -self.Config.MaxPosition, self.Config.MaxPosition, 
+        function(value) ui.PosY.Text = value end)
+    
+    self:CreateSlider(PositionSliderZ, PositionSliderPercentageFrame_Z, PositionSliderButton_Z, 
+        -self.Config.MaxPosition, self.Config.MaxPosition, 
+        function(value) ui.PosZ.Text = value end)
+    
+    self:CreateSlider(RotationSliderX, RotationSliderPercentageFrame_X, RotationSliderButton_X, 
+        -self.Config.MaxAngle, self.Config.MaxAngle, 
+        function(value) ui.RotX.Text = value end)
+    
+    self:CreateSlider(RotationSliderY, RotationSliderPercentageFrame_Y, RotationSliderButton_Y, 
+        -self.Config.MaxAngle, self.Config.MaxAngle, 
+        function(value) ui.RotY.Text = value end)
+    
+    self:CreateSlider(RotationSliderZ, RotationSliderPercentageFrame_Z, RotationSliderButton_Z, 
+        -self.Config.MaxAngle, self.Config.MaxAngle, 
+        function(value) ui.RotZ.Text = value end)
+    
+    -- Setup digit filtering on textboxes
+    self:SetupDigitFiltering(ui.PosX, ui.PosY, ui.PosZ, ui.RotX, ui.RotY, ui.RotZ)
+    
+    -- Connect button events
+    ui.CloseButton.MouseButton1Click:Connect(function()
+        self:Destroy()
+    end)
+    
+    ui.MinimizeButton.MouseButton1Click:Connect(function()
+        self:Close()
+    end)
+    
+    ui.ViewButton.MouseButton1Click:Connect(function()
+        self:ToggleSpectate()
+    end)
+    
+    ui.AttachButton.MouseButton1Click:Connect(function()
+        self:ToggleAttach()
+    end)
+    
+    -- Connect preset buttons
+    ui.PresetSpeed.MouseButton1Click:Connect(function()
+        self:ApplyPreset("Speed")
+    end)
+    
+    ui.PresetInfJump.MouseButton1Click:Connect(function()
+        self:ApplyPreset("InfJump")
+    end)
+    
+    ui.PresetNoJump.MouseButton1Click:Connect(function()
+        self:ApplyPreset("NoJump")
+    end)
+    
+    ui.PresetClimb.MouseButton1Click:Connect(function()
+        self:ApplyPreset("Climb")
+    end)
+    
+    ui.PresetSkydive.MouseButton1Click:Connect(function()
+        self:ApplyPreset("Skydive")
+    end)
+    
+    -- Connect search
+    ui.SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        self:SearchPlayers()
+    end)
+    
+    -- Setup player thumbnail
+    local success, thumbnail = pcall(function()
+        return Players:GetUserThumbnailAsync(
+            LocalPlayer.UserId,
+            Enum.ThumbnailType.HeadShot,
+            Enum.ThumbnailSize.Size420x420
+        )
+    end)
+    
+    if success then
+        Thumbnail.Image = thumbnail
+    end
+    
+    DisplayName.Text = LocalPlayer.DisplayName
+    Username.Text = LocalPlayer.Name
+    
+    -- Add existing players to list
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            task.spawn(function()
+                self:AddPlayerToList(player)
+            end)
+        end
+    end
+    
+    -- Connect player events
+    self.State.Connections.PlayerAdded = Players.PlayerAdded:Connect(function(player)
+        self:AddPlayerToList(player)
+    end)
+    
+    self.State.Connections.PlayerRemoving = Players.PlayerRemoving:Connect(function(player)
+        self:RemovePlayerFromList(player)
+    end)
+    
+    return true
+end
+
+function Modules.Attach:Open()
+    if not self.State.UI then
+        if not self:CreateUI() then
+            DoNotif("Failed to create Attach UI", 3)
+            return
+        end
+    end
+    
+    self.State.UI.ScreenGui.Enabled = true
+    self.State.IsEnabled = true
+    DoNotif("Attach Hub opened", 2)
+end
+
+function Modules.Attach:Close()
+    if self.State.UI then
+        self.State.UI.ScreenGui.Enabled = false
+    end
+    
+    if self.State.SpectateActive then
+        self:ToggleSpectate()
+    end
+    
+    if self.State.AttachActive then
+        self:ToggleAttach()
+    end
+    
+    self.State.IsEnabled = false
+    DoNotif("Attach Hub closed", 2)
+end
+
+function Modules.Attach:Destroy()
+    self:Close()
+    
+    for _, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    table.clear(self.State.Connections)
+    
+    for _, template in pairs(self.State.LivePlayers) do
+        pcall(function() template:Destroy() end)
+    end
+    table.clear(self.State.LivePlayers)
+    
+    if self.State.UI then
+        pcall(function() self.State.UI.ScreenGui:Destroy() end)
+        self.State.UI = nil
+    end
+end
+
+RegisterCommand({
+    Name = "attach",
+    Aliases = {"attachhub", "atc"},
+    Description = "Opens Attach Hub for spectating/attaching to players."
+}, function(args)
+    if #args > 0 then
+        local subcommand = args[1]:lower()
+        
+        if subcommand == "close" then
+            Modules.Attach:Close()
+        elseif subcommand == "preset" and args[2] then
+            local presetName = args[2]:sub(1,1):upper() .. args[2]:sub(2):lower()
+            if Modules.Attach.Config.Presets[presetName] then
+                Modules.Attach:ApplyPreset(presetName)
+                DoNotif("Applied preset: " .. args[2]:lower(), 2)
+            else
+                DoNotif("Invalid preset. Available: speed, infjump, nojump, climb, skydive", 3)
+            end
+        else
+            Modules.Attach:Open()
+        end
+    else
+        if Modules.Attach.State.IsEnabled then
+            Modules.Attach:Close()
+        else
+            Modules.Attach:Open()
+        end
     end
 end)
 Modules.InfiniteJump = {
@@ -31053,19 +33094,28 @@ Modules.ScriptView = {
         CurrentSource = "",
         CurrentName = "",
         Open = false,
-        OtherDone = 1
+        Lexer = nil,
+        Templates = {},
     },
     Config = {
-        Operators = {
-            ['bracket'] = Color3.fromRGB(204, 104, 147),
-            ['math']    = Color3.fromRGB(204, 104, 147),
-            ['compare'] = Color3.fromRGB(204, 104, 147),
-            ['misc']    = Color3.fromRGB(204, 104, 147),
+        Hotkeys = {
+            Enum.KeyCode.Home,
+            Enum.KeyCode.RightShift
+        },
+        Colors = {
+            ['keyword']   = Color3.fromRGB(248, 109, 124),
+            ['builtin']   = Color3.fromRGB(131, 206, 255),
+            ['string']    = Color3.fromRGB(173, 241, 149),
+            ['number']    = Color3.fromRGB(255, 198, 0),
+            ['comment']   = Color3.fromRGB(106, 153, 85),
+            ['operator']  = Color3.fromRGB(204, 104, 147),
+            ['ident']     = Color3.fromRGB(212, 212, 212),
         },
         Textures = {
             ['folder']       = "2950788693",
             ['localscript']  = "99340858",
             ['modulescript'] = "413367412",
+            ['script']       = "99340858",
             ['function']     = "2759601950",
             ['variable']     = "2759602224",
             ['table']        = "2757039628",
@@ -31074,132 +33124,240 @@ Modules.ScriptView = {
         }
     }
 }
+function Modules.ScriptView:SafeDecompile(script)
+    if not decompile then
+        return false, "-- Decompile function not available"
+    end
+    local success, result = pcall(decompile, script)
+    if success then
+        return true, result
+    else
+        warn("ScriptView: Decompilation failed for " .. script:GetFullName() .. ": " .. tostring(result))
+        return false, "-- Decompilation Failed\n-- Error: " .. tostring(result)
+    end
+end
+function Modules.ScriptView:GetEnvironment(script)
+    local g_env = getsenv or getmenv
+    if not g_env then 
+        return nil, "No environment access available"
+    end
+    local success, env = pcall(function()
+        if script:IsA("LocalScript") and getsenv then
+            return getsenv(script)
+        elseif getmenv then
+            return getmenv(script)
+        end
+        return nil
+    end)
+    return success and env or nil, success and nil or "Failed to get environment"
+end
+function Modules.ScriptView:Tween(obj, duration, goal)
+    local tweenService = game:GetService("TweenService")
+    local tween = tweenService:Create(
+        obj, 
+        TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+        goal
+    )
+    tween:Play()
+    return tween
+end
+function Modules.ScriptView:LoadSource(source, sourceFrame, lineTemplate, wordTemplate)
+    self.State.CurrentSource = source
+    for _, v in pairs(sourceFrame:GetChildren()) do
+        if v.Name == "Line" then 
+            v:Destroy() 
+        end
+    end
+    if not self.State.Lexer then
+        warn("ScriptView: Lexer not loaded, displaying raw source")
+        local line = lineTemplate:Clone()
+        line.LineNumber.Text = "1  "
+        line.Parent = sourceFrame
+        local word = wordTemplate:Clone()
+        word.Parent = line
+        word.String.Text = source
+        word.String.Size = UDim2.new(1, -30, 1, 0)
+        word.Size = word.String.Size
+        return
+    end
+    local lines = {}
+    local currentLine = {}
+    local success, err = pcall(function()
+        for typ, word in self.State.Lexer.scan(source) do
+            if word:find("\n") then
+                word = word:gsub("\n", "")
+                if word == "" then word = " " end
+                table.insert(currentLine, {typ, word})
+                table.insert(lines, currentLine)
+                currentLine = {}
+            else
+                table.insert(currentLine, {typ, word})
+            end
+        end
+    end)
+    if not success then
+        warn("ScriptView: Lexer parsing failed: " .. tostring(err))
+        return
+    end
+    table.insert(lines, currentLine)
+    for num, lineTable in ipairs(lines) do
+        local line = lineTemplate:Clone()
+        line.LineNumber.Text = tostring(num) .. "  "
+        line.Parent = sourceFrame
+        for _, wordData in ipairs(lineTable) do
+            local word = wordTemplate:Clone()
+            word.Parent = line
+            word.String.Text = wordData[2]
+            if self.State.Syntax and self.Config.Colors[wordData[1]] then
+                word.String.TextColor3 = self.Config.Colors[wordData[1]]
+            end
+            local textService = game:GetService("TextService")
+            local txtSize = textService:GetTextSize(
+                word.String.Text, 
+                word.String.TextSize, 
+                word.String.Font, 
+                Vector2.new(10000, 25)
+            )
+            word.String.Size = UDim2.new(0, txtSize.X, 1, 0)
+            word.Size = word.String.Size
+        end
+    end
+end
+function Modules.ScriptView:CreateButton(parent, info, sourceFrame, lineTemplate, wordTemplate)
+    local button = self.State.Templates.debugTemplate:Clone()
+    local targetParent = parent:FindFirstChild("Contents") or parent
+    button.Label.Text = info.Name
+    button.Icon.Image = "rbxassetid://" .. (self.Config.Textures[info.Type:lower()] or self.Config.Textures.variable)
+    button.Parent = targetParent
+    button.Clicked.MouseButton1Click:Connect(function()
+        if info.Type:lower():find("script") and info.Obj then
+            local success, source = self:SafeDecompile(info.Obj)
+            self:LoadSource(source, sourceFrame, lineTemplate, wordTemplate)
+            self.State.CurrentName = info.Obj:GetFullName()
+        end
+    end)
+    if button:FindFirstChild("Expand") then
+        button.Expand.MouseButton1Click:Connect(function()
+            local contents = button:FindFirstChild("Contents")
+            if not contents or not info.Obj then return end
+            contents.Visible = not contents.Visible
+            if contents.Visible then
+                for _, child in pairs(contents:GetChildren()) do
+                    if child:IsA("Frame") and child.Name ~= "UIListLayout" then
+                        child:Destroy()
+                    end
+                end
+                pcall(function()
+                    for _, child in ipairs(info.Obj:GetChildren()) do
+                        self:CreateButton(button, {
+                            Name = child.Name, 
+                            Type = child.ClassName, 
+                            Obj = child
+                        }, sourceFrame, lineTemplate, wordTemplate)
+                    end
+                end)
+            end
+        end)
+    end
+    return button
+end
+function Modules.ScriptView:OpenUI()
+    if not self.State.UI then return end
+    local backdrop = self.State.UI.Backdrop
+    self:Tween(backdrop, 0.2, {
+        Position = UDim2.new(0.5, -400, 0.5, -250),
+        Size = UDim2.new(0, 800, 0, 500)
+    })
+    self.State.Open = true
+end
+function Modules.ScriptView:CloseUI()
+    if not self.State.UI then return end
+    local backdrop = self.State.UI.Backdrop
+    self:Tween(backdrop, 0.2, {
+        Position = UDim2.new(0.5, 0, 1, 2),
+        Size = UDim2.new(0.25, 0, 0.25, 0)
+    })
+    self.State.Open = false
+end
+function Modules.ScriptView:Toggle()
+    if self.State.Open then
+        self:CloseUI()
+    else
+        self:OpenUI()
+    end
+end
 function Modules.ScriptView:Initialize()
     local module = self
     local state = self.State
     local config = self.Config
     RegisterCommand({
         Name = "scriptview",
-        Aliases = {"sv", "forensics", "decompile"},
-        Description = "Opens ScriptView (Home/RShift). Decompile scripts and explore memory."
-    }, function()
+        Aliases = {"sv", "forensics", "decompile", "explorer"},
+        Description = "Opens ScriptView (Home/RShift). Decompile scripts and explore instances."
+    }, function(args)
         if state.UI then
-            state.Open = not state.Open
-            if state.Open then module:Open() else module:Close() end
+            module:Toggle()
             return
         end
         local success, err = pcall(function()
             local screenGui = game:GetObjects("rbxassetid://2971927607")[1]
-            local backdrop = screenGui.Backdrop
-            local lexer_mod = game:GetObjects('rbxassetid://2798231692')[1]
-            local lexer = loadstring(lexer_mod.Source)()
+            if not screenGui then
+                error("Failed to load ScreenGui asset")
+            end
+            local lexerModule = game:GetObjects('rbxassetid://2798231692')[1]
+            if lexerModule and lexerModule.Source then
+                state.Lexer = loadstring(lexerModule.Source)()
+            else
+                warn("ScriptView: Lexer module not loaded, syntax highlighting disabled")
+            end
             screenGui.Parent = CoreGui
             state.UI = screenGui
+            local backdrop = screenGui.Backdrop
             local scriptList = backdrop.Debugger.Scripts
             local sourceFrame = backdrop.ScriptFrame.Source
-            local debugTemplate = scriptList.Template; debugTemplate.Parent = nil
-            local lineTemplate = sourceFrame.Line; lineTemplate.Parent = nil
-            local wordTemplate = lineTemplate.Word; wordTemplate.Parent = nil
-            local tabsFrame = backdrop.Tabs
-            local tabTemplate = tabsFrame.Deselected; tabTemplate.Parent = nil
-            local ttemp = tabsFrame.Selected; ttemp.Parent = nil
-            local function GVT(v, def)
-                return (type(v) == "function" and "function") or (type(v) == "table" and "table") or def or "variable"
-            end
-            local function getEnv(scr)
-                local g_env = getsenv or getmenv
-                if not g_env then return {ERROR = "No env access"} end
-                return (scr:IsA("LocalScript") and (getsenv and getsenv(scr))) or (getmenv and getmenv(scr))
-            end
-            local function Tween(Obj, Dir, Style, Duration, Goal)
-                local tween = game:GetService("TweenService"):Create(Obj, TweenInfo.new(Duration, Enum.EasingStyle[Style], Enum.EasingDirection[Dir]), Goal)
-                tween:Play()
-                return tween
-            end
-            local function loadSource(source)
-                state.CurrentSource = source
-                for _, v in pairs(sourceFrame:GetChildren()) do
-                    if v.Name == "Line" then v:Destroy() end
-                end
-                local lines = {}
-                local tblLine = {}
-                for typ, word in lexer.scan(source) do
-                    if word:find("\n") then
-                        word = word:gsub("\n", "")
-                        if word == "" then word = " " end
-                        table.insert(tblLine, {typ, word})
-                        table.insert(lines, tblLine)
-                        tblLine = {}
-                    else
-                        table.insert(tblLine, {typ, word})
+            local debugTemplate = scriptList.Template:Clone()
+            debugTemplate.Parent = nil
+            state.Templates.debugTemplate = debugTemplate
+            scriptList.Template:Destroy()
+            local lineTemplate = sourceFrame.Line:Clone()
+            lineTemplate.Parent = nil
+            state.Templates.lineTemplate = lineTemplate
+            sourceFrame.Line:Destroy()
+            local wordTemplate = lineTemplate.Word:Clone()
+            wordTemplate.Parent = nil
+            state.Templates.wordTemplate = wordTemplate
+            module:CreateButton(scriptList, {
+                Name = "Workspace", 
+                Type = "Folder", 
+                Obj = game:GetService("Workspace")
+            }, sourceFrame, lineTemplate, wordTemplate)
+            module:CreateButton(scriptList, {
+                Name = "LocalPlayer", 
+                Type = "Folder", 
+                Obj = LocalPlayer or game:GetService("Players").LocalPlayer
+            }, sourceFrame, lineTemplate, wordTemplate)
+            module:CreateButton(scriptList, {
+                Name = "ReplicatedStorage", 
+                Type = "Folder", 
+                Obj = game:GetService("ReplicatedStorage")
+            }, sourceFrame, lineTemplate, wordTemplate)
+            UserInputService.InputBegan:Connect(function(input, gameProcessed)
+                if gameProcessed then return end
+                for _, key in ipairs(config.Hotkeys) do
+                    if input.KeyCode == key then
+                        module:Toggle()
+                        break
                     end
-                end
-                table.insert(lines, tblLine)
-                for num, lineTable in ipairs(lines) do
-                    local line = lineTemplate:Clone()
-                    line.LineNumber.Text = tostring(num).."  "
-                    line.Parent = sourceFrame
-                    for _, wordData in ipairs(lineTable) do
-                        local word = wordTemplate:Clone()
-                        word.Parent = line
-                        word.String.Text = wordData[2]
-                        local txtSize = game:GetService("TextService"):GetTextSize(word.String.Text, word.String.TextSize, word.String.Font, Vector2.new(10000, 25))
-                        word.String.Size = UDim2.new(0, txtSize.X, 1, 0)
-                        word.Size = word.String.Size
-                        if state.Syntax then
-                        end
-                    end
-                end
-            end
-            local function createButton(parent, info)
-                local button = debugTemplate:Clone()
-                local par = (parent:FindFirstChild("Contents")) or parent
-                button.Label.Text = info.Name
-                button.Icon.Image = "rbxassetid://" .. (config.Textures[info.Type:lower()] or config.Textures.variable)
-                button.Parent = par
-                button.Clicked.MouseButton1Click:Connect(function()
-                    if info.Type:lower():find("script") then
-                        local success, src = pcall(decompile, info.Obj)
-                        loadSource(success and src or "-- Decompilation Failed")
-                    end
-                end)
-                button.Expand.MouseButton1Click:Connect(function()
-                    button.Contents.Visible = not button.Contents.Visible
-                    if button.Contents.Visible then
-                        for _, child in ipairs(info.Obj:GetChildren()) do
-                            createButton(button, {Name = child.Name, Type = child.ClassName, Obj = child})
-                        end
-                    end
-                end)
-            end
-            createButton(scriptList, {Name="Active Scripts", Type="Folder", Obj=game})
-            createButton(scriptList, {Name="LocalPlayer", Type="Folder", Obj=game:GetService("Players").LocalPlayer})
-            createButton(scriptList, {Name="Nil", Type="Folder", Obj=nil})
-            module.Open = function()
-                Tween(backdrop, "Out", "Sine", 0.2, {
-                    Position = UDim2.new(0.5, -400, 0.5, -250),
-                    Size = UDim2.new(0, 800, 0, 500)
-                })
-                state.Open = true
-            end
-            module.Close = function()
-                Tween(backdrop, "Out", "Sine", 0.2, {
-                    Position = UDim2.new(0.5, 0, 1, 2),
-                    Size = UDim2.new(0.25, 0, 0.25, 0)
-                })
-                state.Open = false
-            end
-            UserInputService.InputBegan:Connect(function(input)
-                if input.KeyCode == Enum.KeyCode.Home or input.KeyCode == Enum.KeyCode.RightShift then
-                    state.Open = not state.Open
-                    if state.Open then module.Open() else module.Close() end
                 end
             end)
-            DoNotif("ScriptView forensic module enabled.", 3)
+            backdrop.Position = UDim2.new(0.5, 0, 1, 2)
+            backdrop.Size = UDim2.new(0.25, 0, 0.25, 0)
+            state.IsEnabled = true
+            DoNotif("ScriptView loaded. Press Home/RShift to toggle.", 3)
         end)
         if not success then
-            warn("--> [FORENSIC]: ScriptView Failed to Load Assets: " .. tostring(err))
-            DoNotif("ScriptView failed: Assets unavailable.", 5)
+            warn("ScriptView: Failed to load - " .. tostring(err))
+            DoNotif("ScriptView failed: " .. tostring(err), 5)
         end
     end)
 end
@@ -31252,50 +33410,86 @@ Modules.FixCamera = {
         Connection = nil,
         OriginalMaxZoom = nil,
         OriginalOcclusionMode = nil,
-    }
-}
-RegisterCommand({
-    Name = "fixcam",
-    Aliases = {"unlockcam"},
-    Description = "Unlocks camera, allows zooming through walls, and forces third-person."
-}, function(args)
-    if not LocalPlayer then return end
-    local self = Modules.FixCamera
-    self.State.Enabled = not self.State.Enabled
-    if self.State.Enabled then
-        self.State.OriginalMaxZoom = LocalPlayer.CameraMaxZoomDistance
-        self.State.OriginalOcclusionMode = LocalPlayer.DevCameraOcclusionMode
-        LocalPlayer.CameraMaxZoomDistance = 10000
+        OriginalCameraMode = nil,
+    },
+    Config = {
+        MaxZoomDistance = 10000,
+        ForcedCameraMode = Enum.CameraMode.Classic,
+        PreferredOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam,
+    },
+    SafeSetProperty = function(instance, property, value, fallback)
         local success, err = pcall(function()
-            LocalPlayer.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.None
+            instance[property] = value
         end)
         if not success then
-            warn("FixCamera: Failed to set DevCameraOcclusionMode via Enum. Falling back to 0. Error:", err)
-            LocalPlayer.DevCameraOcclusionMode = 0
+            if fallback ~= nil then
+                warn(string.format("FixCamera: Failed to set %s to %s, using fallback. Error: %s", property, tostring(value), tostring(err)))
+                pcall(function() instance[property] = fallback end)
+            else
+                warn(string.format("FixCamera: Failed to set %s. Error: %s", property, tostring(err)))
+            end
         end
+        return success
+    end,
+    Enable = function(self)
+        if not LocalPlayer then return false end
+        self.State.OriginalMaxZoom = LocalPlayer.CameraMaxZoomDistance
+        self.State.OriginalOcclusionMode = LocalPlayer.DevCameraOcclusionMode
+        self.State.OriginalCameraMode = LocalPlayer.CameraMode
+        LocalPlayer.CameraMaxZoomDistance = self.Config.MaxZoomDistance
+        self.SafeSetProperty(LocalPlayer, "DevCameraOcclusionMode", self.Config.PreferredOcclusionMode, 0)
         self.State.Connection = RunService.RenderStepped:Connect(function()
-            if LocalPlayer.CameraMode ~= Enum.CameraMode.Classic then
-                LocalPlayer.CameraMode = Enum.CameraMode.Classic
+            if LocalPlayer.CameraMode ~= self.Config.ForcedCameraMode then
+                LocalPlayer.CameraMode = self.Config.ForcedCameraMode
             end
         end)
-        DoNotif("Camera override enabled (with wall-zoom).", 3)
-    else
-        if self.State.Connection and self.State.Connection.Connected then
+        self.State.Enabled = true
+        DoNotif("Camera unlocked (zoom: " .. self.Config.MaxZoomDistance .. ", occlusion: off)", 3)
+        return true
+    end,
+    Disable = function(self)
+        if self.State.Connection then
             self.State.Connection:Disconnect()
             self.State.Connection = nil
         end
-        pcall(function()
-            if self.State.OriginalOcclusionMode ~= nil then
-                LocalPlayer.DevCameraOcclusionMode = self.State.OriginalOcclusionMode
-            end
-            if self.State.OriginalMaxZoom ~= nil then
-                LocalPlayer.CameraMaxZoomDistance = self.State.OriginalMaxZoom
-            end
-        end)
+        if LocalPlayer then
+            pcall(function()
+                if self.State.OriginalOcclusionMode ~= nil then
+                    LocalPlayer.DevCameraOcclusionMode = self.State.OriginalOcclusionMode
+                end
+                if self.State.OriginalMaxZoom ~= nil then
+                    LocalPlayer.CameraMaxZoomDistance = self.State.OriginalMaxZoom
+                end
+                if self.State.OriginalCameraMode ~= nil then
+                    LocalPlayer.CameraMode = self.State.OriginalCameraMode
+                end
+            end)
+        end
         self.State.OriginalOcclusionMode = nil
         self.State.OriginalMaxZoom = nil
-        DoNotif("Camera override disabled.", 3)
+        self.State.OriginalCameraMode = nil
+        self.State.Enabled = false
+        DoNotif("Camera restored to normal.", 3)
+        return true
+    end,
+    Toggle = function(self)
+        if self.State.Enabled then
+            return self:Disable()
+        else
+            return self:Enable()
+        end
+    end,
+}
+RegisterCommand({
+    Name = "fixcam",
+    Aliases = {"unlockcam", "freecam"},
+    Description = "Unlocks camera, allows zooming through walls, and forces third-person."
+}, function(args)
+    if not LocalPlayer then 
+        DoNotif("Error: LocalPlayer not found.", 3)
+        return 
     end
+    Modules.FixCamera:Toggle()
 end)
 Modules.NoFog = {
     State = {
@@ -34054,7 +36248,7 @@ Modules.ScriptSearcher = {
         BG = Color3.fromRGB(20, 20, 20),
         APIs = {
             scriptblox = "https://scriptblox.com/api/script/search?q=%s&mode=free&max=100",
-            pastebin = "https://pastebin.com/api/v1/paste/list?api_dev_key=YOUR_KEY&results_limit=100",
+            RoScripts = "https://api.rscripts.net/",
         },
         MAX_HISTORY = 15
     },
@@ -34928,7 +37122,6 @@ RegisterCommand({Name = "lagserv", Aliases = {"spayload"}, Description = "WIP"},
 RegisterCommand({Name = "doomshammer", Aliases = {}, Description = "For Dumb bossfights"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/doomshammer.lua", " Loading.. ") end)
 RegisterCommand({Name = "tptoswords", Aliases = {}, Description = "For Dumb bossfights"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/SwordGrabberBossfightGame.lua", " Loading.. ") end)
 RegisterCommand({Name = "removeff", Aliases = {}, Description = "Removes Forcefields on the client, can be useful with low security"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/removeforcefield.txt", " Loading.. ") end)
-RegisterCommand({Name = "AttachHub", Aliases = {}, Description = "Anthony's Script 2"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/AttachHub.lua", " Loading.. ") end)
 RegisterCommand({Name = "simplespy", Aliases = {"sz"}, Description = "Better than ketamine."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/simplespy.lua", " Loading.. ") end)
 RegisterCommand({Name = "buildts", Aliases = {}, Description = "Script Lookup"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/bts.lua", " Loading.. ") end)
 RegisterCommand({Name = "teleporter", Aliases = {"tpui"}, Description = "Loads the Game Universe."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameFinder.lua", "stolen from nameless-admin") end)
@@ -34963,598 +37156,6 @@ RegisterCommand({Name = "reachfix", Aliases = {"fix"}, Description = "Makes your
 RegisterCommand({Name = "worldofstands", Aliases = {"wos"}, Description = "For https://www.roblox.com/games/6728870912/World-of-Stands - Removes dash cooldown"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/WOS.lua", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "zfucker", Aliases = {}, Description = "zfucker for the zl series."}, function() loadstringCmd("https://raw.githubusercontent.com/osukfcdays/zlfucker/refs/heads/main/main.luau", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "antiesp", Aliases = {}, Description = "Testing"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/espwip.lua", "Loading, Wait a sec.") end)
-Modules.AntiESP = {
-    State = {
-        IsEnabled = false,
-        IsActive = false,
-        Character = nil,
-        HumanoidRootPart = nil,
-        Humanoid = nil,
-        OriginalCFrame = nil,
-        RealCFrame = nil,
-        FakeCharacter = nil,
-        Connections = {},
-        UI = nil,
-        Camera = nil
-    },
-    Config = {
-        VoidDepth = -50000,
-        UpdateRate = 0.01,
-        EnableDummyDecoy = false,
-        DecoyOffset = Vector3.new(0, 5, 0),
-        AntiRaycast = true,
-        SuppressNametags = true
-    }
-}
-
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local LocalPlayer = Players.LocalPlayer
-local TweenService = game:GetService("TweenService")
-
-function Modules.AntiESP:_createUI()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "AntiESP_Zuka"
-    screenGui.ResetOnSpawn = false
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-    self.State.UI = screenGui
-    
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.fromOffset(350, 450)
-    mainFrame.Position = UDim2.new(1, -360, 0.5, -225)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Parent = screenGui
-    
-    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
-    
-    local stroke = Instance.new("UIStroke", mainFrame)
-    stroke.Color = Color3.fromRGB(255, 0, 150)
-    stroke.Thickness = 2
-    
-    local glowTween = TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-        Thickness = 3
-    })
-    glowTween:Play()
-    
-    -- Title Bar
-    local titleBar = Instance.new("Frame", mainFrame)
-    titleBar.Name = "TitleBar"
-    titleBar.Size = UDim2.new(1, 0, 0, 40)
-    titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    titleBar.BorderSizePixel = 0
-    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
-    
-    local title = Instance.new("TextLabel", titleBar)
-    title.Size = UDim2.new(1, -90, 1, 0)
-    title.Position = UDim2.fromOffset(15, 0)
-    title.BackgroundTransparency = 1
-    title.Font = Enum.Font.Code
-    title.Text = "▸ ANTI-ESP/AIMBOT"
-    title.TextColor3 = Color3.fromRGB(255, 0, 150)
-    title.TextSize = 16
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local statusIndicator = Instance.new("TextLabel", titleBar)
-    statusIndicator.Name = "StatusIndicator"
-    statusIndicator.Size = UDim2.fromOffset(80, 20)
-    statusIndicator.Position = UDim2.new(1, -150, 0.5, -10)
-    statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    statusIndicator.BorderSizePixel = 0
-    statusIndicator.Font = Enum.Font.GothamBold
-    statusIndicator.Text = "INACTIVE"
-    statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
-    statusIndicator.TextSize = 10
-    Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
-    
-    local closeBtn = Instance.new("TextButton", titleBar)
-    closeBtn.Size = UDim2.fromOffset(30, 30)
-    closeBtn.Position = UDim2.new(1, -35, 0, 5)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
-    closeBtn.BorderSizePixel = 0
-    closeBtn.Text = "×"
-    closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 20
-    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
-    
-    closeBtn.MouseButton1Click:Connect(function()
-        self:Disable()
-    end)
-    
-    -- Make draggable
-    self:MakeDraggable(titleBar, mainFrame)
-    
-    local content = Instance.new("Frame", mainFrame)
-    content.Name = "Content"
-    content.Size = UDim2.new(1, -20, 1, -50)
-    content.Position = UDim2.fromOffset(10, 45)
-    content.BackgroundTransparency = 1
-    
-    -- Status Display
-    local statusLabel = Instance.new("TextLabel", content)
-    statusLabel.Name = "StatusLabel"
-    statusLabel.Size = UDim2.new(1, 0, 0, 80)
-    statusLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-    statusLabel.BorderSizePixel = 0
-    statusLabel.Font = Enum.Font.Code
-    statusLabel.Text = "Status: Inactive\nOthers see: Normal position\nDecoy: Off"
-    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    statusLabel.TextSize = 11
-    statusLabel.TextWrapped = true
-    statusLabel.TextYAlignment = Enum.TextYAlignment.Top
-    Instance.new("UICorner", statusLabel).CornerRadius = UDim.new(0, 6)
-    
-    local padding = Instance.new("UIPadding", statusLabel)
-    padding.PaddingLeft = UDim.new(0, 10)
-    padding.PaddingTop = UDim.new(0, 10)
-    
-    -- Activate Button
-    local activateBtn = Instance.new("TextButton", content)
-    activateBtn.Name = "ActivateButton"
-    activateBtn.Size = UDim2.new(1, 0, 0, 50)
-    activateBtn.Position = UDim2.fromOffset(0, 90)
-    activateBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-    activateBtn.BorderSizePixel = 0
-    activateBtn.Font = Enum.Font.GothamBold
-    activateBtn.Text = "ACTIVATE ANTI-ESP"
-    activateBtn.TextColor3 = Color3.new(1, 1, 1)
-    activateBtn.TextSize = 14
-    Instance.new("UICorner", activateBtn).CornerRadius = UDim.new(0, 8)
-    
-    activateBtn.MouseButton1Click:Connect(function()
-        self:ToggleActive()
-    end)
-    
-    -- Settings
-    local settingsLabel = Instance.new("TextLabel", content)
-    settingsLabel.Size = UDim2.new(1, 0, 0, 20)
-    settingsLabel.Position = UDim2.fromOffset(0, 150)
-    settingsLabel.BackgroundTransparency = 1
-    settingsLabel.Font = Enum.Font.GothamBold
-    settingsLabel.Text = "Settings:"
-    settingsLabel.TextColor3 = Color3.new(1, 1, 1)
-    settingsLabel.TextSize = 13
-    settingsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Decoy Toggle
-    local decoyToggle = Instance.new("TextButton", content)
-    decoyToggle.Name = "DecoyToggle"
-    decoyToggle.Size = UDim2.new(1, 0, 0, 35)
-    decoyToggle.Position = UDim2.fromOffset(0, 180)
-    decoyToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
-    decoyToggle.BorderSizePixel = 0
-    decoyToggle.Font = Enum.Font.GothamBold
-    decoyToggle.Text = "DUMMY DECOY: OFF"
-    decoyToggle.TextColor3 = Color3.new(1, 1, 1)
-    decoyToggle.TextSize = 12
-    Instance.new("UICorner", decoyToggle).CornerRadius = UDim.new(0, 6)
-    
-    decoyToggle.MouseButton1Click:Connect(function()
-        self.Config.EnableDummyDecoy = not self.Config.EnableDummyDecoy
-        decoyToggle.Text = "DUMMY DECOY: " .. (self.Config.EnableDummyDecoy and "ON" or "OFF")
-        decoyToggle.BackgroundColor3 = self.Config.EnableDummyDecoy and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(50, 50, 65)
-        
-        if not self.Config.EnableDummyDecoy and self.State.FakeCharacter then
-            self.State.FakeCharacter:Destroy()
-            self.State.FakeCharacter = nil
-        elseif self.Config.EnableDummyDecoy and self.State.IsActive then
-            self:CreateDummyDecoy()
-        end
-        
-        self:UpdateDisplay()
-    end)
-    
-    -- Anti-Raycast Toggle
-    local raycastToggle = Instance.new("TextButton", content)
-    raycastToggle.Name = "RaycastToggle"
-    raycastToggle.Size = UDim2.new(1, 0, 0, 35)
-    raycastToggle.Position = UDim2.fromOffset(0, 225)
-    raycastToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
-    raycastToggle.BorderSizePixel = 0
-    raycastToggle.Font = Enum.Font.GothamBold
-    raycastToggle.Text = "ANTI-RAYCAST: ON"
-    raycastToggle.TextColor3 = Color3.new(1, 1, 1)
-    raycastToggle.TextSize = 12
-    Instance.new("UICorner", raycastToggle).CornerRadius = UDim.new(0, 6)
-    
-    raycastToggle.MouseButton1Click:Connect(function()
-        self.Config.AntiRaycast = not self.Config.AntiRaycast
-        raycastToggle.Text = "ANTI-RAYCAST: " .. (self.Config.AntiRaycast and "ON" or "OFF")
-        raycastToggle.BackgroundColor3 = self.Config.AntiRaycast and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(50, 50, 65)
-        self:UpdateDisplay()
-    end)
-    
-    -- Nametag Suppression Toggle
-    local nametagToggle = Instance.new("TextButton", content)
-    nametagToggle.Name = "NametagToggle"
-    nametagToggle.Size = UDim2.new(1, 0, 0, 35)
-    nametagToggle.Position = UDim2.fromOffset(0, 270)
-    nametagToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
-    nametagToggle.BorderSizePixel = 0
-    nametagToggle.Font = Enum.Font.GothamBold
-    nametagToggle.Text = "HIDE NAMETAGS: ON"
-    nametagToggle.TextColor3 = Color3.new(1, 1, 1)
-    nametagToggle.TextSize = 12
-    Instance.new("UICorner", nametagToggle).CornerRadius = UDim.new(0, 6)
-    
-    nametagToggle.MouseButton1Click:Connect(function()
-        self.Config.SuppressNametags = not self.Config.SuppressNametags
-        nametagToggle.Text = "HIDE NAMETAGS: " .. (self.Config.SuppressNametags and "ON" or "OFF")
-        nametagToggle.BackgroundColor3 = self.Config.SuppressNametags and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(50, 50, 65)
-        if self.State.IsActive then
-            self:SuppressNametags()
-        end
-    end)
-    
-    -- Info
-    local infoLabel = Instance.new("TextLabel", content)
-    infoLabel.Size = UDim2.new(1, 0, 0, 80)
-    infoLabel.Position = UDim2.fromOffset(0, 315)
-    infoLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-    infoLabel.BorderSizePixel = 0
-    infoLabel.Font = Enum.Font.Code
-    infoLabel.Text = "How it works:\n• Others see you at void/decoy\n• You play normally\n• ESP/Aimbot targets wrong spot"
-    infoLabel.TextColor3 = Color3.fromRGB(150, 150, 200)
-    infoLabel.TextSize = 10
-    infoLabel.TextWrapped = true
-    infoLabel.TextYAlignment = Enum.TextYAlignment.Top
-    Instance.new("UICorner", infoLabel).CornerRadius = UDim.new(0, 6)
-    
-    local infoPadding = Instance.new("UIPadding", infoLabel)
-    infoPadding.PaddingLeft = UDim.new(0, 10)
-    infoPadding.PaddingTop = UDim.new(0, 10)
-    
-    screenGui.Parent = CoreGui
-    
-    return statusLabel, statusIndicator, activateBtn
-end
-
-function Modules.AntiESP:MakeDraggable(handle, object)
-    local dragging = false
-    local dragStart, startPos
-    
-    handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = object.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-    
-    handle.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            if dragging then
-                local delta = input.Position - dragStart
-                object.Position = UDim2.new(
-                    startPos.X.Scale, startPos.X.Offset + delta.X,
-                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                )
-            end
-        end
-    end)
-end
-
-function Modules.AntiESP:SuppressNametags()
-    if not self.Config.SuppressNametags then return end
-    if not self.State.Character or not self.State.Character.Parent then return end
-    
-    pcall(function()
-        for _, descendant in pairs(self.State.Character:GetDescendants()) do
-            if descendant:IsA("BillboardGui") or descendant:IsA("SurfaceGui") then
-                descendant.Enabled = false
-            end
-        end
-        
-        if self.State.Character:FindFirstChild("Head") then
-            local head = self.State.Character.Head
-            for _, child in pairs(head:GetChildren()) do
-                if child:IsA("BillboardGui") or child.Name:lower():find("nametag") or child.Name:lower():find("tag") then
-                    child.Enabled = false
-                end
-            end
-        end
-    end)
-end
-
-function Modules.AntiESP:CreateDummyDecoy()
-    if not self.Config.EnableDummyDecoy then return end
-    if not self.State.Character or not self.State.Character.Parent then return end
-    
-    if self.State.FakeCharacter then
-        pcall(function()
-            self.State.FakeCharacter:Destroy()
-        end)
-        self.State.FakeCharacter = nil
-    end
-    
-    local success, fakeChar = pcall(function()
-        return self.State.Character:Clone()
-    end)
-    
-    if not success or not fakeChar then return end
-    
-    pcall(function()
-        for _, part in pairs(fakeChar:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-                part.Anchored = true
-                part.Transparency = 0
-            end
-        end
-        
-        for _, obj in pairs(fakeChar:GetDescendants()) do
-            if obj:IsA("Script") or obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
-                obj:Destroy()
-            end
-        end
-        
-        if fakeChar:FindFirstChild("Humanoid") then
-            fakeChar.Humanoid:Destroy()
-        end
-        
-        if self.State.RealCFrame then
-            fakeChar:SetPrimaryPartCFrame(self.State.RealCFrame + self.Config.DecoyOffset)
-        end
-    end)
-    
-    fakeChar.Parent = Workspace
-    fakeChar.Name = LocalPlayer.Name .. "_Decoy"
-    
-    self.State.FakeCharacter = fakeChar
-    print("✓ Dummy decoy created")
-end
-
-function Modules.AntiESP:MainLoop()
-    while self.State.IsActive and self.State.Character and self.State.Character.Parent do
-        
-        if not self.State.HumanoidRootPart or not self.State.HumanoidRootPart.Parent then
-            break
-        end
-        
-        -- Get movement from humanoid
-        local moveVector = self.State.Humanoid.MoveDirection * self.State.Humanoid.WalkSpeed * self.Config.UpdateRate
-        
-        -- Update real position
-        if self.State.RealCFrame then
-            self.State.RealCFrame = self.State.RealCFrame + moveVector
-        end
-        
-        -- Set HRP to void for server
-        pcall(function()
-            local targetY = self.Config.AntiRaycast and -100 or self.Config.VoidDepth
-            self.State.HumanoidRootPart.CFrame = CFrame.new(
-                self.State.RealCFrame.X,
-                targetY,
-                self.State.RealCFrame.Z
-            ) * (self.State.RealCFrame - self.State.RealCFrame.Position)
-        end)
-        
-        -- Update decoy
-        if self.Config.EnableDummyDecoy and self.State.FakeCharacter and self.State.FakeCharacter.Parent then
-            pcall(function()
-                self.State.FakeCharacter:SetPrimaryPartCFrame(self.State.RealCFrame + self.Config.DecoyOffset)
-            end)
-        end
-        
-        -- Suppress nametags
-        if self.Config.SuppressNametags then
-            self:SuppressNametags()
-        end
-        
-        task.wait(self.Config.UpdateRate)
-    end
-end
-
-function Modules.AntiESP:ToggleActive()
-    if not self.State.Character or not self.State.Character.Parent then
-        print("✗ Character not found")
-        return
-    end
-    
-    if not self.State.HumanoidRootPart or not self.State.HumanoidRootPart.Parent then
-        print("✗ HumanoidRootPart not found")
-        return
-    end
-    
-    self.State.IsActive = not self.State.IsActive
-    
-    if self.State.IsActive then
-        -- Store real starting position
-        self.State.RealCFrame = self.State.HumanoidRootPart.CFrame
-        
-        -- Suppress nametags
-        self:SuppressNametags()
-        
-        -- Create decoy at real position
-        if self.Config.EnableDummyDecoy then
-            self:CreateDummyDecoy()
-        end
-        
-        -- Start main loop
-        task.spawn(function()
-            self:MainLoop()
-        end)
-        
-        print("✓ Anti-ESP ACTIVATED")
-        print("  Others see you at: " .. (self.Config.AntiRaycast and "Underground" or "Void"))
-        print("  You: Playing normally")
-    else
-        -- Deactivate
-        if self.State.FakeCharacter then
-            pcall(function()
-                self.State.FakeCharacter:Destroy()
-            end)
-            self.State.FakeCharacter = nil
-        end
-        
-        -- Return HRP to real position
-        if self.State.RealCFrame and self.State.HumanoidRootPart and self.State.HumanoidRootPart.Parent then
-            pcall(function()
-                self.State.HumanoidRootPart.CFrame = self.State.RealCFrame
-            end)
-        end
-        
-        self.State.RealCFrame = nil
-        
-        print("✓ Anti-ESP DEACTIVATED")
-    end
-    
-    self:UpdateDisplay()
-end
-
-function Modules.AntiESP:UpdateDisplay()
-    if not self.State.UI then return end
-    
-    local statusLabel = self.State.UI.MainFrame.Content.StatusLabel
-    local statusIndicator = self.State.UI.MainFrame.TitleBar.StatusIndicator
-    local activateBtn = self.State.UI.MainFrame.Content.ActivateButton
-    
-    if self.State.IsActive then
-        local location = self.Config.AntiRaycast and "Underground (-100)" or "Void (" .. self.Config.VoidDepth .. ")"
-        statusLabel.Text = string.format(
-            "Status: ACTIVE\nOthers see: %s\nDecoy: %s",
-            location,
-            self.Config.EnableDummyDecoy and "Active" or "Off"
-        )
-        statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-        
-        statusIndicator.Text = "ACTIVE"
-        statusIndicator.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
-        statusIndicator.TextColor3 = Color3.new(1, 1, 1)
-        
-        activateBtn.Text = "DEACTIVATE"
-        activateBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 50)
-    else
-        statusLabel.Text = "Status: Inactive\nOthers see: Normal position\nDecoy: Off"
-        statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-        
-        statusIndicator.Text = "INACTIVE"
-        statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
-        
-        activateBtn.Text = "ACTIVATE ANTI-ESP"
-        activateBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-    end
-end
-
-function Modules.AntiESP:OnCharacterAdded(character)
-    task.wait(0.5)
-    
-    self.State.Character = character
-    self.State.HumanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
-    self.State.Humanoid = character:WaitForChild("Humanoid", 5)
-    
-    if not self.State.HumanoidRootPart or not self.State.Humanoid then
-        print("✗ Failed to get character parts")
-        return
-    end
-    
-    if self.State.FakeCharacter then
-        pcall(function()
-            self.State.FakeCharacter:Destroy()
-        end)
-        self.State.FakeCharacter = nil
-    end
-    
-    self.State.IsActive = false
-    self.State.RealCFrame = nil
-    self:UpdateDisplay()
-    
-    self.State.Connections.Died = self.State.Humanoid.Died:Connect(function()
-        self.State.IsActive = false
-        if self.State.FakeCharacter then
-            pcall(function()
-                self.State.FakeCharacter:Destroy()
-            end)
-            self.State.FakeCharacter = nil
-        end
-        self:UpdateDisplay()
-    end)
-    
-    print("✓ Character ready for Anti-ESP")
-end
-
-function Modules.AntiESP:Enable()
-    if self.State.IsEnabled then return end
-    self.State.IsEnabled = true
-    
-    if LocalPlayer.Character then
-        self:OnCharacterAdded(LocalPlayer.Character)
-    end
-    
-    self.State.Connections.CharacterAdded = LocalPlayer.CharacterAdded:Connect(function(character)
-        self:OnCharacterAdded(character)
-    end)
-    
-    self:_createUI()
-    self:UpdateDisplay()
-    
-    print("✓ Anti-ESP/Aimbot GUI enabled")
-end
-
-function Modules.AntiESP:Disable()
-    if not self.State.IsEnabled then return end
-    
-    if self.State.IsActive then
-        self.State.IsActive = false
-        
-        if self.State.FakeCharacter then
-            pcall(function()
-                self.State.FakeCharacter:Destroy()
-            end)
-            self.State.FakeCharacter = nil
-        end
-        
-        if self.State.RealCFrame and self.State.HumanoidRootPart and self.State.HumanoidRootPart.Parent then
-            pcall(function()
-                self.State.HumanoidRootPart.CFrame = self.State.RealCFrame
-            end)
-        end
-    end
-    
-    self.State.IsEnabled = false
-    
-    for _, conn in pairs(self.State.Connections) do
-        if conn then
-            pcall(function()
-                conn:Disconnect()
-            end)
-        end
-    end
-    table.clear(self.State.Connections)
-    
-    if self.State.UI then
-        self.State.UI:Destroy()
-        self.State.UI = nil
-    end
-    
-    print("✓ Anti-ESP/Aimbot disabled")
-end
-
-function Modules.AntiESP:Toggle()
-    if self.State.IsEnabled then
-        self:Disable()
-    else
-        self:Enable()
-    end
-end
-
-RegisterCommand({
-    Name = "voidspoof",
-    Aliases = {},
-    Description = "Anti-ESP/Aimbot system. Others see you in void"
-}, function()
-    Modules.AntiESP:Toggle()
-end)
 Modules.IYPluginManager = {
     State = {
         IsEnabled = false,
@@ -36459,44 +38060,3 @@ ClientReplicator.AncestryChanged:Connect(function()
     TeleportService:TeleportToPlaceInstance(game["PlaceId"], CurrentServer)
 end)
 DoNotif("We're So back. The Best Underground Panel.")
-
-
-local getgenv, getnamecallmethod, hookmetamethod, newcclosure, checkcaller, stringlower = getgenv, getnamecallmethod, hookmetamethod, newcclosure, checkcaller, string.lower;
-local function ClonedService(name)
-	local Service = game.GetService;
-	local Reference = cloneref or function(reference)
-		return reference;
-	end;
-	return Reference(Service(game, name));
-end;
-if (getgenv()).ED_AntiKick then
-	return;
-end;
-local Players, StarterGui, OldNamecall = ClonedService("Players"), ClonedService("StarterGui");
-(getgenv()).ED_AntiKick = {
-	Enabled = true,
-	SendNotifications = true,
-	CheckCaller = true
-};
-OldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
-	if ((getgenv()).ED_AntiKick.CheckCaller and (not checkcaller()) or true) and stringlower(getnamecallmethod()) == "kick" and ED_AntiKick.Enabled then
-		if (getgenv()).ED_AntiKick.SendNotifications then
-			StarterGui:SetCore("SendNotification", {
-				Title = "Zuka Tech",
-				Text = "The script has successfully intercepted an attempted kick.",
-				Icon = "rbxassetid://6238540373",
-				Duration = 2
-			});
-		end;
-		return nil;
-	end;
-	return OldNamecall(...);
-end));
-if (getgenv()).ED_AntiKick.SendNotifications then
-	StarterGui:SetCore("SendNotification", {
-		Title = "Zuka Tech",
-		Text = "Shield Loaded",
-		Icon = "rbxassetid://6238537240",
-		Duration = 3
-	});
-end;
