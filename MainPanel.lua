@@ -1,6 +1,6 @@
---[[  This won't be fully functional on xeno or solara. Use a better executor.
+--[[  This won't be fully functional on xeno or solara because of their limititations.
 
-
+loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/MainPanel.lua"))()
 
 Made By Zuka. @OverZuka on ROBLOX.
 
