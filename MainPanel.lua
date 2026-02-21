@@ -5291,21 +5291,81 @@ RegisterCommand({
 }, function()
     Modules.AntiReset:Toggle()
 end)
-Modules.AntiCFrameTeleport = {
-MAX_SPEED = 70,
-MAX_STEP_DIST = 8,
-REPEAT_THRESHOLD = 3,
-LOCK_TIME = 0.1,
-State = {
-Enabled = false,
-HeartbeatConnection = nil,
-CharacterAddedConnection = nil,
-LastCFrame = nil,
-LastTimestamp = 0,
-DetectionHits = 0
+Modules.TeamSwitch = {
+    State = {
+        OriginalTeam = nil
+    }
 }
+function Modules.TeamSwitch:GoNeutral()
+    self.State.OriginalTeam = LocalPlayer.Team
+    LocalPlayer.Neutral = true
+    DoNotif("Attempted to go neutral", 2)
+end
+RegisterCommand({
+    Name = "neutral",
+    Aliases = {},
+    Description = "Try to switch to neutral (client-side, may not work)."
+}, function()
+    Modules.TeamSwitch:GoNeutral()
+end)
+Modules.FakeFriendlyFire = {
+    State = {
+        Enabled = false,
+        Connection = nil
+    }
+}
+function Modules.FakeFriendlyFire:Enable()
+    if self.State.Enabled then return end
+    self.State.Enabled = true
+    self.State.Connection = RunService.Heartbeat:Connect(function()
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Team == LocalPlayer.Team and player ~= LocalPlayer then
+                local char = player.Character
+                local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                end
+            end
+        end
+    end)
+    DoNotif("Fake Friendly Fire: ON (client-side only)", 3)
+end
+RegisterCommand({
+    Name = "fakeff",
+    Aliases = {"fakefire"},
+    Description = "Visual-only teammate damage (doesn't actually hurt them)."
+}, function()
+    Modules.FakeFriendlyFire:Toggle()
+end)
+Modules.AntiCFrameTeleport = {
+    State = {
+        Enabled = false,
+        HeartbeatConnection = nil,
+        CharacterAddedConnection = nil,
+        LastCFrame = nil,
+        LastTimestamp = 0,
+        DetectionHits = 0,
+        PositionHistory = {},
+        VelocityHistory = {},
+        TeleportAttempts = 0,
+        LastTeleportTime = 0
+    },
+    Config = {
+        MAX_SPEED = 70,
+        MAX_STEP_DIST = 8,
+        REPEAT_THRESHOLD = 3,
+        LOCK_TIME = 0.1,
+        HISTORY_SIZE = 10,
+        VELOCITY_THRESHOLD = 100,
+        SUSPICIOUS_DISTANCE = 50,
+        GRACE_PERIOD = 0.5,
+        ENABLE_WHITELIST = true,
+        WHITELIST_DISTANCE = 200,
+        SMART_DETECTION = true,
+        RESTORE_METHOD = "pivot"
+    }
 }
 function Modules.AntiCFrameTeleport:_zeroVelocity(character)
+    if not character then return end
     for _, descendant in ipairs(character:GetDescendants()) do
         if descendant:IsA("BasePart") then
             descendant.AssemblyLinearVelocity = Vector3.zero
@@ -5314,7 +5374,14 @@ function Modules.AntiCFrameTeleport:_zeroVelocity(character)
     end
 end
 function Modules.AntiCFrameTeleport:_getFlyAllowances(deltaTime)
-    local maxSpeed, maxDist = self.MAX_SPEED, self.MAX_STEP_DIST
+    local maxSpeed = self.Config.MAX_SPEED
+    local maxDist = self.Config.MAX_STEP_DIST
+    if Modules.Fly and Modules.Fly.State and Modules.Fly.State.IsActive then
+        local flySpeed = Modules.Fly.State.Speed or 60
+        local sprintMult = Modules.Fly.State.SprintMultiplier or 2.5
+        maxSpeed = math.max(maxSpeed, flySpeed * sprintMult * 1.5)
+        maxDist = math.max(maxDist, maxSpeed * deltaTime * 2)
+    end
     if not (getfenv(0).NAmanage and NAmanage._state and getfenv(0).FLYING) then
         return maxSpeed, maxDist
     end
@@ -5333,15 +5400,95 @@ function Modules.AntiCFrameTeleport:_getFlyAllowances(deltaTime)
     elseif mode == "cfly" then
         local speed = tonumber(flyVars.cFlySpeed) or 1
         local step = speed * 2
-        maxDist = math.max(self.MAX_STEP_DIST, step)
-        maxSpeed = math.max(self.MAX_SPEED, (maxDist / deltaTime) * 1.25)
+        maxDist = math.max(self.Config.MAX_STEP_DIST, step)
+        maxSpeed = math.max(self.Config.MAX_SPEED, (maxDist / deltaTime) * 1.25)
     elseif mode == "tfly" then
         local speed = tonumber(flyVars.TflySpeed) or 1
         local step = speed * 2.5
-        maxDist = math.max(self.MAX_STEP_DIST, step)
-        maxSpeed = math.max(self.MAX_SPEED, (maxDist / deltaTime) * 1.5)
+        maxDist = math.max(self.Config.MAX_STEP_DIST, step)
+        maxSpeed = math.max(self.Config.MAX_SPEED, (maxDist / deltaTime) * 1.5)
     end
     return maxSpeed, maxDist
+end
+function Modules.AntiCFrameTeleport:_addToHistory(position, velocity)
+    table.insert(self.State.PositionHistory, position)
+    table.insert(self.State.VelocityHistory, velocity)
+    if #self.State.PositionHistory > self.Config.HISTORY_SIZE then
+        table.remove(self.State.PositionHistory, 1)
+    end
+    if #self.State.VelocityHistory > self.Config.HISTORY_SIZE then
+        table.remove(self.State.VelocityHistory, 1)
+    end
+end
+function Modules.AntiCFrameTeleport:_getAverageVelocity()
+    if #self.State.VelocityHistory == 0 then return 0 end
+    local sum = 0
+    for _, vel in ipairs(self.State.VelocityHistory) do
+        sum = sum + vel
+    end
+    return sum / #self.State.VelocityHistory
+end
+function Modules.AntiCFrameTeleport:_isPredictableMovement(currentPos, lastPos, deltaTime)
+    if #self.State.PositionHistory < 3 then return true end
+    local recentHistory = {
+        self.State.PositionHistory[#self.State.PositionHistory - 2],
+        self.State.PositionHistory[#self.State.PositionHistory - 1],
+        self.State.PositionHistory[#self.State.PositionHistory]
+    }
+    local dir1 = (recentHistory[2] - recentHistory[1]).Unit
+    local dir2 = (recentHistory[3] - recentHistory[2]).Unit
+    local currentDir = (currentPos - lastPos).Unit
+    local consistency = dir1:Dot(dir2)
+    local currentConsistency = dir2:Dot(currentDir)
+    return consistency > 0.5 and currentConsistency > 0.5
+end
+function Modules.AntiCFrameTeleport:_isSuspiciousTeleport(distance, speed, deltaTime, character)
+    if distance > self.Config.SUSPICIOUS_DISTANCE then
+        return true, "extreme_distance"
+    end
+    if self.Config.SMART_DETECTION then
+        local avgVelocity = self:_getAverageVelocity()
+        if avgVelocity > 0 and speed > avgVelocity * 5 then
+            return true, "velocity_spike"
+        end
+    end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        local state = humanoid:GetState()
+        if state == Enum.HumanoidStateType.Dead or 
+           state == Enum.HumanoidStateType.Seated or
+           state == Enum.HumanoidStateType.Physics then
+            return false, "valid_state"
+        end
+    end
+    if self.Config.SMART_DETECTION then
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        if rootPart then
+            local isPredictable = self:_isPredictableMovement(
+                rootPart.Position,
+                self.State.LastCFrame.Position,
+                deltaTime
+            )
+            if not isPredictable then
+                return true, "unpredictable"
+            end
+        end
+    end
+    return false, "normal"
+end
+function Modules.AntiCFrameTeleport:_restorePosition(character, targetCFrame)
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+    if self.Config.RESTORE_METHOD == "pivot" then
+        character:PivotTo(targetCFrame)
+    elseif self.Config.RESTORE_METHOD == "cframe" then
+        rootPart.CFrame = targetCFrame
+    elseif self.Config.RESTORE_METHOD == "tween" then
+        TweenService:Create(rootPart, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+            CFrame = targetCFrame
+        }):Play()
+    end
+    self:_zeroVelocity(character)
 end
 function Modules.AntiCFrameTeleport:_onCharacterAdded(character)
     local rootPart = character:WaitForChild("HumanoidRootPart", 5)
@@ -5349,81 +5496,170 @@ function Modules.AntiCFrameTeleport:_onCharacterAdded(character)
         self.State.LastCFrame = rootPart.CFrame
         self.State.LastTimestamp = os.clock()
         self.State.DetectionHits = 0
+        self.State.TeleportAttempts = 0
+        self.State.LastTeleportTime = 0
+        self.State.PositionHistory = {}
+        self.State.VelocityHistory = {}
     end
 end
 function Modules.AntiCFrameTeleport:_onHeartbeat()
     local character = Players.LocalPlayer.Character
     local rootPart = character and character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return end
-        local now = os.clock()
-        local deltaTime = math.max(now - (self.State.LastTimestamp or now), 1/240)
-        local currentCFrame = rootPart.CFrame
-        if not self.State.LastCFrame then
-            self.State.LastCFrame, self.State.LastTimestamp = currentCFrame, now
-            return
+    local now = os.clock()
+    local deltaTime = math.max(now - (self.State.LastTimestamp or now), 1/240)
+    local currentCFrame = rootPart.CFrame
+    if not self.State.LastCFrame then
+        self.State.LastCFrame = currentCFrame
+        self.State.LastTimestamp = now
+        return
+    end
+    if (now - self.State.LastTeleportTime) < self.Config.GRACE_PERIOD then
+        self.State.LastCFrame = currentCFrame
+        self.State.LastTimestamp = now
+        return
+    end
+    local distance = (currentCFrame.Position - self.State.LastCFrame.Position).Magnitude
+    local speed = distance / deltaTime
+    self:_addToHistory(currentCFrame.Position, speed)
+    local maxAllowedSpeed, maxAllowedDistance = self:_getFlyAllowances(deltaTime)
+    local isSuspicious, reason = self:_isSuspiciousTeleport(distance, speed, deltaTime, character)
+    if self.Config.ENABLE_WHITELIST and distance > self.Config.WHITELIST_DISTANCE then
+        self.State.LastCFrame = currentCFrame
+        self.State.LastTimestamp = now
+        return
+    end
+    if (distance > maxAllowedDistance or speed > maxAllowedSpeed) and isSuspicious then
+        self:_restorePosition(character, self.State.LastCFrame)
+        self.State.DetectionHits = self.State.DetectionHits + 1
+        self.State.TeleportAttempts = self.State.TeleportAttempts + 1
+        if self.Config.DEBUG_MODE then
+            DoNotif(string.format("Blocked: %.1fm (%.0f studs/s) - %s", 
+                distance, speed, reason), 1.5)
         end
-        local distance = (currentCFrame.Position - self.State.LastCFrame.Position).Magnitude
-        local speed = distance / deltaTime
-        local maxAllowedSpeed, maxAllowedDistance = self:_getFlyAllowances(deltaTime)
-        if distance > maxAllowedDistance or speed > maxAllowedSpeed then
-            character:PivotTo(self.State.LastCFrame)
-            self:_zeroVelocity(character)
-            self.State.DetectionHits += 1
-            if self.State.DetectionHits >= self.REPEAT_THRESHOLD then
-                task.delay(self.LOCK_TIME, function()
+        if self.State.DetectionHits >= self.Config.REPEAT_THRESHOLD then
+            task.delay(self.Config.LOCK_TIME, function()
                 self.State.DetectionHits = 0
             end)
         end
     else
-    self.State.DetectionHits = math.max(self.State.DetectionHits - 1, 0)
-    self.State.LastCFrame = currentCFrame
-end
-self.State.LastTimestamp = now
+        self.State.DetectionHits = math.max(self.State.DetectionHits - 1, 0)
+        self.State.LastCFrame = currentCFrame
+    end
+    self.State.LastTimestamp = now
 end
 function Modules.AntiCFrameTeleport:Enable()
     if self.State.Enabled then return end
-        self.State.Enabled = true
-        if Players.LocalPlayer.Character then
-            self:_onCharacterAdded(Players.LocalPlayer.Character)
-        end
-        self.State.CharacterAddedConnection = Players.LocalPlayer.CharacterAdded:Connect(function(char)
+    self.State.Enabled = true
+    if Players.LocalPlayer.Character then
+        self:_onCharacterAdded(Players.LocalPlayer.Character)
+    end
+    self.State.CharacterAddedConnection = Players.LocalPlayer.CharacterAdded:Connect(function(char)
         self:_onCharacterAdded(char)
     end)
     self.State.HeartbeatConnection = RunService.Heartbeat:Connect(function()
-    self:_onHeartbeat()
-end)
-DoNotif("Anti-CFrame Teleport: [Enabled]", 3)
+        self:_onHeartbeat()
+    end)
+    DoNotif("Anti-CFrame Teleport: ENABLED", 2)
 end
 function Modules.AntiCFrameTeleport:Disable()
     if not self.State.Enabled then return end
-        self.State.Enabled = false
-        if self.State.HeartbeatConnection then
-            self.State.HeartbeatConnection:Disconnect()
-            self.State.HeartbeatConnection = nil
-        end
-        if self.State.CharacterAddedConnection then
-            self.State.CharacterAddedConnection:Disconnect()
-            self.State.CharacterAddedConnection = nil
-        end
-        self.State.LastCFrame = nil
-        self.State.LastTimestamp = 0
-        self.State.DetectionHits = 0
-        DoNotif("Anti-CFrame Teleport: [Disabled]", 3)
+    self.State.Enabled = false
+    if self.State.HeartbeatConnection then
+        self.State.HeartbeatConnection:Disconnect()
+        self.State.HeartbeatConnection = nil
     end
-    RegisterCommand({
-    Name = "anticframetp",
-    Aliases = {"acftp", "antiteleport"},
-    Description = "Toggles a client-side anti-teleport to prevent CFrame changes."
-    }, function(args)
-    if Modules.AntiCFrameTeleport.State.Enabled then
-        Modules.AntiCFrameTeleport:Disable()
-    else
-    Modules.AntiCFrameTeleport:Enable()
+    if self.State.CharacterAddedConnection then
+        self.State.CharacterAddedConnection:Disconnect()
+        self.State.CharacterAddedConnection = nil
+    end
+    self.State.LastCFrame = nil
+    self.State.LastTimestamp = 0
+    self.State.DetectionHits = 0
+    self.State.PositionHistory = {}
+    self.State.VelocityHistory = {}
+    DoNotif("Anti-CFrame Teleport: DISABLED", 2)
 end
-end)
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
+function Modules.AntiCFrameTeleport:Toggle()
+    if self.State.Enabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+function Modules.AntiCFrameTeleport:SetSensitivity(level)
+    level = level:lower()
+    if level == "low" then
+        self.Config.MAX_SPEED = 100
+        self.Config.MAX_STEP_DIST = 15
+        self.Config.SUSPICIOUS_DISTANCE = 100
+        DoNotif("Sensitivity: LOW (lenient)", 2)
+    elseif level == "medium" or level == "mid" then
+        self.Config.MAX_SPEED = 70
+        self.Config.MAX_STEP_DIST = 8
+        self.Config.SUSPICIOUS_DISTANCE = 50
+        DoNotif("Sensitivity: MEDIUM (balanced)", 2)
+    elseif level == "high" then
+        self.Config.MAX_SPEED = 50
+        self.Config.MAX_STEP_DIST = 5
+        self.Config.SUSPICIOUS_DISTANCE = 30
+        DoNotif("Sensitivity: HIGH (strict)", 2)
+    else
+        DoNotif("Invalid level. Use: low, medium, high", 3)
+    end
+end
+function Modules.AntiCFrameTeleport:GetStats()
+    return {
+        Enabled = self.State.Enabled,
+        TeleportAttempts = self.State.TeleportAttempts,
+        DetectionHits = self.State.DetectionHits,
+        AverageVelocity = self:_getAverageVelocity()
+    }
+end
+function Modules.AntiCFrameTeleport:Initialize()
+    local module = self
+    RegisterCommand({
+        Name = "anticframetp",
+        Aliases = {"acftp", "antiteleport", "antitp"},
+        Description = "Prevents server from force-teleporting you."
+    }, function(args)
+        module:Toggle()
+    end)
+    RegisterCommand({
+        Name = "antitpsens",
+        Aliases = {"acftpsens"},
+        Description = "Set anti-teleport sensitivity: low, medium, high"
+    }, function(args)
+        if not args[1] then
+            DoNotif("Usage: ;antitpsens <low|medium|high>", 3)
+            return
+        end
+        module:SetSensitivity(args[1])
+    end)
+    RegisterCommand({
+        Name = "antitpstats",
+        Aliases = {},
+        Description = "Shows anti-teleport statistics."
+    }, function()
+        local stats = module:GetStats()
+        print("=== Anti-CFrame Teleport Stats ===")
+        print("Status:", stats.Enabled and "ENABLED" or "DISABLED")
+        print("Teleport Attempts Blocked:", stats.TeleportAttempts)
+        print("Current Detection Hits:", stats.DetectionHits)
+        print("Average Velocity:", string.format("%.1f studs/s", stats.AverageVelocity))
+        print("==================================")
+        DoNotif("Stats printed to console (F9)", 2)
+    end)
+    RegisterCommand({
+        Name = "antitpdebug",
+        Aliases = {},
+        Description = "Toggle debug notifications for anti-teleport."
+    }, function()
+        module.Config.DEBUG_MODE = not module.Config.DEBUG_MODE
+        DoNotif("Anti-TP Debug: " .. (module.Config.DEBUG_MODE and "ON" or "OFF"), 2)
+    end)
+end
+
 Modules.FireRemotes = {
 State = {
 Enabled = false,
@@ -5570,105 +5806,501 @@ end
 Modules.TriggerRemoteTouch = {
     State = {
         IsExecuting = false,
-        FoundParts = {}
+        FoundParts = {},
+        OriginalPosition = nil,
+        TeleportMode = true,
+        ScanMethod = "auto"
     },
     Services = {
         Players = game:GetService("Players"),
         Workspace = game:GetService("Workspace"),
         RunService = game:GetService("RunService")
+    },
+    Config = {
+        ScanDelay = 0.5,
+        HoldDuration = 1.5,
+        TeleportOffset = Vector3.new(0, 3, 0),
+        ReturnDelay = 0.3,
+        UseMultipleMethods = true,
+        IncludeProximityPrompts = true,
+        IncludeClickDetectors = true,
+        IncludeTouchTransmitters = true,
+        MaxDistance = 500,
+        ShowDebug = false,
+        SafeTeleport = true
     }
 }
-function Modules.TriggerRemoteTouch:_triggerPart(targetPart)
-    if not targetPart then return end
-    local hrp = self.Services.Players.LocalPlayer.Character and self.Services.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    DoNotif("Triggering: " .. targetPart:GetFullName(), 1)
-    if firetouchinterest then
-        pcall(function()
-            firetouchinterest(hrp, targetPart, 0)
-            self.Services.RunService.Heartbeat:Wait()
-            firetouchinterest(hrp, targetPart, 1)
+function Modules.TriggerRemoteTouch:_debugLog(msg)
+    if self.Config.ShowDebug then
+        print("[TouchTrigger Debug]", msg)
+    end
+end
+function Modules.TriggerRemoteTouch:_savePosition()
+    local char = self.Services.Players.LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        self.State.OriginalPosition = hrp.CFrame
+        self:_debugLog("Saved position: " .. tostring(hrp.Position))
+        return true
+    end
+    return false
+end
+function Modules.TriggerRemoteTouch:_returnToOriginal()
+    if not self.State.OriginalPosition then return false end
+    local char = self.Services.Players.LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CFrame = self.State.OriginalPosition
+        self:_debugLog("Returned to original position")
+        return true
+    end
+    return false
+end
+function Modules.TriggerRemoteTouch:_teleportToPart(part, offset)
+    local char = self.Services.Players.LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not (hrp and part) then return false end
+    local targetPos = part.Position + (offset or self.Config.TeleportOffset)
+    if self.Config.SafeTeleport then
+        if targetPos.Y < -1000 or targetPos.Y > 10000 then
+            self:_debugLog("Unsafe position detected, skipping")
+            return false
+        end
+    end
+    hrp.CFrame = CFrame.new(targetPos)
+    self:_debugLog("Teleported to: " .. part:GetFullName())
+    self.Services.RunService.Heartbeat:Wait()
+    return true
+end
+function Modules.TriggerRemoteTouch:_triggerProximityPrompt(prompt, useTeleport)
+    if not prompt or not prompt:IsA("ProximityPrompt") then return false end
+    local part = prompt.Parent
+    if useTeleport and self.State.TeleportMode then
+        if not self:_teleportToPart(part) then return false end
+        task.wait(0.1)
+    end
+    self:_debugLog("Triggering ProximityPrompt: " .. prompt:GetFullName())
+    if fireproximityprompt then
+        local success = pcall(function()
+            if prompt.HoldDuration > 0 then
+                fireproximityprompt(prompt, self.Config.HoldDuration)
+            else
+                fireproximityprompt(prompt)
+            end
         end)
-    else
-        warn("TriggerRemoteTouch: 'firetouchinterest' not found. Using CFrame fallback.")
+        if success then
+            if prompt.HoldDuration > 0 then
+                task.wait(math.max(prompt.HoldDuration, self.Config.HoldDuration))
+            end
+            return true
+        end
+    end
+    if prompt.Triggered then
+        pcall(function()
+            for _, connection in pairs(getconnections(prompt.Triggered)) do
+                if connection.Function then
+                    connection.Function()
+                end
+            end
+        end)
+    end
+    return false
+end
+function Modules.TriggerRemoteTouch:_triggerClickDetector(detector, useTeleport)
+    if not detector or not detector:IsA("ClickDetector") then return false end
+    local part = detector.Parent
+    if useTeleport and self.State.TeleportMode then
+        if not self:_teleportToPart(part) then return false end
+        task.wait(0.1)
+    end
+    self:_debugLog("Triggering ClickDetector: " .. detector:GetFullName())
+    if fireclickdetector then
+        pcall(function()
+            fireclickdetector(detector)
+        end)
+        return true
+    end
+    return false
+end
+function Modules.TriggerRemoteTouch:_triggerTouchInterest(part, useTeleport)
+    if not part or not part:IsA("BasePart") then return false end
+    local hrp = self.Services.Players.LocalPlayer.Character and 
+                self.Services.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    if useTeleport and self.State.TeleportMode then
+        if not self:_teleportToPart(part) then return false end
+        task.wait(0.1)
+    end
+    self:_debugLog("Triggering Touch: " .. part:GetFullName())
+    if firetouchinterest then
+        local success = pcall(function()
+            firetouchinterest(hrp, part, 0)
+            task.wait(0.1)
+            firetouchinterest(hrp, part, 1)
+        end)
+        if success then return true end
+    end
+    if part.Touched and getconnections then
+        local success = pcall(function()
+            for _, connection in pairs(getconnections(part.Touched)) do
+                if connection.Function then
+                    connection.Function(hrp)
+                end
+            end
+        end)
+        if success then return true end
+    end
+    if not useTeleport then
         local originalCFrame = hrp.CFrame
         pcall(function()
-            hrp.CFrame = targetPart.CFrame
+            hrp.CFrame = part.CFrame
             self.Services.RunService.Heartbeat:Wait()
             hrp.CFrame = originalCFrame
         end)
     end
+    return true
 end
-function Modules.TriggerRemoteTouch:Scan()
-    if self.State.IsExecuting then return DoNotif("An operation is already in progress.", 2) end
-    self.State.IsExecuting = true
-    DoNotif("Scanning for all touch-interactive parts...", 3)
-    task.spawn(function()
-        table.clear(self.State.FoundParts)
-        local count = 0
-        for i, descendant in ipairs(self.Services.Workspace:GetDescendants()) do
-            if descendant:IsA("TouchInterest") then
-                local part = descendant.Parent
-                if part and part:IsA("BasePart") then
-                    table.insert(self.State.FoundParts, part)
-                    count = count + 1
+function Modules.TriggerRemoteTouch:_scanProximityPrompts()
+    local found = {}
+    for _, descendant in ipairs(self.Services.Workspace:GetDescendants()) do
+        if descendant:IsA("ProximityPrompt") and descendant.Enabled then
+            local part = descendant.Parent
+            if part and part:IsA("BasePart") then
+                local hrp = self.Services.Players.LocalPlayer.Character and
+                           self.Services.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local distance = (part.Position - hrp.Position).Magnitude
+                    table.insert(found, {
+                        Type = "ProximityPrompt",
+                        Object = descendant,
+                        Part = part,
+                        Name = descendant:GetFullName(),
+                        Distance = distance,
+                        RequiresHold = descendant.HoldDuration > 0,
+                        HoldTime = descendant.HoldDuration
+                    })
                 end
             end
-            if i % 200 == 0 then task.wait() end
         end
-        DoNotif("Scan complete. Found " .. count .. " interactive parts.", 3)
+    end
+    return found
+end
+function Modules.TriggerRemoteTouch:_scanClickDetectors()
+    local found = {}
+    for _, descendant in ipairs(self.Services.Workspace:GetDescendants()) do
+        if descendant:IsA("ClickDetector") then
+            local part = descendant.Parent
+            if part and part:IsA("BasePart") then
+                local hrp = self.Services.Players.LocalPlayer.Character and
+                           self.Services.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local distance = (part.Position - hrp.Position).Magnitude
+                    table.insert(found, {
+                        Type = "ClickDetector",
+                        Object = descendant,
+                        Part = part,
+                        Name = descendant:GetFullName(),
+                        Distance = distance
+                    })
+                end
+            end
+        end
+    end
+    return found
+end
+function Modules.TriggerRemoteTouch:_scanTouchParts()
+    local found = {}
+    local hrp = self.Services.Players.LocalPlayer.Character and
+               self.Services.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return found end
+    for _, descendant in ipairs(self.Services.Workspace:GetDescendants()) do
+        if descendant:IsA("BasePart") then
+            local hasTouchedEvent = false
+            if getconnections then
+                pcall(function()
+                    local connections = getconnections(descendant.Touched)
+                    if connections and #connections > 0 then
+                        hasTouchedEvent = true
+                    end
+                end)
+            end
+            if not hasTouchedEvent and descendant:FindFirstChildOfClass("TouchTransmitter") then
+                hasTouchedEvent = true
+            end
+            if hasTouchedEvent then
+                local distance = (descendant.Position - hrp.Position).Magnitude
+                table.insert(found, {
+                    Type = "TouchPart",
+                    Object = descendant,
+                    Part = descendant,
+                    Name = descendant:GetFullName(),
+                    Distance = distance
+                })
+            end
+        end
+    end
+    return found
+end
+function Modules.TriggerRemoteTouch:Scan()
+    if self.State.IsExecuting then
+        return DoNotif("Scan already in progress.", 2)
+    end
+    self.State.IsExecuting = true
+    DoNotif("Scanning for interactive objects...", 2)
+    task.spawn(function()
+        table.clear(self.State.FoundParts)
+        local allFound = {}
+        if self.Config.IncludeProximityPrompts then
+            local prompts = self:_scanProximityPrompts()
+            for _, item in ipairs(prompts) do
+                table.insert(allFound, item)
+            end
+            self:_debugLog("Found " .. #prompts .. " ProximityPrompts")
+        end
+        if self.Config.IncludeClickDetectors then
+            local detectors = self:_scanClickDetectors()
+            for _, item in ipairs(detectors) do
+                table.insert(allFound, item)
+            end
+            self:_debugLog("Found " .. #detectors .. " ClickDetectors")
+        end
+        if self.Config.IncludeTouchTransmitters then
+            local touchParts = self:_scanTouchParts()
+            for _, item in ipairs(touchParts) do
+                table.insert(allFound, item)
+            end
+            self:_debugLog("Found " .. #touchParts .. " Touch Parts")
+        end
+        table.sort(allFound, function(a, b)
+            return a.Distance < b.Distance
+        end)
+        self.State.FoundParts = allFound
+        print("=== Touch Scan Results ===")
+        print(string.format("Total Found: %d objects", #allFound))
+        local typeCount = {}
+        for _, item in ipairs(allFound) do
+            typeCount[item.Type] = (typeCount[item.Type] or 0) + 1
+        end
+        for objType, count in pairs(typeCount) do
+            print(string.format("  • %s: %d", objType, count))
+        end
+        if #allFound > 0 then
+            print("\nClosest 5:")
+            for i = 1, math.min(5, #allFound) do
+                local item = allFound[i]
+                local holdInfo = item.RequiresHold and string.format(" [HOLD %.1fs]", item.HoldTime) or ""
+                print(string.format("  [%d] %s (%.1fm)%s - %s", 
+                    i, item.Type, item.Distance, holdInfo, item.Name))
+            end
+        end
+        print("==========================")
+        DoNotif(string.format("Scan complete: %d objects found", #allFound), 3)
         self.State.IsExecuting = false
     end)
 end
 function Modules.TriggerRemoteTouch:TriggerAll()
-    if self.State.IsExecuting then return DoNotif("An operation is already in progress.", 2) end
+    if self.State.IsExecuting then
+        return DoNotif("Operation already in progress.", 2)
+    end
     if #self.State.FoundParts == 0 then
         return DoNotif("No parts found. Run ';touch scan' first.", 3)
     end
+    if not self:_savePosition() then
+        return DoNotif("Failed to save position.", 3)
+    end
     self.State.IsExecuting = true
-    DoNotif("Beginning sequence to trigger all " .. #self.State.FoundParts .. " parts.", 3)
+    DoNotif(string.format("Triggering all %d objects... (%s mode)", 
+        #self.State.FoundParts,
+        self.State.TeleportMode and "TELEPORT" or "REMOTE"), 3)
     task.spawn(function()
-        for _, part in ipairs(self.State.FoundParts) do
+        local triggered = 0
+        local failed = 0
+        for i, item in ipairs(self.State.FoundParts) do
             if not self.State.IsExecuting then break end
-            self:_triggerPart(part)
-            task.wait(0.5)
+            local success = false
+            if item.Type == "ProximityPrompt" then
+                success = self:_triggerProximityPrompt(item.Object, true)
+            elseif item.Type == "ClickDetector" then
+                success = self:_triggerClickDetector(item.Object, true)
+            elseif item.Type == "TouchPart" then
+                success = self:_triggerTouchInterest(item.Part, true)
+            end
+            if success then
+                triggered = triggered + 1
+                DoNotif(string.format("[%d/%d] ✓ %s", i, #self.State.FoundParts, item.Part.Name), 1)
+            else
+                failed = failed + 1
+                self:_debugLog(string.format("Failed: %s", item.Name))
+            end
+            task.wait(self.Config.ReturnDelay)
         end
-        DoNotif("Trigger sequence finished.", 2)
+        if self.State.TeleportMode then
+            task.wait(0.2)
+            self:_returnToOriginal()
+            DoNotif("Returned to start position", 2)
+        end
+        DoNotif(string.format("Complete: %d succeeded, %d failed", triggered, failed), 3)
         self.State.IsExecuting = false
     end)
 end
 function Modules.TriggerRemoteTouch:TriggerSingle(keyword)
-    if not keyword then return DoNotif("Usage: ;touch single <keyword>", 3) end
-    if self.State.IsExecuting then return DoNotif("An operation is already in progress.", 2) end
+    if not keyword then
+        return DoNotif("Usage: ;touch single <keyword>", 3)
+    end
     if #self.State.FoundParts == 0 then
         return DoNotif("No parts found. Run ';touch scan' first.", 3)
     end
+    self:_savePosition()
     local lowerKeyword = keyword:lower()
-    for _, part in ipairs(self.State.FoundParts) do
-        if part:GetFullName():lower():find(lowerKeyword, 1, true) then
-            self:_triggerPart(part)
+    for _, item in ipairs(self.State.FoundParts) do
+        if item.Name:lower():find(lowerKeyword, 1, true) then
+            local success = false
+            if item.Type == "ProximityPrompt" then
+                success = self:_triggerProximityPrompt(item.Object, true)
+            elseif item.Type == "ClickDetector" then
+                success = self:_triggerClickDetector(item.Object, true)
+            elseif item.Type == "TouchPart" then
+                success = self:_triggerTouchInterest(item.Part, true)
+            end
+            if self.State.TeleportMode then
+                task.wait(self.Config.ReturnDelay)
+                self:_returnToOriginal()
+            end
+            if success then
+                DoNotif("✓ Triggered: " .. item.Part.Name, 2)
+            else
+                DoNotif("✗ Failed: " .. item.Part.Name, 3)
+            end
             return
         end
     end
-    DoNotif("No scanned part found matching '" .. keyword .. "'.", 3)
+    DoNotif("No match found for: " .. keyword, 3)
+end
+function Modules.TriggerRemoteTouch:TriggerIndex(index)
+    local idx = tonumber(index)
+    if not idx or idx < 1 or idx > #self.State.FoundParts then
+        return DoNotif(string.format("Invalid index. Use 1-%d", #self.State.FoundParts), 3)
+    end
+    self:_savePosition()
+    local item = self.State.FoundParts[idx]
+    local success = false
+    if item.Type == "ProximityPrompt" then
+        success = self:_triggerProximityPrompt(item.Object, true)
+    elseif item.Type == "ClickDetector" then
+        success = self:_triggerClickDetector(item.Object, true)
+    elseif item.Type == "TouchPart" then
+        success = self:_triggerTouchInterest(item.Part, true)
+    end
+    if self.State.TeleportMode then
+        task.wait(self.Config.ReturnDelay)
+        self:_returnToOriginal()
+    end
+    if success then
+        DoNotif(string.format("[%d] ✓ %s", idx, item.Part.Name), 2)
+    else
+        DoNotif(string.format("[%d] ✗ %s", idx, item.Part.Name), 3)
+    end
+end
+function Modules.TriggerRemoteTouch:ToggleTeleportMode()
+    self.State.TeleportMode = not self.State.TeleportMode
+    DoNotif("Teleport Mode: " .. (self.State.TeleportMode and "ENABLED" or "DISABLED"), 2)
+end
+function Modules.TriggerRemoteTouch:Stop()
+    if self.State.IsExecuting then
+        self.State.IsExecuting = false
+        if self.State.TeleportMode and self.State.OriginalPosition then
+            self:_returnToOriginal()
+        end
+        DoNotif("Stopped and returned to start.", 2)
+    else
+        DoNotif("No operation in progress.", 2)
+    end
+end
+function Modules.TriggerRemoteTouch:ListResults()
+    if #self.State.FoundParts == 0 then
+        return DoNotif("No scan results. Run ';touch scan' first.", 3)
+    end
+    print("=== Scan Results (First 20) ===")
+    for i = 1, math.min(20, #self.State.FoundParts) do
+        local item = self.State.FoundParts[i]
+        local holdInfo = item.RequiresHold and string.format(" [HOLD %.1fs]", item.HoldTime) or ""
+        print(string.format("[%d] %s (%.1fm)%s - %s", 
+            i, item.Type, item.Distance, holdInfo, item.Name))
+    end
+    if #self.State.FoundParts > 20 then
+        print(string.format("... and %d more", #self.State.FoundParts - 20))
+    end
+    print("Mode: " .. (self.State.TeleportMode and "TELEPORT" or "REMOTE"))
+    print("===============================")
+    DoNotif(string.format("Listed %d results in console (F9)", 
+        math.min(20, #self.State.FoundParts)), 2)
 end
 function Modules.TriggerRemoteTouch:Initialize()
     local module = self
     RegisterCommand({
         Name = "touch",
-        Aliases = {"remotetouch", "trigger"},
-        Description = "Scans and triggers touch-interest parts."
+        Aliases = {"trigger", "interact"},
+        Description = "Scan and trigger interactive objects (teleports to each one)."
     }, function(args)
         local subCommand = args[1] and args[1]:lower()
         if subCommand == "scan" then
             module:Scan()
         elseif subCommand == "all" then
             module:TriggerAll()
-        elseif subCommand == "single" then
+        elseif subCommand == "single" or subCommand == "s" then
             module:TriggerSingle(args[2])
+        elseif subCommand == "index" or subCommand == "i" then
+            module:TriggerIndex(args[2])
+        elseif subCommand == "stop" then
+            module:Stop()
+        elseif subCommand == "list" or subCommand == "l" then
+            module:ListResults()
+        elseif subCommand == "mode" or subCommand == "teleport" then
+            module:ToggleTeleportMode()
         else
-            DoNotif("Usage: ;touch <scan|all|single> [keyword]", 4)
+            DoNotif("Usage: ;touch <scan|all|single|index|list|stop|mode>", 4)
         end
+    end)
+    RegisterCommand({
+        Name = "touchmode",
+        Aliases = {"tpmode"},
+        Description = "Toggle between teleport and remote trigger modes."
+    }, function()
+        module:ToggleTeleportMode()
+    end)
+    RegisterCommand({
+        Name = "touchdebug",
+        Aliases = {},
+        Description = "Toggle touch trigger debug mode."
+    }, function()
+        module.Config.ShowDebug = not module.Config.ShowDebug
+        DoNotif("Touch Debug: " .. (module.Config.ShowDebug and "ON" or "OFF"), 2)
+    end)
+    RegisterCommand({
+        Name = "touchdelay",
+        Aliases = {},
+        Description = "Set delay between triggers (seconds)."
+    }, function(args)
+        local delay = tonumber(args[1])
+        if not delay then
+            DoNotif("Current delay: " .. module.Config.ReturnDelay .. "s", 2)
+            return
+        end
+        module.Config.ReturnDelay = math.max(0.1, delay)
+        DoNotif("Trigger delay set to: " .. module.Config.ReturnDelay .. "s", 2)
+    end)
+    RegisterCommand({
+        Name = "touchhold",
+        Aliases = {},
+        Description = "Set hold duration for proximity prompts."
+    }, function(args)
+        local duration = tonumber(args[1])
+        if not duration then
+            DoNotif("Current hold: " .. module.Config.HoldDuration .. "s", 2)
+            return
+        end
+        module.Config.HoldDuration = math.max(0.1, duration)
+        DoNotif("Hold duration set to: " .. module.Config.HoldDuration .. "s", 2)
     end)
 end
 Modules.ScriptHunter = {
@@ -26787,8 +27419,9 @@ end
 Modules.HumanShield = {
     State = {
         IsEnabled = false,
-        Targets = {},
-        Connections = {}
+        TrackedPlayers = {},
+        Connections = {},
+        CharacterConnections = {}
     },
     Config = {
         DISTANCE = 3.5,
@@ -26796,79 +27429,126 @@ Modules.HumanShield = {
     },
     Dependencies = {"Players", "RunService"}
 }
-function Modules.HumanShield:Stop(): ()
+function Modules.HumanShield:Stop()
     self.State.IsEnabled = false
     for _, connection in pairs(self.State.Connections) do
         if connection then
             connection:Disconnect()
         end
     end
+    for _, connection in pairs(self.State.CharacterConnections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
     self.State.Connections = {}
-    self.State.Targets = {}
+    self.State.CharacterConnections = {}
+    self.State.TrackedPlayers = {}
 end
-function Modules.HumanShield:PossessAll(): ()
-    if self.State.IsEnabled then self:Stop() end
-    local myChar = Players.LocalPlayer.Character
-    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
-        return DoNotif("Your character not found.", 2)
-    end
-    local targets = {}
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            table.insert(targets, player.Character)
-        end
-    end
-    if #targets == 0 then
-        return DoNotif("No valid targets found.", 2)
-    end
-    self.State.IsEnabled = true
-    self.State.Targets = targets
-    for i, character in ipairs(targets) do
-        local tRoot = character:FindFirstChild("HumanoidRootPart")
-        if tRoot then
-            local connection = RunService.Heartbeat:Connect(function()
-                local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-                if not (myRoot and tRoot and tRoot.Parent) then
-                    return
-                end
-                tRoot.Velocity = Vector3.new(0, 30.01, 0)
-                tRoot.CFrame = myRoot.CFrame * CFrame.new(0, self.Config.VERTICAL_OFFSET, -self.Config.DISTANCE)
-            end)
-            table.insert(self.State.Connections, connection)
-        end
-    end
-    DoNotif("Shield Active: All players (" .. #targets .. ")", 2)
-end
-function Modules.HumanShield:Possess(targetName: string): ()
-    local targetPlr = Utilities.findPlayer(targetName)
-    if not targetPlr or not targetPlr.Character then 
-        return DoNotif("Target not found.", 2) 
-    end
-    if self.State.IsEnabled then self:Stop() end
-    local character = targetPlr.Character
+function Modules.HumanShield:_setupPlayerBring(player)
+    local character = player.Character
+    if not character then return end
     local tRoot = character:FindFirstChild("HumanoidRootPart")
     if not tRoot then return end
-    self.State.IsEnabled = true
-    table.insert(self.State.Targets, character)
+    local connectionId = "Bring_" .. player.UserId
+    if self.State.Connections[connectionId] then
+        self.State.Connections[connectionId]:Disconnect()
+    end
     local connection = RunService.Heartbeat:Connect(function()
         local myChar = Players.LocalPlayer.Character
         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not self.State.TrackedPlayers[player] then
+            if self.State.Connections[connectionId] then
+                self.State.Connections[connectionId]:Disconnect()
+                self.State.Connections[connectionId] = nil
+            end
+            return
+        end
         if not (myRoot and tRoot and tRoot.Parent) then
-            self:Stop()
             return
         end
         tRoot.Velocity = Vector3.new(0, 30.01, 0)
         tRoot.CFrame = myRoot.CFrame * CFrame.new(0, self.Config.VERTICAL_OFFSET, -self.Config.DISTANCE)
     end)
-    table.insert(self.State.Connections, connection)
-    DoNotif("Shield Active: " .. targetPlr.Name, 2)
+    self.State.Connections[connectionId] = connection
 end
-function Modules.HumanShield:Initialize(): ()
+function Modules.HumanShield:_trackPlayer(player)
+    if self.State.TrackedPlayers[player] then
+        return
+    end
+    self.State.TrackedPlayers[player] = true
+    if player.Character then
+        self:_setupPlayerBring(player)
+    end
+    local respawnConnectionId = "Respawn_" .. player.UserId
+    self.State.CharacterConnections[respawnConnectionId] = player.CharacterAdded:Connect(function(character)
+        task.wait(0.1)
+        if self.State.TrackedPlayers[player] then
+            self:_setupPlayerBring(player)
+            DoNotif(player.Name .. " respawned - re-bringing", 1.5)
+        end
+    end)
+end
+function Modules.HumanShield:_untrackPlayer(player)
+    self.State.TrackedPlayers[player] = nil
+    local connectionId = "Bring_" .. player.UserId
+    if self.State.Connections[connectionId] then
+        self.State.Connections[connectionId]:Disconnect()
+        self.State.Connections[connectionId] = nil
+    end
+    local respawnConnectionId = "Respawn_" .. player.UserId
+    if self.State.CharacterConnections[respawnConnectionId] then
+        self.State.CharacterConnections[respawnConnectionId]:Disconnect()
+        self.State.CharacterConnections[respawnConnectionId] = nil
+    end
+end
+function Modules.HumanShield:PossessAll()
+    if self.State.IsEnabled then self:Stop() end
+    local myChar = Players.LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
+        return DoNotif("Your character not found.", 2)
+    end
+    local validPlayers = {}
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer then
+            table.insert(validPlayers, player)
+        end
+    end
+    if #validPlayers == 0 then
+        return DoNotif("No valid targets found.", 2)
+    end
+    self.State.IsEnabled = true
+    for _, player in ipairs(validPlayers) do
+        self:_trackPlayer(player)
+    end
+    self.State.CharacterConnections.PlayerAdded = Players.PlayerAdded:Connect(function(player)
+        if self.State.IsEnabled and player ~= Players.LocalPlayer then
+            task.wait(0.5)
+            self:_trackPlayer(player)
+            DoNotif("New player joined - bringing " .. player.Name, 2)
+        end
+    end)
+    self.State.CharacterConnections.PlayerRemoving = Players.PlayerRemoving:Connect(function(player)
+        self:_untrackPlayer(player)
+    end)
+    DoNotif("Shield Active: All players (" .. #validPlayers .. ")", 2)
+end
+function Modules.HumanShield:Possess(targetName)
+    local targetPlr = Utilities.findPlayer(targetName)
+    if not targetPlr then 
+        return DoNotif("Target not found.", 2) 
+    end
+    if self.State.IsEnabled then self:Stop() end
+    self.State.IsEnabled = true
+    self:_trackPlayer(targetPlr)
+    DoNotif("Shield Active: " .. targetPlr.Name .. " (persistent)", 2)
+end
+function Modules.HumanShield:Initialize()
     local module = self
     RegisterCommand({
         Name = "bring",
-        Aliases = {"b"},
-        Description = "Positions a player in front of you with their back turned. Use 'all' to bring all players."
+        Aliases = {"b", "shield"},
+        Description = "Positions a player in front of you (persists through respawns). Use 'all' to bring all players."
     }, function(args)
         if module.State.IsEnabled then
             module:Stop()
@@ -26885,7 +27565,950 @@ function Modules.HumanShield:Initialize(): ()
             end
         end
     end)
+    RegisterCommand({
+        Name = "unbring",
+        Aliases = {"ub", "release"},
+        Description = "Releases a specific player from the shield."
+    }, function(args)
+        if not module.State.IsEnabled then
+            return DoNotif("Shield is not active.", 2)
+        end
+        if not args[1] then
+            return DoNotif("Usage: ;unbring [player]", 3)
+        end
+        local targetPlr = Utilities.findPlayer(args[1])
+        if not targetPlr then
+            return DoNotif("Player not found.", 2)
+        end
+        if not module.State.TrackedPlayers[targetPlr] then
+            return DoNotif(targetPlr.Name .. " is not being brought.", 2)
+        end
+        module:_untrackPlayer(targetPlr)
+        DoNotif("Released: " .. targetPlr.Name, 2)
+    end)
+    RegisterCommand({
+        Name = "bringlist",
+        Aliases = {"bl"},
+        Description = "Lists all players currently being brought."
+    }, function()
+        if not module.State.IsEnabled then
+            return DoNotif("Shield is not active.", 2)
+        end
+        local count = 0
+        print("=== Brought Players ===")
+        for player, _ in pairs(module.State.TrackedPlayers) do
+            if player and player.Parent then
+                print("  • " .. player.Name)
+                count = count + 1
+            end
+        end
+        print("Player Killer.")
+        DoNotif("Bringing " .. count .. " player(s). Check console (F9)", 2)
+    end)
 end
+Modules.VelocitySpoofer = {
+    State = {
+        IsEnabled = false,
+        RootPart = nil,
+        Connections = {}
+    },
+    Config = {
+        PoisonVector = Vector3.new(0, -10000, 0),
+        DisableRagdoll = true,
+        DisableFallingDown = true,
+        RagdollCheckInterval = 0.5
+    }
+}
+function Modules.VelocitySpoofer:_applyVelocityChanger()
+    if not self.State.RootPart or not self.State.IsEnabled then return end
+    local realVelocity = self.State.RootPart.AssemblyLinearVelocity
+    self.State.RootPart.AssemblyLinearVelocity = self.Config.PoisonVector
+    RunService.RenderStepped:Wait()
+    if self.State.RootPart then
+        self.State.RootPart.AssemblyLinearVelocity = realVelocity
+    end
+end
+function Modules.VelocitySpoofer:_disableRagdollStates()
+    task.spawn(function()
+        while self.State.IsEnabled do
+            if LocalPlayer.Character then
+                local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+                if humanoid then
+                    if self.Config.DisableFallingDown then
+                        humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+                    end
+                    if self.Config.DisableRagdoll then
+                        humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+                    end
+                end
+            end
+            task.wait(self.Config.RagdollCheckInterval)
+        end
+    end)
+end
+function Modules.VelocitySpoofer:_updateRootPart()
+    if LocalPlayer.Character then
+        self.State.RootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    end
+end
+function Modules.VelocitySpoofer:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    self:_updateRootPart()
+    self.State.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
+        if not self.State.RootPart and LocalPlayer.Character then
+            self:_updateRootPart()
+        end
+        if self.State.RootPart and self.State.IsEnabled then
+            self:_applyVelocityChanger()
+        end
+    end)
+    self.State.Connections.CharacterAdded = LocalPlayer.CharacterAdded:Connect(function(character)
+        task.wait(0.1)
+        self:_updateRootPart()
+    end)
+    self:_disableRagdollStates()
+    DoNotif("Velocity Spoofer: ENABLED", 2)
+end
+function Modules.VelocitySpoofer:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    for _, connection in pairs(self.State.Connections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
+    self.State.Connections = {}
+    if LocalPlayer.Character then
+        local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+        end
+    end
+    self.State.RootPart = nil
+    DoNotif("Velocity Spoofer: DISABLED", 2)
+end
+function Modules.VelocitySpoofer:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+function Modules.VelocitySpoofer:SetPoisonVector(x, y, z)
+    local newVector = Vector3.new(
+        tonumber(x) or 0,
+        tonumber(y) or -10000,
+        tonumber(z) or 0
+    )
+    self.Config.PoisonVector = newVector
+    DoNotif(string.format("Poison Vector: (%.0f, %.0f, %.0f)", newVector.X, newVector.Y, newVector.Z), 2)
+end
+function Modules.VelocitySpoofer:ToggleRagdoll()
+    self.Config.DisableRagdoll = not self.Config.DisableRagdoll
+    DoNotif("Ragdoll Prevention: " .. (self.Config.DisableRagdoll and "ON" or "OFF"), 2)
+end
+function Modules.VelocitySpoofer:ToggleFallingDown()
+    self.Config.DisableFallingDown = not self.Config.DisableFallingDown
+    DoNotif("Falling Prevention: " .. (self.Config.DisableFallingDown and "ON" or "OFF"), 2)
+end
+function Modules.VelocitySpoofer:Initialize()
+    local module = self
+    RegisterCommand({
+        Name = "velocityspoof",
+        Aliases = {"vspoof"},
+        Description = "Spoofs your velocity to prevent network detection/kicks."
+    }, function(args)
+        module:Toggle()
+    end)
+    RegisterCommand({
+        Name = "poisonvector",
+        Aliases = {"setvector", "spoofvector"},
+        Description = "Set the poison vector for velocity spoofing. Usage: ;poisonvector <x> <y> <z>"
+    }, function(args)
+        if #args < 3 then
+            DoNotif(string.format("Current: (%.0f, %.0f, %.0f)", 
+                module.Config.PoisonVector.X, 
+                module.Config.PoisonVector.Y, 
+                module.Config.PoisonVector.Z), 3)
+            DoNotif("Usage: ;poisonvector <x> <y> <z>", 2)
+            return
+        end
+        module:SetPoisonVector(args[1], args[2], args[3])
+    end)
+    RegisterCommand({
+        Name = "antiragdoll2",
+        Aliases = {},
+        Description = "Toggle ragdoll prevention."
+    }, function()
+        module:ToggleRagdoll()
+    end)
+    RegisterCommand({
+        Name = "antifall",
+        Aliases = {"nofall"},
+        Description = "Toggle falling down state prevention."
+    }, function()
+        module:ToggleFallingDown()
+    end)
+    RegisterCommand({
+        Name = "veloptions",
+        Aliases = {"vspoofinfo"},
+        Description = "Shows current velocity spoofer settings."
+    }, function()
+        print("=== Velocity Spoofer Settings ===")
+        print("Status:", module.State.IsEnabled and "ENABLED" or "DISABLED")
+        print("Poison Vector:", string.format("(%.0f, %.0f, %.0f)", 
+            module.Config.PoisonVector.X,
+            module.Config.PoisonVector.Y,
+            module.Config.PoisonVector.Z))
+        print("Anti-Ragdoll:", module.Config.DisableRagdoll and "ON" or "OFF")
+        print("Anti-Fall:", module.Config.DisableFallingDown and "ON" or "OFF")
+        print("================================")
+        DoNotif("Settings printed to console (F9)", 2)
+    end)
+end
+Modules.PlayerLookup = {
+    State = {
+        UI = nil,
+        IsOpen = false,
+        SearchToken = 0,
+        LastSearchText = "",
+        SearchDebounce = false,
+        CurrentBadges = {}
+    },
+    Config = {
+        Colors = {
+            BG      = Color3.fromRGB(11,  11,  16),
+            SURFACE = Color3.fromRGB(18,  18,  26),
+            RAISED  = Color3.fromRGB(26,  26,  38),
+            BORDER  = Color3.fromRGB(42,  42,  62),
+            ACCENT  = Color3.fromRGB(139, 92,  246),
+            ACCENT2 = Color3.fromRGB(96,  165, 250),
+            TEXT    = Color3.fromRGB(225, 225, 240),
+            MUTED   = Color3.fromRGB(95,  95,  125),
+            GREEN   = Color3.fromRGB(74,  222, 128),
+            RED     = Color3.fromRGB(248, 113, 113),
+        }
+    },
+    Services = {}
+}
+local function make(class, props, parent)
+    local obj = Instance.new(class)
+    for k, v in pairs(props) do
+        pcall(function() obj[k] = v end)
+    end
+    if parent then obj.Parent = parent end
+    return obj
+end
+local function corner(r, p)
+    local c = Instance.new("UICorner", p)
+    c.CornerRadius = UDim.new(0, r)
+end
+local function stroke(t, col, p)
+    local s = Instance.new("UIStroke", p)
+    s.Thickness = t
+    s.Color = col
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+end
+local function tw(obj, props, t, style)
+    pcall(function()
+        TweenService:Create(obj,
+            TweenInfo.new(t or 0.18, style or Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            props
+        ):Play()
+    end)
+end
+local function copyToClipboard(text)
+    if setclipboard then pcall(setclipboard, text)
+    elseif toclipboard then pcall(toclipboard, text)
+    elseif Clipboard and Clipboard.set then pcall(Clipboard.set, text)
+    end
+end
+local function accountAge(days)
+    days = days or 0
+    local y = math.floor(days / 365)
+    local m = math.floor((days % 365) / 30)
+    local d = days % 30
+    local parts = {}
+    if y > 0 then table.insert(parts, y .. "y") end
+    if m > 0 then table.insert(parts, m .. "mo") end
+    if d > 0 or #parts == 0 then table.insert(parts, d .. "d") end
+    return table.concat(parts, " ")
+end
+local function withTimeout(seconds, fn, ...)
+    local args = {...}
+    local done = false
+    local results = nil
+    local thread = task.spawn(function()
+        results = table.pack(pcall(fn, table.unpack(args)))
+        done = true
+    end)
+    local elapsed = 0
+    local step = 0.05
+    while not done and elapsed < seconds do
+        task.wait(step)
+        elapsed = elapsed + step
+    end
+    if not done then
+        pcall(task.cancel, thread)
+        return false, "timeout"
+    end
+    local ok = table.remove(results, 1)
+    return ok, table.unpack(results, 1, results.n - 1)
+end
+function Modules.PlayerLookup:_createUI()
+    local oldUI = CoreGui:FindFirstChild("PLookup_Zuka")
+    if oldUI then oldUI:Destroy() end
+    local C = self.Config.Colors
+    local ScreenGui = make("ScreenGui", {
+        Name = "PLookup_Zuka",
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        DisplayOrder = 9999,
+        IgnoreGuiInset = true,
+    }, CoreGui)
+    local Main = make("Frame", {
+        Size = UDim2.fromOffset(360, 490),
+        Position = UDim2.new(0.5, -180, 0.5, -245),
+        BackgroundColor3 = C.BG,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+    }, ScreenGui)
+    corner(12, Main)
+    stroke(1, C.BORDER, Main)
+    local TopLine = make("Frame", {
+        Size = UDim2.new(1, 0, 0, 2),
+        BackgroundColor3 = C.ACCENT,
+        BorderSizePixel = 0,
+        ZIndex = 2,
+    }, Main)
+    local gradient = Instance.new("UIGradient", TopLine)
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, C.ACCENT),
+        ColorSequenceKeypoint.new(0.5, C.ACCENT2),
+        ColorSequenceKeypoint.new(1, C.ACCENT),
+    })
+    local TitleBar = make("Frame", {
+        Size = UDim2.new(1, 0, 0, 40),
+        Position = UDim2.fromOffset(0, 2),
+        BackgroundColor3 = C.SURFACE,
+        BorderSizePixel = 0,
+    }, Main)
+    make("TextLabel", {
+        Size = UDim2.new(1, -90, 1, 0),
+        Position = UDim2.fromOffset(14, 0),
+        BackgroundTransparency = 1,
+        Text = "◈  PLAYER LOOKUP",
+        TextColor3 = C.TEXT,
+        TextSize = 13,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, TitleBar)
+    local CloseBtn = make("TextButton", {
+        Size = UDim2.fromOffset(26, 26),
+        Position = UDim2.new(1, -34, 0.5, -13),
+        BackgroundColor3 = C.RAISED,
+        BorderSizePixel = 0,
+        Text = "✕",
+        TextColor3 = C.MUTED,
+        TextSize = 12,
+        Font = Enum.Font.GothamBold,
+        AutoButtonColor = false,
+    }, TitleBar)
+    corner(6, CloseBtn)
+    CloseBtn.MouseButton1Click:Connect(function()
+        self:Close()
+    end)
+    CloseBtn.MouseEnter:Connect(function()
+        tw(CloseBtn, {BackgroundColor3 = C.RED, TextColor3 = Color3.new(1,1,1)}, 0.1)
+    end)
+    CloseBtn.MouseLeave:Connect(function()
+        tw(CloseBtn, {BackgroundColor3 = C.RAISED, TextColor3 = C.MUTED}, 0.1)
+    end)
+    local dragging, dragStart, startPos = false, nil, nil
+    TitleBar.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = inp.Position
+            startPos = Main.Position
+        end
+    end)
+    TitleBar.InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(inp)
+        if not dragging then return end
+        if inp.UserInputType == Enum.UserInputType.MouseMovement then
+            local d = inp.Position - dragStart
+            Main.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + d.X,
+                startPos.Y.Scale, startPos.Y.Offset + d.Y
+            )
+        end
+    end)
+    local SearchWrap = make("Frame", {
+        Size = UDim2.new(1, -24, 0, 36),
+        Position = UDim2.fromOffset(12, 50),
+        BackgroundColor3 = C.RAISED,
+        BorderSizePixel = 0,
+    }, Main)
+    corner(8, SearchWrap)
+    stroke(1, C.BORDER, SearchWrap)
+    make("TextLabel", {
+        Size = UDim2.fromOffset(20, 36),
+        Position = UDim2.fromOffset(8, 0),
+        BackgroundTransparency = 1,
+        Text = "⌕",
+        TextColor3 = C.MUTED,
+        TextSize = 15,
+        Font = Enum.Font.Gotham,
+    }, SearchWrap)
+    local SearchInput = make("TextBox", {
+        Size = UDim2.new(1, -72, 1, 0),
+        Position = UDim2.fromOffset(28, 0),
+        BackgroundTransparency = 1,
+        PlaceholderText = "username or user id...",
+        PlaceholderColor3 = C.MUTED,
+        Text = "",
+        TextColor3 = C.TEXT,
+        TextSize = 13,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ClearTextOnFocus = false,
+    }, SearchWrap)
+    local GoBtn = make("TextButton", {
+        Size = UDim2.fromOffset(46, 26),
+        Position = UDim2.new(1, -52, 0.5, -13),
+        BackgroundColor3 = C.ACCENT,
+        BorderSizePixel = 0,
+        Text = "GO",
+        TextColor3 = Color3.new(1, 1, 1),
+        TextSize = 11,
+        Font = Enum.Font.GothamBold,
+        AutoButtonColor = false,
+    }, SearchWrap)
+    corner(6, GoBtn)
+    GoBtn.MouseEnter:Connect(function() tw(GoBtn, {BackgroundColor3 = Color3.fromRGB(109,40,217)}, 0.1) end)
+    GoBtn.MouseLeave:Connect(function() tw(GoBtn, {BackgroundColor3 = C.ACCENT}, 0.1) end)
+    make("TextLabel", {
+        Size = UDim2.new(1, -24, 0, 14),
+        Position = UDim2.fromOffset(12, 94),
+        BackgroundTransparency = 1,
+        Text = "SERVER PLAYERS",
+        TextColor3 = C.MUTED,
+        TextSize = 10,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, Main)
+    local ListFrame = make("ScrollingFrame", {
+        Size = UDim2.new(1, -24, 0, 72),
+        Position = UDim2.fromOffset(12, 110),
+        BackgroundColor3 = C.SURFACE,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = C.ACCENT,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        ClipsDescendants = true,
+        ScrollingDirection = Enum.ScrollingDirection.X,
+    }, Main)
+    corner(8, ListFrame)
+    stroke(1, C.BORDER, ListFrame)
+    make("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 6),
+    }, ListFrame)
+    make("UIPadding", {
+        PaddingTop = UDim.new(0, 6),
+        PaddingBottom = UDim.new(0, 6),
+        PaddingLeft = UDim.new(0, 6),
+        PaddingRight = UDim.new(0, 6),
+    }, ListFrame)
+    make("Frame", {
+        Size = UDim2.new(1, -24, 0, 1),
+        Position = UDim2.fromOffset(12, 192),
+        BackgroundColor3 = C.BORDER,
+        BorderSizePixel = 0,
+    }, Main)
+    local Card = make("Frame", {
+        Size = UDim2.new(1, -24, 0, 264),
+        Position = UDim2.fromOffset(12, 200),
+        BackgroundColor3 = C.SURFACE,
+        BorderSizePixel = 0,
+        Visible = false,
+    }, Main)
+    corner(10, Card)
+    stroke(1, C.BORDER, Card)
+    local AvatarFrame = make("Frame", {
+        Size = UDim2.fromOffset(70, 70),
+        Position = UDim2.fromOffset(12, 12),
+        BackgroundColor3 = C.RAISED,
+        BorderSizePixel = 0,
+    }, Card)
+    corner(10, AvatarFrame)
+    stroke(1, C.BORDER, AvatarFrame)
+    local AvatarImg = make("ImageLabel", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Image = "",
+        ScaleType = Enum.ScaleType.Fit,
+    }, AvatarFrame)
+    corner(10, AvatarImg)
+    local AvatarLoading = make("TextLabel", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "...",
+        TextColor3 = C.MUTED,
+        TextSize = 11,
+        Font = Enum.Font.Gotham,
+    }, AvatarFrame)
+    local DisplayNameLbl = make("TextLabel", {
+        Size = UDim2.new(1, -96, 0, 20),
+        Position = UDim2.fromOffset(92, 12),
+        BackgroundTransparency = 1,
+        Text = "",
+        TextColor3 = C.TEXT,
+        TextSize = 15,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+    }, Card)
+    local UsernameLbl = make("TextLabel", {
+        Size = UDim2.new(1, -96, 0, 14),
+        Position = UDim2.fromOffset(92, 34),
+        BackgroundTransparency = 1,
+        Text = "",
+        TextColor3 = C.MUTED,
+        TextSize = 11,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, Card)
+    local BadgeRow = make("Frame", {
+        Size = UDim2.new(1, -96, 0, 20),
+        Position = UDim2.fromOffset(92, 50),
+        BackgroundTransparency = 1,
+    }, Card)
+    make("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 4),
+    }, BadgeRow)
+    self.State.UI = {
+        ScreenGui = ScreenGui,
+        Main = Main,
+        SearchInput = SearchInput,
+        GoBtn = GoBtn,
+        ListFrame = ListFrame,
+        Card = Card,
+        AvatarImg = AvatarImg,
+        AvatarLoading = AvatarLoading,
+        DisplayNameLbl = DisplayNameLbl,
+        UsernameLbl = UsernameLbl,
+        BadgeRow = BadgeRow,
+    }
+    self:_createInfoRows()
+    self:_setupEventHandlers()
+    self:_buildPlayerList()
+    Main.BackgroundTransparency = 1
+    Main.Position = UDim2.new(0.5, -180, 0.5, -225)
+    tw(Main, {BackgroundTransparency = 0, Position = UDim2.new(0.5, -180, 0.5, -245)}, 0.28, Enum.EasingStyle.Back)
+    task.wait(0.35)
+    self:_lookupPlayer(LocalPlayer)
+end
+function Modules.PlayerLookup:_createInfoRows()
+    local C = self.Config.Colors
+    local Card = self.State.UI.Card
+    local function makeRow(icon, label, yOff, copyable)
+        local row = make("Frame", {
+            Size = UDim2.new(1, -24, 0, 28),
+            Position = UDim2.fromOffset(12, yOff),
+            BackgroundColor3 = C.RAISED,
+            BorderSizePixel = 0,
+        }, Card)
+        corner(6, row)
+        make("TextLabel", {
+            Size = UDim2.fromOffset(22, 28),
+            Position = UDim2.fromOffset(6, 0),
+            BackgroundTransparency = 1,
+            Text = icon,
+            TextColor3 = C.ACCENT,
+            TextSize = 12,
+            Font = Enum.Font.Gotham,
+        }, row)
+        make("TextLabel", {
+            Size = UDim2.fromOffset(76, 28),
+            Position = UDim2.fromOffset(26, 0),
+            BackgroundTransparency = 1,
+            Text = label,
+            TextColor3 = C.MUTED,
+            TextSize = 10,
+            Font = Enum.Font.GothamBold,
+            TextXAlignment = Enum.TextXAlignment.Left,
+        }, row)
+        local val = make("TextLabel", {
+            Size = UDim2.new(1, copyable and -136 or -110, 1, 0),
+            Position = UDim2.fromOffset(104, 0),
+            BackgroundTransparency = 1,
+            Text = "—",
+            TextColor3 = C.TEXT,
+            TextSize = 11,
+            Font = Enum.Font.Gotham,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+        }, row)
+        if copyable then
+            local cp = make("TextButton", {
+                Size = UDim2.fromOffset(34, 18),
+                Position = UDim2.new(1, -38, 0.5, -9),
+                BackgroundColor3 = C.BORDER,
+                BorderSizePixel = 0,
+                Text = "copy",
+                TextColor3 = C.MUTED,
+                TextSize = 9,
+                Font = Enum.Font.GothamBold,
+                AutoButtonColor = false,
+            }, row)
+            corner(4, cp)
+            cp.MouseButton1Click:Connect(function()
+                copyToClipboard(val.Text)
+                tw(cp, {BackgroundColor3 = C.GREEN, TextColor3 = Color3.new(0,0,0)}, 0.1)
+                task.wait(0.9)
+                tw(cp, {BackgroundColor3 = C.BORDER, TextColor3 = C.MUTED}, 0.15)
+            end)
+        end
+        return val
+    end
+    self.State.UI.InfoRows = {
+        id = makeRow("#", "USER ID", 84, true),
+        url = makeRow("⎘", "PROFILE URL", 118, true),
+        age = makeRow("⏱", "ACCT AGE", 152, false),
+        joined = makeRow("📅", "JOINED", 186, false),
+        inSrv = makeRow("◉", "IN SERVER", 220, false),
+    }
+end
+function Modules.PlayerLookup:_setupEventHandlers()
+    local GoBtn = self.State.UI.GoBtn
+    local SearchInput = self.State.UI.SearchInput
+    GoBtn.MouseButton1Click:Connect(function()
+        self:_doSearch(SearchInput.Text)
+    end)
+    SearchInput.FocusLost:Connect(function(enter)
+        if enter then
+            self:_doSearch(SearchInput.Text)
+        end
+    end)
+    Players.PlayerAdded:Connect(function()
+        task.wait(0.5)
+        self:_buildPlayerList()
+    end)
+    Players.PlayerRemoving:Connect(function()
+        task.wait(0.1)
+        self:_buildPlayerList()
+    end)
+end
+function Modules.PlayerLookup:_clearBadges()
+    for _, b in ipairs(self.State.CurrentBadges) do
+        pcall(function() b:Destroy() end)
+    end
+    self.State.CurrentBadges = {}
+end
+function Modules.PlayerLookup:_addBadge(text, color)
+    local b = make("Frame", {
+        Size = UDim2.fromOffset(0, 16),
+        BackgroundColor3 = color,
+        BorderSizePixel = 0,
+        AutomaticSize = Enum.AutomaticSize.X,
+    }, self.State.UI.BadgeRow)
+    corner(3, b)
+    make("TextLabel", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = Color3.new(1, 1, 1),
+        TextSize = 9,
+        Font = Enum.Font.GothamBold,
+        AutomaticSize = Enum.AutomaticSize.X,
+    }, b)
+    make("UIPadding", {
+        PaddingLeft = UDim.new(0, 5),
+        PaddingRight = UDim.new(0, 5),
+    }, b)
+    table.insert(self.State.CurrentBadges, b)
+end
+function Modules.PlayerLookup:_buildPlayerList()
+    if not self.State.UI then return end
+    local ListFrame = self.State.UI.ListFrame
+    local C = self.Config.Colors
+    for _, c in ipairs(ListFrame:GetChildren()) do
+        if not c:IsA("UIListLayout") and not c:IsA("UIPadding") then
+            c:Destroy()
+        end
+    end
+    local plrs = Players:GetPlayers()
+    for _, plr in ipairs(plrs) do
+        local card = make("TextButton", {
+            Size = UDim2.fromOffset(58, 58),
+            BackgroundColor3 = plr == LocalPlayer and C.BORDER or C.RAISED,
+            BorderSizePixel = 0,
+            Text = "",
+            AutoButtonColor = false,
+        }, ListFrame)
+        corner(8, card)
+        stroke(1, plr == LocalPlayer and C.ACCENT or C.BORDER, card)
+        local img = make("ImageLabel", {
+            Size = UDim2.fromOffset(38, 38),
+            Position = UDim2.new(0.5, -19, 0, 4),
+            BackgroundColor3 = C.RAISED,
+            BackgroundTransparency = 0,
+            Image = "",
+            ScaleType = Enum.ScaleType.Fit,
+        }, card)
+        corner(6, img)
+        make("TextLabel", {
+            Size = UDim2.new(1, -4, 0, 13),
+            Position = UDim2.fromOffset(2, 43),
+            BackgroundTransparency = 1,
+            Text = plr.Name,
+            TextColor3 = plr == LocalPlayer and C.TEXT or C.MUTED,
+            TextSize = 9,
+            Font = Enum.Font.Gotham,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+        }, card)
+        task.spawn(function()
+            local ok, thumb = withTimeout(6, Players.GetUserThumbnailAsync, Players,
+                plr.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size60x60)
+            if ok and img and img.Parent then
+                img.Image = thumb
+            end
+        end)
+        card.MouseEnter:Connect(function()
+            tw(card, {BackgroundColor3 = C.BORDER}, 0.1)
+        end)
+        card.MouseLeave:Connect(function()
+            tw(card, {BackgroundColor3 = plr == LocalPlayer and C.BORDER or C.RAISED}, 0.1)
+        end)
+        card.MouseButton1Click:Connect(function()
+            self:_lookupPlayer(plr)
+        end)
+    end
+    ListFrame.CanvasSize = UDim2.fromOffset(#plrs * 64 + 6, 0)
+end
+function Modules.PlayerLookup:_lookupPlayer(plr)
+    if not plr or not self.State.UI then return end
+    self.State.SearchToken = self.State.SearchToken + 1
+    local myToken = self.State.SearchToken
+    local C = self.Config.Colors
+    local UI = self.State.UI
+    local R = UI.InfoRows
+    self:_clearBadges()
+    UI.AvatarImg.Image = ""
+    UI.AvatarLoading.Text = "..."
+    UI.Card.Visible = false
+    task.spawn(function()
+        local tOk, thumb = withTimeout(6, Players.GetUserThumbnailAsync, Players,
+            plr.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+        if self.State.SearchToken ~= myToken then return end
+        UI.AvatarImg.Image = (tOk and thumb) or "rbxasset://textures/ui/GuiImagePlaceholder.png"
+        UI.AvatarLoading.Text = ""
+        UI.DisplayNameLbl.Text = plr.DisplayName or plr.Name
+        UI.UsernameLbl.Text = "@" .. plr.Name
+        if plr == LocalPlayer then
+            self:_addBadge("YOU", Color3.fromRGB(139, 92, 246))
+        end
+        if plr.Name ~= plr.DisplayName then
+            self:_addBadge("ALIAS", Color3.fromRGB(16, 185, 129))
+        end
+        self:_addBadge("IN SERVER", Color3.fromRGB(59, 130, 246))
+        R.id.Text = tostring(plr.UserId)
+        R.url.Text = "roblox.com/users/" .. plr.UserId .. "/profile"
+        R.age.Text = accountAge(plr.AccountAge) .. " (" .. plr.AccountAge .. "d)"
+        R.inSrv.Text = "yes"
+        R.inSrv.TextColor3 = C.GREEN
+        local iOk, info = withTimeout(8, Players.GetPlayerInfoAsync, Players, plr.UserId)
+        if self.State.SearchToken ~= myToken then return end
+        if iOk and info and info.JoinDate then
+            local dOk, dt = pcall(DateTime.fromUnixTimestamp, info.JoinDate.UnixTimestamp)
+            if dOk then
+                local t = dt:ToLocalTime()
+                R.joined.Text = string.format("%02d/%02d/%04d", t.Month, t.Day, t.Year)
+            else
+                R.joined.Text = tostring(info.JoinDate)
+            end
+        else
+            R.joined.Text = "unavailable"
+            R.joined.TextColor3 = C.MUTED
+        end
+        UI.Card.BackgroundTransparency = 1
+        UI.Card.Visible = true
+        tw(UI.Card, {BackgroundTransparency = 0}, 0.2)
+    end)
+end
+function Modules.PlayerLookup:_doSearch(raw)
+    if not self.State.UI then return end
+    raw = raw:match("^%s*(.-)%s*$")
+    if raw == "" then return end
+    if raw == self.State.LastSearchText and self.State.SearchDebounce then return end
+    self.State.LastSearchText = raw
+    self.State.SearchDebounce = true
+    self.State.SearchToken = self.State.SearchToken + 1
+    local myToken = self.State.SearchToken
+    local asId = tonumber(raw)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Name:lower() == raw:lower() or (asId and plr.UserId == asId) then
+            self.State.SearchDebounce = false
+            self:_lookupPlayer(plr)
+            return
+        end
+    end
+    DoNotif("Searching for: " .. raw, 2)
+    task.spawn(function()
+        local userId = asId
+        if not userId then
+            local ok, res = withTimeout(8, Players.GetUserIdFromNameAsync, Players, raw)
+            if self.State.SearchToken ~= myToken then
+                self.State.SearchDebounce = false
+                return
+            end
+            if not ok or not res then
+                DoNotif("Player not found: " .. raw, 3)
+                self.State.SearchDebounce = false
+                return
+            end
+            userId = res
+        end
+        local infoResult, thumbResult = nil, nil
+        local infoDone, thumbDone = false, false
+        task.spawn(function()
+            local ok, res = withTimeout(8, Players.GetPlayerInfoAsync, Players, userId)
+            infoResult = {ok = ok, data = res}
+            infoDone = true
+        end)
+        task.spawn(function()
+            local ok, res = withTimeout(6, Players.GetUserThumbnailAsync, Players,
+                userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+            thumbResult = {ok = ok, data = res}
+            thumbDone = true
+        end)
+        local waited = 0
+        while (not infoDone or not thumbDone) and waited < 10 do
+            task.wait(0.05)
+            waited = waited + 0.05
+        end
+        if self.State.SearchToken ~= myToken then
+            self.State.SearchDebounce = false
+            return
+        end
+        local info = infoResult and infoResult.ok and infoResult.data
+        local thumb = thumbResult and thumbResult.ok and thumbResult.data
+        local UI = self.State.UI
+        local R = UI.InfoRows
+        local C = self.Config.Colors
+        self:_clearBadges()
+        UI.AvatarImg.Image = thumb or "rbxasset://textures/ui/GuiImagePlaceholder.png"
+        UI.AvatarLoading.Text = ""
+        UI.DisplayNameLbl.Text = (info and info.DisplayName) or tostring(userId)
+        UI.UsernameLbl.Text = "@" .. ((info and info.Username) or tostring(userId))
+        self:_addBadge("NOT IN SERVER", Color3.fromRGB(107, 114, 128))
+        R.id.Text = tostring(userId)
+        R.url.Text = "roblox.com/users/" .. userId .. "/profile"
+        R.age.Text = "unavailable"
+        R.inSrv.Text = "no"
+        R.inSrv.TextColor3 = C.RED
+        if info and info.JoinDate then
+            local dOk, dt = pcall(DateTime.fromUnixTimestamp, info.JoinDate.UnixTimestamp)
+            if dOk then
+                local t = dt:ToLocalTime()
+                R.joined.Text = string.format("%02d/%02d/%04d", t.Month, t.Day, t.Year)
+            else
+                R.joined.Text = "unavailable"
+            end
+        else
+            R.joined.Text = "unavailable"
+        end
+        UI.Card.BackgroundTransparency = 1
+        UI.Card.Visible = true
+        tw(UI.Card, {BackgroundTransparency = 0}, 0.2)
+        self.State.SearchDebounce = false
+    end)
+end
+function Modules.PlayerLookup:Open()
+    if self.State.IsOpen then return end
+    self.State.IsOpen = true
+    self:_createUI()
+    DoNotif("Player Lookup opened", 2)
+end
+function Modules.PlayerLookup:Close()
+    if not self.State.IsOpen or not self.State.UI then return end
+    self.State.IsOpen = false
+    local Main = self.State.UI.Main
+    tw(Main, {BackgroundTransparency = 1, Position = UDim2.new(0.5, -180, 0.5, -225)}, 0.18)
+    task.wait(0.2)
+    if self.State.UI and self.State.UI.ScreenGui then
+        self.State.UI.ScreenGui:Destroy()
+    end
+    self.State.UI = nil
+    DoNotif("Player Lookup closed", 2)
+end
+function Modules.PlayerLookup:Toggle()
+    if self.State.IsOpen then
+        self:Close()
+    else
+        self:Open()
+    end
+end
+function Modules.PlayerLookup:LookupUsername(username)
+    if not self.State.IsOpen then
+        self:Open()
+        task.wait(0.4)
+    end
+    if self.State.UI and self.State.UI.SearchInput then
+        self.State.UI.SearchInput.Text = username
+        self:_doSearch(username)
+    end
+end
+function Modules.PlayerLookup:LookupUserId(userId)
+    if not self.State.IsOpen then
+        self:Open()
+        task.wait(0.4)
+    end
+    if self.State.UI and self.State.UI.SearchInput then
+        self.State.UI.SearchInput.Text = tostring(userId)
+        self:_doSearch(tostring(userId))
+    end
+end
+function Modules.PlayerLookup:Initialize()
+    local module = self
+    RegisterCommand({
+        Name = "lookup",
+        Aliases = {"plookup", "playerinfo", "whois"},
+        Description = "Opens player lookup GUI or searches for a player."
+    }, function(args)
+        if not args[1] then
+            module:Toggle()
+        else
+            local search = table.concat(args, " ")
+            module:LookupUsername(search)
+        end
+    end)
+    RegisterCommand({
+        Name = "lookupid",
+        Aliases = {"plookupid"},
+        Description = "Lookup a player by their User ID."
+    }, function(args)
+        if not args[1] then
+            return DoNotif("Usage: ;lookupid <userid>", 3)
+        end
+        local userId = tonumber(args[1])
+        if not userId then
+            return DoNotif("Invalid User ID", 3)
+        end
+        module:LookupUserId(userId)
+    end)
+end
+
 Modules.NetworkClaim = {
     State = {
         IsEnabled = false,
@@ -33335,7 +34958,7 @@ RegisterCommand({Name = "zmelee", Aliases = {}, Description = "For https://www.r
 RegisterCommand({Name = "flinger", Aliases = {"flingui"}, Description = "Loads a Fling GUI."}, function() loadstringCmd("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/SkidFling.lua", "Loading GUI..") end)
 RegisterCommand({Name = "rem", Aliases = {}, Description = "In game exploit creation kit.."}, function() loadstringCmd("https://e-vil.com/anbu/rem.lua", "Loading Rem.") end)
 RegisterCommand({Name = "Copyconsole", Aliases = {"copy"}, Description = "Allows you to copy errors from the console.."}, function() loadstringCmd("https://raw.githubusercontent.com/scriptlisenbe-stack/luaprojectse3/refs/heads/main/consolecopy.lua", "Copy Console Activated.") end)
-RegisterCommand({Name = "zhp", Aliases = {}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game"}, function() loadstringCmd("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/zgamemedkit.lua", "Loading HP Teleport") end)
+RegisterCommand({Name = "besp", Aliases = {}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/BasicEsp.lua", "Loading Box esp") end)
 RegisterCommand({Name = "reachfix", Aliases = {"fix"}, Description = "Makes your equipped tool invisible when using reach"}, function() loadstringCmd("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/InvisibleEquippedTool.lua", "Fixed") end)
 RegisterCommand({Name = "worldofstands", Aliases = {"wos"}, Description = "For https://www.roblox.com/games/6728870912/World-of-Stands - Removes dash cooldown"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/WOS.lua", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "zfucker", Aliases = {}, Description = "zfucker for the zl series."}, function() loadstringCmd("https://raw.githubusercontent.com/osukfcdays/zlfucker/refs/heads/main/main.luau", "Loading, Wait a sec.") end)
@@ -33348,15 +34971,17 @@ Modules.AntiESP = {
         HumanoidRootPart = nil,
         Humanoid = nil,
         OriginalCFrame = nil,
+        RealCFrame = nil,
         FakeCharacter = nil,
         Connections = {},
-        UI = nil
+        UI = nil,
+        Camera = nil
     },
     Config = {
         VoidDepth = -50000,
-        UpdateRate = 0.03,
-        EnableDummyDecoy = true,
-        DecoyOffset = Vector3.new(50, 0, 50),
+        UpdateRate = 0.01,
+        EnableDummyDecoy = false,
+        DecoyOffset = Vector3.new(0, 5, 0),
         AntiRaycast = true,
         SuppressNametags = true
     }
@@ -33455,7 +35080,7 @@ function Modules.AntiESP:_createUI()
     statusLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
     statusLabel.BorderSizePixel = 0
     statusLabel.Font = Enum.Font.Code
-    statusLabel.Text = "Status: Inactive\nServer Position: Normal\nDecoy: Off"
+    statusLabel.Text = "Status: Inactive\nOthers see: Normal position\nDecoy: Off"
     statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     statusLabel.TextSize = 11
     statusLabel.TextWrapped = true
@@ -33499,10 +35124,10 @@ function Modules.AntiESP:_createUI()
     decoyToggle.Name = "DecoyToggle"
     decoyToggle.Size = UDim2.new(1, 0, 0, 35)
     decoyToggle.Position = UDim2.fromOffset(0, 180)
-    decoyToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    decoyToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
     decoyToggle.BorderSizePixel = 0
     decoyToggle.Font = Enum.Font.GothamBold
-    decoyToggle.Text = "DUMMY DECOY: ON"
+    decoyToggle.Text = "DUMMY DECOY: OFF"
     decoyToggle.TextColor3 = Color3.new(1, 1, 1)
     decoyToggle.TextSize = 12
     Instance.new("UICorner", decoyToggle).CornerRadius = UDim.new(0, 6)
@@ -33512,10 +35137,11 @@ function Modules.AntiESP:_createUI()
         decoyToggle.Text = "DUMMY DECOY: " .. (self.Config.EnableDummyDecoy and "ON" or "OFF")
         decoyToggle.BackgroundColor3 = self.Config.EnableDummyDecoy and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(50, 50, 65)
         
-        -- Remove decoy if disabled
         if not self.Config.EnableDummyDecoy and self.State.FakeCharacter then
             self.State.FakeCharacter:Destroy()
             self.State.FakeCharacter = nil
+        elseif self.Config.EnableDummyDecoy and self.State.IsActive then
+            self:CreateDummyDecoy()
         end
         
         self:UpdateDisplay()
@@ -33570,7 +35196,7 @@ function Modules.AntiESP:_createUI()
     infoLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
     infoLabel.BorderSizePixel = 0
     infoLabel.Font = Enum.Font.Code
-    infoLabel.Text = "How it works:\n• Server sees you in the void\n• ESP shows wrong position\n• Aimbot can't hit you"
+    infoLabel.Text = "How it works:\n• Others see you at void/decoy\n• You play normally\n• ESP/Aimbot targets wrong spot"
     infoLabel.TextColor3 = Color3.fromRGB(150, 150, 200)
     infoLabel.TextSize = 10
     infoLabel.TextWrapped = true
@@ -33641,12 +35267,8 @@ end
 
 function Modules.AntiESP:CreateDummyDecoy()
     if not self.Config.EnableDummyDecoy then return end
-    if not self.State.Character or not self.State.Character.Parent then 
-        print("⚠ Cannot create decoy - character not ready")
-        return 
-    end
+    if not self.State.Character or not self.State.Character.Parent then return end
     
-    -- Cleanup old decoy
     if self.State.FakeCharacter then
         pcall(function()
             self.State.FakeCharacter:Destroy()
@@ -33654,17 +35276,12 @@ function Modules.AntiESP:CreateDummyDecoy()
         self.State.FakeCharacter = nil
     end
     
-    -- Clone character with error handling
     local success, fakeChar = pcall(function()
         return self.State.Character:Clone()
     end)
     
-    if not success or not fakeChar then
-        print("✗ Failed to clone character")
-        return
-    end
+    if not success or not fakeChar then return end
     
-    -- Make parts non-collidable
     pcall(function()
         for _, part in pairs(fakeChar:GetDescendants()) do
             if part:IsA("BasePart") then
@@ -33674,7 +35291,6 @@ function Modules.AntiESP:CreateDummyDecoy()
             end
         end
         
-        -- Remove scripts and humanoid
         for _, obj in pairs(fakeChar:GetDescendants()) do
             if obj:IsA("Script") or obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
                 obj:Destroy()
@@ -33684,14 +35300,11 @@ function Modules.AntiESP:CreateDummyDecoy()
         if fakeChar:FindFirstChild("Humanoid") then
             fakeChar.Humanoid:Destroy()
         end
+        
+        if self.State.RealCFrame then
+            fakeChar:SetPrimaryPartCFrame(self.State.RealCFrame + self.Config.DecoyOffset)
+        end
     end)
-    
-    -- Position decoy
-    if self.State.HumanoidRootPart and self.State.HumanoidRootPart.Parent then
-        pcall(function()
-            fakeChar:SetPrimaryPartCFrame(self.State.HumanoidRootPart.CFrame + self.Config.DecoyOffset)
-        end)
-    end
     
     fakeChar.Parent = Workspace
     fakeChar.Name = LocalPlayer.Name .. "_Decoy"
@@ -33700,44 +35313,44 @@ function Modules.AntiESP:CreateDummyDecoy()
     print("✓ Dummy decoy created")
 end
 
-function Modules.AntiESP:UpdateDecoyPosition()
-    if not self.State.FakeCharacter or not self.State.FakeCharacter.Parent then return end
-    if not self.State.HumanoidRootPart or not self.State.HumanoidRootPart.Parent then return end
-    
-    pcall(function()
-        local fakePosition = self.State.HumanoidRootPart.CFrame + self.Config.DecoyOffset
-        self.State.FakeCharacter:SetPrimaryPartCFrame(fakePosition)
-    end)
-end
-
-function Modules.AntiESP:VoidTeleport()
-    if not self.State.HumanoidRootPart or not self.State.HumanoidRootPart.Parent then return end
-    
-    pcall(function()
-        local currentPos = self.State.HumanoidRootPart.Position
-        local targetY = self.Config.AntiRaycast and -100 or self.Config.VoidDepth
-        
-        local voidPosition = Vector3.new(currentPos.X, targetY, currentPos.Z)
-        self.State.HumanoidRootPart.CFrame = CFrame.new(voidPosition)
-    end)
-end
-
 function Modules.AntiESP:MainLoop()
     while self.State.IsActive and self.State.Character and self.State.Character.Parent do
-        task.wait(self.Config.UpdateRate)
         
-        -- Teleport to void
-        self:VoidTeleport()
+        if not self.State.HumanoidRootPart or not self.State.HumanoidRootPart.Parent then
+            break
+        end
+        
+        -- Get movement from humanoid
+        local moveVector = self.State.Humanoid.MoveDirection * self.State.Humanoid.WalkSpeed * self.Config.UpdateRate
+        
+        -- Update real position
+        if self.State.RealCFrame then
+            self.State.RealCFrame = self.State.RealCFrame + moveVector
+        end
+        
+        -- Set HRP to void for server
+        pcall(function()
+            local targetY = self.Config.AntiRaycast and -100 or self.Config.VoidDepth
+            self.State.HumanoidRootPart.CFrame = CFrame.new(
+                self.State.RealCFrame.X,
+                targetY,
+                self.State.RealCFrame.Z
+            ) * (self.State.RealCFrame - self.State.RealCFrame.Position)
+        end)
         
         -- Update decoy
-        if self.Config.EnableDummyDecoy then
-            self:UpdateDecoyPosition()
+        if self.Config.EnableDummyDecoy and self.State.FakeCharacter and self.State.FakeCharacter.Parent then
+            pcall(function()
+                self.State.FakeCharacter:SetPrimaryPartCFrame(self.State.RealCFrame + self.Config.DecoyOffset)
+            end)
         end
         
         -- Suppress nametags
         if self.Config.SuppressNametags then
             self:SuppressNametags()
         end
+        
+        task.wait(self.Config.UpdateRate)
     end
 end
 
@@ -33755,13 +35368,13 @@ function Modules.AntiESP:ToggleActive()
     self.State.IsActive = not self.State.IsActive
     
     if self.State.IsActive then
-        -- Activate immediately
-        self.State.OriginalCFrame = self.State.HumanoidRootPart.CFrame
+        -- Store real starting position
+        self.State.RealCFrame = self.State.HumanoidRootPart.CFrame
         
         -- Suppress nametags
         self:SuppressNametags()
         
-        -- Create decoy
+        -- Create decoy at real position
         if self.Config.EnableDummyDecoy then
             self:CreateDummyDecoy()
         end
@@ -33772,6 +35385,8 @@ function Modules.AntiESP:ToggleActive()
         end)
         
         print("✓ Anti-ESP ACTIVATED")
+        print("  Others see you at: " .. (self.Config.AntiRaycast and "Underground" or "Void"))
+        print("  You: Playing normally")
     else
         -- Deactivate
         if self.State.FakeCharacter then
@@ -33781,12 +35396,14 @@ function Modules.AntiESP:ToggleActive()
             self.State.FakeCharacter = nil
         end
         
-        -- Return to normal position
-        if self.State.OriginalCFrame and self.State.HumanoidRootPart and self.State.HumanoidRootPart.Parent then
+        -- Return HRP to real position
+        if self.State.RealCFrame and self.State.HumanoidRootPart and self.State.HumanoidRootPart.Parent then
             pcall(function()
-                self.State.HumanoidRootPart.CFrame = self.State.OriginalCFrame
+                self.State.HumanoidRootPart.CFrame = self.State.RealCFrame
             end)
         end
+        
+        self.State.RealCFrame = nil
         
         print("✓ Anti-ESP DEACTIVATED")
     end
@@ -33802,12 +35419,11 @@ function Modules.AntiESP:UpdateDisplay()
     local activateBtn = self.State.UI.MainFrame.Content.ActivateButton
     
     if self.State.IsActive then
-        local depth = self.Config.AntiRaycast and "-100" or self.Config.VoidDepth
+        local location = self.Config.AntiRaycast and "Underground (-100)" or "Void (" .. self.Config.VoidDepth .. ")"
         statusLabel.Text = string.format(
-            "Status: ACTIVE\nServer Position: Y=%s\nDecoy: %s\nNametags: %s",
-            depth,
-            self.Config.EnableDummyDecoy and "Active" or "Off",
-            self.Config.SuppressNametags and "Hidden" or "Visible"
+            "Status: ACTIVE\nOthers see: %s\nDecoy: %s",
+            location,
+            self.Config.EnableDummyDecoy and "Active" or "Off"
         )
         statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
         
@@ -33818,7 +35434,7 @@ function Modules.AntiESP:UpdateDisplay()
         activateBtn.Text = "DEACTIVATE"
         activateBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 50)
     else
-        statusLabel.Text = "Status: Inactive\nServer Position: Normal\nDecoy: Off"
+        statusLabel.Text = "Status: Inactive\nOthers see: Normal position\nDecoy: Off"
         statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
         
         statusIndicator.Text = "INACTIVE"
@@ -33831,7 +35447,7 @@ function Modules.AntiESP:UpdateDisplay()
 end
 
 function Modules.AntiESP:OnCharacterAdded(character)
-    task.wait(0.5) -- Small wait for character to fully load
+    task.wait(0.5)
     
     self.State.Character = character
     self.State.HumanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
@@ -33842,7 +35458,6 @@ function Modules.AntiESP:OnCharacterAdded(character)
         return
     end
     
-    -- Cleanup old decoy
     if self.State.FakeCharacter then
         pcall(function()
             self.State.FakeCharacter:Destroy()
@@ -33850,11 +35465,10 @@ function Modules.AntiESP:OnCharacterAdded(character)
         self.State.FakeCharacter = nil
     end
     
-    -- Reset active state
     self.State.IsActive = false
+    self.State.RealCFrame = nil
     self:UpdateDisplay()
     
-    -- Death handler
     self.State.Connections.Died = self.State.Humanoid.Died:Connect(function()
         self.State.IsActive = false
         if self.State.FakeCharacter then
@@ -33873,17 +35487,14 @@ function Modules.AntiESP:Enable()
     if self.State.IsEnabled then return end
     self.State.IsEnabled = true
     
-    -- Setup character
     if LocalPlayer.Character then
         self:OnCharacterAdded(LocalPlayer.Character)
     end
     
-    -- Character respawn handler
     self.State.Connections.CharacterAdded = LocalPlayer.CharacterAdded:Connect(function(character)
         self:OnCharacterAdded(character)
     end)
     
-    -- Create UI
     self:_createUI()
     self:UpdateDisplay()
     
@@ -33893,7 +35504,6 @@ end
 function Modules.AntiESP:Disable()
     if not self.State.IsEnabled then return end
     
-    -- Deactivate if active
     if self.State.IsActive then
         self.State.IsActive = false
         
@@ -33904,16 +35514,15 @@ function Modules.AntiESP:Disable()
             self.State.FakeCharacter = nil
         end
         
-        if self.State.OriginalCFrame and self.State.HumanoidRootPart and self.State.HumanoidRootPart.Parent then
+        if self.State.RealCFrame and self.State.HumanoidRootPart and self.State.HumanoidRootPart.Parent then
             pcall(function()
-                self.State.HumanoidRootPart.CFrame = self.State.OriginalCFrame
+                self.State.HumanoidRootPart.CFrame = self.State.RealCFrame
             end)
         end
     end
     
     self.State.IsEnabled = false
     
-    -- Disconnect connections
     for _, conn in pairs(self.State.Connections) do
         if conn then
             pcall(function()
@@ -33923,7 +35532,6 @@ function Modules.AntiESP:Disable()
     end
     table.clear(self.State.Connections)
     
-    -- Destroy UI
     if self.State.UI then
         self.State.UI:Destroy()
         self.State.UI = nil
@@ -33943,7 +35551,7 @@ end
 RegisterCommand({
     Name = "voidspoof",
     Aliases = {},
-    Description = "Anti-ESP/Aimbot system. Sends server position to void while keeping client normal."
+    Description = "Anti-ESP/Aimbot system. Others see you in void"
 }, function()
     Modules.AntiESP:Toggle()
 end)
@@ -34853,7 +36461,7 @@ end)
 DoNotif("We're So back. The Best Underground Panel.")
 
 
---[[local getgenv, getnamecallmethod, hookmetamethod, newcclosure, checkcaller, stringlower = getgenv, getnamecallmethod, hookmetamethod, newcclosure, checkcaller, string.lower;
+local getgenv, getnamecallmethod, hookmetamethod, newcclosure, checkcaller, stringlower = getgenv, getnamecallmethod, hookmetamethod, newcclosure, checkcaller, string.lower;
 local function ClonedService(name)
 	local Service = game.GetService;
 	local Reference = cloneref or function(reference)
@@ -34891,4 +36499,4 @@ if (getgenv()).ED_AntiKick.SendNotifications then
 		Icon = "rbxassetid://6238537240",
 		Duration = 3
 	});
-end;]]
+end;
