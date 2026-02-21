@@ -9437,7 +9437,7 @@ function Modules.codedoor:Initialize()
     local module = self
     RegisterCommand({
         Name = "codedoor",
-        Aliases = {"unlock", "getcode", "doorcode"},
+        Aliases = {},
         Description = "Scans and extracts the PIN from common free-model codedoors."
     }, function()
         module:GetCode()
@@ -27768,6 +27768,2531 @@ function Modules.VelocitySpoofer:Initialize()
         DoNotif("Settings printed to console (F9)", 2)
     end)
 end
+Modules.GuiRemover = {
+    State = {
+        RemovedGuis = {},
+        DisabledGuis = {}
+    }
+}
+
+function Modules.GuiRemover:_scanAndRemove(container, mode)
+    local count = 0
+    for _, gui in ipairs(container:GetDescendants()) do
+        if gui:IsA("ScreenGui") or gui:IsA("BillboardGui") or gui:IsA("SurfaceGui") then
+            if mode == "remove" then
+                pcall(function()
+                    table.insert(self.State.RemovedGuis, {
+                        Gui = gui,
+                        Parent = gui.Parent
+                    })
+                    gui.Parent = nil
+                    count = count + 1
+                end)
+            elseif mode == "disable" then
+                pcall(function()
+                    if gui.Enabled then
+                        gui.Enabled = false
+                        table.insert(self.State.DisabledGuis, gui)
+                        count = count + 1
+                    end
+                end)
+            end
+        end
+    end
+    return count
+end
+
+function Modules.GuiRemover:RemoveAll()
+    local total = 0
+    
+    -- Check CoreGui (where fake disconnect screens usually are)
+    local coreGui = game:GetService("CoreGui")
+    if coreGui then
+        total = total + self:_scanAndRemove(coreGui, "remove")
+    end
+    
+    -- Check PlayerGui
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if playerGui then
+        total = total + self:_scanAndRemove(playerGui, "remove")
+    end
+    
+    DoNotif(string.format("Removed %d GUI(s)", total), 2)
+end
+
+function Modules.GuiRemover:DisableAll()
+    local total = 0
+    
+    local coreGui = game:GetService("CoreGui")
+    if coreGui then
+        total = total + self:_scanAndRemove(coreGui, "disable")
+    end
+    
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if playerGui then
+        total = total + self:_scanAndRemove(playerGui, "disable")
+    end
+    
+    DoNotif(string.format("Disabled %d GUI(s)", total), 2)
+end
+
+function Modules.GuiRemover:RestoreRemoved()
+    local count = 0
+    for _, data in ipairs(self.State.RemovedGuis) do
+        pcall(function()
+            if data.Gui and data.Parent then
+                data.Gui.Parent = data.Parent
+                count = count + 1
+            end
+        end)
+    end
+    self.State.RemovedGuis = {}
+    DoNotif(string.format("Restored %d GUI(s)", count), 2)
+end
+
+function Modules.GuiRemover:RestoreDisabled()
+    local count = 0
+    for _, gui in ipairs(self.State.DisabledGuis) do
+        pcall(function()
+            if gui then
+                gui.Enabled = true
+                count = count + 1
+            end
+        end)
+    end
+    self.State.DisabledGuis = {}
+    DoNotif(string.format("Re-enabled %d GUI(s)", count), 2)
+end
+
+function Modules.GuiRemover:FindByName(name)
+    local found = {}
+    
+    local function search(container)
+        for _, gui in ipairs(container:GetDescendants()) do
+            if (gui:IsA("ScreenGui") or gui:IsA("BillboardGui") or gui:IsA("SurfaceGui")) 
+                and gui.Name:lower():match(name:lower()) then
+                table.insert(found, gui)
+            end
+        end
+    end
+    
+    local coreGui = game:GetService("CoreGui")
+    if coreGui then search(coreGui) end
+    
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if playerGui then search(playerGui) end
+    
+    return found
+end
+
+function Modules.GuiRemover:RemoveByName(name)
+    local guis = self:FindByName(name)
+    local count = 0
+    
+    for _, gui in ipairs(guis) do
+        pcall(function()
+            table.insert(self.State.RemovedGuis, {
+                Gui = gui,
+                Parent = gui.Parent
+            })
+            gui.Parent = nil
+            count = count + 1
+        end)
+    end
+    
+    if count > 0 then
+        DoNotif(string.format("Removed %d GUI(s) matching '%s'", count, name), 2)
+    else
+        DoNotif("No GUIs found with that name", 3)
+    end
+end
+
+RegisterCommand({
+    Name = "removegui",
+    Aliases = {"rg", "killgui"},
+    Description = "Removes all GUIs or a specific GUI by name. Usage: ;removegui [name]"
+}, function(args)
+    if args[1] then
+        Modules.GuiRemover:RemoveByName(args[1])
+    else
+        Modules.GuiRemover:RemoveAll()
+    end
+end)
+RegisterCommand({
+    Name = "disablegui",
+    Aliases = {"dg"},
+    Description = "Disables all GUIs without removing them. Usage: ;disablegui"
+}, function()
+    Modules.GuiRemover:DisableAll()
+end)
+RegisterCommand({
+    Name = "restoregui",
+    Aliases = {"bringgui"},
+    Description = "Restores previously removed/disabled GUIs."
+}, function()
+    Modules.GuiRemover:RestoreRemoved()
+    Modules.GuiRemover:RestoreDisabled()
+end)
+Modules.BadgeSpoofer = {
+    State = {
+        SpoofedBadges = {},
+        IsHooked = false,
+        OriginalFunctions = {},
+        BadgeRemotes = {}
+    }
+}
+function Modules.BadgeSpoofer:_findBadgeRemotes()
+    self.State.BadgeRemotes = {}
+    local function scan(container)
+        for _, child in ipairs(container:GetDescendants()) do
+            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+                local name = child.Name:lower()
+                if name:find("badge") or name:find("award") or name:find("unlock") then
+                    table.insert(self.State.BadgeRemotes, child)
+                end
+            end
+        end
+    end
+    scan(game:GetService("ReplicatedStorage"))
+    scan(game:GetService("ReplicatedFirst"))
+    return #self.State.BadgeRemotes
+end
+function Modules.BadgeSpoofer:_hookBadgeService()
+    if self.State.IsHooked then return end
+    local BadgeService = game:GetService("BadgeService")
+    local mt = getrawmetatable(game)
+    if not mt then
+        DoNotif("Failed to get metatable", 3)
+        return false
+    end
+    pcall(function()
+        if setreadonly then setreadonly(mt, false) end
+    end)
+    local oldNamecall = mt.__namecall
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        if method == "UserHasBadgeAsync" then
+            local userId = args[1]
+            local badgeId = args[2]
+            if userId == LocalPlayer.UserId and Modules.BadgeSpoofer.State.SpoofedBadges[badgeId] then
+                return true
+            end
+        end
+        if method == "AwardBadge" then
+            local userId = args[1]
+            local badgeId = args[2]
+            if userId == LocalPlayer.UserId then
+                Modules.BadgeSpoofer.State.SpoofedBadges[badgeId] = true
+                return true
+            end
+        end
+        return oldNamecall(self, ...)
+    end)
+    pcall(function()
+        if setreadonly then setreadonly(mt, true) end
+    end)
+    self.State.IsHooked = true
+    return true
+end
+function Modules.BadgeSpoofer:_findGameBadges()
+    local badges = {}
+    local function searchForBadgeIds(container)
+        for _, obj in ipairs(container:GetDescendants()) do
+            if obj:IsA("IntValue") or obj:IsA("NumberValue") then
+                if obj.Name:lower():find("badge") then
+                    local badgeId = obj.Value
+                    if badgeId > 0 then
+                        table.insert(badges, {
+                            Id = badgeId,
+                            Source = obj:GetFullName()
+                        })
+                    end
+                end
+            end
+            if obj:IsA("StringValue") then
+                local str = obj.Value
+                local badgeId = tonumber(str:match("(%d+)"))
+                if badgeId and badgeId > 1000000 then
+                    table.insert(badges, {
+                        Id = badgeId,
+                        Source = obj:GetFullName()
+                    })
+                end
+            end
+            if obj:IsA("ModuleScript") then
+                local success, source = pcall(function()
+                    return obj.Source
+                end)
+                if success and source then
+                    for badgeId in source:gmatch("(%d%d%d%d%d%d%d+)") do
+                        local id = tonumber(badgeId)
+                        if id then
+                            table.insert(badges, {
+                                Id = id,
+                                Source = obj.Name
+                            })
+                        end
+                    end
+                end
+            end
+        end
+    end
+    searchForBadgeIds(game:GetService("ReplicatedStorage"))
+    searchForBadgeIds(game:GetService("ReplicatedFirst"))
+    return badges
+end
+function Modules.BadgeSpoofer:SpoofBadge(badgeId)
+    if not self.State.IsHooked then
+        self:_hookBadgeService()
+    end
+    badgeId = tonumber(badgeId)
+    if not badgeId then
+        DoNotif("Invalid badge ID", 3)
+        return
+    end
+    self.State.SpoofedBadges[badgeId] = true
+    DoNotif(string.format("Spoofed badge: %d", badgeId), 2)
+end
+function Modules.BadgeSpoofer:SpoofAllFoundBadges()
+    if not self.State.IsHooked then
+        self:_hookBadgeService()
+    end
+    local badges = self:_findGameBadges()
+    local count = 0
+    for _, badgeData in ipairs(badges) do
+        if not self.State.SpoofedBadges[badgeData.Id] then
+            self.State.SpoofedBadges[badgeData.Id] = true
+            count = count + 1
+        end
+    end
+    DoNotif(string.format("Spoofed %d badges", count), 2)
+end
+function Modules.BadgeSpoofer:ListFoundBadges()
+    local badges = self:_findGameBadges()
+    print("\n=== FOUND BADGES ===")
+    for i, badgeData in ipairs(badges) do
+        print(string.format("%d. Badge ID: %d (from %s)", i, badgeData.Id, badgeData.Source))
+    end
+    print(string.format("\nTotal: %d badges", #badges))
+    DoNotif(string.format("Found %d badges (check console)", #badges), 2)
+end
+function Modules.BadgeSpoofer:RemoveSpoof(badgeId)
+    badgeId = tonumber(badgeId)
+    if not badgeId then
+        DoNotif("Invalid badge ID", 3)
+        return
+    end
+    self.State.SpoofedBadges[badgeId] = nil
+    DoNotif(string.format("Removed spoof: %d", badgeId), 2)
+end
+function Modules.BadgeSpoofer:ClearAllSpoofs()
+    local count = 0
+    for _ in pairs(self.State.SpoofedBadges) do
+        count = count + 1
+    end
+    self.State.SpoofedBadges = {}
+    DoNotif(string.format("Cleared %d spoofed badges", count), 2)
+end
+function Modules.BadgeSpoofer:ListSpoofedBadges()
+    print("\n=== SPOOFED BADGES ===")
+    local count = 0
+    for badgeId, _ in pairs(self.State.SpoofedBadges) do
+        count = count + 1
+        print(string.format("%d. Badge ID: %d", count, badgeId))
+    end
+    print(string.format("\nTotal: %d spoofed", count))
+    DoNotif(string.format("%d badges spoofed (check console)", count), 2)
+end
+function Modules.BadgeSpoofer:FireBadgeRemotes(badgeId)
+    badgeId = tonumber(badgeId)
+    if not badgeId then
+        DoNotif("Invalid badge ID", 3)
+        return
+    end
+    if #self.State.BadgeRemotes == 0 then
+        self:_findBadgeRemotes()
+    end
+    local attempts = 0
+    for _, remote in ipairs(self.State.BadgeRemotes) do
+        pcall(function()
+            if remote:IsA("RemoteEvent") then
+                remote:FireServer(badgeId)
+                remote:FireServer({BadgeId = badgeId})
+                remote:FireServer("Award", badgeId)
+            elseif remote:IsA("RemoteFunction") then
+                remote:InvokeServer(badgeId)
+                remote:InvokeServer({BadgeId = badgeId})
+            end
+            attempts = attempts + 1
+        end)
+        task.wait(0.05)
+    end
+    DoNotif(string.format("Fired %d badge remotes", attempts), 2)
+end
+function Modules.BadgeSpoofer:BruteForceUnlock(itemName)
+    DoNotif("Brute forcing unlock for: " .. itemName, 2)
+    local unlockRemotes = {}
+    local function findUnlockRemotes(container)
+        for _, remote in ipairs(container:GetDescendants()) do
+            if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+                local name = remote.Name:lower()
+                if name:find("unlock") or name:find("equip") or name:find("purchase") or 
+                   name:find("buy") or name:find("claim") then
+                    table.insert(unlockRemotes, remote)
+                end
+            end
+        end
+    end
+    findUnlockRemotes(game:GetService("ReplicatedStorage"))
+    local patterns = {
+        itemName,
+        {Item = itemName},
+        {Name = itemName},
+        {ItemName = itemName},
+        "Unlock", itemName,
+        "Equip", itemName,
+    }
+    local attempts = 0
+    for _, remote in ipairs(unlockRemotes) do
+        for _, pattern in ipairs(patterns) do
+            pcall(function()
+                if remote:IsA("RemoteEvent") then
+                    remote:FireServer(pattern)
+                else
+                    remote:InvokeServer(pattern)
+                end
+            end)
+            attempts = attempts + 1
+            task.wait(0.02)
+        end
+    end
+    DoNotif(string.format("Tried %d unlock attempts", attempts), 2)
+end
+RegisterCommand({
+    Name = "spoofbadge",
+    Aliases = {"sbadge"},
+    Description = "Spoof ownership of a badge. Usage: ;spoofbadge <badgeId>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;spoofbadge <badgeId>", 3)
+        return
+    end
+    Modules.BadgeSpoofer:SpoofBadge(args[1])
+end)
+RegisterCommand({
+    Name = "spoofall",
+    Aliases = {"spoofallbadges"},
+    Description = "Auto-detect and spoof all badges found in the game"
+}, function()
+    Modules.BadgeSpoofer:SpoofAllFoundBadges()
+end)
+RegisterCommand({
+    Name = "findbadges",
+    Aliases = {"listbadges"},
+    Description = "Find and list all badge IDs in the game (prints to console)"
+}, function()
+    Modules.BadgeSpoofer:ListFoundBadges()
+end)
+RegisterCommand({
+    Name = "unspoofbadge",
+    Aliases = {"removebadge"},
+    Description = "Remove badge spoof. Usage: ;unspoofbadge <badgeId>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;unspoofbadge <badgeId>", 3)
+        return
+    end
+    Modules.BadgeSpoofer:RemoveSpoof(args[1])
+end)
+RegisterCommand({
+    Name = "clearbadges",
+    Aliases = {"resetbadges"},
+    Description = "Clear all spoofed badges"
+}, function()
+    Modules.BadgeSpoofer:ClearAllSpoofs()
+end)
+RegisterCommand({
+    Name = "spooflist",
+    Aliases = {"myspoofs"},
+    Description = "List currently spoofed badges (prints to console)"
+}, function()
+    Modules.BadgeSpoofer:ListSpoofedBadges()
+end)
+RegisterCommand({
+    Name = "firebadge",
+    Aliases = {"awardbadge"},
+    Description = "Fire badge-related remotes. Usage: ;firebadge <badgeId>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;firebadge <badgeId>", 3)
+        return
+    end
+    Modules.BadgeSpoofer:FireBadgeRemotes(args[1])
+end)
+RegisterCommand({
+    Name = "bruteunlock",
+    Aliases = {"forceunlock"},
+    Description = "Brute force unlock badge-gated item. Usage: ;bruteunlock <itemName>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;bruteunlock <itemName>", 3)
+        return
+    end
+    local itemName = table.concat(args, " ")
+    Modules.BadgeSpoofer:BruteForceUnlock(itemName)
+end)
+Modules.HDAdminAccess = {
+    State = {
+        HasAccess = false,
+        HDAdminInstance = nil,
+        OriginalFunctions = {}
+    }
+}
+function Modules.HDAdminAccess:_findHDAdmin()
+    local locations = {
+        game:GetService("ReplicatedStorage"),
+        game:GetService("ReplicatedFirst"),
+        LocalPlayer:FindFirstChild("PlayerScripts"),
+        LocalPlayer:FindFirstChild("PlayerGui")
+    }
+    for _, location in ipairs(locations) do
+        if location then
+            local hdAdmin = location:FindFirstChild("HDAdminClient") or
+                           location:FindFirstChild("HD Admin") or
+                           location:FindFirstChild("HDAdmin") or
+                           location:FindFirstChild("MainModule")
+            if hdAdmin then
+                return hdAdmin
+            end
+            for _, child in ipairs(location:GetDescendants()) do
+                if child.Name:lower():find("hdadmin") or 
+                   (child:IsA("ModuleScript") and child.Name == "MainModule") then
+                    return child
+                end
+            end
+        end
+    end
+    return nil
+end
+function Modules.HDAdminAccess:_hookPermissions()
+    local hdAdmin = self:_findHDAdmin()
+    if not hdAdmin then
+        DoNotif("HD Admin not found in game", 3)
+        return false
+    end
+    self.State.HDAdminInstance = hdAdmin
+    local success, mainModule = pcall(function()
+        return require(hdAdmin)
+    end)
+    if not success then
+        DoNotif("Failed to load HD Admin module", 3)
+        return false
+    end
+    if type(mainModule) ~= "table" then
+        DoNotif("HD Admin didn't return a table", 3)
+        return false
+    end
+    pcall(function()
+        if setreadonly then setreadonly(mainModule, false) end
+    end)
+    local permissionKeys = {
+        "checkPermission", "checkAdmin", "checkOwner", "checkModerator",
+        "getUserRank", "getRank", "isAdmin", "isMod", "isOwner",
+        "checkBan", "checkMuted", "hasPermission"
+    }
+    for _, key in ipairs(permissionKeys) do
+        if mainModule[key] then
+            self.State.OriginalFunctions[key] = mainModule[key]
+            mainModule[key] = function(...)
+                return true
+            end
+        end
+    end
+    if mainModule.getUserRank or mainModule.getRank then
+        local rankFunc = mainModule.getUserRank or mainModule.getRank
+        self.State.OriginalFunctions.getRank = rankFunc
+        mainModule.getUserRank = function(...) return 255 end
+        mainModule.getRank = function(...) return 255 end
+    end
+    if mainModule.settings then
+        pcall(function()
+            if setreadonly then setreadonly(mainModule.settings, false) end
+            if mainModule.settings.Admins then
+                pcall(function()
+                    if setreadonly then setreadonly(mainModule.settings.Admins, false) end
+                    mainModule.settings.Admins[LocalPlayer.UserId] = 255
+                end)
+            end
+            if mainModule.settings.Owners then
+                pcall(function()
+                    if setreadonly then setreadonly(mainModule.settings.Owners, false) end
+                    table.insert(mainModule.settings.Owners, LocalPlayer.UserId)
+                end)
+            end
+        end)
+    end
+    return true
+end
+function Modules.HDAdminAccess:_activateHDAdmin()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return false end
+    local hdAdminGui = playerGui:FindFirstChild("HDAdminCommands") or
+                      playerGui:FindFirstChild("HDAdmin") or
+                      playerGui:FindFirstChild("HD Admin")
+    if hdAdminGui then
+        hdAdminGui.Enabled = true
+        for _, child in ipairs(hdAdminGui:GetDescendants()) do
+            if child:IsA("Frame") and (child.Name:lower():find("main") or child.Name:lower():find("command")) then
+                child.Visible = true
+            end
+        end
+        return true
+    end
+    local hdAdmin = self.State.HDAdminInstance
+    if hdAdmin then
+        local success, client = pcall(function()
+            return require(hdAdmin)
+        end)
+        if success and client then
+            pcall(function()
+                if client.createWindow then client:createWindow() end
+                if client.openCommandBar then client:openCommandBar() end
+                if client.showCommandBar then client:showCommandBar() end
+            end)
+            return true
+        end
+    end
+    return false
+end
+function Modules.HDAdminAccess:_spoofRemotes()
+    local remotes = {}
+    local function findRemotes(container)
+        for _, child in ipairs(container:GetDescendants()) do
+            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+                local name = child.Name:lower()
+                if name:find("admin") or name:find("permission") or name:find("rank") then
+                    table.insert(remotes, child)
+                end
+            end
+        end
+    end
+    findRemotes(game:GetService("ReplicatedStorage"))
+    for _, remote in ipairs(remotes) do
+        if remote:IsA("RemoteFunction") then
+            local oldInvoke = remote.InvokeServer
+            remote.InvokeServer = function(...)
+                local args = {...}
+                return 255
+            end
+        end
+    end
+end
+function Modules.HDAdminAccess:_injectAdminStatus()
+    local hdAdmin = self.State.HDAdminInstance
+    if not hdAdmin then return false end
+    local success = pcall(function()
+        local mainModule = require(hdAdmin)
+        if mainModule.pdata or mainModule.playerData then
+            local pdata = mainModule.pdata or mainModule.playerData
+            pcall(function()
+                if setreadonly then setreadonly(pdata, false) end
+            end)
+            if pdata[LocalPlayer.UserId] then
+                local ourData = pdata[LocalPlayer.UserId]
+                pcall(function()
+                    if setreadonly then setreadonly(ourData, false) end
+                    ourData.Rank = 255
+                    ourData.isAdmin = true
+                    ourData.isOwner = true
+                    ourData.isModerator = true
+                end)
+            else
+                pdata[LocalPlayer.UserId] = {
+                    Rank = 255,
+                    isAdmin = true,
+                    isOwner = true,
+                    isModerator = true
+                }
+            end
+        end
+        if mainModule.parse or mainModule.parser then
+            local parser = mainModule.parse or mainModule.parser
+            pcall(function()
+                if setreadonly then setreadonly(parser, false) end
+            end)
+        end
+    end)
+    return success
+end
+function Modules.HDAdminAccess:GrantAccess()
+    DoNotif("Attempting HD Admin access...", 2)
+    local hdAdmin = self:_findHDAdmin()
+    if not hdAdmin then
+        DoNotif("HD Admin not found - game may not have it", 3)
+        return
+    end
+    DoNotif("Found HD Admin, hooking permissions...", 2)
+    self:_hookPermissions()
+    self:_spoofRemotes()
+    self:_injectAdminStatus()
+    task.wait(0.5)
+    local activated = self:_activateHDAdmin()
+    if activated then
+        DoNotif("HD Admin access granted! Type : or ; to use commands", 2)
+        self.State.HasAccess = true
+    else
+        DoNotif("Access hooked, try typing :cmds", 2)
+        self.State.HasAccess = true
+    end
+end
+function Modules.HDAdminAccess:OpenPanel()
+    if not self.State.HasAccess then
+        self:GrantAccess()
+    else
+        self:_activateHDAdmin()
+    end
+end
+function Modules.HDAdminAccess:ListCommands()
+    local hdAdmin = self.State.HDAdminInstance
+    if not hdAdmin then
+        DoNotif("HD Admin not loaded", 3)
+        return
+    end
+    local success, mainModule = pcall(function()
+        return require(hdAdmin)
+    end)
+    if success and mainModule then
+        print("\n=== HD ADMIN COMMANDS ===")
+        local commands = mainModule.commands or mainModule.commandList or mainModule.cmds
+        if commands then
+            local count = 0
+            for cmdName, cmdData in pairs(commands) do
+                if type(cmdData) == "table" then
+                    local desc = cmdData.Description or cmdData.description or "No description"
+                    local prefix = cmdData.Prefix or cmdData.prefix or ":"
+                    print(string.format("%s%s - %s", prefix, cmdName, desc))
+                else
+                    print(cmdName)
+                end
+                count = count + 1
+            end
+            print(string.format("\nTotal commands: %d", count))
+            DoNotif(string.format("Listed %d commands (check console)", count), 2)
+        else
+            DoNotif("Could not find command list", 3)
+        end
+    end
+end
+function Modules.HDAdminAccess:ExecuteCommand(commandString)
+    local hdAdmin = self.State.HDAdminInstance
+    if not hdAdmin then
+        DoNotif("HD Admin not loaded", 3)
+        return
+    end
+    local commandRemote = game:GetService("ReplicatedStorage"):FindFirstChild("HDAdminRemote") or
+                         game:GetService("ReplicatedStorage"):FindFirstChild("CommandRemote")
+    if commandRemote and commandRemote:IsA("RemoteEvent") then
+        commandRemote:FireServer(commandString)
+        DoNotif("Executed: " .. commandString, 2)
+    else
+        local success, mainModule = pcall(function()
+            return require(hdAdmin)
+        end)
+        if success and mainModule then
+            pcall(function()
+                if mainModule.processCommand then
+                    mainModule:processCommand(LocalPlayer, commandString)
+                elseif mainModule.parse then
+                    mainModule:parse(LocalPlayer, commandString)
+                end
+            end)
+            DoNotif("Executed: " .. commandString, 2)
+        else
+            DoNotif("Failed to execute command", 3)
+        end
+    end
+end
+function Modules.HDAdminAccess:ToggleCommandBar()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return end
+    for _, gui in ipairs(playerGui:GetDescendants()) do
+        if gui:IsA("TextBox") and (gui.Name:lower():find("command") or gui.PlaceholderText:lower():find("command")) then
+            gui.Visible = not gui.Visible
+            if gui.Visible then
+                gui:CaptureFocus()
+            end
+        end
+    end
+end
+RegisterCommand({
+    Name = "hdadmin",
+    Aliases = {"hda"},
+    Description = "Grant access to HD Admin system if game has it"
+}, function()
+    Modules.HDAdminAccess:GrantAccess()
+end)
+RegisterCommand({
+    Name = "openhd",
+    Aliases = {"hdopen"},
+    Description = "Open the HD Admin panel"
+}, function()
+    Modules.HDAdminAccess:OpenPanel()
+end)
+RegisterCommand({
+    Name = "hdlist",
+    Aliases = {"listhd"},
+    Description = "List all available HD Admin commands (prints to console)"
+}, function()
+    Modules.HDAdminAccess:ListCommands()
+end)
+RegisterCommand({
+    Name = "runhd",
+    Aliases = {"hdrun"},
+    Description = "Execute an HD Admin command. Usage: ;runhd <command>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;runhd <command>", 3)
+        return
+    end
+    local commandString = table.concat(args, " ")
+    Modules.HDAdminAccess:ExecuteCommand(commandString)
+end)
+RegisterCommand({
+    Name = "hdbar",
+    Aliases = {},
+    Description = "Toggle HD Admin command bar visibility"
+}, function()
+    Modules.HDAdminAccess:ToggleCommandBar()
+end)
+Modules.CmdrAccess = {
+    State = {
+        HasAccess = false,
+        CmdrInstance = nil,
+        OriginalPermissions = nil
+    }
+}
+function Modules.CmdrAccess:_findCmdr()
+    local cmdr = game:GetService("ReplicatedStorage"):FindFirstChild("Cmdr") or
+                 game:GetService("ReplicatedStorage"):FindFirstChild("CmdrClient")
+    if cmdr then
+        return cmdr
+    end
+    if LocalPlayer:FindFirstChild("PlayerGui") then
+        local cmdrGui = LocalPlayer.PlayerGui:FindFirstChild("Cmdr")
+        if cmdrGui then
+            return cmdrGui
+        end
+    end
+    if LocalPlayer:FindFirstChild("PlayerScripts") then
+        local cmdrScript = LocalPlayer.PlayerScripts:FindFirstChild("Cmdr") or
+                          LocalPlayer.PlayerScripts:FindFirstChild("CmdrClient")
+        if cmdrScript then
+            return cmdrScript
+        end
+    end
+    return nil
+end
+function Modules.CmdrAccess:_hookPermissions()
+    local cmdr = self:_findCmdr()
+    if not cmdr then
+        DoNotif("Cmdr not found in game", 3)
+        return false
+    end
+    self.State.CmdrInstance = cmdr
+    local success, cmdrClient = pcall(function()
+        return require(cmdr)
+    end)
+    if not success then
+        DoNotif("Failed to load Cmdr client", 3)
+        return false
+    end
+    if cmdrClient and type(cmdrClient) == "table" then
+        pcall(function()
+            if setreadonly then setreadonly(cmdrClient, false) end
+        end)
+        for key, value in pairs(cmdrClient) do
+            if type(value) == "function" then
+                local keyLower = tostring(key):lower()
+                if keyLower:find("permission") or keyLower:find("admin") or keyLower:find("access") then
+                    self.State.OriginalPermissions = self.State.OriginalPermissions or {}
+                    self.State.OriginalPermissions[key] = value
+                    cmdrClient[key] = function(...)
+                        return true
+                    end
+                end
+            end
+        end
+        if cmdrClient.Registry then
+            pcall(function()
+                if setreadonly then setreadonly(cmdrClient.Registry, false) end
+            end)
+        end
+    end
+    return true
+end
+function Modules.CmdrAccess:_activateCmdr()
+    local cmdrGui = LocalPlayer.PlayerGui:FindFirstChild("Cmdr")
+    if cmdrGui then
+        cmdrGui.Enabled = true
+        local window = cmdrGui:FindFirstChild("Window") or cmdrGui:FindFirstChildWhichIsA("Frame", true)
+        if window then
+            window.Visible = true
+        end
+        return true
+    end
+    local cmdr = self.State.CmdrInstance
+    if cmdr then
+        local success, client = pcall(function()
+            return require(cmdr)
+        end)
+        if success and client then
+            pcall(function()
+                if client.Show then client:Show() end
+                if client.SetActivationKeys then 
+                    client:SetActivationKeys({Enum.KeyCode.Semicolon, Enum.KeyCode.Quote})
+                end
+                if client.Activate then client:Activate() end
+            end)
+            return true
+        end
+    end
+    return false
+end
+function Modules.CmdrAccess:_spoofUserId()
+    local mt = getrawmetatable(game)
+    if not mt then return false end
+    pcall(function()
+        if setreadonly then setreadonly(mt, false) end
+    end)
+    local oldNamecall = mt.__namecall
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        if method == "GetRankInGroup" or method == "IsInGroup" then
+            return 255
+        end
+        return oldNamecall(self, ...)
+    end)
+    return true
+end
+function Modules.CmdrAccess:_injectAdminCommands()
+    local cmdr = self.State.CmdrInstance
+    if not cmdr then return false end
+    local success = pcall(function()
+        local client = require(cmdr)
+        if client.Registry then
+            pcall(function()
+                if setreadonly then setreadonly(client.Registry, false) end
+            end)
+            if client.Registry.Cmdr then
+                local cmdrReg = client.Registry.Cmdr
+                pcall(function()
+                    if setreadonly then setreadonly(cmdrReg, false) end
+                end)
+                if cmdrReg.GetPermissionLevel then
+                    cmdrReg.GetPermissionLevel = function() return 255 end
+                end
+                if cmdrReg.GetAdminLevel then
+                    cmdrReg.GetAdminLevel = function() return 255 end
+                end
+            end
+        end
+        if client.Util then
+            pcall(function()
+                if setreadonly then setreadonly(client.Util, false) end
+                if client.Util.RunElevated then
+                    client.Util.RunElevated = function(func) return func() end
+                end
+            end)
+        end
+    end)
+    return success
+end
+function Modules.CmdrAccess:GrantAccess()
+    DoNotif("Attempting Cmdr access...", 2)
+    local cmdr = self:_findCmdr()
+    if not cmdr then
+        DoNotif("Cmdr not found - game may not have it", 3)
+        return
+    end
+    DoNotif("Found Cmdr, hooking permissions...", 2)
+    self:_hookPermissions()
+    self:_spoofUserId()
+    self:_injectAdminCommands()
+    task.wait(0.5)
+    local activated = self:_activateCmdr()
+    if activated then
+        DoNotif("Cmdr access granted! Press ; or ' to open", 2)
+        self.State.HasAccess = true
+    else
+        DoNotif("Access hooked, try opening manually", 2)
+        self.State.HasAccess = true
+    end
+end
+function Modules.CmdrAccess:OpenCmdr()
+    if not self.State.HasAccess then
+        self:GrantAccess()
+    else
+        self:_activateCmdr()
+    end
+end
+function Modules.CmdrAccess:ListCommands()
+    local cmdr = self.State.CmdrInstance
+    if not cmdr then
+        DoNotif("Cmdr not loaded", 3)
+        return
+    end
+    local success, client = pcall(function()
+        return require(cmdr)
+    end)
+    if success and client then
+        print("\n=== CMDR COMMANDS ===")
+        if client.Registry and client.Registry.Cmdr and client.Registry.Cmdr.Commands then
+            local commands = client.Registry.Cmdr.Commands
+            local count = 0
+            for cmdName, cmdData in pairs(commands) do
+                print(string.format("%s - %s", cmdName, cmdData.Description or "No description"))
+                count = count + 1
+            end
+            print(string.format("\nTotal commands: %d", count))
+            DoNotif(string.format("Listed %d commands (check console)", count), 2)
+        else
+            DoNotif("Could not access command registry", 3)
+        end
+    end
+end
+function Modules.CmdrAccess:ExecuteCommand(commandString)
+    local cmdr = self.State.CmdrInstance
+    if not cmdr then
+        DoNotif("Cmdr not loaded", 3)
+        return
+    end
+    local success, client = pcall(function()
+        return require(cmdr)
+    end)
+    if success and client then
+        pcall(function()
+            if client.Run then
+                client:Run(commandString)
+            elseif client.HandleCommand then
+                client:HandleCommand(commandString)
+            end
+        end)
+        DoNotif("Executed: " .. commandString, 2)
+    else
+        DoNotif("Failed to execute command", 3)
+    end
+end
+RegisterCommand({
+    Name = "cmdr",
+    Aliases = {"admin"},
+    Description = "Grant access to Cmdr admin system if game has it"
+}, function()
+    Modules.CmdrAccess:GrantAccess()
+end)
+RegisterCommand({
+    Name = "opencmdr",
+    Aliases = {"cmdropen"},
+    Description = "Open the Cmdr window"
+}, function()
+    Modules.CmdrAccess:OpenCmdr()
+end)
+RegisterCommand({
+    Name = "cmdlist",
+    Aliases = {"listcmdr"},
+    Description = "List all available Cmdr commands (prints to console)"
+}, function()
+    Modules.CmdrAccess:ListCommands()
+end)
+RegisterCommand({
+    Name = "runcmdr",
+    Aliases = {"cmdrrun"},
+    Description = "Execute a Cmdr command. Usage: ;runcmdr <command>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;runcmdr <command>", 3)
+        return
+    end
+    local commandString = table.concat(args, " ")
+    Modules.CmdrAccess:ExecuteCommand(commandString)
+end)
+Modules.TableUnlocker = {
+    State = {
+        UnlockedTables = {},
+        OriginalMetatables = {},
+        IsMonitoring = false,
+        MonitorConnection = nil
+    }
+}
+function Modules.TableUnlocker:_unlockTable(tbl)
+    if type(tbl) ~= "table" then return false end
+    local success = pcall(function()
+        if setreadonly then
+            setreadonly(tbl, false)
+        elseif make_writeable then
+            make_writeable(tbl)
+        end
+    end)
+    if success then
+        self.State.UnlockedTables[tbl] = true
+        return true
+    end
+    return false
+end
+function Modules.TableUnlocker:_unlockMetatable(tbl)
+    if type(tbl) ~= "table" then return false end
+    local success, mt = pcall(function()
+        return getrawmetatable(tbl)
+    end)
+    if success and mt then
+        if not self.State.OriginalMetatables[tbl] then
+            self.State.OriginalMetatables[tbl] = mt
+        end
+        pcall(function()
+            if setreadonly then
+                setreadonly(mt, false)
+            elseif make_writeable then
+                make_writeable(mt)
+            end
+        end)
+        if rawget(mt, "__metatable") then
+            rawset(mt, "__metatable", nil)
+        end
+        return true
+    end
+    return false
+end
+function Modules.TableUnlocker:_deepUnlock(tbl, maxDepth, currentDepth)
+    currentDepth = currentDepth or 0
+    maxDepth = maxDepth or 3
+    if currentDepth >= maxDepth then return end
+    if type(tbl) ~= "table" then return end
+    if self.State.UnlockedTables[tbl] then return end
+    self:_unlockTable(tbl)
+    self:_unlockMetatable(tbl)
+    for key, value in pairs(tbl) do
+        if type(value) == "table" then
+            self:_deepUnlock(value, maxDepth, currentDepth + 1)
+        end
+    end
+end
+function Modules.TableUnlocker:UnlockModule(moduleName)
+    local targetModule = nil
+    local searchLocations = {
+        game:GetService("ReplicatedStorage"),
+        game:GetService("ReplicatedFirst"),
+        LocalPlayer:WaitForChild("PlayerScripts"),
+        LocalPlayer:WaitForChild("PlayerGui")
+    }
+    for _, location in ipairs(searchLocations) do
+        local found = location:FindFirstChild(moduleName, true)
+        if found and found:IsA("ModuleScript") then
+            targetModule = found
+            break
+        end
+    end
+    if not targetModule then
+        DoNotif("Module not found: " .. moduleName, 3)
+        return
+    end
+    local success, moduleTable = pcall(function()
+        return require(targetModule)
+    end)
+    if not success then
+        DoNotif("Failed to require module", 3)
+        return
+    end
+    if type(moduleTable) ~= "table" then
+        DoNotif("Module didn't return a table", 3)
+        return
+    end
+    self:_deepUnlock(moduleTable, 5)
+    DoNotif(string.format("Unlocked: %s", moduleName), 2)
+end
+function Modules.TableUnlocker:UnlockGlobal(globalName)
+    local globalTable = _G[globalName]
+    if not globalTable then
+        DoNotif("Global not found: " .. globalName, 3)
+        return
+    end
+    if type(globalTable) ~= "table" then
+        DoNotif("Global is not a table", 3)
+        return
+    end
+    self:_deepUnlock(globalTable, 5)
+    DoNotif(string.format("Unlocked global: %s", globalName), 2)
+end
+function Modules.TableUnlocker:UnlockService(serviceName)
+    local success, service = pcall(function()
+        return game:GetService(serviceName)
+    end)
+    if not success or not service then
+        DoNotif("Service not found: " .. serviceName, 3)
+        return
+    end
+    self:_unlockTable(service)
+    self:_unlockMetatable(service)
+    DoNotif(string.format("Unlocked service: %s", serviceName), 2)
+end
+function Modules.TableUnlocker:ForceWriteable(targetPath)
+    local parts = {}
+    for part in targetPath:gmatch("[^.]+") do
+        table.insert(parts, part)
+    end
+    if #parts == 0 then
+        DoNotif("Invalid path", 3)
+        return
+    end
+    local current = _G[parts[1]] or game
+    for i = 2, #parts do
+        if not current then break end
+        current = current:FindFirstChild(parts[i])
+    end
+    if not current then
+        DoNotif("Path not found", 3)
+        return
+    end
+    if current:IsA("ModuleScript") then
+        local success, moduleTable = pcall(function()
+            return require(current)
+        end)
+        if success and type(moduleTable) == "table" then
+            current = moduleTable
+        end
+    end
+    if type(current) == "table" then
+        self:_deepUnlock(current, 5)
+        DoNotif("Unlocked: " .. targetPath, 2)
+    else
+        DoNotif("Target is not a table", 3)
+    end
+end
+function Modules.TableUnlocker:StartMonitor()
+    if self.State.IsMonitoring then
+        DoNotif("Monitor already running", 3)
+        return
+    end
+    self.State.IsMonitoring = true
+    self.State.MonitorConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        for tbl, _ in pairs(self.State.UnlockedTables) do
+            pcall(function()
+                if setreadonly then
+                    setreadonly(tbl, false)
+                elseif make_writeable then
+                    make_writeable(tbl)
+                end
+            end)
+        end
+    end)
+    DoNotif("Table monitor: ACTIVE", 2)
+end
+function Modules.TableUnlocker:StopMonitor()
+    if not self.State.IsMonitoring then return end
+    self.State.IsMonitoring = false
+    if self.State.MonitorConnection then
+        self.State.MonitorConnection:Disconnect()
+        self.State.MonitorConnection = nil
+    end
+    DoNotif("Table monitor: STOPPED", 2)
+end
+function Modules.TableUnlocker:RestoreLocks()
+    for tbl, _ in pairs(self.State.UnlockedTables) do
+        pcall(function()
+            if setreadonly then
+                setreadonly(tbl, true)
+            end
+        end)
+    end
+    for tbl, originalMt in pairs(self.State.OriginalMetatables) do
+        pcall(function()
+            setrawmetatable(tbl, originalMt)
+        end)
+    end
+    self.State.UnlockedTables = {}
+    self.State.OriginalMetatables = {}
+    DoNotif("Restored all locks", 2)
+end
+RegisterCommand({
+    Name = "undo",
+    Aliases = {"forcewrite2"},
+    Description = "Force tables to be writeable. Usage: ;unlock <module/global/service/path>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;unlock <target>", 3)
+        return
+    end
+    local target = args[1]
+    Modules.TableUnlocker:UnlockModule(target)
+end)
+RegisterCommand({
+    Name = "unlockg",
+    Aliases = {"unlockglobal"},
+    Description = "Unlock a global table. Usage: ;unlockg <globalName>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;unlockg <globalName>", 3)
+        return
+    end
+    Modules.TableUnlocker:UnlockGlobal(args[1])
+end)
+RegisterCommand({
+    Name = "unlockservice",
+    Aliases = {"unlocks"},
+    Description = "Unlock a game service. Usage: ;unlockservice <serviceName>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;unlockservice <serviceName>", 3)
+        return
+    end
+    Modules.TableUnlocker:UnlockService(args[1])
+end)
+RegisterCommand({
+    Name = "unlockpath",
+    Aliases = {"unlockp"},
+    Description = "Unlock by full path. Usage: ;unlockpath game.ReplicatedStorage.Module"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;unlockpath <path>", 3)
+        return
+    end
+    Modules.TableUnlocker:ForceWriteable(args[1])
+end)
+RegisterCommand({
+    Name = "tablemonitor",
+    Aliases = {"lockmonitor"},
+    Description = "Toggle continuous unlocking of previously unlocked tables"
+}, function()
+    if Modules.TableUnlocker.State.IsMonitoring then
+        Modules.TableUnlocker:StopMonitor()
+    else
+        Modules.TableUnlocker:StartMonitor()
+    end
+end)
+RegisterCommand({
+    Name = "restorelocks",
+    Aliases = {"relock"},
+    Description = "Re-lock all unlocked tables and restore original metatables"
+}, function()
+    Modules.TableUnlocker:RestoreLocks()
+end)
+Modules.LocalScriptEdit = {
+    State = {
+        IsOpen = false,
+        UI = nil,
+        SelectedScript = nil,
+        ScriptList = {},
+        OriginalSources = {}
+    }
+}
+function Modules.LocalScriptEdit:_scanForScripts()
+    self.State.ScriptList = {}
+    local function scan(container, containerName)
+        for _, descendant in ipairs(container:GetDescendants()) do
+            if descendant:IsA("LocalScript") or descendant:IsA("ModuleScript") then
+                local success, source = pcall(function()
+                    return descendant.Source
+                end)
+                if success and source then
+                    table.insert(self.State.ScriptList, {
+                        Script = descendant,
+                        Name = descendant.Name,
+                        Path = descendant:GetFullName(),
+                        Container = containerName,
+                        Type = descendant.ClassName
+                    })
+                end
+            end
+        end
+    end
+    if LocalPlayer.Character then
+        scan(LocalPlayer.Character, "Character")
+    end
+    local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
+    if playerScripts then
+        scan(playerScripts, "PlayerScripts")
+    end
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if playerGui then
+        scan(playerGui, "PlayerGui")
+    end
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if backpack then
+        scan(backpack, "Backpack")
+    end
+    local starterPlayer = game:GetService("StarterPlayer")
+    if starterPlayer then
+        pcall(function()
+            scan(starterPlayer, "StarterPlayer")
+        end)
+    end
+    return #self.State.ScriptList
+end
+function Modules.LocalScriptEdit:_applyEdit(script, newSource)
+    local success, err = pcall(function()
+        if not self.State.OriginalSources[script] then
+            self.State.OriginalSources[script] = script.Source
+        end
+        script.Source = newSource
+        script.Disabled = true
+        task.wait(0.1)
+        script.Disabled = false
+    end)
+    return success, err
+end
+function Modules.LocalScriptEdit:CreateUI()
+    if self.State.UI and self.State.UI.Parent then
+        self.State.UI.Enabled = true
+        return
+    end
+    local CoreGui = game:GetService("CoreGui")
+    local TweenService = game:GetService("TweenService")
+    local UserInputService = game:GetService("UserInputService")
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "LocalScriptEdit_GUI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    ScreenGui.Parent = CoreGui
+    local window = Instance.new("Frame")
+    window.Size = UDim2.new(0, 700, 0, 500)
+    window.Position = UDim2.new(0.5, -350, 0.5, -250)
+    window.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+    window.BorderSizePixel = 0
+    window.Parent = ScreenGui
+    Instance.new("UICorner", window).CornerRadius = UDim.new(0, 8)
+    Instance.new("UIStroke", window).Color = Color3.fromRGB(60, 60, 80)
+    local titleBar = Instance.new("Frame")
+    titleBar.Size = UDim2.new(1, 0, 0, 36)
+    titleBar.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = window
+    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -80, 1, 0)
+    title.Position = UDim2.new(0, 12, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "Script Editor"
+    title.TextColor3 = Color3.fromRGB(180, 140, 255)
+    title.Font = Enum.Font.BuilderSansBold
+    title.TextSize = 14
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = titleBar
+    local refreshBtn = Instance.new("TextButton")
+    refreshBtn.Size = UDim2.new(0, 28, 0, 28)
+    refreshBtn.Position = UDim2.new(1, -64, 0, 4)
+    refreshBtn.BackgroundColor3 = Color3.fromRGB(80, 120, 220)
+    refreshBtn.Text = "R"
+    refreshBtn.TextColor3 = Color3.new(1, 1, 1)
+    refreshBtn.Font = Enum.Font.BuilderSansBold
+    refreshBtn.TextSize = 12
+    refreshBtn.BorderSizePixel = 0
+    refreshBtn.Parent = titleBar
+    Instance.new("UICorner", refreshBtn).CornerRadius = UDim.new(0, 4)
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 28, 0, 28)
+    closeBtn.Position = UDim2.new(1, -32, 0, 4)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    closeBtn.Text = "✕"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.BuilderSansBold
+    closeBtn.TextSize = 12
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Parent = titleBar
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 4)
+    closeBtn.MouseButton1Click:Connect(function()
+        ScreenGui.Enabled = false
+        self.State.IsOpen = false
+    end)
+    local leftPanel = Instance.new("Frame")
+    leftPanel.Size = UDim2.new(0, 220, 1, -46)
+    leftPanel.Position = UDim2.new(0, 8, 0, 42)
+    leftPanel.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    leftPanel.BorderSizePixel = 0
+    leftPanel.Parent = window
+    Instance.new("UICorner", leftPanel).CornerRadius = UDim.new(0, 6)
+    local listTitle = Instance.new("TextLabel")
+    listTitle.Size = UDim2.new(1, -16, 0, 24)
+    listTitle.Position = UDim2.new(0, 8, 0, 8)
+    listTitle.BackgroundTransparency = 1
+    listTitle.Text = "LocalScripts"
+    listTitle.TextColor3 = Color3.fromRGB(200, 200, 220)
+    listTitle.Font = Enum.Font.BuilderSansBold
+    listTitle.TextSize = 13
+    listTitle.TextXAlignment = Enum.TextXAlignment.Left
+    listTitle.Parent = leftPanel
+    local scriptScroll = Instance.new("ScrollingFrame")
+    scriptScroll.Size = UDim2.new(1, -16, 1, -44)
+    scriptScroll.Position = UDim2.new(0, 8, 0, 36)
+    scriptScroll.BackgroundTransparency = 1
+    scriptScroll.BorderSizePixel = 0
+    scriptScroll.ScrollBarThickness = 4
+    scriptScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 140)
+    scriptScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scriptScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scriptScroll.Parent = leftPanel
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Padding = UDim.new(0, 4)
+    listLayout.Parent = scriptScroll
+    local rightPanel = Instance.new("Frame")
+    rightPanel.Size = UDim2.new(1, -240, 1, -46)
+    rightPanel.Position = UDim2.new(0, 232, 0, 42)
+    rightPanel.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    rightPanel.BorderSizePixel = 0
+    rightPanel.Parent = window
+    Instance.new("UICorner", rightPanel).CornerRadius = UDim.new(0, 6)
+    local editorTitle = Instance.new("TextLabel")
+    editorTitle.Size = UDim2.new(1, -16, 0, 24)
+    editorTitle.Position = UDim2.new(0, 8, 0, 8)
+    editorTitle.BackgroundTransparency = 1
+    editorTitle.Text = "No script selected"
+    editorTitle.TextColor3 = Color3.fromRGB(200, 200, 220)
+    editorTitle.Font = Enum.Font.BuilderSansBold
+    editorTitle.TextSize = 13
+    editorTitle.TextXAlignment = Enum.TextXAlignment.Left
+    editorTitle.Parent = rightPanel
+    local codeBox = Instance.new("TextBox")
+    codeBox.Size = UDim2.new(1, -16, 1, -80)
+    codeBox.Position = UDim2.new(0, 8, 0, 36)
+    codeBox.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+    codeBox.TextColor3 = Color3.fromRGB(220, 220, 240)
+    codeBox.Font = Enum.Font.Code
+    codeBox.TextSize = 13
+    codeBox.Text = "-- Select a script from the list"
+    codeBox.TextXAlignment = Enum.TextXAlignment.Left
+    codeBox.TextYAlignment = Enum.TextYAlignment.Top
+    codeBox.MultiLine = true
+    codeBox.ClearTextOnFocus = false
+    codeBox.TextWrapped = true
+    codeBox.BorderSizePixel = 0
+    codeBox.Parent = rightPanel
+    Instance.new("UICorner", codeBox).CornerRadius = UDim.new(0, 4)
+    Instance.new("UIPadding", codeBox).PaddingLeft = UDim.new(0, 8)
+    local buttonFrame = Instance.new("Frame")
+    buttonFrame.Size = UDim2.new(1, -16, 0, 32)
+    buttonFrame.Position = UDim2.new(0, 8, 1, -40)
+    buttonFrame.BackgroundTransparency = 1
+    buttonFrame.Parent = rightPanel
+    local applyBtn = Instance.new("TextButton")
+    applyBtn.Size = UDim2.new(0.33, -4, 1, 0)
+    applyBtn.Position = UDim2.new(0, 0, 0, 0)
+    applyBtn.BackgroundColor3 = Color3.fromRGB(80, 180, 80)
+    applyBtn.Text = "Apply"
+    applyBtn.TextColor3 = Color3.new(1, 1, 1)
+    applyBtn.Font = Enum.Font.BuilderSansBold
+    applyBtn.TextSize = 13
+    applyBtn.BorderSizePixel = 0
+    applyBtn.Parent = buttonFrame
+    Instance.new("UICorner", applyBtn).CornerRadius = UDim.new(0, 4)
+    local revertBtn = Instance.new("TextButton")
+    revertBtn.Size = UDim2.new(0.33, -4, 1, 0)
+    revertBtn.Position = UDim2.new(0.33, 2, 0, 0)
+    revertBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 60)
+    revertBtn.Text = "Revert"
+    revertBtn.TextColor3 = Color3.new(1, 1, 1)
+    revertBtn.Font = Enum.Font.BuilderSansBold
+    revertBtn.TextSize = 13
+    revertBtn.BorderSizePixel = 0
+    revertBtn.Parent = buttonFrame
+    Instance.new("UICorner", revertBtn).CornerRadius = UDim.new(0, 4)
+    local copyBtn = Instance.new("TextButton")
+    copyBtn.Size = UDim2.new(0.33, -4, 1, 0)
+    revertBtn.Position = UDim2.new(0.66, 4, 0, 0)
+    copyBtn.BackgroundColor3 = Color3.fromRGB(120, 80, 220)
+    copyBtn.Text = "Copy"
+    copyBtn.TextColor3 = Color3.new(1, 1, 1)
+    copyBtn.Font = Enum.Font.BuilderSansBold
+    copyBtn.TextSize = 13
+    copyBtn.BorderSizePixel = 0
+    copyBtn.Parent = buttonFrame
+    Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0, 4)
+    local dragging, dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = window.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            window.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    local module = self
+    local function refreshList()
+        for _, child in ipairs(scriptScroll:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+        local count = module:_scanForScripts()
+        for _, data in ipairs(module.State.ScriptList) do
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, 0, 0, 32)
+            btn.BackgroundColor3 = Color3.fromRGB(38, 38, 48)
+            btn.BorderSizePixel = 0
+            btn.Text = ""
+            btn.Parent = scriptScroll
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(1, -8, 0, 16)
+            nameLabel.Position = UDim2.new(0, 4, 0, 2)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = data.Name
+            nameLabel.TextColor3 = Color3.fromRGB(220, 220, 240)
+            nameLabel.Font = Enum.Font.BuilderSansMedium
+            nameLabel.TextSize = 12
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+            nameLabel.Parent = btn
+            local pathLabel = Instance.new("TextLabel")
+            pathLabel.Size = UDim2.new(1, -8, 0, 12)
+            pathLabel.Position = UDim2.new(0, 4, 0, 18)
+            pathLabel.BackgroundTransparency = 1
+            pathLabel.Text = data.Container
+            pathLabel.TextColor3 = Color3.fromRGB(140, 140, 160)
+            pathLabel.Font = Enum.Font.BuilderSansRegular
+            pathLabel.TextSize = 10
+            pathLabel.TextXAlignment = Enum.TextXAlignment.Left
+            pathLabel.Parent = btn
+            btn.MouseButton1Click:Connect(function()
+                module.State.SelectedScript = data
+                editorTitle.Text = data.Name .. " (" .. data.Type .. ")"
+                local success, source = pcall(function()
+                    return data.Script.Source
+                end)
+                if success then
+                    codeBox.Text = source
+                else
+                    codeBox.Text = "-- Error: Could not read script source"
+                end
+            end)
+        end
+        DoNotif(string.format("Found %d editable scripts", count), 2)
+    end
+    refreshBtn.MouseButton1Click:Connect(refreshList)
+    applyBtn.MouseButton1Click:Connect(function()
+        if not module.State.SelectedScript then
+            DoNotif("No script selected", 3)
+            return
+        end
+        local success, err = module:_applyEdit(module.State.SelectedScript.Script, codeBox.Text)
+        if success then
+            DoNotif("Script updated and restarted", 2)
+        else
+            DoNotif("Failed to apply: " .. tostring(err), 3)
+        end
+    end)
+    revertBtn.MouseButton1Click:Connect(function()
+        if not module.State.SelectedScript then
+            DoNotif("No script selected", 3)
+            return
+        end
+        local original = module.State.OriginalSources[module.State.SelectedScript.Script]
+        if original then
+            local success, err = module:_applyEdit(module.State.SelectedScript.Script, original)
+            if success then
+                codeBox.Text = original
+                module.State.OriginalSources[module.State.SelectedScript.Script] = nil
+                DoNotif("Script reverted to original", 2)
+            else
+                DoNotif("Failed to revert", 3)
+            end
+        else
+            DoNotif("No original source saved", 3)
+        end
+    end)
+    copyBtn.MouseButton1Click:Connect(function()
+        if setclipboard then
+            setclipboard(codeBox.Text)
+            DoNotif("Copied to clipboard", 2)
+        else
+            DoNotif("Clipboard not supported", 3)
+        end
+    end)
+    refreshList()
+    self.State.UI = ScreenGui
+    self.State.IsOpen = true
+end
+function Modules.LocalScriptEdit:Toggle()
+    if not self.State.UI or not self.State.UI.Parent then
+        self:CreateUI()
+    else
+        self.State.IsOpen = not self.State.IsOpen
+        self.State.UI.Enabled = self.State.IsOpen
+    end
+end
+RegisterCommand({
+    Name = "LocalScriptEdit",
+    Aliases = {"editlscript"},
+    Description = "Opens a GUI to view and edit LocalScripts/ModuleScripts"
+}, function()
+    Modules.LocalScriptEdit:Toggle()
+end)
+Modules.PropertyEditor = {
+    State = {
+        IsOpen = false,
+        UI = nil,
+        SelectedObject = nil,
+        PropertyList = {},
+        FilteredProperties = {},
+        SearchFilter = ""
+    },
+    Config = {
+        EditableTypes = {
+            "string", "number", "boolean", "Color3", "Vector3", "Vector2",
+            "UDim", "UDim2", "CFrame", "EnumItem", "BrickColor"
+        },
+        HiddenProperties = {
+            "Parent", "ClassName", "DataCost", "RobloxLocked"
+        }
+    }
+}
+function Modules.PropertyEditor:_getEditableProperties(object)
+    local properties = {}
+    if not object then return properties end
+    local success, result = pcall(function()
+        if getproperties then
+            local props = getproperties(object)
+            for propName, propValue in pairs(props) do
+                local shouldInclude = true
+                for _, hidden in ipairs(self.Config.HiddenProperties) do
+                    if propName == hidden then
+                        shouldInclude = false
+                        break
+                    end
+                end
+                if shouldInclude then
+                    local propType = typeof(propValue)
+                    table.insert(properties, {
+                        Name = propName,
+                        Value = propValue,
+                        Type = propType,
+                        IsEditable = table.find(self.Config.EditableTypes, propType) ~= nil
+                    })
+                end
+            end
+        else
+            local commonProps = {
+                "Name", "Position", "Size", "Rotation", "Transparency", 
+                "CanCollide", "Anchored", "Color", "Material", "TextColor3",
+                "BackgroundColor3", "Text", "Value", "MaxValue", "Enabled",
+                "Visible", "TextScaled", "Font", "TextSize", "Grip"
+            }
+            for _, propName in ipairs(commonProps) do
+                local ok, val = pcall(function() return object[propName] end)
+                if ok and val ~= nil then
+                    local propType = typeof(val)
+                    table.insert(properties, {
+                        Name = propName,
+                        Value = val,
+                        Type = propType,
+                        IsEditable = table.find(self.Config.EditableTypes, propType) ~= nil
+                    })
+                end
+            end
+        end
+    end)
+    return properties
+end
+function Modules.PropertyEditor:_getAttributes(object)
+    local attributes = {}
+    if not object then return attributes end
+    local success, result = pcall(function()
+        local attrs = object:GetAttributes()
+        for attrName, attrValue in pairs(attrs) do
+            table.insert(attributes, {
+                Name = attrName,
+                Value = attrValue,
+                Type = typeof(attrValue),
+                IsAttribute = true
+            })
+        end
+    end)
+    return attributes
+end
+function Modules.PropertyEditor:_setProperty(object, propName, value, isAttribute)
+    local success, err = pcall(function()
+        if isAttribute then
+            object:SetAttribute(propName, value)
+        else
+            object[propName] = value
+        end
+    end)
+    return success, err
+end
+function Modules.PropertyEditor:_parseValue(valueStr, valueType)
+    if valueType == "number" then
+        return tonumber(valueStr)
+    elseif valueType == "boolean" then
+        return valueStr:lower() == "true"
+    elseif valueType == "string" then
+        return valueStr
+    elseif valueType == "Color3" then
+        local r, g, b = valueStr:match("(%d+)%s*,%s*(%d+)%s*,%s*(%d+)")
+        if r and g and b then
+            return Color3.fromRGB(tonumber(r), tonumber(g), tonumber(b))
+        end
+    elseif valueType == "Vector3" then
+        local x, y, z = valueStr:match("([%d%.%-]+)%s*,%s*([%d%.%-]+)%s*,%s*([%d%.%-]+)")
+        if x and y and z then
+            return Vector3.new(tonumber(x), tonumber(y), tonumber(z))
+        end
+    elseif valueType == "Vector2" then
+        local x, y = valueStr:match("([%d%.%-]+)%s*,%s*([%d%.%-]+)")
+        if x and y then
+            return Vector2.new(tonumber(x), tonumber(y))
+        end
+    end
+    return nil
+end
+function Modules.PropertyEditor:_formatValue(value)
+    local valueType = typeof(value)
+    if valueType == "Color3" then
+        return string.format("%d, %d, %d", 
+            math.floor(value.R * 255),
+            math.floor(value.G * 255),
+            math.floor(value.B * 255))
+    elseif valueType == "Vector3" then
+        return string.format("%.2f, %.2f, %.2f", value.X, value.Y, value.Z)
+    elseif valueType == "Vector2" then
+        return string.format("%.2f, %.2f", value.X, value.Y)
+    elseif valueType == "EnumItem" then
+        return tostring(value)
+    elseif valueType == "CFrame" then
+        local pos = value.Position
+        return string.format("%.2f, %.2f, %.2f", pos.X, pos.Y, pos.Z)
+    else
+        return tostring(value)
+    end
+end
+function Modules.PropertyEditor:CreateUI()
+    if self.State.UI and self.State.UI.Parent then
+        self.State.UI.Enabled = true
+        return
+    end
+    local CoreGui = game:GetService("CoreGui")
+    local UserInputService = game:GetService("UserInputService")
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "PropertyEditor_GUI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    ScreenGui.Parent = CoreGui
+    local window = Instance.new("Frame")
+    window.Size = UDim2.new(0, 600, 0, 500)
+    window.Position = UDim2.new(0.5, -300, 0.5, -250)
+    window.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+    window.BorderSizePixel = 0
+    window.Parent = ScreenGui
+    Instance.new("UICorner", window).CornerRadius = UDim.new(0, 8)
+    Instance.new("UIStroke", window).Color = Color3.fromRGB(60, 60, 80)
+    local titleBar = Instance.new("Frame")
+    titleBar.Size = UDim2.new(1, 0, 0, 36)
+    titleBar.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = window
+    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -40, 1, 0)
+    title.Position = UDim2.new(0, 12, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "🔧 Property Editor"
+    title.TextColor3 = Color3.fromRGB(180, 140, 255)
+    title.Font = Enum.Font.BuilderSansBold
+    title.TextSize = 14
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = titleBar
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 28, 0, 28)
+    closeBtn.Position = UDim2.new(1, -32, 0, 4)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    closeBtn.Text = "✕"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.BuilderSansBold
+    closeBtn.TextSize = 12
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Parent = titleBar
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 4)
+    closeBtn.MouseButton1Click:Connect(function()
+        ScreenGui.Enabled = false
+        self.State.IsOpen = false
+    end)
+    local infoFrame = Instance.new("Frame")
+    infoFrame.Size = UDim2.new(1, -16, 0, 50)
+    infoFrame.Position = UDim2.new(0, 8, 0, 44)
+    infoFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    infoFrame.BorderSizePixel = 0
+    infoFrame.Parent = window
+    Instance.new("UICorner", infoFrame).CornerRadius = UDim.new(0, 6)
+    local objectName = Instance.new("TextLabel")
+    objectName.Size = UDim2.new(1, -16, 0, 20)
+    objectName.Position = UDim2.new(0, 8, 0, 6)
+    objectName.BackgroundTransparency = 1
+    objectName.Text = "No object selected - Hold a tool or select something"
+    objectName.TextColor3 = Color3.fromRGB(200, 200, 220)
+    objectName.Font = Enum.Font.BuilderSansBold
+    objectName.TextSize = 13
+    objectName.TextXAlignment = Enum.TextXAlignment.Left
+    objectName.Parent = infoFrame
+    local objectPath = Instance.new("TextLabel")
+    objectPath.Size = UDim2.new(1, -16, 0, 18)
+    objectPath.Position = UDim2.new(0, 8, 0, 26)
+    objectPath.BackgroundTransparency = 1
+    objectPath.Text = ""
+    objectPath.TextColor3 = Color3.fromRGB(140, 140, 160)
+    objectPath.Font = Enum.Font.BuilderSansRegular
+    objectPath.TextSize = 11
+    objectPath.TextXAlignment = Enum.TextXAlignment.Left
+    objectPath.TextTruncate = Enum.TextTruncate.AtEnd
+    objectPath.Parent = infoFrame
+    local searchBar = Instance.new("TextBox")
+    searchBar.Size = UDim2.new(1, -16, 0, 30)
+    searchBar.Position = UDim2.new(0, 8, 0, 102)
+    searchBar.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    searchBar.TextColor3 = Color3.fromRGB(220, 220, 240)
+    searchBar.PlaceholderText = "Search properties..."
+    searchBar.PlaceholderColor3 = Color3.fromRGB(100, 100, 120)
+    searchBar.Font = Enum.Font.BuilderSansMedium
+    searchBar.TextSize = 12
+    searchBar.Text = ""
+    searchBar.ClearTextOnFocus = false
+    searchBar.BorderSizePixel = 0
+    searchBar.Parent = window
+    Instance.new("UICorner", searchBar).CornerRadius = UDim.new(0, 6)
+    local padding = Instance.new("UIPadding", searchBar)
+    padding.PaddingLeft = UDim.new(0, 8)
+    local propertyScroll = Instance.new("ScrollingFrame")
+    propertyScroll.Size = UDim2.new(1, -16, 1, -180)
+    propertyScroll.Position = UDim2.new(0, 8, 0, 140)
+    propertyScroll.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    propertyScroll.BorderSizePixel = 0
+    propertyScroll.ScrollBarThickness = 4
+    propertyScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 140)
+    propertyScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    propertyScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    propertyScroll.Parent = window
+    Instance.new("UICorner", propertyScroll).CornerRadius = UDim.new(0, 6)
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Padding = UDim.new(0, 4)
+    listLayout.Parent = propertyScroll
+    local listPadding = Instance.new("UIPadding", propertyScroll)
+    listPadding.PaddingTop = UDim.new(0, 8)
+    listPadding.PaddingBottom = UDim.new(0, 8)
+    listPadding.PaddingLeft = UDim.new(0, 8)
+    listPadding.PaddingRight = UDim.new(0, 8)
+    local btnFrame = Instance.new("Frame")
+    btnFrame.Size = UDim2.new(1, -16, 0, 32)
+    btnFrame.Position = UDim2.new(0, 8, 1, -40)
+    btnFrame.BackgroundTransparency = 1
+    btnFrame.Parent = window
+    local refreshBtn = Instance.new("TextButton")
+    refreshBtn.Size = UDim2.new(0.33, -4, 1, 0)
+    refreshBtn.Position = UDim2.new(0, 0, 0, 0)
+    refreshBtn.BackgroundColor3 = Color3.fromRGB(80, 120, 220)
+    refreshBtn.Text = "Refresh"
+    refreshBtn.TextColor3 = Color3.new(1, 1, 1)
+    refreshBtn.Font = Enum.Font.BuilderSansBold
+    refreshBtn.TextSize = 13
+    refreshBtn.BorderSizePixel = 0
+    refreshBtn.Parent = btnFrame
+    Instance.new("UICorner", refreshBtn).CornerRadius = UDim.new(0, 4)
+    local selectToolBtn = Instance.new("TextButton")
+    selectToolBtn.Size = UDim2.new(0.33, -4, 1, 0)
+    selectToolBtn.Position = UDim2.new(0.33, 2, 0, 0)
+    selectToolBtn.BackgroundColor3 = Color3.fromRGB(220, 180, 60)
+    selectToolBtn.Text = "Select Tool"
+    selectToolBtn.TextColor3 = Color3.new(1, 1, 1)
+    selectToolBtn.Font = Enum.Font.BuilderSansBold
+    selectToolBtn.TextSize = 13
+    selectToolBtn.BorderSizePixel = 0
+    selectToolBtn.Parent = btnFrame
+    Instance.new("UICorner", selectToolBtn).CornerRadius = UDim.new(0, 4)
+    local selectCharBtn = Instance.new("TextButton")
+    selectCharBtn.Size = UDim2.new(0.33, -4, 1, 0)
+    selectCharBtn.Position = UDim2.new(0.66, 4, 0, 0)
+    selectCharBtn.BackgroundColor3 = Color3.fromRGB(180, 80, 220)
+    selectCharBtn.Text = "Select Character"
+    selectCharBtn.TextColor3 = Color3.new(1, 1, 1)
+    selectCharBtn.Font = Enum.Font.BuilderSansBold
+    selectCharBtn.TextSize = 13
+    selectCharBtn.BorderSizePixel = 0
+    selectCharBtn.Parent = btnFrame
+    Instance.new("UICorner", selectCharBtn).CornerRadius = UDim.new(0, 4)
+    local dragging, dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = window.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            window.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    local module = self
+    local function updatePropertyList()
+        for _, child in ipairs(propertyScroll:GetChildren()) do
+            if child:IsA("Frame") then
+                child:Destroy()
+            end
+        end
+        if not module.State.SelectedObject then return end
+        local properties = module:_getEditableProperties(module.State.SelectedObject)
+        local attributes = module:_getAttributes(module.State.SelectedObject)
+        local allProps = {}
+        for _, prop in ipairs(properties) do
+            table.insert(allProps, prop)
+        end
+        for _, attr in ipairs(attributes) do
+            table.insert(allProps, attr)
+        end
+        local filter = module.State.SearchFilter:lower()
+        for _, prop in ipairs(allProps) do
+            if filter == "" or prop.Name:lower():find(filter) then
+                local propFrame = Instance.new("Frame")
+                propFrame.Size = UDim2.new(1, -16, 0, 28)
+                propFrame.BackgroundColor3 = Color3.fromRGB(38, 38, 48)
+                propFrame.BorderSizePixel = 0
+                propFrame.Parent = propertyScroll
+                Instance.new("UICorner", propFrame).CornerRadius = UDim.new(0, 4)
+                local propName = Instance.new("TextLabel")
+                propName.Size = UDim2.new(0.35, 0, 1, 0)
+                propName.Position = UDim2.new(0, 6, 0, 0)
+                propName.BackgroundTransparency = 1
+                propName.Text = (prop.IsAttribute and "📌 " or "") .. prop.Name
+                propName.TextColor3 = prop.IsAttribute and Color3.fromRGB(255, 200, 100) or Color3.fromRGB(200, 200, 220)
+                propName.Font = Enum.Font.BuilderSansMedium
+                propName.TextSize = 11
+                propName.TextXAlignment = Enum.TextXAlignment.Left
+                propName.TextTruncate = Enum.TextTruncate.AtEnd
+                propName.Parent = propFrame
+                local valueBox = Instance.new("TextBox")
+                valueBox.Size = UDim2.new(0.5, -10, 0, 22)
+                valueBox.Position = UDim2.new(0.35, 5, 0, 3)
+                valueBox.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+                valueBox.TextColor3 = Color3.fromRGB(220, 220, 240)
+                valueBox.Font = Enum.Font.Code
+                valueBox.TextSize = 11
+                valueBox.Text = module:_formatValue(prop.Value)
+                valueBox.ClearTextOnFocus = false
+                valueBox.BorderSizePixel = 0
+                valueBox.Parent = propFrame
+                Instance.new("UICorner", valueBox).CornerRadius = UDim.new(0, 3)
+                local boxPadding = Instance.new("UIPadding", valueBox)
+                boxPadding.PaddingLeft = UDim.new(0, 4)
+                local applyBtn = Instance.new("TextButton")
+                applyBtn.Size = UDim2.new(0.15, -10, 0, 22)
+                applyBtn.Position = UDim2.new(0.85, 5, 0, 3)
+                applyBtn.BackgroundColor3 = Color3.fromRGB(80, 180, 80)
+                applyBtn.Text = "✓"
+                applyBtn.TextColor3 = Color3.new(1, 1, 1)
+                applyBtn.Font = Enum.Font.BuilderSansBold
+                applyBtn.TextSize = 14
+                applyBtn.BorderSizePixel = 0
+                applyBtn.Parent = propFrame
+                Instance.new("UICorner", applyBtn).CornerRadius = UDim.new(0, 3)
+                if prop.IsEditable or prop.IsAttribute then
+                    applyBtn.MouseButton1Click:Connect(function()
+                        local newValue = module:_parseValue(valueBox.Text, prop.Type)
+                        if newValue ~= nil or prop.Type == "string" then
+                            newValue = newValue or valueBox.Text
+                            local success, err = module:_setProperty(
+                                module.State.SelectedObject, 
+                                prop.Name, 
+                                newValue,
+                                prop.IsAttribute
+                            )
+                            if success then
+                                applyBtn.BackgroundColor3 = Color3.fromRGB(50, 220, 50)
+                                DoNotif(string.format("Set %s to %s", prop.Name, tostring(newValue)), 2)
+                                task.wait(0.3)
+                                applyBtn.BackgroundColor3 = Color3.fromRGB(80, 180, 80)
+                            else
+                                applyBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+                                DoNotif("Failed to set property", 3)
+                                task.wait(0.3)
+                                applyBtn.BackgroundColor3 = Color3.fromRGB(80, 180, 80)
+                            end
+                        else
+                            DoNotif("Invalid value format", 3)
+                        end
+                    end)
+                else
+                    valueBox.TextEditable = false
+                    valueBox.TextColor3 = Color3.fromRGB(120, 120, 140)
+                    applyBtn.Visible = false
+                end
+            end
+        end
+    end
+    local function selectObject(obj)
+        if not obj then return end
+        module.State.SelectedObject = obj
+        objectName.Text = obj.Name .. " (" .. obj.ClassName .. ")"
+        objectPath.Text = obj:GetFullName()
+        updatePropertyList()
+    end
+    refreshBtn.MouseButton1Click:Connect(updatePropertyList)
+    selectToolBtn.MouseButton1Click:Connect(function()
+        local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+        if tool then
+            selectObject(tool)
+        else
+            DoNotif("No tool equipped", 3)
+        end
+    end)
+    selectCharBtn.MouseButton1Click:Connect(function()
+        if LocalPlayer.Character then
+            selectObject(LocalPlayer.Character)
+        else
+            DoNotif("No character found", 3)
+        end
+    end)
+    searchBar:GetPropertyChangedSignal("Text"):Connect(function()
+        module.State.SearchFilter = searchBar.Text
+        updatePropertyList()
+    end)
+    if LocalPlayer.Character then
+        local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+        if tool then
+            selectObject(tool)
+        end
+    end
+    self.State.UI = ScreenGui
+    self.State.IsOpen = true
+end
+function Modules.PropertyEditor:Toggle()
+    if not self.State.UI or not self.State.UI.Parent then
+        self:CreateUI()
+    else
+        self.State.IsOpen = not self.State.IsOpen
+        self.State.UI.Enabled = self.State.IsOpen
+    end
+end
+RegisterCommand({
+    Name = "propedit",
+    Aliases = {"pe", "properties"},
+    Description = "Opens a GUI to edit properties and attributes of objects"
+}, function()
+    Modules.PropertyEditor:Toggle()
+end)
+Modules.RemoteForcer = {
+    State = {
+        Remotes = {},
+        MonitorConnection = nil,
+        IsScanning = false
+    },
+    Config = {
+        CommonWeaponRemotes = {
+            "EquipTool", "Equip", "EquipWeapon", "SelectWeapon", 
+            "GiveTool", "GiveWeapon", "UnlockWeapon", "PurchaseWeapon",
+            "ToolEquip", "LoadoutEquip", "SelectLoadout", "SwapWeapon"
+        },
+        CommonWeaponServices = {
+            "ReplicatedStorage", "ReplicatedFirst"
+        }
+    }
+}
+function Modules.RemoteForcer:_scanForRemotes()
+    self.State.Remotes = {}
+    local function scanContainer(container)
+        for _, descendant in ipairs(container:GetDescendants()) do
+            if descendant:IsA("RemoteEvent") or descendant:IsA("RemoteFunction") then
+                local remoteName = descendant.Name:lower()
+                local isWeaponRelated = false
+                for _, pattern in ipairs(self.Config.CommonWeaponRemotes) do
+                    if remoteName:find(pattern:lower()) then
+                        isWeaponRelated = true
+                        break
+                    end
+                end
+                table.insert(self.State.Remotes, {
+                    Remote = descendant,
+                    Name = descendant.Name,
+                    Path = descendant:GetFullName(),
+                    Type = descendant.ClassName,
+                    IsWeaponRelated = isWeaponRelated
+                })
+            end
+        end
+    end
+    for _, serviceName in ipairs(self.Config.CommonWeaponServices) do
+        local service = game:GetService(serviceName)
+        if service then
+            scanContainer(service)
+        end
+    end
+    return #self.State.Remotes
+end
+function Modules.RemoteForcer:FireRemote(remoteName, ...)
+    local args = {...}
+    local found = false
+    for _, data in ipairs(self.State.Remotes) do
+        if data.Name:lower():find(remoteName:lower()) then
+            found = true
+            if data.Type == "RemoteEvent" then
+                local success, err = pcall(function()
+                    data.Remote:FireServer(unpack(args))
+                end)
+                if success then
+                    DoNotif(string.format("Fired: %s", data.Name), 2)
+                else
+                    DoNotif(string.format("Failed: %s", data.Name), 3)
+                end
+            elseif data.Type == "RemoteFunction" then
+                local success, result = pcall(function()
+                    return data.Remote:InvokeServer(unpack(args))
+                end)
+                if success then
+                    DoNotif(string.format("Invoked: %s → %s", data.Name, tostring(result)), 2)
+                else
+                    DoNotif(string.format("Failed: %s", data.Name), 3)
+                end
+            end
+        end
+    end
+    if not found then
+        DoNotif("Remote not found: " .. remoteName, 3)
+    end
+end
+function Modules.RemoteForcer:TryEquipWeapon(weaponName)
+    local equipPatterns = {
+        function(remote) remote:FireServer(weaponName) end,
+        function(remote) remote:FireServer({Weapon = weaponName}) end,
+        function(remote) remote:FireServer("Equip", weaponName) end,
+        function(remote) remote:FireServer(weaponName, true) end,
+        function(remote) remote:InvokeServer(weaponName) end,
+        function(remote) remote:InvokeServer({Name = weaponName}) end,
+    }
+    local attempts = 0
+    local successes = 0
+    for _, data in ipairs(self.State.Remotes) do
+        if data.IsWeaponRelated then
+            for _, pattern in ipairs(equipPatterns) do
+                local success = pcall(function()
+                    pattern(data.Remote)
+                end)
+                attempts = attempts + 1
+                if success then
+                    successes = successes + 1
+                end
+                task.wait(0.05)
+            end
+        end
+    end
+    DoNotif(string.format("Tried equipping '%s': %d/%d attempts succeeded", weaponName, successes, attempts), 2)
+end
+function Modules.RemoteForcer:SpamEquipAll(weaponNames)
+    local weaponList = type(weaponNames) == "table" and weaponNames or {weaponNames}
+    for _, weaponName in ipairs(weaponList) do
+        self:TryEquipWeapon(weaponName)
+    end
+end
+function Modules.RemoteForcer:FindWeaponInBackpack()
+    local weapons = {}
+    if LocalPlayer.Backpack then
+        for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
+            if item:IsA("Tool") then
+                table.insert(weapons, item.Name)
+            end
+        end
+    end
+    return weapons
+end
+function Modules.RemoteForcer:FindWeaponInStorage()
+    local weapons = {}
+    local function searchContainer(container, containerName)
+        for _, item in ipairs(container:GetDescendants()) do
+            if item:IsA("Tool") then
+                table.insert(weapons, {
+                    Name = item.Name,
+                    Location = containerName,
+                    Path = item:GetFullName()
+                })
+            end
+        end
+    end
+    searchContainer(game:GetService("ReplicatedStorage"), "ReplicatedStorage")
+    searchContainer(game:GetService("ReplicatedFirst"), "ReplicatedFirst")
+    return weapons
+end
+function Modules.RemoteForcer:BruteForceEquip(weaponIdentifier)
+    DoNotif("Brute forcing equip for: " .. weaponIdentifier, 2)
+    local attempts = 0
+    local commonArgs = {
+        weaponIdentifier,
+        {Weapon = weaponIdentifier},
+        {Name = weaponIdentifier},
+        {Tool = weaponIdentifier},
+        {Item = weaponIdentifier},
+        weaponIdentifier, true,
+        "Equip", weaponIdentifier,
+        "Select", weaponIdentifier,
+    }
+    for _, data in ipairs(self.State.Remotes) do
+        for _, arg in ipairs(commonArgs) do
+            pcall(function()
+                if data.Type == "RemoteEvent" then
+                    data.Remote:FireServer(arg)
+                else
+                    data.Remote:InvokeServer(arg)
+                end
+            end)
+            attempts = attempts + 1
+            task.wait(0.02)
+        end
+    end
+    DoNotif(string.format("Brute force complete: %d attempts", attempts), 2)
+end
+function Modules.RemoteForcer:ListWeaponRemotes()
+    local count = 0
+    print("\n=== WEAPON-RELATED REMOTES ===")
+    for _, data in ipairs(self.State.Remotes) do
+        if data.IsWeaponRelated then
+            print(string.format("[%s] %s - %s", data.Type, data.Name, data.Path))
+            count = count + 1
+        end
+    end
+    print(string.format("\nFound %d weapon-related remotes", count))
+    DoNotif(string.format("Listed %d weapon remotes (check console)", count), 2)
+end
+function Modules.RemoteForcer:ListAllWeapons()
+    print("\n=== WEAPONS IN BACKPACK ===")
+    local backpackWeapons = self:FindWeaponInBackpack()
+    for i, name in ipairs(backpackWeapons) do
+        print(i .. ". " .. name)
+    end
+    print("\n=== WEAPONS IN STORAGE ===")
+    local storageWeapons = self:FindWeaponInStorage()
+    for i, data in ipairs(storageWeapons) do
+        print(string.format("%d. %s (%s)", i, data.Name, data.Location))
+    end
+    DoNotif(string.format("Found %d weapons (check console)", #backpackWeapons + #storageWeapons), 2)
+end
+function Modules.RemoteForcer:CloneWeaponToBackpack(weaponName)
+    local storageWeapons = self:FindWeaponInStorage()
+    for _, data in ipairs(storageWeapons) do
+        if data.Name:lower():find(weaponName:lower()) then
+            local success, result = pcall(function()
+                local weapon = game:GetService("ReplicatedStorage"):FindFirstChild(data.Name, true)
+                if weapon and weapon:IsA("Tool") then
+                    local clone = weapon:Clone()
+                    clone.Parent = LocalPlayer.Backpack
+                    return true
+                end
+                return false
+            end)
+            if success and result then
+                DoNotif("Cloned weapon: " .. data.Name, 2)
+                return
+            end
+        end
+    end
+    DoNotif("Weapon not found: " .. weaponName, 3)
+end
+function Modules.RemoteForcer:CreateUI()
+    local CoreGui = game:GetService("CoreGui")
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "WeaponForcer_GUI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = CoreGui
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 300, 0, 200)
+    frame.Position = UDim2.new(0.5, -150, 0.5, -100)
+    frame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+    frame.BorderSizePixel = 0
+    frame.Parent = ScreenGui
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 30)
+    title.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    title.Text = "⚔️ Weapon Forcer"
+    title.TextColor3 = Color3.fromRGB(180, 140, 255)
+    title.Font = Enum.Font.BuilderSansBold
+    title.TextSize = 14
+    title.BorderSizePixel = 0
+    title.Parent = frame
+    Instance.new("UICorner", title).CornerRadius = UDim.new(0, 8)
+    local weaponBox = Instance.new("TextBox")
+    weaponBox.Size = UDim2.new(1, -20, 0, 35)
+    weaponBox.Position = UDim2.new(0, 10, 0, 45)
+    weaponBox.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    weaponBox.TextColor3 = Color3.new(1, 1, 1)
+    weaponBox.PlaceholderText = "Enter weapon name..."
+    weaponBox.Font = Enum.Font.BuilderSansMedium
+    weaponBox.TextSize = 13
+    weaponBox.Text = ""
+    weaponBox.ClearTextOnFocus = false
+    weaponBox.BorderSizePixel = 0
+    weaponBox.Parent = frame
+    Instance.new("UICorner", weaponBox).CornerRadius = UDim.new(0, 6)
+    local tryEquipBtn = Instance.new("TextButton")
+    tryEquipBtn.Size = UDim2.new(1, -20, 0, 35)
+    tryEquipBtn.Position = UDim2.new(0, 10, 0, 90)
+    tryEquipBtn.BackgroundColor3 = Color3.fromRGB(80, 180, 80)
+    tryEquipBtn.Text = "Try Equip"
+    tryEquipBtn.TextColor3 = Color3.new(1, 1, 1)
+    tryEquipBtn.Font = Enum.Font.BuilderSansBold
+    tryEquipBtn.TextSize = 13
+    tryEquipBtn.BorderSizePixel = 0
+    tryEquipBtn.Parent = frame
+    Instance.new("UICorner", tryEquipBtn).CornerRadius = UDim.new(0, 6)
+    local bruteForceBtn = Instance.new("TextButton")
+    bruteForceBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    bruteForceBtn.Position = UDim2.new(0, 10, 0, 135)
+    bruteForceBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 60)
+    bruteForceBtn.Text = "Brute Force"
+    bruteForceBtn.TextColor3 = Color3.new(1, 1, 1)
+    bruteForceBtn.Font = Enum.Font.BuilderSansBold
+    bruteForceBtn.TextSize = 12
+    bruteForceBtn.BorderSizePixel = 0
+    bruteForceBtn.Parent = frame
+    Instance.new("UICorner", bruteForceBtn).CornerRadius = UDim.new(0, 6)
+    local listWeaponsBtn = Instance.new("TextButton")
+    listWeaponsBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    listWeaponsBtn.Position = UDim2.new(0.52, 0, 0, 135)
+    listWeaponsBtn.BackgroundColor3 = Color3.fromRGB(120, 80, 220)
+    listWeaponsBtn.Text = "List All"
+    listWeaponsBtn.TextColor3 = Color3.new(1, 1, 1)
+    listWeaponsBtn.Font = Enum.Font.BuilderSansBold
+    listWeaponsBtn.TextSize = 12
+    listWeaponsBtn.BorderSizePixel = 0
+    listWeaponsBtn.Parent = frame
+    Instance.new("UICorner", listWeaponsBtn).CornerRadius = UDim.new(0, 6)
+    local module = self
+    tryEquipBtn.MouseButton1Click:Connect(function()
+        if weaponBox.Text ~= "" then
+            module:TryEquipWeapon(weaponBox.Text)
+        end
+    end)
+    bruteForceBtn.MouseButton1Click:Connect(function()
+        if weaponBox.Text ~= "" then
+            module:BruteForceEquip(weaponBox.Text)
+        end
+    end)
+    listWeaponsBtn.MouseButton1Click:Connect(function()
+        module:ListAllWeapons()
+    end)
+end
+RegisterCommand({
+    Name = "scanweapons",
+    Aliases = {"scanremotes"},
+    Description = "Scan for weapon-related remotes in the game"
+}, function()
+    local count = Modules.RemoteForcer:_scanForRemotes()
+    DoNotif(string.format("Scanned %d remotes", count), 2)
+end)
+RegisterCommand({
+    Name = "forceequip",
+    Aliases = {},
+    Description = "Try to force equip a weapon. Usage: ;forceequip <weaponName>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;forceequip <weaponName>", 3)
+        return
+    end
+    if #Modules.RemoteForcer.State.Remotes == 0 then
+        Modules.RemoteForcer:_scanForRemotes()
+    end
+    local weaponName = table.concat(args, " ")
+    Modules.RemoteForcer:TryEquipWeapon(weaponName)
+end)
+RegisterCommand({
+    Name = "bruteequip",
+    Aliases = {"beq"},
+    Description = "Brute force weapon equip (tries every remote). Usage: ;bruteequip <weaponName>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;bruteequip <weaponName>", 3)
+        return
+    end
+    if #Modules.RemoteForcer.State.Remotes == 0 then
+        Modules.RemoteForcer:_scanForRemotes()
+    end
+    local weaponName = table.concat(args, " ")
+    Modules.RemoteForcer:BruteForceEquip(weaponName)
+end)
+RegisterCommand({
+    Name = "fireremote2",
+    Aliases = {},
+    Description = "Fire a specific remote. Usage: ;fireremote <remoteName> [args...]"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;fireremote <remoteName> [args]", 3)
+        return
+    end
+    if #Modules.RemoteForcer.State.Remotes == 0 then
+        Modules.RemoteForcer:_scanForRemotes()
+    end
+    local remoteName = args[1]
+    local remoteArgs = {}
+    for i = 2, #args do
+        table.insert(remoteArgs, args[i])
+    end
+    Modules.RemoteForcer:FireRemote(remoteName, unpack(remoteArgs))
+end)
+RegisterCommand({
+    Name = "listweapons",
+    Aliases = {"lw", "weapons"},
+    Description = "List all weapons in backpack and storage (prints to console)"
+}, function()
+    if #Modules.RemoteForcer.State.Remotes == 0 then
+        Modules.RemoteForcer:_scanForRemotes()
+    end
+    Modules.RemoteForcer:ListAllWeapons()
+end)
+RegisterCommand({
+    Name = "listremotes",
+    Aliases = {"lr"},
+    Description = "List all weapon-related remotes (prints to console)"
+}, function()
+    if #Modules.RemoteForcer.State.Remotes == 0 then
+        Modules.RemoteForcer:_scanForRemotes()
+    end
+    Modules.RemoteForcer:ListWeaponRemotes()
+end)
+RegisterCommand({
+    Name = "cloneweapon",
+    Aliases = {"cw"},
+    Description = "Clone a weapon from storage to backpack. Usage: ;cloneweapon <weaponName>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;cloneweapon <weaponName>", 3)
+        return
+    end
+    local weaponName = table.concat(args, " ")
+    Modules.RemoteForcer:CloneWeaponToBackpack(weaponName)
+end)
+RegisterCommand({
+    Name = "weaponforcer",
+    Aliases = {"wf"},
+    Description = "Opens the weapon forcer GUI"
+}, function()
+    if #Modules.RemoteForcer.State.Remotes == 0 then
+        Modules.RemoteForcer:_scanForRemotes()
+    end
+    Modules.RemoteForcer:CreateUI()
+end)
 Modules.PlayerLookup = {
     State = {
         UI = nil,
@@ -36029,7 +38554,100 @@ RegisterCommand({
         end
     end
 end)
+Modules.AntiAttach = {
+    State = {
+        IsEnabled = false,
+        DetectionLoop = nil,
+        Countering = false
+    },
+    Config = {
+        VoidVelocity = -50000,
+        CheckInterval = 0.1
+    }
+}
 
+function Modules.AntiAttach:_isBeingAttached()
+    local character = LocalPlayer.Character
+    if not character then return false, nil end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false, nil end
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local theirChar = player.Character
+            if theirChar then
+                local theirHRP = theirChar:FindFirstChild("HumanoidRootPart")
+                if theirHRP then
+                    local success, repRoot = pcall(function()
+                        return gethiddenproperty(theirHRP, "PhysicsRepRootPart")
+                    end)
+                    if success and repRoot == hrp then
+                        return true, player
+                    end
+                end
+            end
+        end
+    end
+    return false, nil
+end
+
+function Modules.AntiAttach:_voidAttacker(attacker)
+    if self.State.Countering then return end
+    self.State.Countering = true
+    
+    DoNotif("ATTACHER DETECTED: " .. attacker.DisplayName .. " - SENDING TO VOID", 3)
+    
+    task.spawn(function()
+        for i = 1, 30 do
+            local character = LocalPlayer.Character
+            local hrp = character and character:FindFirstChild("HumanoidRootPart")
+            
+            if hrp then
+                -- Just spike your own velocity downward
+                -- Since they're attached, they inherit it and get dragged down
+                hrp.AssemblyLinearVelocity = Vector3.new(0, self.Config.VoidVelocity, 0)
+                hrp.AssemblyAngularVelocity = Vector3.zero
+            else
+                break
+            end
+            
+            task.wait(0.05)
+        end
+        
+        self.State.Countering = false
+    end)
+end
+
+function Modules.AntiAttach:Toggle()
+    self.State.IsEnabled = not self.State.IsEnabled
+    
+    if self.State.IsEnabled then
+        DoNotif("Anti-Attach: ACTIVE", 2)
+        self.State.DetectionLoop = game:GetService("RunService").Heartbeat:Connect(function()
+            if not self.State.Countering then
+                local isAttached, attacker = self:_isBeingAttached()
+                if isAttached and attacker then
+                    self:_voidAttacker(attacker)
+                end
+            end
+        end)
+    else
+        DoNotif("Anti-Attach: OFFLINE", 2)
+        if self.State.DetectionLoop then
+            self.State.DetectionLoop:Disconnect()
+            self.State.DetectionLoop = nil
+        end
+        self.State.Countering = false
+    end
+end
+
+RegisterCommand({
+    Name = "void",
+    Aliases = {},
+    Description = "Detects when someone attaches to you and drags them into the void via velocity."
+}, function()
+    Modules.AntiAttach:Toggle()
+end)
 function processCommand(message)
     if not (message:sub(1, #Prefix) == Prefix) then
         return false
