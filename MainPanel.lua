@@ -8447,7 +8447,7 @@ function Modules.InfoPanel:Toggle()
 end
 RegisterCommand({
     Name = "infopanel",
-    Aliases = {"info", "gameinfo", "serverinfo"},
+    Aliases = {"info"},
     Description = "Toggles a panel with information about the game, server, and players."
 }, function(args)
     Modules.InfoPanel:Toggle()
@@ -28242,9 +28242,9 @@ RegisterCommand({
     local itemName = table.concat(args, " ")
     Modules.BadgeSpoofer:BruteForceUnlock(itemName)
 end)
-Modules.Fly22 = {
+Modules.vFly = {
     State = {
-        IsFly2ing = false,
+        IsFlying = false,
         Connections = {},
         BodyVelocity = nil,
         BodyGyro = nil
@@ -28256,7 +28256,7 @@ Modules.Fly22 = {
         ControlMode = "WASD"
     }
 }
-function Modules.Fly2:_createBodyMovers()
+function Modules.vFly:_createBodyMovers()
     local character = LocalPlayer.Character
     if not character then return false end
     local hrp = character:FindFirstChild("HumanoidRootPart")
@@ -28272,7 +28272,7 @@ function Modules.Fly2:_createBodyMovers()
     self.State.BodyGyro.Parent = hrp
     return true
 end
-function Modules.Fly2:_destroyBodyMovers()
+function Modules.vFly:_destroyBodyMovers()
     if self.State.BodyVelocity then
         self.State.BodyVelocity:Destroy()
         self.State.BodyVelocity = nil
@@ -28282,7 +28282,7 @@ function Modules.Fly2:_destroyBodyMovers()
         self.State.BodyGyro = nil
     end
 end
-function Modules.Fly2:_getMovementVector()
+function Modules.vFly:_getMovementVector()
     local UserInputService = game:GetService("UserInputService")
     local camera = workspace.CurrentCamera
     local moveVector = Vector3.zero
@@ -28307,7 +28307,7 @@ function Modules.Fly2:_getMovementVector()
     end
     return moveVector.Unit
 end
-function Modules.Fly2:_spoofVelocity()
+function Modules.vFly:_spoofVelocity()
     if not self.Config.UseVelocitySpoof then return end
     local character = LocalPlayer.Character
     if not character then return end
@@ -28320,8 +28320,8 @@ function Modules.Fly2:_spoofVelocity()
         hrp.AssemblyLinearVelocity = realVelocity
     end
 end
-function Modules.Fly2:Enable()
-    if self.State.IsFly2ing then return end
+function Modules.vFly:Enable()
+    if self.State.IsvFlying then return end
     local character = LocalPlayer.Character
     if not character then
         DoNotif("No character found", 3)
@@ -28333,11 +28333,11 @@ function Modules.Fly2:Enable()
         humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
     end
     if not self:_createBodyMovers() then
-        DoNotif("Failed to create Fly2 components", 3)
+        DoNotif("Failed to create vFly components", 3)
         return
     end
-    self.State.IsFly2ing = true
-    self.State.Connections.Fly2Loop = RunService.Heartbeat:Connect(function()
+    self.State.IsvFlying = true
+    self.State.Connections.vFlyLoop = RunService.Heartbeat:Connect(function()
         local character = LocalPlayer.Character
         if not character then return end
         local hrp = character:FindFirstChild("HumanoidRootPart")
@@ -28354,11 +28354,11 @@ function Modules.Fly2:Enable()
             self:_spoofVelocity()
         end
     end)
-    DoNotif(string.format("Fly2: ON (Speed: %d)", self.Config.Speed), 2)
+    DoNotif(string.format("vFly: ON (Speed: %d)", self.Config.Speed), 2)
 end
-function Modules.Fly2:Disable()
-    if not self.State.IsFly2ing then return end
-    self.State.IsFly2ing = false
+function Modules.vFly:Disable()
+    if not self.State.IsvFlying then return end
+    self.State.IsvFlying = false
     for _, conn in pairs(self.State.Connections) do
         if conn then
             conn:Disconnect()
@@ -28374,29 +28374,29 @@ function Modules.Fly2:Disable()
             humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
         end
     end
-    DoNotif("Fly2: OFF", 2)
+    DoNotif("vFly: OFF", 2)
 end
-function Modules.Fly2:Toggle()
-    if self.State.IsFly2ing then
+function Modules.vFly:Toggle()
+    if self.State.IsvFlying then
         self:Disable()
     else
         self:Enable()
     end
 end
-function Modules.Fly2:SetSpeed(speed)
+function Modules.vFly:SetSpeed(speed)
     speed = tonumber(speed)
     if not speed or speed < 0 then
         DoNotif("Invalid speed", 3)
         return
     end
     self.Config.Speed = speed
-    DoNotif(string.format("Fly2 speed: %d", speed), 2)
+    DoNotif(string.format("vFly speed: %d", speed), 2)
 end
-function Modules.Fly2:ToggleSpoof()
+function Modules.vFly:ToggleSpoof()
     self.Config.UseVelocitySpoof = not self.Config.UseVelocitySpoof
     DoNotif("Velocity Spoof: " .. (self.Config.UseVelocitySpoof and "ON" or "OFF"), 2)
 end
-function Modules.Fly2:SetSpoofVector(x, y, z)
+function Modules.vFly:SetSpoofVector(x, y, z)
     x = tonumber(x) or 0
     y = tonumber(y) or 0
     z = tonumber(z) or 0
@@ -28404,29 +28404,29 @@ function Modules.Fly2:SetSpoofVector(x, y, z)
     DoNotif(string.format("Spoof vector: (%.1f, %.1f, %.1f)", x, y, z), 2)
 end
 RegisterCommand({
-    Name = "Fly2",
-    Aliases = {"vfly"},
-    Description = "Toggle Fly2 with velocity spoofing. Controls: WASD + Space/Shift"
+    Name = "vFly",
+    Aliases = {"velfly"},
+    Description = "Toggle vFly with velocity spoofing. Controls: WASD + Space/Shift"
 }, function()
-    Modules.Fly2:Toggle()
+    Modules.vFly:Toggle()
 end)
 RegisterCommand({
-    Name = "Fly2speed",
+    Name = "vFlyspeed",
     Aliases = {"fs"},
-    Description = "Set Fly2 speed. Usage: ;Fly2speed <speed>"
+    Description = "Set vFly speed. Usage: ;vFlyspeed <speed>"
 }, function(args)
     if not args[1] then
-        DoNotif(string.format("Current speed: %d", Modules.Fly2.Config.Speed), 2)
+        DoNotif(string.format("Current speed: %d", Modules.vFly.Config.Speed), 2)
         return
     end
-    Modules.Fly2:SetSpeed(args[1])
+    Modules.vFly:SetSpeed(args[1])
 end)
 RegisterCommand({
-    Name = "Fly2spoof",
+    Name = "vFlyspoof",
     Aliases = {},
-    Description = "Toggle velocity spoofing for Fly2"
+    Description = "Toggle velocity spoofing for vFly"
 }, function()
-    Modules.Fly2:ToggleSpoof()
+    Modules.vFly:ToggleSpoof()
 end)
 RegisterCommand({
     Name = "spoofvector2",
@@ -28434,11 +28434,11 @@ RegisterCommand({
     Description = "Set the spoofed velocity vector. Usage: ;spoofvector <x> <y> <z>"
 }, function(args)
     if #args < 3 then
-        local v = Modules.Fly2.Config.SpoofVector
+        local v = Modules.vFly.Config.SpoofVector
         DoNotif(string.format("Current: (%.1f, %.1f, %.1f)", v.X, v.Y, v.Z), 2)
         return
     end
-    Modules.Fly2:SetSpoofVector(args[1], args[2], args[3])
+    Modules.vFly:SetSpoofVector(args[1], args[2], args[3])
 end)
 --[[
 ;leech player123 - start leeching them
@@ -29081,7 +29081,7 @@ function Modules.PrivateServer:CreateSoloServer()
         DoNotif("Failed to create solo server", 3)
     end
 end
-function Modules.PrivateServer:GetCurrentServerInfo()
+function Modules.PrivateServer:GetCurrentfling()
     local jobId = self:_getJobId()
     local placeId = self:_getPlaceId()
     local playerCount = #game:GetService("Players"):GetPlayers()
@@ -29458,7 +29458,7 @@ function Modules.NetworkFling:UseSpecificPart(partName)
     return false
 end
 RegisterCommand({
-    Name = "fling",
+    Name = "networkfling",
     Aliases = {"netfling"},
     Description = "Fling a player using existing parts. Usage: ;fling <player>"
 }, function(args)
@@ -39888,6 +39888,8 @@ function Modules.AntiAttach:_voidAttacker(attacker)
             local hrp = character and character:FindFirstChild("HumanoidRootPart")
             
             if hrp then
+                -- Just spike your own velocity downward
+                -- Since they're attached, they inherit it and get dragged down
                 hrp.AssemblyLinearVelocity = Vector3.new(0, self.Config.VoidVelocity, 0)
                 hrp.AssemblyAngularVelocity = Vector3.zero
             else
