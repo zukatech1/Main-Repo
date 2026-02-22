@@ -39013,6 +39013,791 @@ function Modules.Disarmer:Initialize()
         end
     end)
 end
+Modules.AntiAdmin = {
+    State = {
+        IsEnabled = false,
+        ProtectionLevel = "HIGH",
+        OriginalProperties = {},
+        Connections = {},
+        TeleportAttempts = 0,
+        LastPosition = nil,
+        SafePosition = nil,
+        BlockedCommands = {},
+        WhitelistedPlayers = {},
+        Notifications = true,
+        AutoReturn = true,
+        FreezeProtection = true,
+        KickProtection = true,
+        DamageProtection = false,
+        PropertyLocks = {},
+        LastKnownGood = {}
+    },
+    Config = {
+        CheckInterval = 0.1,
+        MaxTeleportDistance = 50,
+        ReturnDelay = 0.5,
+        PositionTolerance = 5,
+        SaveInterval = 2,
+    }
+}
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+function Modules.AntiAdmin:Notify(message, color)
+    if not self.State.Notifications then return end
+    color = color or Color3.fromRGB(100, 255, 100)
+    print(string.format("[Anti-Admin] %s", message))
+    local gui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not gui then return end
+    local notif = Instance.new("ScreenGui", gui)
+    notif.Name = "AntiAdminNotif"
+    notif.ResetOnSpawn = false
+    local frame = Instance.new("Frame", notif)
+    frame.Size = UDim2.fromOffset(300, 60)
+    frame.Position = UDim2.new(1, -310, 0, 10)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    frame.BorderSizePixel = 0
+    local corner = Instance.new("UICorner", frame)
+    corner.CornerRadius = UDim.new(0, 8)
+    local stroke = Instance.new("UIStroke", frame)
+    stroke.Color = color
+    stroke.Thickness = 2
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, -20, 1, -10)
+    label.Position = UDim2.fromOffset(10, 5)
+    label.BackgroundTransparency = 1
+    label.Text = message
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 12
+    label.TextWrapped = true
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    task.delay(3, function()
+        if notif then notif:Destroy() end
+    end)
+end
+function Modules.AntiAdmin:SaveCurrentState()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoid = char:FindFirstChild("Humanoid")
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    if rootPart then
+        self.State.LastPosition = rootPart.Position
+        if not self.State.SafePosition or (tick() % self.Config.SaveInterval < 0.1) then
+            self.State.SafePosition = rootPart.Position
+        end
+    end
+    if humanoid then
+        self.State.LastKnownGood.WalkSpeed = humanoid.WalkSpeed
+        self.State.LastKnownGood.JumpPower = humanoid.JumpPower
+        self.State.LastKnownGood.Health = humanoid.Health
+    end
+end
+function Modules.AntiAdmin:RestorePosition()
+    local char = LocalPlayer.Character
+    if not char then return false end
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return false end
+    local targetPos = self.State.SafePosition or self.State.LastPosition
+    if not targetPos then return false end
+    rootPart.CFrame = CFrame.new(targetPos)
+    rootPart.Position = targetPos
+    if rootPart:FindFirstChild("BodyVelocity") then
+        rootPart.BodyVelocity:Destroy()
+    end
+    local bodyVel = rootPart:FindFirstChild("BodyVelocity")
+    if bodyVel then bodyVel:Destroy() end
+    rootPart.Velocity = Vector3.new(0, 0, 0)
+    rootPart.RotVelocity = Vector3.new(0, 0, 0)
+    return true
+end
+function Modules.AntiAdmin:EnableTeleportProtection()
+    self:SaveCurrentState()
+    local lastCheck = tick()
+    local conn = RunService.Heartbeat:Connect(function()
+        if not self.State.IsEnabled then return end
+        local now = tick()
+        if now - lastCheck < self.Config.CheckInterval then return end
+        lastCheck = now
+        local char = LocalPlayer.Character
+        if not char then return end
+        local rootPart = char:FindFirstChild("HumanoidRootPart")
+        if not rootPart then return end
+        local currentPos = rootPart.Position
+        if self.State.LastPosition then
+            local distance = (currentPos - self.State.LastPosition).Magnitude
+            if distance > self.Config.MaxTeleportDistance then
+                self.State.TeleportAttempts = self.State.TeleportAttempts + 1
+                self:Notify(string.format("⚠️ TP BLOCKED! Distance: %.0f studs", distance), Color3.fromRGB(255, 100, 100))
+                if self.State.AutoReturn then
+                    task.wait(self.Config.ReturnDelay)
+                    if self:RestorePosition() then
+                        self:Notify("✓ Returned to safe position", Color3.fromRGB(100, 255, 100))
+                    end
+                end
+            end
+        end
+        self:SaveCurrentState()
+    end)
+    table.insert(self.State.Connections, conn)
+end
+function Modules.AntiAdmin:EnableFreezeProtection()
+    local conn = RunService.Heartbeat:Connect(function()
+        if not self.State.IsEnabled or not self.State.FreezeProtection then return end
+        local char = LocalPlayer.Character
+        if not char then return end
+        local rootPart = char:FindFirstChild("HumanoidRootPart")
+        if not rootPart then return end
+        if rootPart.Anchored then
+            rootPart.Anchored = false
+            self:Notify("⚠️ Unfreeze attempted - BLOCKED", Color3.fromRGB(255, 150, 50))
+        end
+        for _, obj in pairs(rootPart:GetChildren()) do
+            if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then
+                obj:Destroy()
+                self:Notify("⚠️ Body constraint removed", Color3.fromRGB(255, 150, 50))
+            end
+        end
+    end)
+    table.insert(self.State.Connections, conn)
+end
+function Modules.AntiAdmin:EnablePropertyProtection()
+    local conn = RunService.Heartbeat:Connect(function()
+        if not self.State.IsEnabled then return end
+        local char = LocalPlayer.Character
+        if not char then return end
+        local humanoid = char:FindFirstChild("Humanoid")
+        if not humanoid then return end
+        if self.State.PropertyLocks.WalkSpeed then
+            if humanoid.WalkSpeed ~= self.State.PropertyLocks.WalkSpeed then
+                humanoid.WalkSpeed = self.State.PropertyLocks.WalkSpeed
+                self:Notify("⚠️ WalkSpeed change blocked", Color3.fromRGB(255, 200, 100))
+            end
+        end
+        if self.State.PropertyLocks.JumpPower then
+            if humanoid.JumpPower ~= self.State.PropertyLocks.JumpPower then
+                humanoid.JumpPower = self.State.PropertyLocks.JumpPower
+                self:Notify("⚠️ JumpPower change blocked", Color3.fromRGB(255, 200, 100))
+            end
+        end
+        if self.State.DamageProtection then
+            if humanoid.Health < humanoid.MaxHealth * 0.5 then
+                humanoid.Health = humanoid.MaxHealth
+                self:Notify("⚠️ Health restored", Color3.fromRGB(100, 255, 100))
+            end
+        end
+    end)
+    table.insert(self.State.Connections, conn)
+end
+function Modules.AntiAdmin:EnableKickProtection()
+    if not self.State.OriginalKick then
+        self.State.OriginalKick = LocalPlayer.Kick
+    end
+    LocalPlayer.Kick = function(...)
+        if self.State.IsEnabled and self.State.KickProtection then
+            self:Notify("⚠️ KICK ATTEMPT BLOCKED!", Color3.fromRGB(255, 50, 50))
+            return
+        else
+            return self.State.OriginalKick(...)
+        end
+    end
+end
+function Modules.AntiAdmin:EnableCharacterProtection()
+    local function protectCharacter(char)
+        if not char then return end
+        local conn1 = char.AncestryChanged:Connect(function(_, parent)
+            if not parent and self.State.IsEnabled then
+                self:Notify("⚠️ Character deletion blocked - respawning", Color3.fromRGB(255, 100, 100))
+                task.wait(0.5)
+                LocalPlayer:LoadCharacter()
+            end
+        end)
+        table.insert(self.State.Connections, conn1)
+        local humanoid = char:WaitForChild("Humanoid", 5)
+        if humanoid then
+            local conn2 = humanoid.Died:Connect(function()
+                if self.State.IsEnabled and self.State.DamageProtection then
+                    task.wait(0.1)
+                    humanoid.Health = humanoid.MaxHealth
+                    self:Notify("⚠️ Death prevented", Color3.fromRGB(100, 255, 100))
+                end
+            end)
+            table.insert(self.State.Connections, conn2)
+        end
+    end
+    if LocalPlayer.Character then
+        protectCharacter(LocalPlayer.Character)
+    end
+    local conn = LocalPlayer.CharacterAdded:Connect(function(char)
+        protectCharacter(char)
+    end)
+    table.insert(self.State.Connections, conn)
+end
+function Modules.AntiAdmin:MonitorRemoteEvents()
+    local blockedPatterns = {
+        "kick", "ban", "teleport", "tp", "freeze", 
+        "kill", "damage", "admin", "mod", "punish"
+    }
+    for _, remote in pairs(game:GetDescendants()) do
+        if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+            local remoteName = remote.Name:lower()
+            for _, pattern in pairs(blockedPatterns) do
+                if remoteName:find(pattern) then
+                    self:Notify(string.format("⚠️ Suspicious remote detected: %s", remote.Name), Color3.fromRGB(255, 200, 50))
+                    if self.State.ProtectionLevel == "PARANOID" then
+                        if remote:IsA("RemoteEvent") then
+                            remote.OnClientEvent:Connect(function() end)
+                        end
+                    end
+                    break
+                end
+            end
+        end
+    end
+end
+function Modules.AntiAdmin:SetProtectionLevel(level)
+    level = level:upper()
+    if level ~= "LOW" and level ~= "MEDIUM" and level ~= "HIGH" and level ~= "PARANOID" then
+        self:Notify("Invalid level. Use: LOW, MEDIUM, HIGH, PARANOID", Color3.fromRGB(255, 100, 100))
+        return
+    end
+    self.State.ProtectionLevel = level
+    if level == "LOW" then
+        self.State.AutoReturn = false
+        self.State.FreezeProtection = false
+        self.State.KickProtection = true
+        self.State.DamageProtection = false
+    elseif level == "MEDIUM" then
+        self.State.AutoReturn = true
+        self.State.FreezeProtection = true
+        self.State.KickProtection = true
+        self.State.DamageProtection = false
+    elseif level == "HIGH" then
+        self.State.AutoReturn = true
+        self.State.FreezeProtection = true
+        self.State.KickProtection = true
+        self.State.DamageProtection = true
+    elseif level == "PARANOID" then
+        self.State.AutoReturn = true
+        self.State.FreezeProtection = true
+        self.State.KickProtection = true
+        self.State.DamageProtection = true
+        self.Config.CheckInterval = 0.05
+        self:MonitorRemoteEvents()
+    end
+    self:Notify(string.format("Protection level: %s", level), Color3.fromRGB(100, 200, 255))
+end
+function Modules.AntiAdmin:LockProperty(property, value)
+    local char = LocalPlayer.Character
+    if not char then
+        self:Notify("No character found", Color3.fromRGB(255, 100, 100))
+        return
+    end
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not humanoid then return end
+    if property == "WalkSpeed" or property == "walkspeed" or property == "speed" then
+        self.State.PropertyLocks.WalkSpeed = value or humanoid.WalkSpeed
+        humanoid.WalkSpeed = self.State.PropertyLocks.WalkSpeed
+        self:Notify(string.format("🔒 WalkSpeed locked at %d", self.State.PropertyLocks.WalkSpeed), Color3.fromRGB(100, 200, 255))
+    elseif property == "JumpPower" or property == "jumppower" or property == "jump" then
+        self.State.PropertyLocks.JumpPower = value or humanoid.JumpPower
+        humanoid.JumpPower = self.State.PropertyLocks.JumpPower
+        self:Notify(string.format("🔒 JumpPower locked at %d", self.State.PropertyLocks.JumpPower), Color3.fromRGB(100, 200, 255))
+    end
+end
+function Modules.AntiAdmin:UnlockProperty(property)
+    if property == "WalkSpeed" or property == "walkspeed" or property == "speed" then
+        self.State.PropertyLocks.WalkSpeed = nil
+        self:Notify("🔓 WalkSpeed unlocked", Color3.fromRGB(100, 200, 255))
+    elseif property == "JumpPower" or property == "jumppower" or property == "jump" then
+        self.State.PropertyLocks.JumpPower = nil
+        self:Notify("🔓 JumpPower unlocked", Color3.fromRGB(100, 200, 255))
+    elseif property == "all" then
+        self.State.PropertyLocks = {}
+        self:Notify("🔓 All properties unlocked", Color3.fromRGB(100, 200, 255))
+    end
+end
+function Modules.AntiAdmin:SetSafePosition()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+    self.State.SafePosition = rootPart.Position
+    self:Notify(string.format("✓ Safe position set: %.0f, %.0f, %.0f", 
+        rootPart.Position.X, rootPart.Position.Y, rootPart.Position.Z), 
+        Color3.fromRGB(100, 255, 100))
+end
+function Modules.AntiAdmin:ReturnToSafe()
+    if self:RestorePosition() then
+        self:Notify("✓ Returned to safe position", Color3.fromRGB(100, 255, 100))
+    else
+        self:Notify("❌ No safe position set", Color3.fromRGB(255, 100, 100))
+    end
+end
+function Modules.AntiAdmin:ShowStatus()
+    local status = string.format([[
+╔══════════════════════════════════╗
+║    ANTI-ADMIN STATUS             ║
+╠══════════════════════════════════╣
+║ Enabled: %s
+║ Protection Level: %s
+║ TP Attempts Blocked: %d
+║ 
+║ Auto Return: %s
+║ Freeze Protection: %s
+║ Kick Protection: %s
+║ Damage Protection: %s
+║ 
+║ Safe Position: %s
+╚══════════════════════════════════╝
+    ]], 
+        self.State.IsEnabled and "YES" or "NO",
+        self.State.ProtectionLevel,
+        self.State.TeleportAttempts,
+        self.State.AutoReturn and "ON" or "OFF",
+        self.State.FreezeProtection and "ON" or "OFF",
+        self.State.KickProtection and "ON" or "OFF",
+        self.State.DamageProtection and "ON" or "OFF",
+        self.State.SafePosition and "SET" or "NOT SET"
+    )
+    print(status)
+    self:Notify("Status printed to console (F9)", Color3.fromRGB(100, 200, 255))
+end
+function Modules.AntiAdmin:Enable()
+    if self.State.IsEnabled then
+        self:Notify("Already enabled", Color3.fromRGB(255, 200, 100))
+        return
+    end
+    self.State.IsEnabled = true
+    self.State.TeleportAttempts = 0
+    self:EnableTeleportProtection()
+    self:EnableFreezeProtection()
+    self:EnablePropertyProtection()
+    self:EnableKickProtection()
+    self:EnableCharacterProtection()
+    self:SetSafePosition()
+    self:Notify("✓ Anti-Admin ENABLED", Color3.fromRGB(100, 255, 100))
+    print([[
+╔══════════════════════════════════╗
+║    ANTI-ADMIN PROTECTION         ║
+║           ENABLED                ║
+╠══════════════════════════════════╣
+║ All protections are now active!  ║
+║                                  ║
+║ Commands:                        ║
+║  !antiadmin off    - Disable     ║
+║  !antiadmin level  - Change lvl  ║
+║  !antiadmin status - Show status ║
+║  !setsafe          - Set safe pos║
+║  !returnsafe       - Return home ║
+╚══════════════════════════════════╝
+    ]])
+end
+function Modules.AntiAdmin:Disable()
+    if not self.State.IsEnabled then
+        self:Notify("Already disabled", Color3.fromRGB(255, 200, 100))
+        return
+    end
+    self.State.IsEnabled = false
+    for _, conn in pairs(self.State.Connections) do
+        if conn then conn:Disconnect() end
+    end
+    self.State.Connections = {}
+    if self.State.OriginalKick then
+        LocalPlayer.Kick = self.State.OriginalKick
+    end
+    self:Notify("✓ Anti-Admin DISABLED", Color3.fromRGB(255, 100, 100))
+end
+function Modules.AntiAdmin:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+RegisterCommand({
+    Name = "antiadmin",
+    Aliases = {},
+    Description = "Toggle anti-admin protection. Args: on/off/level/status"
+}, function(args)
+    if not args[1] then
+        Modules.AntiAdmin:Toggle()
+    elseif args[1]:lower() == "on" then
+        Modules.AntiAdmin:Enable()
+    elseif args[1]:lower() == "off" then
+        Modules.AntiAdmin:Disable()
+    elseif args[1]:lower() == "level" then
+        if args[2] then
+            Modules.AntiAdmin:SetProtectionLevel(args[2])
+        else
+            Modules.AntiAdmin:Notify("Usage: !antiadmin level <LOW/MEDIUM/HIGH/PARANOID>", Color3.fromRGB(255, 200, 100))
+        end
+    elseif args[1]:lower() == "status" then
+        Modules.AntiAdmin:ShowStatus()
+    end
+end)
+RegisterCommand({
+    Name = "setsafe",
+    Aliases = {},
+    Description = "Set current position as safe position"
+}, function()
+    Modules.AntiAdmin:SetSafePosition()
+end)
+RegisterCommand({
+    Name = "returnsafe",
+    Aliases = {"backsafe", "gohome"},
+    Description = "Return to saved safe position"
+}, function()
+    Modules.AntiAdmin:ReturnToSafe()
+end)
+RegisterCommand({
+    Name = "lockprop",
+    Aliases = {"lockproperty"},
+    Description = "Lock a property (walkspeed, jumppower). Usage: !lockprop <property> [value]"
+}, function(args)
+    if not args[1] then
+        Modules.AntiAdmin:Notify("Usage: !lockprop <walkspeed/jumppower> [value]", Color3.fromRGB(255, 200, 100))
+        return
+    end
+    local value = args[2] and tonumber(args[2]) or nil
+    Modules.AntiAdmin:LockProperty(args[1], value)
+end)
+RegisterCommand({
+    Name = "unlockprop",
+    Aliases = {},
+    Description = "Unlock a property. Usage: !unlockprop <property/all>"
+}, function(args)
+    Modules.AntiAdmin:UnlockProperty(args[1] or "all")
+end)
+
+print("✓ Anti-Admin module loaded")
+
+Modules.AntiExploit = {
+    State = {
+        IsEnabled = false,
+        MonitoringRemotes = false,
+        BlockedRemotes = {},
+        LoggedEvents = {},
+        SuspiciousActivity = {},
+        Connections = {},
+        Whitelist = {},
+        CommandPatterns = {
+            "kick", "ban", "kill", "damage", "teleport", "tp", 
+            "freeze", "thaw", "blind", "unblind", "explode",
+            "fire", "smoke", "sparkles", "god", "ungod",
+            "speed", "jumppower", "size", "invisible", "visible",
+            "jail", "unjail", "name", "health", "respawn"
+        },
+        RemoteLog = {},
+        MaxLogSize = 100
+    },
+    Config = {
+        AutoBlock = true,
+        LogRemotes = true,
+        NotifyOnBlock = true,
+        BlockThreshold = 3,
+        SuspicionScores = {}
+    }
+}
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+function Modules.AntiExploit:Notify(message, color)
+    color = color or Color3.fromRGB(255, 150, 50)
+    print(string.format("[Anti-Exploit] %s", message))
+    local gui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not gui then return end
+    local notif = Instance.new("ScreenGui", gui)
+    notif.Name = "AntiExploitNotif"
+    notif.ResetOnSpawn = false
+    local frame = Instance.new("Frame", notif)
+    frame.Size = UDim2.fromOffset(320, 70)
+    frame.Position = UDim2.new(1, -330, 0, 80)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    frame.BorderSizePixel = 0
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    local stroke = Instance.new("UIStroke", frame)
+    stroke.Color = color
+    stroke.Thickness = 2
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, -20, 1, -10)
+    label.Position = UDim2.fromOffset(10, 5)
+    label.BackgroundTransparency = 1
+    label.Text = message
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.Font = Enum.Font.Code
+    label.TextSize = 11
+    label.TextWrapped = true
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Top
+    task.delay(4, function()
+        if notif then notif:Destroy() end
+    end)
+end
+function Modules.AntiExploit:IsSuspiciousRemote(remoteName)
+    remoteName = remoteName:lower()
+    for _, pattern in pairs(self.State.CommandPatterns) do
+        if remoteName:find(pattern) then
+            return true, pattern
+        end
+    end
+    return false
+end
+function Modules.AntiExploit:LogRemoteCall(remote, args)
+    local entry = {
+        Name = remote.Name,
+        Path = remote:GetFullName(),
+        Args = args,
+        Time = os.date("%H:%M:%S"),
+        Tick = tick()
+    }
+    table.insert(self.State.RemoteLog, 1, entry)
+    if #self.State.RemoteLog > self.State.MaxLogSize then
+        table.remove(self.State.RemoteLog)
+    end
+end
+function Modules.AntiExploit:IncreaseSuspicion(remoteName)
+    self.Config.SuspicionScores[remoteName] = (self.Config.SuspicionScores[remoteName] or 0) + 1
+    if self.Config.SuspicionScores[remoteName] >= self.Config.BlockThreshold then
+        return true
+    end
+    return false
+end
+function Modules.AntiExploit:HookRemoteEvent(remote)
+    if self.State.BlockedRemotes[remote] then return end
+    local originalFireServer = remote.FireServer
+    remote.FireServer = function(self, ...)
+        local args = {...}
+        local suspicious, pattern = Modules.AntiExploit:IsSuspiciousRemote(remote.Name)
+        if suspicious then
+            Modules.AntiExploit:LogRemoteCall(remote, args)
+            local shouldBlock = Modules.AntiExploit:IncreaseSuspicion(remote.Name)
+            if shouldBlock and Modules.AntiExploit.Config.AutoBlock then
+                Modules.AntiExploit:Notify(
+                    string.format("🛡️ BLOCKED: %s\nPattern: %s", remote.Name, pattern),
+                    Color3.fromRGB(255, 50, 50)
+                )
+                return
+            else
+                Modules.AntiExploit:Notify(
+                    string.format("⚠️ SUSPICIOUS: %s (Score: %d/%d)", 
+                        remote.Name, 
+                        Modules.AntiExploit.Config.SuspicionScores[remote.Name],
+                        Modules.AntiExploit.Config.BlockThreshold),
+                    Color3.fromRGB(255, 200, 50)
+                )
+            end
+        end
+        return originalFireServer(self, ...)
+    end
+end
+function Modules.AntiExploit:HookRemoteFunction(remote)
+    if self.State.BlockedRemotes[remote] then return end
+    local originalInvokeServer = remote.InvokeServer
+    remote.InvokeServer = function(self, ...)
+        local args = {...}
+        local suspicious, pattern = Modules.AntiExploit:IsSuspiciousRemote(remote.Name)
+        if suspicious then
+            Modules.AntiExploit:LogRemoteCall(remote, args)
+            local shouldBlock = Modules.AntiExploit:IncreaseSuspicion(remote.Name)
+            if shouldBlock and Modules.AntiExploit.Config.AutoBlock then
+                Modules.AntiExploit:Notify(
+                    string.format("🛡️ BLOCKED: %s\nPattern: %s", remote.Name, pattern),
+                    Color3.fromRGB(255, 50, 50)
+                )
+                return nil
+            end
+        end
+        return originalInvokeServer(self, ...)
+    end
+end
+function Modules.AntiExploit:ScanAndHookRemotes()
+    local scanned = 0
+    local hooked = 0
+    for _, obj in pairs(game:GetDescendants()) do
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            scanned = scanned + 1
+            local suspicious = self:IsSuspiciousRemote(obj.Name)
+            if suspicious then
+                if obj:IsA("RemoteEvent") then
+                    self:HookRemoteEvent(obj)
+                else
+                    self:HookRemoteFunction(obj)
+                end
+                hooked = hooked + 1
+            end
+        end
+    end
+    self:Notify(string.format("✓ Scanned %d remotes, hooked %d suspicious", scanned, hooked), Color3.fromRGB(100, 255, 100))
+end
+function Modules.AntiExploit:BlockRemote(remoteName)
+    for _, obj in pairs(game:GetDescendants()) do
+        if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and obj.Name:lower():find(remoteName:lower()) then
+            self.State.BlockedRemotes[obj] = true
+            if obj:IsA("RemoteEvent") then
+                obj.FireServer = function() end
+            else
+                obj.InvokeServer = function() return nil end
+            end
+            self:Notify(string.format("🔒 Permanently blocked: %s", obj.Name), Color3.fromRGB(255, 100, 100))
+        end
+    end
+end
+function Modules.AntiExploit:UnblockRemote(remoteName)
+    for obj, _ in pairs(self.State.BlockedRemotes) do
+        if obj.Name:lower():find(remoteName:lower()) then
+            self.State.BlockedRemotes[obj] = nil
+            self:Notify(string.format("🔓 Unblocked: %s (may need rejoin)", obj.Name), Color3.fromRGB(100, 200, 255))
+        end
+    end
+end
+function Modules.AntiExploit:ShowRemoteLog()
+    print("\n╔════════════════════════════════════════════════╗")
+    print("║           REMOTE CALL LOG                      ║")
+    print("╠════════════════════════════════════════════════╣")
+    if #self.State.RemoteLog == 0 then
+        print("║  No remotes logged yet                         ║")
+    else
+        for i = 1, math.min(20, #self.State.RemoteLog) do
+            local entry = self.State.RemoteLog[i]
+            print(string.format("║ [%s] %s", entry.Time, entry.Name))
+            if entry.Args and #entry.Args > 0 then
+                for j, arg in ipairs(entry.Args) do
+                    print(string.format("║   Arg %d: %s", j, tostring(arg)))
+                end
+            end
+            print("╠────────────────────────────────────────────────╣")
+        end
+    end
+    print("╚════════════════════════════════════════════════╝\n")
+    self:Notify("Log printed to console (F9)", Color3.fromRGB(100, 200, 255))
+end
+function Modules.AntiExploit:ShowSuspiciousRemotes()
+    print("\n╔════════════════════════════════════════════════╗")
+    print("║         SUSPICIOUS REMOTES                     ║")
+    print("╠════════════════════════════════════════════════╣")
+    local found = false
+    for name, score in pairs(self.Config.SuspicionScores) do
+        if score > 0 then
+            found = true
+            local status = score >= self.Config.BlockThreshold and "[BLOCKED]" or "[WATCHING]"
+            print(string.format("║ %s %s (Score: %d)", status, name, score))
+        end
+    end
+    if not found then
+        print("║  No suspicious activity detected               ║")
+    end
+    print("╚════════════════════════════════════════════════╝\n")
+    self:Notify("Suspicious remotes printed (F9)", Color3.fromRGB(100, 200, 255))
+end
+function Modules.AntiExploit:AddPattern(pattern)
+    table.insert(self.State.CommandPatterns, pattern:lower())
+    self:Notify(string.format("✓ Added pattern: %s", pattern), Color3.fromRGB(100, 255, 100))
+end
+function Modules.AntiExploit:ClearLogs()
+    self.State.RemoteLog = {}
+    self.Config.SuspicionScores = {}
+    self:Notify("✓ Logs cleared", Color3.fromRGB(100, 255, 100))
+end
+function Modules.AntiExploit:Enable()
+    if self.State.IsEnabled then
+        self:Notify("Already enabled", Color3.fromRGB(255, 200, 100))
+        return
+    end
+    self.State.IsEnabled = true
+    self:ScanAndHookRemotes()
+    local conn = game.DescendantAdded:Connect(function(obj)
+        if not self.State.IsEnabled then return end
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            local suspicious = self:IsSuspiciousRemote(obj.Name)
+            if suspicious then
+                self:Notify(string.format("⚠️ New suspicious remote added: %s", obj.Name), Color3.fromRGB(255, 200, 50))
+                task.wait(0.1)
+                if obj:IsA("RemoteEvent") then
+                    self:HookRemoteEvent(obj)
+                else
+                    self:HookRemoteFunction(obj)
+                end
+            end
+        end
+    end)
+    table.insert(self.State.Connections, conn)
+    print([[
+╔═══════════════════════════════════════╗
+║     ANTI-EXPLOIT PROTECTION           ║
+║            ENABLED                    ║
+╠═══════════════════════════════════════╣
+║ Monitoring all remote communications  ║
+║ Suspicious calls will be logged       ║
+║ Auto-blocking after threshold         ║
+║                                       ║
+║ Commands:                             ║
+║  !antiexploit log    - Show log       ║
+║  !antiexploit sus    - Show suspicious║
+║  !antiexploit block  - Block remote   ║
+║  !antiexploit clear  - Clear logs     ║
+╚═══════════════════════════════════════╝
+    ]])
+end
+function Modules.AntiExploit:Disable()
+    if not self.State.IsEnabled then
+        self:Notify("Already disabled", Color3.fromRGB(255, 200, 100))
+        return
+    end
+    self.State.IsEnabled = false
+    for _, conn in pairs(self.State.Connections) do
+        if conn then conn:Disconnect() end
+    end
+    self.State.Connections = {}
+    self:Notify("✓ Anti-Exploit DISABLED", Color3.fromRGB(255, 100, 100))
+end
+function Modules.AntiExploit:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+RegisterCommand({
+    Name = "antiex",
+    Aliases = {"ae", "antiserver", "remoteblock"},
+    Description = "Anti-exploit protection. Args: on/off/log/sus/block/clear"
+}, function(args)
+    if not args[1] then
+        Modules.AntiExploit:Toggle()
+    elseif args[1]:lower() == "on" then
+        Modules.AntiExploit:Enable()
+    elseif args[1]:lower() == "off" then
+        Modules.AntiExploit:Disable()
+    elseif args[1]:lower() == "log" then
+        Modules.AntiExploit:ShowRemoteLog()
+    elseif args[1]:lower() == "sus" or args[1]:lower() == "suspicious" then
+        Modules.AntiExploit:ShowSuspiciousRemotes()
+    elseif args[1]:lower() == "block" then
+        if args[2] then
+            Modules.AntiExploit:BlockRemote(args[2])
+        else
+            Modules.AntiExploit:Notify("Usage: !antiexploit block <remote_name>", Color3.fromRGB(255, 200, 100))
+        end
+    elseif args[1]:lower() == "unblock" then
+        if args[2] then
+            Modules.AntiExploit:UnblockRemote(args[2])
+        else
+            Modules.AntiExploit:Notify("Usage: !antiexploit unblock <remote_name>", Color3.fromRGB(255, 200, 100))
+        end
+    elseif args[1]:lower() == "clear" then
+        Modules.AntiExploit:ClearLogs()
+    elseif args[1]:lower() == "addpattern" then
+        if args[2] then
+            Modules.AntiExploit:AddPattern(args[2])
+        else
+            Modules.AntiExploit:Notify("Usage: !antiexploit addpattern <pattern>", Color3.fromRGB(255, 200, 100))
+        end
+    end
+end)
+print("✓ Anti-Exploit module loaded")
+
 local function loadstringCmd(url, notif)
     pcall(function()
         loadstring(game:HttpGet(url))()
