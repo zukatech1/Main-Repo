@@ -15532,7 +15532,7 @@ function Modules.AntiAim:Initialize()
     local module = self
     RegisterCommand({
         Name = "antiaim",
-        Aliases = {"aa"},
+        Aliases = {},
         Description = "Toggles velocity-based Anti-Aim."
     }, function(args)
         local strength = tonumber(args[1])
@@ -28321,7 +28321,7 @@ function Modules.vFly:_spoofVelocity()
     end
 end
 function Modules.vFly:Enable()
-    if self.State.IsvFlying then return end
+    if self.State.IsFlying then return end
     local character = LocalPlayer.Character
     if not character then
         DoNotif("No character found", 3)
@@ -28336,7 +28336,7 @@ function Modules.vFly:Enable()
         DoNotif("Failed to create vFly components", 3)
         return
     end
-    self.State.IsvFlying = true
+    self.State.IsFlying = true
     self.State.Connections.vFlyLoop = RunService.Heartbeat:Connect(function()
         local character = LocalPlayer.Character
         if not character then return end
@@ -28357,8 +28357,8 @@ function Modules.vFly:Enable()
     DoNotif(string.format("vFly: ON (Speed: %d)", self.Config.Speed), 2)
 end
 function Modules.vFly:Disable()
-    if not self.State.IsvFlying then return end
-    self.State.IsvFlying = false
+    if not self.State.IsFlying then return end
+    self.State.IsFlying = false
     for _, conn in pairs(self.State.Connections) do
         if conn then
             conn:Disconnect()
@@ -28377,7 +28377,7 @@ function Modules.vFly:Disable()
     DoNotif("vFly: OFF", 2)
 end
 function Modules.vFly:Toggle()
-    if self.State.IsvFlying then
+    if self.State.IsFlying then
         self:Disable()
     else
         self:Enable()
@@ -29531,28 +29531,36 @@ Modules.HDAdminAccess = {
     State = {
         HasAccess = false,
         HDAdminInstance = nil,
+        HDMain = nil,
         OriginalFunctions = {}
     }
 }
+
+local function _getHDMain()
+    local ok, fw = pcall(function()
+        return require(game:GetService("ReplicatedStorage").HDAdminHDClient.SharedModules.MainFramework)
+    end)
+    if ok and fw then
+        local ok2, main = pcall(function() return fw:CheckInitialized() end)
+        if ok2 and main then
+            return main
+        end
+    end
+    return nil
+end
+
 function Modules.HDAdminAccess:_findHDAdmin()
-    local locations = {
+    local hdRoot = game:GetService("ReplicatedStorage"):FindFirstChild("HDAdminHDClient")
+    if hdRoot then return hdRoot end
+    for _, location in ipairs({
         game:GetService("ReplicatedStorage"),
         game:GetService("ReplicatedFirst"),
         LocalPlayer:FindFirstChild("PlayerScripts"),
         LocalPlayer:FindFirstChild("PlayerGui")
-    }
-    for _, location in ipairs(locations) do
+    }) do
         if location then
-            local hdAdmin = location:FindFirstChild("HDAdminClient") or
-                           location:FindFirstChild("HD Admin") or
-                           location:FindFirstChild("HDAdmin") or
-                           location:FindFirstChild("MainModule")
-            if hdAdmin then
-                return hdAdmin
-            end
             for _, child in ipairs(location:GetDescendants()) do
-                if child.Name:lower():find("hdadmin") or 
-                   (child:IsA("ModuleScript") and child.Name == "MainModule") then
+                if child.Name:lower():find("hdadmin") then
                     return child
                 end
             end
@@ -29560,177 +29568,129 @@ function Modules.HDAdminAccess:_findHDAdmin()
     end
     return nil
 end
+
 function Modules.HDAdminAccess:_hookPermissions()
-    local hdAdmin = self:_findHDAdmin()
-    if not hdAdmin then
+    local hdRoot = game:GetService("ReplicatedStorage"):FindFirstChild("HDAdminHDClient")
+    if not hdRoot then
         DoNotif("HD Admin not found in game", 3)
         return false
     end
-    self.State.HDAdminInstance = hdAdmin
-    local success, mainModule = pcall(function()
-        return require(hdAdmin)
-    end)
-    if not success then
-        DoNotif("Failed to load HD Admin module", 3)
+    self.State.HDAdminInstance = hdRoot
+
+    -- Get the main framework table
+    local hd = _getHDMain()
+    if not hd then
+        DoNotif("Could not get HD Admin main table", 3)
         return false
     end
-    if type(mainModule) ~= "table" then
-        DoNotif("HD Admin didn't return a table", 3)
-        return false
-    end
+    self.State.HDMain = hd
+
+    -- Directly set rank in pdata
     pcall(function()
-        if setreadonly then setreadonly(mainModule, false) end
+        if setreadonly then pcall(function() setreadonly(hd.pdata, false) end) end
+        hd.pdata.Rank = 5
+        hd.pdata.SaveRank = false -- prevent server from overwriting
     end)
-    local permissionKeys = {
-        "checkPermission", "checkAdmin", "checkOwner", "checkModerator",
-        "getUserRank", "getRank", "isAdmin", "isMod", "isOwner",
-        "checkBan", "checkMuted", "hasPermission"
-    }
-    for _, key in ipairs(permissionKeys) do
-        if mainModule[key] then
-            self.State.OriginalFunctions[key] = mainModule[key]
-            mainModule[key] = function(...)
-                return true
-            end
+
+    -- Unlock and fill commandsAllowedToUse
+    pcall(function()
+        if setreadonly then pcall(function() setreadonly(hd.commandsAllowedToUse, false) end) end
+        for cmdName, _ in pairs(hd.commandRanks) do
+            hd.commandsAllowedToUse[cmdName] = true
         end
-    end
-    if mainModule.getUserRank or mainModule.getRank then
-        local rankFunc = mainModule.getUserRank or mainModule.getRank
-        self.State.OriginalFunctions.getRank = rankFunc
-        mainModule.getUserRank = function(...) return 255 end
-        mainModule.getRank = function(...) return 255 end
-    end
-    if mainModule.settings then
-        pcall(function()
-            if setreadonly then setreadonly(mainModule.settings, false) end
-            if mainModule.settings.Admins then
-                pcall(function()
-                    if setreadonly then setreadonly(mainModule.settings.Admins, false) end
-                    mainModule.settings.Admins[LocalPlayer.UserId] = 255
-                end)
-            end
-            if mainModule.settings.Owners then
-                pcall(function()
-                    if setreadonly then setreadonly(mainModule.settings.Owners, false) end
-                    table.insert(mainModule.settings.Owners, LocalPlayer.UserId)
-                end)
-            end
-        end)
-    end
-    return true
-end
-function Modules.HDAdminAccess:_activateHDAdmin()
-    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if not playerGui then return false end
-    local hdAdminGui = playerGui:FindFirstChild("HDAdminCommands") or
-                      playerGui:FindFirstChild("HDAdmin") or
-                      playerGui:FindFirstChild("HD Admin")
-    if hdAdminGui then
-        hdAdminGui.Enabled = true
-        for _, child in ipairs(hdAdminGui:GetDescendants()) do
-            if child:IsA("Frame") and (child.Name:lower():find("main") or child.Name:lower():find("command")) then
-                child.Visible = true
-            end
-        end
-        return true
-    end
-    local hdAdmin = self.State.HDAdminInstance
-    if hdAdmin then
-        local success, client = pcall(function()
-            return require(hdAdmin)
-        end)
-        if success and client then
-            pcall(function()
-                if client.createWindow then client:createWindow() end
-                if client.openCommandBar then client:openCommandBar() end
-                if client.showCommandBar then client:showCommandBar() end
-            end)
-            return true
-        end
-    end
-    return false
-end
-function Modules.HDAdminAccess:_spoofRemotes()
-    local remotes = {}
-    local function findRemotes(container)
-        for _, child in ipairs(container:GetDescendants()) do
-            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-                local name = child.Name:lower()
-                if name:find("admin") or name:find("permission") or name:find("rank") then
-                    table.insert(remotes, child)
+    end)
+
+    -- Hook ClientAPI/ClientNetwork modules for any rank checks
+    local modules = hdRoot:FindFirstChild("Modules")
+    if modules then
+        for _, modName in ipairs({"ClientAPI", "ClientNetwork"}) do
+            local mod = modules:FindFirstChild(modName)
+            if mod then
+                local ok, t = pcall(require, mod)
+                if ok and type(t) == "table" then
+                    pcall(function() if setreadonly then setreadonly(t, false) end end)
+                    for _, key in ipairs({"getRank","getPermissions","checkPermission","checkAdmin","isAdmin","getUserRank","hasPermission"}) do
+                        if t[key] then
+                            if key:find("[Rr]ank") or key:find("[Pp]ermission") then
+                                t[key] = function(...) return 5 end
+                            else
+                                t[key] = function(...) return true end
+                            end
+                        end
+                    end
                 end
             end
         end
     end
-    findRemotes(game:GetService("ReplicatedStorage"))
-    for _, remote in ipairs(remotes) do
-        if remote:IsA("RemoteFunction") then
-            local oldInvoke = remote.InvokeServer
-            remote.InvokeServer = function(...)
-                local args = {...}
-                return 255
+
+    return true
+end
+
+function Modules.HDAdminAccess:_spoofRemotes()
+    local mt = getrawmetatable(game)
+    if mt then
+        local oldNamecall = mt.__namecall
+        setreadonly(mt, false)
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            if method == "InvokeServer" and self:IsA("RemoteFunction") then
+                local name = self.Name:lower()
+                if name:find("rank") or name:find("admin") or name:find("permission") then
+                    return 5
+                end
             end
-        end
+            return oldNamecall(self, ...)
+        end)
+        setreadonly(mt, true)
     end
 end
-function Modules.HDAdminAccess:_injectAdminStatus()
-    local hdAdmin = self.State.HDAdminInstance
-    if not hdAdmin then return false end
-    local success = pcall(function()
-        local mainModule = require(hdAdmin)
-        if mainModule.pdata or mainModule.playerData then
-            local pdata = mainModule.pdata or mainModule.playerData
-            pcall(function()
-                if setreadonly then setreadonly(pdata, false) end
-            end)
-            if pdata[LocalPlayer.UserId] then
-                local ourData = pdata[LocalPlayer.UserId]
-                pcall(function()
-                    if setreadonly then setreadonly(ourData, false) end
-                    ourData.Rank = 255
-                    ourData.isAdmin = true
-                    ourData.isOwner = true
-                    ourData.isModerator = true
-                end)
-            else
-                pdata[LocalPlayer.UserId] = {
-                    Rank = 255,
-                    isAdmin = true,
-                    isOwner = true,
-                    isModerator = true
-                }
-            end
-        end
-        if mainModule.parse or mainModule.parser then
-            local parser = mainModule.parse or mainModule.parser
-            pcall(function()
-                if setreadonly then setreadonly(parser, false) end
-            end)
+
+function Modules.HDAdminAccess:_activateHDAdmin()
+    local hd = self.State.HDMain or _getHDMain()
+    if not hd then return false end
+
+    -- Try to open the command bar via the main module
+    pcall(function()
+        local cmdBar = hd:GetModule("CmdBar")
+        if cmdBar then
+            if cmdBar.OpenCmdBar then cmdBar:OpenCmdBar()
+            elseif cmdBar.open then cmdBar:open()
+            elseif cmdBar.toggle then cmdBar:toggle() end
         end
     end)
-    return success
+
+    -- Make the HD Admin GUI visible
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if playerGui then
+        local hdGui = playerGui:FindFirstChild("HDAdminInterface")
+        if hdGui then hdGui.Enabled = true end
+    end
+
+    return true
 end
+
 function Modules.HDAdminAccess:GrantAccess()
     DoNotif("Attempting HD Admin access...", 2)
-    local hdAdmin = self:_findHDAdmin()
-    if not hdAdmin then
-        DoNotif("HD Admin not found - game may not have it", 3)
-        return
-    end
-    DoNotif("Found HD Admin, hooking permissions...", 2)
-    self:_hookPermissions()
+
+    local hooked = self:_hookPermissions()
+    if not hooked then return end
+
     self:_spoofRemotes()
-    self:_injectAdminStatus()
-    task.wait(0.5)
-    local activated = self:_activateHDAdmin()
-    if activated then
-        DoNotif("HD Admin access granted! Type : or ; to use commands", 2)
-        self.State.HasAccess = true
+
+    task.wait(0.3)
+
+    local hd = self.State.HDMain
+    if hd then
+        local count = 0
+        for _ in pairs(hd.commandsAllowedToUse) do count = count + 1 end
+        DoNotif(string.format("Rank set to 5, %d commands unlocked! Use prefix: %s", count, tostring(hd.pdata.Prefix or ";")), 2)
     else
-        DoNotif("Access hooked, try typing :cmds", 2)
-        self.State.HasAccess = true
+        DoNotif("Hooked — try using commands in chat", 2)
     end
+
+    self.State.HasAccess = true
 end
+
 function Modules.HDAdminAccess:OpenPanel()
     if not self.State.HasAccess then
         self:GrantAccess()
@@ -29738,85 +29698,86 @@ function Modules.HDAdminAccess:OpenPanel()
         self:_activateHDAdmin()
     end
 end
+
 function Modules.HDAdminAccess:ListCommands()
-    local hdAdmin = self.State.HDAdminInstance
-    if not hdAdmin then
-        DoNotif("HD Admin not loaded", 3)
+    local hd = self.State.HDMain or _getHDMain()
+    if not hd then
+        DoNotif("HD Admin not loaded — run hdadmin first", 3)
         return
     end
-    local success, mainModule = pcall(function()
-        return require(hdAdmin)
-    end)
-    if success and mainModule then
-        print("\n=== HD ADMIN COMMANDS ===")
-        local commands = mainModule.commands or mainModule.commandList or mainModule.cmds
-        if commands then
-            local count = 0
-            for cmdName, cmdData in pairs(commands) do
-                if type(cmdData) == "table" then
-                    local desc = cmdData.Description or cmdData.description or "No description"
-                    local prefix = cmdData.Prefix or cmdData.prefix or ":"
-                    print(string.format("%s%s - %s", prefix, cmdName, desc))
-                else
-                    print(cmdName)
-                end
-                count = count + 1
-            end
-            print(string.format("\nTotal commands: %d", count))
-            DoNotif(string.format("Listed %d commands (check console)", count), 2)
-        else
-            DoNotif("Could not find command list", 3)
-        end
+
+    local prefix = hd.pdata and hd.pdata.Prefix or ";"
+    local lines = {"=== HD ADMIN COMMANDS (prefix: " .. prefix .. ") ==="}
+    local count = 0
+
+    -- commandRanks has every command name and its required rank
+    for cmdName, reqRank in pairs(hd.commandRanks) do
+        table.insert(lines, string.format("%s%s [rank %s]", prefix, cmdName, tostring(reqRank)))
+        count = count + 1
     end
+
+    table.sort(lines)
+    for _, line in ipairs(lines) do print(line) end
+    print("\nTotal: " .. count .. " commands")
+
+    -- Copy to clipboard too
+    pcall(function() setclipboard(table.concat(lines, "\n")) end)
+    DoNotif(string.format("%d commands listed in console", count), 2)
 end
-function Modules.HDAdminAccess:ExecuteCommand(commandString)
-    local hdAdmin = self.State.HDAdminInstance
-    if not hdAdmin then
-        DoNotif("HD Admin not loaded", 3)
-        return
-    end
-    local commandRemote = game:GetService("ReplicatedStorage"):FindFirstChild("HDAdminRemote") or
-                         game:GetService("ReplicatedStorage"):FindFirstChild("CommandRemote")
-    if commandRemote and commandRemote:IsA("RemoteEvent") then
-        commandRemote:FireServer(commandString)
-        DoNotif("Executed: " .. commandString, 2)
-    else
-        local success, mainModule = pcall(function()
-            return require(hdAdmin)
-        end)
-        if success and mainModule then
-            pcall(function()
-                if mainModule.processCommand then
-                    mainModule:processCommand(LocalPlayer, commandString)
-                elseif mainModule.parse then
-                    mainModule:parse(LocalPlayer, commandString)
-                end
-            end)
-            DoNotif("Executed: " .. commandString, 2)
-        else
-            DoNotif("Failed to execute command", 3)
-        end
-    end
-end
+
 function Modules.HDAdminAccess:ToggleCommandBar()
+    local hd = self.State.HDMain or _getHDMain()
+    if hd then
+        local ok = pcall(function()
+            local cmdBar = hd:GetModule("CmdBar")
+            if cmdBar and cmdBar.OpenCmdBar then
+                cmdBar:OpenCmdBar()
+                return
+            end
+        end)
+        if ok then
+            DoNotif("Command bar toggled", 2)
+            return
+        end
+    end
+
+    -- Fallback: find TextBox in PlayerGui
     local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if not playerGui then return end
-    for _, gui in ipairs(playerGui:GetDescendants()) do
-        if gui:IsA("TextBox") and (gui.Name:lower():find("command") or gui.PlaceholderText:lower():find("command")) then
-            gui.Visible = not gui.Visible
-            if gui.Visible then
-                gui:CaptureFocus()
+    if playerGui then
+        for _, v in ipairs(playerGui:GetDescendants()) do
+            if v:IsA("TextBox") and v.PlaceholderText and v.PlaceholderText:lower():find("command") then
+                v.Visible = not v.Visible
+                if v.Visible then v:CaptureFocus() end
+                return
             end
         end
     end
+    DoNotif("Command bar not found", 3)
 end
+
+function Modules.HDAdminAccess:ExecuteCommand(commandString)
+    local hd = self.State.HDMain or _getHDMain()
+    if not hd then
+        DoNotif("HD Admin not loaded", 3)
+        return
+    end
+    pcall(function()
+        local chatHandler = hd:GetModule("ChatHandler")
+        if chatHandler and chatHandler.ProcessMessage then
+            chatHandler:ProcessMessage(commandString)
+        end
+    end)
+    DoNotif("Executed: " .. commandString, 2)
+end
+
 RegisterCommand({
     Name = "hdadmin",
     Aliases = {"hda"},
-    Description = "Grant access to HD Admin system if game has it"
+    Description = "Grant access to HD Admin system"
 }, function()
     Modules.HDAdminAccess:GrantAccess()
 end)
+
 RegisterCommand({
     Name = "openhd",
     Aliases = {"hdopen"},
@@ -29824,13 +29785,15 @@ RegisterCommand({
 }, function()
     Modules.HDAdminAccess:OpenPanel()
 end)
+
 RegisterCommand({
     Name = "hdlist",
     Aliases = {"listhd"},
-    Description = "List all available HD Admin commands (prints to console)"
+    Description = "List all HD Admin commands in console"
 }, function()
     Modules.HDAdminAccess:ListCommands()
 end)
+
 RegisterCommand({
     Name = "runhd",
     Aliases = {"hdrun"},
@@ -29840,15 +29803,229 @@ RegisterCommand({
         DoNotif("Usage: ;runhd <command>", 3)
         return
     end
-    local commandString = table.concat(args, " ")
-    Modules.HDAdminAccess:ExecuteCommand(commandString)
+    Modules.HDAdminAccess:ExecuteCommand(table.concat(args, " "))
 end)
+
 RegisterCommand({
     Name = "hdbar",
     Aliases = {},
-    Description = "Toggle HD Admin command bar visibility"
+    Description = "Toggle HD Admin command bar"
 }, function()
     Modules.HDAdminAccess:ToggleCommandBar()
+end)
+Modules.ChatFix = {
+    State = {
+        Loaded = false,
+        Hooks = {},
+        Watched = {},
+        Connections = {}
+    }
+}
+
+local NAME_PREFIXES = {
+    "Cool", "Dark", "Epic", "Fire", "Gamer", "Happy", "Ice", "Jade", "King", "Lava",
+    "Mega", "Ninja", "Nova", "Omega", "Pro", "Quick", "Red", "Shadow", "Super", "Tiger",
+    "Ultra", "Void", "Wild", "Xeno", "Zap", "Blaze", "Cyber", "Dragon", "Edge", "Frost",
+    "Ghost", "Hyper", "Iron", "Jet", "Killer", "Legend", "Moon", "Night", "Pixel", "Rogue"
+}
+local NAME_SUFFIXES = {
+    "Blade", "Boss", "Blox", "Claw", "Craft", "Dash", "Dude", "Fire", "Fox", "Gamer",
+    "Guy", "Hero", "Hunter", "King", "Knight", "Lord", "Master", "Nova", "Player", "Pro",
+    "Roblox", "Runner", "Slayer", "Storm", "Strike", "Sword", "Tiger", "Titan", "Wolf", "X",
+    "YT", "Zer0", "Zilla", "Bro", "Man", "Boy", "Girl", "Star", "Skull", "Viper"
+}
+local NAME_NUMBERS = {
+    "", "", "", "123", "456", "789", "007", "69", "420",
+    "1", "2", "3", "99", "100", "2009", "2010", "2011", "XD"
+}
+
+local FAKE_MESSAGES = {
+    "lol", "bro what", "gg", "this game is so fun", "anyone wanna trade?",
+    "how do i get robux", "skill issue", "nah bro", "wait what just happened",
+    "this is actually crazy", "fr fr", "no way", "lets goooo", "omg",
+    "why is everyone so good", "i just joined", "can someone help me",
+    "bro got cooked", "ez", "this map is huge", "how long have you been playing",
+    "i need more coins", "brb", "back", "lag??", "my wifi is bad rn",
+    "wait how did you do that", "anyone else lagging", "this update is crazy",
+    "i love this game", "report him", "bro is trolling", "L", "W", "ratio",
+    "real", "based", "nope", "yep", "maybe", "idk tbh", "same", "exactly",
+    "literally", "not me losing again", "gg wp", "try harder next time",
+    "is this game good", "just started playing", "woah", "bro really said that",
+    "no shot", "actually insane", "calm down", "its just a game",
+    "😭", "💀", "🔥", "😂", "no cap", "on god", "bro thinks hes slick",
+    "wait is that allowed", "how", "WHY", "ok that was cold", "yooo",
+    "ngl this slaps", "i cant", "im dead 💀", "respectfully no",
+    "who asked", "i did", "carry me", "im trying my best ok",
+}
+
+local function randomName()
+    local prefix = NAME_PREFIXES[math.random(#NAME_PREFIXES)]
+    local suffix = NAME_SUFFIXES[math.random(#NAME_SUFFIXES)]
+    local number = NAME_NUMBERS[math.random(#NAME_NUMBERS)]
+    return prefix .. suffix .. number
+end
+
+local function randomMessage()
+    return FAKE_MESSAGES[math.random(#FAKE_MESSAGES)]
+end
+
+local function fakeText()
+    return randomName() .. ": " .. randomMessage()
+end
+
+function Modules.ChatFix:_svc(n)
+    local ok, s = pcall(game.GetService, game, n)
+    if not ok or not s then return nil end
+    if cloneref and type(cloneref) == "function" then
+        local ok2, c = pcall(cloneref, s)
+        if ok2 and c then return c end
+    end
+    return s
+end
+
+function Modules.ChatFix:_isLockRow(lbl)
+    if not lbl or not lbl:IsA("TextLabel") then return false end
+    if lbl.Name ~= "BodyText" then return false end
+    local txt = ""
+    pcall(function() txt = lbl.ContentText end)
+    if txt == "" then txt = lbl.Text or "" end
+    if txt == "" then return false end
+    txt = txt:gsub("^%s+", "")
+    return txt:match("^🔒%s*:") ~= nil
+end
+
+function Modules.ChatFix:_spoofRow(lbl)
+    if not lbl or self.State.Watched[lbl] then return end
+    self.State.Watched[lbl] = true
+
+    -- Replace immediately
+    pcall(function() lbl.Text = fakeText() end)
+
+    -- Watch for it reverting back to a lock message
+    local conn
+    conn = lbl:GetPropertyChangedSignal("Text"):Connect(function()
+        if not lbl or not lbl.Parent then
+            if conn then conn:Disconnect() conn = nil end
+            self.State.Watched[lbl] = nil
+            return
+        end
+        local txt = ""
+        pcall(function() txt = lbl.ContentText end)
+        if txt == "" then txt = lbl.Text or "" end
+        txt = txt:gsub("^%s+", "")
+        if txt:match("^🔒%s*:") then
+            pcall(function() lbl.Text = fakeText() end)
+        end
+    end)
+    table.insert(self.State.Connections, conn)
+end
+
+function Modules.ChatFix:_hookContainer(cont)
+    if not cont or self.State.Hooks[cont] then return end
+    self.State.Hooks[cont] = true
+
+    local function handleBody(body)
+        if not self:_isLockRow(body) then return end
+        if not body.Parent then return end
+        self:_spoofRow(body)
+    end
+
+    -- Handle already existing rows
+    for _, row in ipairs(cont:GetChildren()) do
+        local tm = row:FindFirstChild("TextMessage")
+        if tm then
+            local body = tm:FindFirstChild("BodyText")
+            if body then handleBody(body) end
+        end
+    end
+
+    -- Watch for new rows coming in
+    local dConn
+    dConn = cont.DescendantAdded:Connect(function(inst)
+        if not cont.Parent then
+            if dConn then dConn:Disconnect() dConn = nil end
+            self.State.Hooks[cont] = nil
+            return
+        end
+        if inst:IsA("TextLabel") and inst.Name == "BodyText" then
+            task.wait() -- let Roblox populate the text first
+            handleBody(inst)
+        end
+    end)
+    table.insert(self.State.Connections, dConn)
+end
+
+function Modules.ChatFix:Enable()
+    if self.State.Loaded then
+        DoNotif("Chat fix already running", 2)
+        return
+    end
+
+    local cg = self:_svc("CoreGui")
+    if not cg then
+        DoNotif("Could not get CoreGui", 3)
+        return
+    end
+
+    local ec = nil
+    local start = os.clock()
+    repeat
+        ec = cg:FindFirstChild("ExperienceChat")
+        if not ec then task.wait(0.3) end
+    until ec or (os.clock() - start > 30)
+
+    if not ec then
+        DoNotif("ExperienceChat not found", 3)
+        return
+    end
+
+    for _, inst in ipairs(ec:GetDescendants()) do
+        if inst.Name == "RCTScrollContentView" then
+            self:_hookContainer(inst)
+        end
+    end
+
+    local ecConn
+    ecConn = ec.DescendantAdded:Connect(function(inst)
+        if not ec.Parent then
+            if ecConn then ecConn:Disconnect() ecConn = nil end
+            return
+        end
+        if inst.Name == "RCTScrollContentView" then
+            self:_hookContainer(inst)
+        end
+    end)
+    table.insert(self.State.Connections, ecConn)
+
+    self.State.Loaded = true
+    DoNotif("Chat fix enabled — lock messages spoofed with fake chat", 2)
+end
+
+function Modules.ChatFix:Disable()
+    for _, conn in ipairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    self.State.Connections = {}
+    self.State.Hooks = {}
+    self.State.Watched = {}
+    self.State.Loaded = false
+    DoNotif("Chat fix disabled", 2)
+end
+
+RegisterCommand({
+    Name = "chatfix",
+    Aliases = {"fixchat"},
+    Description = "Replace 🔒 lock messages with fake random chat"
+}, function()
+    Modules.ChatFix:Enable()
+end)
+
+RegisterCommand({
+    Name = "chatfixoff",
+    Aliases = {"unfixchat"},
+    Description = "Disable chat fix"
+}, function()
+    Modules.ChatFix:Disable()
 end)
 Modules.CmdrAccess = {
     State = {
@@ -34617,102 +34794,187 @@ Modules.CharacterMorph = {
     State = {
         IsMorphed = false,
         OriginalDescription = nil,
-        CharacterAddedConnection = nil
-    },
-    Dependencies = {"Players"},
-    Services = {}
+        ActiveDescription = nil,
+        PersistConnection = nil, -- re-applies morph on respawn
+        CurrentTarget = nil
+    }
 }
-function Modules.CharacterMorph:_resolveDescription(target: string)
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Cache original description once on load
+local function cacheOriginal(state)
+    if state.OriginalDescription then return end
+    local ok, desc = pcall(function()
+        return Players:GetHumanoidDescriptionFromUserId(LocalPlayer.UserId)
+    end)
+    if ok and desc then
+        state.OriginalDescription = desc
+    else
+        warn("[CharacterMorph] Could not cache original description")
+    end
+end
+
+function Modules.CharacterMorph:_resolveDescription(target)
     local targetId = tonumber(target)
     if not targetId then
-        local success, idFromName = pcall(function()
-            return self.Services.Players:GetUserIdFromNameAsync(target)
+        DoNotif("Looking up: " .. tostring(target), 1)
+        local ok, id = pcall(function()
+            return Players:GetUserIdFromNameAsync(target)
         end)
-        if not success or not idFromName then
-            DoNotif("Could not find a user with the name: " .. tostring(target), 3)
+        if not ok or not id then
+            DoNotif("User not found: " .. tostring(target), 3)
             return nil
         end
-        targetId = idFromName
+        targetId = id
     end
-    DoNotif("Loading avatar for UserId: " .. targetId, 1.5)
-    local success, description = pcall(function()
-        return self.Services.Players:GetHumanoidDescriptionFromUserId(targetId)
+
+    DoNotif("Loading avatar...", 1.5)
+    local ok, desc = pcall(function()
+        return Players:GetHumanoidDescriptionFromUserId(targetId)
     end)
-    if not success or not description then
-        DoNotif("Unable to load avatar description for that user.", 3)
+    if not ok or not desc then
+        DoNotif("Could not load avatar for that user", 3)
         return nil
     end
-    return description
+    return desc
 end
-function Modules.CharacterMorph:_applyAndRespawn(description: HumanoidDescription)
-    local localPlayer = self.Services.Players.LocalPlayer
-    if not description then return end
-    if self.State.CharacterAddedConnection then
-        self.State.CharacterAddedConnection:Disconnect()
-        self.State.CharacterAddedConnection = nil
-    end
-    self.State.CharacterAddedConnection = localPlayer.CharacterAdded:Once(function(character)
-        local humanoid = character:WaitForChild("Humanoid", 5)
+
+-- Try to apply without respawning first, fall back to LoadCharacter
+function Modules.CharacterMorph:_applyDescription(description)
+    local char = LocalPlayer.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
         if humanoid then
+            local ok = pcall(humanoid.ApplyDescription, humanoid, description)
+            if ok then return true end
+        end
+    end
+    return false -- caller should LoadCharacter
+end
+
+function Modules.CharacterMorph:_setPersist(description)
+    -- Disconnect any existing persist connection
+    if self.State.PersistConnection then
+        self.State.PersistConnection:Disconnect()
+        self.State.PersistConnection = nil
+    end
+    if not description then return end
+
+    self.State.PersistConnection = LocalPlayer.CharacterAdded:Connect(function(char)
+        local humanoid = char:WaitForChild("Humanoid", 5)
+        if humanoid then
+            task.wait() -- let character fully load
             pcall(humanoid.ApplyDescription, humanoid, description)
         end
     end)
-    localPlayer:LoadCharacter()
 end
-function Modules.CharacterMorph:Morph(target: string)
+
+function Modules.CharacterMorph:Morph(target)
     if not target then
-        return DoNotif("Usage: ;avatar <username/userid>", 3)
+        DoNotif("Usage: ;swapinto <username or userid>", 3)
+        return
     end
-    if not self.State.OriginalDescription then
-        local success, originalDesc = pcall(function()
-            return self.Services.Players:GetHumanoidDescriptionFromUserId(self.Services.Players.LocalPlayer.UserId)
-        end)
-        if success then
-            self.State.OriginalDescription = originalDesc
-        else
-            warn("[CharacterMorph] Could not cache original character description.")
-        end
+
+    -- Don't re-morph to the same target
+    if self.State.CurrentTarget == target and self.State.IsMorphed then
+        DoNotif("Already morphed as " .. tostring(target), 2)
+        return
     end
+
+    cacheOriginal(self.State)
+
     task.spawn(function()
-        local newDescription = self:_resolveDescription(target)
-        if newDescription then
-            self.State.IsMorphed = true
-            self:_applyAndRespawn(newDescription)
-            DoNotif("Applying character morph...", 2)
+        local desc = self:_resolveDescription(target)
+        if not desc then return end
+
+        self.State.ActiveDescription = desc
+        self.State.CurrentTarget = target
+        self.State.IsMorphed = true
+
+        -- Set up persistence first so respawn catches it
+        self:_setPersist(desc)
+
+        -- Try applying without respawn
+        local applied = self:_applyDescription(desc)
+        if not applied then
+            -- Fall back to forced respawn
+            DoNotif("Applying morph (respawning)...", 1.5)
+            LocalPlayer:LoadCharacter()
+        else
+            DoNotif("Morphed as " .. tostring(target), 2)
         end
     end)
 end
+
 function Modules.CharacterMorph:Revert()
     if not self.State.IsMorphed then
-        return DoNotif("You are not currently morphed.", 2)
+        DoNotif("Not currently morphed", 2)
+        return
     end
     if not self.State.OriginalDescription then
-        return DoNotif("Failed to revert: Original avatar description is missing.", 4)
+        DoNotif("Original description missing — try rejoining", 3)
+        return
     end
-    self:_applyAndRespawn(self.State.OriginalDescription)
+
+    -- Stop persisting the morph
+    self:_setPersist(nil)
+
     self.State.IsMorphed = false
-    DoNotif("Reverting to original character...", 2)
-end
-function Modules.CharacterMorph:Initialize()
-    local module = self
-    for _, service in ipairs(self.Dependencies) do
-        module.Services[service] = game:GetService(service)
+    self.State.ActiveDescription = nil
+    self.State.CurrentTarget = nil
+
+    local applied = self:_applyDescription(self.State.OriginalDescription)
+    if not applied then
+        -- Set up a one-time connection for the respawn
+        LocalPlayer.CharacterAdded:Once(function(char)
+            local humanoid = char:WaitForChild("Humanoid", 5)
+            if humanoid then
+                task.wait()
+                pcall(humanoid.ApplyDescription, humanoid, self.State.OriginalDescription)
+            end
+        end)
+        LocalPlayer:LoadCharacter()
     end
-    RegisterCommand({
-        Name = "swapinto",
-        Aliases = {"morph"},
-        Description = "Change your character's appearance to someone else's."
-    }, function(args)
-        module:Morph(args[1])
-    end)
-    RegisterCommand({
-        Name = "default",
-        Aliases = {},
-        Description = "Reverts your character's appearance to your own."
-    }, function()
-        module:Revert()
-    end)
+
+    DoNotif("Reverted to original avatar", 2)
 end
+
+function Modules.CharacterMorph:Status()
+    if self.State.IsMorphed then
+        DoNotif("Morphed as: " .. tostring(self.State.CurrentTarget), 2)
+    else
+        DoNotif("Not morphed", 2)
+    end
+end
+
+-- Cache original description immediately on script load
+cacheOriginal(Modules.CharacterMorph.State)
+
+RegisterCommand({
+    Name = "swapinto",
+    Aliases = {"morph", "avatar"},
+    Description = "Morph your character to another user. Usage: ;swapinto <name/id>"
+}, function(args)
+    Modules.CharacterMorph:Morph(args[1])
+end)
+
+RegisterCommand({
+    Name = "unmorph",
+    Aliases = {"default", "revert"},
+    Description = "Revert your character to your original avatar"
+}, function()
+    Modules.CharacterMorph:Revert()
+end)
+
+RegisterCommand({
+    Name = "morphstatus",
+    Aliases = {"mstatus"},
+    Description = "Check current morph status"
+}, function()
+    Modules.CharacterMorph:Status()
+end)
 Modules.Chams = {
     State = {
         IsEnabled = false,
@@ -37384,7 +37646,7 @@ function Modules.VisualClear:Toggle()
     end
 end
 RegisterCommand({
-    Name = "clearvisuals",
+    Name = "rblur",
     Aliases = {},
     Description = "Removes all post-processing effects like Blur, Bloom, and ColorCorrection."
 }, function()
@@ -39013,790 +39275,7 @@ function Modules.Disarmer:Initialize()
         end
     end)
 end
-Modules.AntiAdmin = {
-    State = {
-        IsEnabled = false,
-        ProtectionLevel = "HIGH",
-        OriginalProperties = {},
-        Connections = {},
-        TeleportAttempts = 0,
-        LastPosition = nil,
-        SafePosition = nil,
-        BlockedCommands = {},
-        WhitelistedPlayers = {},
-        Notifications = true,
-        AutoReturn = true,
-        FreezeProtection = true,
-        KickProtection = true,
-        DamageProtection = false,
-        PropertyLocks = {},
-        LastKnownGood = {}
-    },
-    Config = {
-        CheckInterval = 0.1,
-        MaxTeleportDistance = 50,
-        ReturnDelay = 0.5,
-        PositionTolerance = 5,
-        SaveInterval = 2,
-    }
-}
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-function Modules.AntiAdmin:Notify(message, color)
-    if not self.State.Notifications then return end
-    color = color or Color3.fromRGB(100, 255, 100)
-    print(string.format("[Anti-Admin] %s", message))
-    local gui = LocalPlayer:FindFirstChild("PlayerGui")
-    if not gui then return end
-    local notif = Instance.new("ScreenGui", gui)
-    notif.Name = "AntiAdminNotif"
-    notif.ResetOnSpawn = false
-    local frame = Instance.new("Frame", notif)
-    frame.Size = UDim2.fromOffset(300, 60)
-    frame.Position = UDim2.new(1, -310, 0, 10)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    frame.BorderSizePixel = 0
-    local corner = Instance.new("UICorner", frame)
-    corner.CornerRadius = UDim.new(0, 8)
-    local stroke = Instance.new("UIStroke", frame)
-    stroke.Color = color
-    stroke.Thickness = 2
-    local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(1, -20, 1, -10)
-    label.Position = UDim2.fromOffset(10, 5)
-    label.BackgroundTransparency = 1
-    label.Text = message
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 12
-    label.TextWrapped = true
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    task.delay(3, function()
-        if notif then notif:Destroy() end
-    end)
-end
-function Modules.AntiAdmin:SaveCurrentState()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local humanoid = char:FindFirstChild("Humanoid")
-    local rootPart = char:FindFirstChild("HumanoidRootPart")
-    if rootPart then
-        self.State.LastPosition = rootPart.Position
-        if not self.State.SafePosition or (tick() % self.Config.SaveInterval < 0.1) then
-            self.State.SafePosition = rootPart.Position
-        end
-    end
-    if humanoid then
-        self.State.LastKnownGood.WalkSpeed = humanoid.WalkSpeed
-        self.State.LastKnownGood.JumpPower = humanoid.JumpPower
-        self.State.LastKnownGood.Health = humanoid.Health
-    end
-end
-function Modules.AntiAdmin:RestorePosition()
-    local char = LocalPlayer.Character
-    if not char then return false end
-    local rootPart = char:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return false end
-    local targetPos = self.State.SafePosition or self.State.LastPosition
-    if not targetPos then return false end
-    rootPart.CFrame = CFrame.new(targetPos)
-    rootPart.Position = targetPos
-    if rootPart:FindFirstChild("BodyVelocity") then
-        rootPart.BodyVelocity:Destroy()
-    end
-    local bodyVel = rootPart:FindFirstChild("BodyVelocity")
-    if bodyVel then bodyVel:Destroy() end
-    rootPart.Velocity = Vector3.new(0, 0, 0)
-    rootPart.RotVelocity = Vector3.new(0, 0, 0)
-    return true
-end
-function Modules.AntiAdmin:EnableTeleportProtection()
-    self:SaveCurrentState()
-    local lastCheck = tick()
-    local conn = RunService.Heartbeat:Connect(function()
-        if not self.State.IsEnabled then return end
-        local now = tick()
-        if now - lastCheck < self.Config.CheckInterval then return end
-        lastCheck = now
-        local char = LocalPlayer.Character
-        if not char then return end
-        local rootPart = char:FindFirstChild("HumanoidRootPart")
-        if not rootPart then return end
-        local currentPos = rootPart.Position
-        if self.State.LastPosition then
-            local distance = (currentPos - self.State.LastPosition).Magnitude
-            if distance > self.Config.MaxTeleportDistance then
-                self.State.TeleportAttempts = self.State.TeleportAttempts + 1
-                self:Notify(string.format("⚠️ TP BLOCKED! Distance: %.0f studs", distance), Color3.fromRGB(255, 100, 100))
-                if self.State.AutoReturn then
-                    task.wait(self.Config.ReturnDelay)
-                    if self:RestorePosition() then
-                        self:Notify("✓ Returned to safe position", Color3.fromRGB(100, 255, 100))
-                    end
-                end
-            end
-        end
-        self:SaveCurrentState()
-    end)
-    table.insert(self.State.Connections, conn)
-end
-function Modules.AntiAdmin:EnableFreezeProtection()
-    local conn = RunService.Heartbeat:Connect(function()
-        if not self.State.IsEnabled or not self.State.FreezeProtection then return end
-        local char = LocalPlayer.Character
-        if not char then return end
-        local rootPart = char:FindFirstChild("HumanoidRootPart")
-        if not rootPart then return end
-        if rootPart.Anchored then
-            rootPart.Anchored = false
-            self:Notify("⚠️ Unfreeze attempted - BLOCKED", Color3.fromRGB(255, 150, 50))
-        end
-        for _, obj in pairs(rootPart:GetChildren()) do
-            if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then
-                obj:Destroy()
-                self:Notify("⚠️ Body constraint removed", Color3.fromRGB(255, 150, 50))
-            end
-        end
-    end)
-    table.insert(self.State.Connections, conn)
-end
-function Modules.AntiAdmin:EnablePropertyProtection()
-    local conn = RunService.Heartbeat:Connect(function()
-        if not self.State.IsEnabled then return end
-        local char = LocalPlayer.Character
-        if not char then return end
-        local humanoid = char:FindFirstChild("Humanoid")
-        if not humanoid then return end
-        if self.State.PropertyLocks.WalkSpeed then
-            if humanoid.WalkSpeed ~= self.State.PropertyLocks.WalkSpeed then
-                humanoid.WalkSpeed = self.State.PropertyLocks.WalkSpeed
-                self:Notify("⚠️ WalkSpeed change blocked", Color3.fromRGB(255, 200, 100))
-            end
-        end
-        if self.State.PropertyLocks.JumpPower then
-            if humanoid.JumpPower ~= self.State.PropertyLocks.JumpPower then
-                humanoid.JumpPower = self.State.PropertyLocks.JumpPower
-                self:Notify("⚠️ JumpPower change blocked", Color3.fromRGB(255, 200, 100))
-            end
-        end
-        if self.State.DamageProtection then
-            if humanoid.Health < humanoid.MaxHealth * 0.5 then
-                humanoid.Health = humanoid.MaxHealth
-                self:Notify("⚠️ Health restored", Color3.fromRGB(100, 255, 100))
-            end
-        end
-    end)
-    table.insert(self.State.Connections, conn)
-end
-function Modules.AntiAdmin:EnableKickProtection()
-    if not self.State.OriginalKick then
-        self.State.OriginalKick = LocalPlayer.Kick
-    end
-    LocalPlayer.Kick = function(...)
-        if self.State.IsEnabled and self.State.KickProtection then
-            self:Notify("⚠️ KICK ATTEMPT BLOCKED!", Color3.fromRGB(255, 50, 50))
-            return
-        else
-            return self.State.OriginalKick(...)
-        end
-    end
-end
-function Modules.AntiAdmin:EnableCharacterProtection()
-    local function protectCharacter(char)
-        if not char then return end
-        local conn1 = char.AncestryChanged:Connect(function(_, parent)
-            if not parent and self.State.IsEnabled then
-                self:Notify("⚠️ Character deletion blocked - respawning", Color3.fromRGB(255, 100, 100))
-                task.wait(0.5)
-                LocalPlayer:LoadCharacter()
-            end
-        end)
-        table.insert(self.State.Connections, conn1)
-        local humanoid = char:WaitForChild("Humanoid", 5)
-        if humanoid then
-            local conn2 = humanoid.Died:Connect(function()
-                if self.State.IsEnabled and self.State.DamageProtection then
-                    task.wait(0.1)
-                    humanoid.Health = humanoid.MaxHealth
-                    self:Notify("⚠️ Death prevented", Color3.fromRGB(100, 255, 100))
-                end
-            end)
-            table.insert(self.State.Connections, conn2)
-        end
-    end
-    if LocalPlayer.Character then
-        protectCharacter(LocalPlayer.Character)
-    end
-    local conn = LocalPlayer.CharacterAdded:Connect(function(char)
-        protectCharacter(char)
-    end)
-    table.insert(self.State.Connections, conn)
-end
-function Modules.AntiAdmin:MonitorRemoteEvents()
-    local blockedPatterns = {
-        "kick", "ban", "teleport", "tp", "freeze", 
-        "kill", "damage", "admin", "mod", "punish"
-    }
-    for _, remote in pairs(game:GetDescendants()) do
-        if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
-            local remoteName = remote.Name:lower()
-            for _, pattern in pairs(blockedPatterns) do
-                if remoteName:find(pattern) then
-                    self:Notify(string.format("⚠️ Suspicious remote detected: %s", remote.Name), Color3.fromRGB(255, 200, 50))
-                    if self.State.ProtectionLevel == "PARANOID" then
-                        if remote:IsA("RemoteEvent") then
-                            remote.OnClientEvent:Connect(function() end)
-                        end
-                    end
-                    break
-                end
-            end
-        end
-    end
-end
-function Modules.AntiAdmin:SetProtectionLevel(level)
-    level = level:upper()
-    if level ~= "LOW" and level ~= "MEDIUM" and level ~= "HIGH" and level ~= "PARANOID" then
-        self:Notify("Invalid level. Use: LOW, MEDIUM, HIGH, PARANOID", Color3.fromRGB(255, 100, 100))
-        return
-    end
-    self.State.ProtectionLevel = level
-    if level == "LOW" then
-        self.State.AutoReturn = false
-        self.State.FreezeProtection = false
-        self.State.KickProtection = true
-        self.State.DamageProtection = false
-    elseif level == "MEDIUM" then
-        self.State.AutoReturn = true
-        self.State.FreezeProtection = true
-        self.State.KickProtection = true
-        self.State.DamageProtection = false
-    elseif level == "HIGH" then
-        self.State.AutoReturn = true
-        self.State.FreezeProtection = true
-        self.State.KickProtection = true
-        self.State.DamageProtection = true
-    elseif level == "PARANOID" then
-        self.State.AutoReturn = true
-        self.State.FreezeProtection = true
-        self.State.KickProtection = true
-        self.State.DamageProtection = true
-        self.Config.CheckInterval = 0.05
-        self:MonitorRemoteEvents()
-    end
-    self:Notify(string.format("Protection level: %s", level), Color3.fromRGB(100, 200, 255))
-end
-function Modules.AntiAdmin:LockProperty(property, value)
-    local char = LocalPlayer.Character
-    if not char then
-        self:Notify("No character found", Color3.fromRGB(255, 100, 100))
-        return
-    end
-    local humanoid = char:FindFirstChild("Humanoid")
-    if not humanoid then return end
-    if property == "WalkSpeed" or property == "walkspeed" or property == "speed" then
-        self.State.PropertyLocks.WalkSpeed = value or humanoid.WalkSpeed
-        humanoid.WalkSpeed = self.State.PropertyLocks.WalkSpeed
-        self:Notify(string.format("🔒 WalkSpeed locked at %d", self.State.PropertyLocks.WalkSpeed), Color3.fromRGB(100, 200, 255))
-    elseif property == "JumpPower" or property == "jumppower" or property == "jump" then
-        self.State.PropertyLocks.JumpPower = value or humanoid.JumpPower
-        humanoid.JumpPower = self.State.PropertyLocks.JumpPower
-        self:Notify(string.format("🔒 JumpPower locked at %d", self.State.PropertyLocks.JumpPower), Color3.fromRGB(100, 200, 255))
-    end
-end
-function Modules.AntiAdmin:UnlockProperty(property)
-    if property == "WalkSpeed" or property == "walkspeed" or property == "speed" then
-        self.State.PropertyLocks.WalkSpeed = nil
-        self:Notify("🔓 WalkSpeed unlocked", Color3.fromRGB(100, 200, 255))
-    elseif property == "JumpPower" or property == "jumppower" or property == "jump" then
-        self.State.PropertyLocks.JumpPower = nil
-        self:Notify("🔓 JumpPower unlocked", Color3.fromRGB(100, 200, 255))
-    elseif property == "all" then
-        self.State.PropertyLocks = {}
-        self:Notify("🔓 All properties unlocked", Color3.fromRGB(100, 200, 255))
-    end
-end
-function Modules.AntiAdmin:SetSafePosition()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local rootPart = char:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return end
-    self.State.SafePosition = rootPart.Position
-    self:Notify(string.format("✓ Safe position set: %.0f, %.0f, %.0f", 
-        rootPart.Position.X, rootPart.Position.Y, rootPart.Position.Z), 
-        Color3.fromRGB(100, 255, 100))
-end
-function Modules.AntiAdmin:ReturnToSafe()
-    if self:RestorePosition() then
-        self:Notify("✓ Returned to safe position", Color3.fromRGB(100, 255, 100))
-    else
-        self:Notify("❌ No safe position set", Color3.fromRGB(255, 100, 100))
-    end
-end
-function Modules.AntiAdmin:ShowStatus()
-    local status = string.format([[
-╔══════════════════════════════════╗
-║    ANTI-ADMIN STATUS             ║
-╠══════════════════════════════════╣
-║ Enabled: %s
-║ Protection Level: %s
-║ TP Attempts Blocked: %d
-║ 
-║ Auto Return: %s
-║ Freeze Protection: %s
-║ Kick Protection: %s
-║ Damage Protection: %s
-║ 
-║ Safe Position: %s
-╚══════════════════════════════════╝
-    ]], 
-        self.State.IsEnabled and "YES" or "NO",
-        self.State.ProtectionLevel,
-        self.State.TeleportAttempts,
-        self.State.AutoReturn and "ON" or "OFF",
-        self.State.FreezeProtection and "ON" or "OFF",
-        self.State.KickProtection and "ON" or "OFF",
-        self.State.DamageProtection and "ON" or "OFF",
-        self.State.SafePosition and "SET" or "NOT SET"
-    )
-    print(status)
-    self:Notify("Status printed to console (F9)", Color3.fromRGB(100, 200, 255))
-end
-function Modules.AntiAdmin:Enable()
-    if self.State.IsEnabled then
-        self:Notify("Already enabled", Color3.fromRGB(255, 200, 100))
-        return
-    end
-    self.State.IsEnabled = true
-    self.State.TeleportAttempts = 0
-    self:EnableTeleportProtection()
-    self:EnableFreezeProtection()
-    self:EnablePropertyProtection()
-    self:EnableKickProtection()
-    self:EnableCharacterProtection()
-    self:SetSafePosition()
-    self:Notify("✓ Anti-Admin ENABLED", Color3.fromRGB(100, 255, 100))
-    print([[
-╔══════════════════════════════════╗
-║    ANTI-ADMIN PROTECTION         ║
-║           ENABLED                ║
-╠══════════════════════════════════╣
-║ All protections are now active!  ║
-║                                  ║
-║ Commands:                        ║
-║  !antiadmin off    - Disable     ║
-║  !antiadmin level  - Change lvl  ║
-║  !antiadmin status - Show status ║
-║  !setsafe          - Set safe pos║
-║  !returnsafe       - Return home ║
-╚══════════════════════════════════╝
-    ]])
-end
-function Modules.AntiAdmin:Disable()
-    if not self.State.IsEnabled then
-        self:Notify("Already disabled", Color3.fromRGB(255, 200, 100))
-        return
-    end
-    self.State.IsEnabled = false
-    for _, conn in pairs(self.State.Connections) do
-        if conn then conn:Disconnect() end
-    end
-    self.State.Connections = {}
-    if self.State.OriginalKick then
-        LocalPlayer.Kick = self.State.OriginalKick
-    end
-    self:Notify("✓ Anti-Admin DISABLED", Color3.fromRGB(255, 100, 100))
-end
-function Modules.AntiAdmin:Toggle()
-    if self.State.IsEnabled then
-        self:Disable()
-    else
-        self:Enable()
-    end
-end
-RegisterCommand({
-    Name = "antiadmin",
-    Aliases = {},
-    Description = "Toggle anti-admin protection. Args: on/off/level/status"
-}, function(args)
-    if not args[1] then
-        Modules.AntiAdmin:Toggle()
-    elseif args[1]:lower() == "on" then
-        Modules.AntiAdmin:Enable()
-    elseif args[1]:lower() == "off" then
-        Modules.AntiAdmin:Disable()
-    elseif args[1]:lower() == "level" then
-        if args[2] then
-            Modules.AntiAdmin:SetProtectionLevel(args[2])
-        else
-            Modules.AntiAdmin:Notify("Usage: !antiadmin level <LOW/MEDIUM/HIGH/PARANOID>", Color3.fromRGB(255, 200, 100))
-        end
-    elseif args[1]:lower() == "status" then
-        Modules.AntiAdmin:ShowStatus()
-    end
-end)
-RegisterCommand({
-    Name = "setsafe",
-    Aliases = {},
-    Description = "Set current position as safe position"
-}, function()
-    Modules.AntiAdmin:SetSafePosition()
-end)
-RegisterCommand({
-    Name = "returnsafe",
-    Aliases = {"backsafe", "gohome"},
-    Description = "Return to saved safe position"
-}, function()
-    Modules.AntiAdmin:ReturnToSafe()
-end)
-RegisterCommand({
-    Name = "lockprop",
-    Aliases = {"lockproperty"},
-    Description = "Lock a property (walkspeed, jumppower). Usage: !lockprop <property> [value]"
-}, function(args)
-    if not args[1] then
-        Modules.AntiAdmin:Notify("Usage: !lockprop <walkspeed/jumppower> [value]", Color3.fromRGB(255, 200, 100))
-        return
-    end
-    local value = args[2] and tonumber(args[2]) or nil
-    Modules.AntiAdmin:LockProperty(args[1], value)
-end)
-RegisterCommand({
-    Name = "unlockprop",
-    Aliases = {},
-    Description = "Unlock a property. Usage: !unlockprop <property/all>"
-}, function(args)
-    Modules.AntiAdmin:UnlockProperty(args[1] or "all")
-end)
 
-print("✓ Anti-Admin module loaded")
-
-Modules.AntiExploit = {
-    State = {
-        IsEnabled = false,
-        MonitoringRemotes = false,
-        BlockedRemotes = {},
-        LoggedEvents = {},
-        SuspiciousActivity = {},
-        Connections = {},
-        Whitelist = {},
-        CommandPatterns = {
-            "kick", "ban", "kill", "damage", "teleport", "tp", 
-            "freeze", "thaw", "blind", "unblind", "explode",
-            "fire", "smoke", "sparkles", "god", "ungod",
-            "speed", "jumppower", "size", "invisible", "visible",
-            "jail", "unjail", "name", "health", "respawn"
-        },
-        RemoteLog = {},
-        MaxLogSize = 100
-    },
-    Config = {
-        AutoBlock = true,
-        LogRemotes = true,
-        NotifyOnBlock = true,
-        BlockThreshold = 3,
-        SuspicionScores = {}
-    }
-}
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local LocalPlayer = Players.LocalPlayer
-function Modules.AntiExploit:Notify(message, color)
-    color = color or Color3.fromRGB(255, 150, 50)
-    print(string.format("[Anti-Exploit] %s", message))
-    local gui = LocalPlayer:FindFirstChild("PlayerGui")
-    if not gui then return end
-    local notif = Instance.new("ScreenGui", gui)
-    notif.Name = "AntiExploitNotif"
-    notif.ResetOnSpawn = false
-    local frame = Instance.new("Frame", notif)
-    frame.Size = UDim2.fromOffset(320, 70)
-    frame.Position = UDim2.new(1, -330, 0, 80)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    frame.BorderSizePixel = 0
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-    local stroke = Instance.new("UIStroke", frame)
-    stroke.Color = color
-    stroke.Thickness = 2
-    local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(1, -20, 1, -10)
-    label.Position = UDim2.fromOffset(10, 5)
-    label.BackgroundTransparency = 1
-    label.Text = message
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.Font = Enum.Font.Code
-    label.TextSize = 11
-    label.TextWrapped = true
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextYAlignment = Enum.TextYAlignment.Top
-    task.delay(4, function()
-        if notif then notif:Destroy() end
-    end)
-end
-function Modules.AntiExploit:IsSuspiciousRemote(remoteName)
-    remoteName = remoteName:lower()
-    for _, pattern in pairs(self.State.CommandPatterns) do
-        if remoteName:find(pattern) then
-            return true, pattern
-        end
-    end
-    return false
-end
-function Modules.AntiExploit:LogRemoteCall(remote, args)
-    local entry = {
-        Name = remote.Name,
-        Path = remote:GetFullName(),
-        Args = args,
-        Time = os.date("%H:%M:%S"),
-        Tick = tick()
-    }
-    table.insert(self.State.RemoteLog, 1, entry)
-    if #self.State.RemoteLog > self.State.MaxLogSize then
-        table.remove(self.State.RemoteLog)
-    end
-end
-function Modules.AntiExploit:IncreaseSuspicion(remoteName)
-    self.Config.SuspicionScores[remoteName] = (self.Config.SuspicionScores[remoteName] or 0) + 1
-    if self.Config.SuspicionScores[remoteName] >= self.Config.BlockThreshold then
-        return true
-    end
-    return false
-end
-function Modules.AntiExploit:HookRemoteEvent(remote)
-    if self.State.BlockedRemotes[remote] then return end
-    local originalFireServer = remote.FireServer
-    remote.FireServer = function(self, ...)
-        local args = {...}
-        local suspicious, pattern = Modules.AntiExploit:IsSuspiciousRemote(remote.Name)
-        if suspicious then
-            Modules.AntiExploit:LogRemoteCall(remote, args)
-            local shouldBlock = Modules.AntiExploit:IncreaseSuspicion(remote.Name)
-            if shouldBlock and Modules.AntiExploit.Config.AutoBlock then
-                Modules.AntiExploit:Notify(
-                    string.format("🛡️ BLOCKED: %s\nPattern: %s", remote.Name, pattern),
-                    Color3.fromRGB(255, 50, 50)
-                )
-                return
-            else
-                Modules.AntiExploit:Notify(
-                    string.format("⚠️ SUSPICIOUS: %s (Score: %d/%d)", 
-                        remote.Name, 
-                        Modules.AntiExploit.Config.SuspicionScores[remote.Name],
-                        Modules.AntiExploit.Config.BlockThreshold),
-                    Color3.fromRGB(255, 200, 50)
-                )
-            end
-        end
-        return originalFireServer(self, ...)
-    end
-end
-function Modules.AntiExploit:HookRemoteFunction(remote)
-    if self.State.BlockedRemotes[remote] then return end
-    local originalInvokeServer = remote.InvokeServer
-    remote.InvokeServer = function(self, ...)
-        local args = {...}
-        local suspicious, pattern = Modules.AntiExploit:IsSuspiciousRemote(remote.Name)
-        if suspicious then
-            Modules.AntiExploit:LogRemoteCall(remote, args)
-            local shouldBlock = Modules.AntiExploit:IncreaseSuspicion(remote.Name)
-            if shouldBlock and Modules.AntiExploit.Config.AutoBlock then
-                Modules.AntiExploit:Notify(
-                    string.format("🛡️ BLOCKED: %s\nPattern: %s", remote.Name, pattern),
-                    Color3.fromRGB(255, 50, 50)
-                )
-                return nil
-            end
-        end
-        return originalInvokeServer(self, ...)
-    end
-end
-function Modules.AntiExploit:ScanAndHookRemotes()
-    local scanned = 0
-    local hooked = 0
-    for _, obj in pairs(game:GetDescendants()) do
-        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-            scanned = scanned + 1
-            local suspicious = self:IsSuspiciousRemote(obj.Name)
-            if suspicious then
-                if obj:IsA("RemoteEvent") then
-                    self:HookRemoteEvent(obj)
-                else
-                    self:HookRemoteFunction(obj)
-                end
-                hooked = hooked + 1
-            end
-        end
-    end
-    self:Notify(string.format("✓ Scanned %d remotes, hooked %d suspicious", scanned, hooked), Color3.fromRGB(100, 255, 100))
-end
-function Modules.AntiExploit:BlockRemote(remoteName)
-    for _, obj in pairs(game:GetDescendants()) do
-        if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and obj.Name:lower():find(remoteName:lower()) then
-            self.State.BlockedRemotes[obj] = true
-            if obj:IsA("RemoteEvent") then
-                obj.FireServer = function() end
-            else
-                obj.InvokeServer = function() return nil end
-            end
-            self:Notify(string.format("🔒 Permanently blocked: %s", obj.Name), Color3.fromRGB(255, 100, 100))
-        end
-    end
-end
-function Modules.AntiExploit:UnblockRemote(remoteName)
-    for obj, _ in pairs(self.State.BlockedRemotes) do
-        if obj.Name:lower():find(remoteName:lower()) then
-            self.State.BlockedRemotes[obj] = nil
-            self:Notify(string.format("🔓 Unblocked: %s (may need rejoin)", obj.Name), Color3.fromRGB(100, 200, 255))
-        end
-    end
-end
-function Modules.AntiExploit:ShowRemoteLog()
-    print("\n╔════════════════════════════════════════════════╗")
-    print("║           REMOTE CALL LOG                      ║")
-    print("╠════════════════════════════════════════════════╣")
-    if #self.State.RemoteLog == 0 then
-        print("║  No remotes logged yet                         ║")
-    else
-        for i = 1, math.min(20, #self.State.RemoteLog) do
-            local entry = self.State.RemoteLog[i]
-            print(string.format("║ [%s] %s", entry.Time, entry.Name))
-            if entry.Args and #entry.Args > 0 then
-                for j, arg in ipairs(entry.Args) do
-                    print(string.format("║   Arg %d: %s", j, tostring(arg)))
-                end
-            end
-            print("╠────────────────────────────────────────────────╣")
-        end
-    end
-    print("╚════════════════════════════════════════════════╝\n")
-    self:Notify("Log printed to console (F9)", Color3.fromRGB(100, 200, 255))
-end
-function Modules.AntiExploit:ShowSuspiciousRemotes()
-    print("\n╔════════════════════════════════════════════════╗")
-    print("║         SUSPICIOUS REMOTES                     ║")
-    print("╠════════════════════════════════════════════════╣")
-    local found = false
-    for name, score in pairs(self.Config.SuspicionScores) do
-        if score > 0 then
-            found = true
-            local status = score >= self.Config.BlockThreshold and "[BLOCKED]" or "[WATCHING]"
-            print(string.format("║ %s %s (Score: %d)", status, name, score))
-        end
-    end
-    if not found then
-        print("║  No suspicious activity detected               ║")
-    end
-    print("╚════════════════════════════════════════════════╝\n")
-    self:Notify("Suspicious remotes printed (F9)", Color3.fromRGB(100, 200, 255))
-end
-function Modules.AntiExploit:AddPattern(pattern)
-    table.insert(self.State.CommandPatterns, pattern:lower())
-    self:Notify(string.format("✓ Added pattern: %s", pattern), Color3.fromRGB(100, 255, 100))
-end
-function Modules.AntiExploit:ClearLogs()
-    self.State.RemoteLog = {}
-    self.Config.SuspicionScores = {}
-    self:Notify("✓ Logs cleared", Color3.fromRGB(100, 255, 100))
-end
-function Modules.AntiExploit:Enable()
-    if self.State.IsEnabled then
-        self:Notify("Already enabled", Color3.fromRGB(255, 200, 100))
-        return
-    end
-    self.State.IsEnabled = true
-    self:ScanAndHookRemotes()
-    local conn = game.DescendantAdded:Connect(function(obj)
-        if not self.State.IsEnabled then return end
-        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-            local suspicious = self:IsSuspiciousRemote(obj.Name)
-            if suspicious then
-                self:Notify(string.format("⚠️ New suspicious remote added: %s", obj.Name), Color3.fromRGB(255, 200, 50))
-                task.wait(0.1)
-                if obj:IsA("RemoteEvent") then
-                    self:HookRemoteEvent(obj)
-                else
-                    self:HookRemoteFunction(obj)
-                end
-            end
-        end
-    end)
-    table.insert(self.State.Connections, conn)
-    print([[
-╔═══════════════════════════════════════╗
-║     ANTI-EXPLOIT PROTECTION           ║
-║            ENABLED                    ║
-╠═══════════════════════════════════════╣
-║ Monitoring all remote communications  ║
-║ Suspicious calls will be logged       ║
-║ Auto-blocking after threshold         ║
-║                                       ║
-║ Commands:                             ║
-║  !antiexploit log    - Show log       ║
-║  !antiexploit sus    - Show suspicious║
-║  !antiexploit block  - Block remote   ║
-║  !antiexploit clear  - Clear logs     ║
-╚═══════════════════════════════════════╝
-    ]])
-end
-function Modules.AntiExploit:Disable()
-    if not self.State.IsEnabled then
-        self:Notify("Already disabled", Color3.fromRGB(255, 200, 100))
-        return
-    end
-    self.State.IsEnabled = false
-    for _, conn in pairs(self.State.Connections) do
-        if conn then conn:Disconnect() end
-    end
-    self.State.Connections = {}
-    self:Notify("✓ Anti-Exploit DISABLED", Color3.fromRGB(255, 100, 100))
-end
-function Modules.AntiExploit:Toggle()
-    if self.State.IsEnabled then
-        self:Disable()
-    else
-        self:Enable()
-    end
-end
-RegisterCommand({
-    Name = "antiex",
-    Aliases = {"ae", "antiserver", "remoteblock"},
-    Description = "Anti-exploit protection. Args: on/off/log/sus/block/clear"
-}, function(args)
-    if not args[1] then
-        Modules.AntiExploit:Toggle()
-    elseif args[1]:lower() == "on" then
-        Modules.AntiExploit:Enable()
-    elseif args[1]:lower() == "off" then
-        Modules.AntiExploit:Disable()
-    elseif args[1]:lower() == "log" then
-        Modules.AntiExploit:ShowRemoteLog()
-    elseif args[1]:lower() == "sus" or args[1]:lower() == "suspicious" then
-        Modules.AntiExploit:ShowSuspiciousRemotes()
-    elseif args[1]:lower() == "block" then
-        if args[2] then
-            Modules.AntiExploit:BlockRemote(args[2])
-        else
-            Modules.AntiExploit:Notify("Usage: !antiexploit block <remote_name>", Color3.fromRGB(255, 200, 100))
-        end
-    elseif args[1]:lower() == "unblock" then
-        if args[2] then
-            Modules.AntiExploit:UnblockRemote(args[2])
-        else
-            Modules.AntiExploit:Notify("Usage: !antiexploit unblock <remote_name>", Color3.fromRGB(255, 200, 100))
-        end
-    elseif args[1]:lower() == "clear" then
-        Modules.AntiExploit:ClearLogs()
-    elseif args[1]:lower() == "addpattern" then
-        if args[2] then
-            Modules.AntiExploit:AddPattern(args[2])
-        else
-            Modules.AntiExploit:Notify("Usage: !antiexploit addpattern <pattern>", Color3.fromRGB(255, 200, 100))
-        end
-    end
-end)
-print("✓ Anti-Exploit module loaded")
 
 local function loadstringCmd(url, notif)
     pcall(function()
