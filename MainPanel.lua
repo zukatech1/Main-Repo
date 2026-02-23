@@ -29813,6 +29813,277 @@ RegisterCommand({
 }, function()
     Modules.HDAdminAccess:ToggleCommandBar()
 end)
+Modules.AdminOrb = {
+    State = {
+        Active = false,
+        Orb = nil,
+        Light = nil,
+        OrbGui = nil,
+        RenderConnection = nil,
+        CharacterConnection = nil,
+        Angle = 0
+    },
+    Config = {
+        OrbitRadius = 3.2,
+        OrbitSpeed = 1.1,       -- radians per second
+        BobHeight = 0.55,       -- how much it bobs up and down
+        BobSpeed = 2.2,         -- bob frequency
+        HoverHeight = 3.0,      -- height above HRP
+        Color = Color3.fromRGB(128, 0, 0),
+        GlowColor = Color3.fromRGB(128, 0, 0),
+        Size = 0.55,
+        LightRange = 14,
+        LightBrightness = 1.8,
+        TrailEnabled = true
+    }
+}
+
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+function Modules.AdminOrb:_buildOrb()
+    -- Clean up any existing orb first
+    self:_destroyOrb()
+
+    local orb = Instance.new("Part")
+    orb.Name = "ZukaAdminOrb"
+    orb.Size = Vector3.new(self.Config.Size, self.Config.Size, self.Config.Size)
+    orb.Material = Enum.Material.Neon
+    orb.Color = self.Config.Color
+    orb.CastShadow = false
+    orb.CanCollide = false
+    orb.CanTouch = false
+    orb.CanQuery = false
+    orb.Anchored = true
+    orb.CFrame = CFrame.new(0, -9999, 0)
+    orb.Parent = Workspace
+
+    -- Real 2011 "Orb of Power" mesh + texture
+    local mesh = Instance.new("SpecialMesh")
+    mesh.MeshType = Enum.MeshType.FileMesh
+    mesh.MeshId = "rbxassetid://34795798"
+    mesh.TextureId = "rbxassetid://34795697"
+    mesh.Scale = Vector3.new(1, 1, 1)
+    mesh.VertexColor = Vector3.new(
+        self.Config.Color.R,
+        self.Config.Color.G,
+        self.Config.Color.B
+    )
+    mesh.Parent = orb
+
+    -- Point light for glow
+    local light = Instance.new("PointLight")
+    light.Color = self.Config.GlowColor
+    light.Range = self.Config.LightRange
+    light.Brightness = self.Config.LightBrightness
+    light.Parent = orb
+
+    -- Sparkle particle
+    local sparkles = Instance.new("Sparkles")
+    sparkles.SparkleColor = self.Config.Color
+    sparkles.Parent = orb
+
+    -- Trail
+    if self.Config.TrailEnabled then
+        local a0 = Instance.new("Attachment", orb)
+        a0.Position = Vector3.new(0, self.Config.Size / 2, 0)
+        local a1 = Instance.new("Attachment", orb)
+        a1.Position = Vector3.new(0, -self.Config.Size / 2, 0)
+        local trail = Instance.new("Trail")
+        trail.Attachment0 = a0
+        trail.Attachment1 = a1
+        trail.Lifetime = 0.18
+        trail.MinLength = 0
+        trail.FaceCamera = true
+        trail.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, self.Config.Color),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 80, 120))
+        })
+        trail.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.1),
+            NumberSequenceKeypoint.new(1, 1)
+        })
+        trail.Parent = orb
+    end
+
+    -- Billboard label above orb
+    local billboard = Instance.new("BillboardGui")
+    billboard.Size = UDim2.fromOffset(100, 20)
+    billboard.StudsOffset = Vector3.new(0, self.Config.Size + 0.5, 0)
+    billboard.AlwaysOnTop = false
+    billboard.Parent = orb
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 11
+    label.Text = "Zuka's Eye"
+    label.TextColor3 = self.Config.Color
+    label.TextStrokeTransparency = 0.4
+    label.Parent = billboard
+
+    self.State.Orb = orb
+    self.State.Light = light
+
+    -- Pulse the light brightness
+    task.spawn(function()
+        while orb and orb.Parent do
+            TweenService:Create(light, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                Brightness = self.Config.LightBrightness * 0.5
+            }):Play()
+            task.wait(0.9)
+            if not orb.Parent then break end
+            TweenService:Create(light, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                Brightness = self.Config.LightBrightness
+            }):Play()
+            task.wait(0.9)
+        end
+    end)
+
+    return orb
+end
+
+function Modules.AdminOrb:_destroyOrb()
+    if self.State.RenderConnection then
+        self.State.RenderConnection:Disconnect()
+        self.State.RenderConnection = nil
+    end
+    if self.State.Orb and self.State.Orb.Parent then
+        self.State.Orb:Destroy()
+    end
+    self.State.Orb = nil
+    self.State.Light = nil
+    self.State.Angle = 0
+end
+
+function Modules.AdminOrb:_startOrbit()
+    local orb = self.State.Orb
+    if not orb then return end
+
+    self.State.RenderConnection = RunService.RenderStepped:Connect(function(dt)
+        local character = LocalPlayer.Character
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        if not hrp or not orb.Parent then return end
+
+        self.State.Angle = self.State.Angle + self.Config.OrbitSpeed * dt
+        local t = os.clock()
+
+        local x = math.cos(self.State.Angle) * self.Config.OrbitRadius
+        local z = math.sin(self.State.Angle) * self.Config.OrbitRadius
+        local y = self.Config.HoverHeight + math.sin(t * self.Config.BobSpeed) * self.Config.BobHeight
+
+        local base = hrp.Position
+        orb.CFrame = CFrame.new(base + Vector3.new(x, y, z))
+    end)
+end
+
+function Modules.AdminOrb:_watchCharacter()
+    -- Re-spawn orb after respawn
+    if self.State.CharacterConnection then
+        self.State.CharacterConnection:Disconnect()
+        self.State.CharacterConnection = nil
+    end
+
+    self.State.CharacterConnection = LocalPlayer.CharacterAdded:Connect(function()
+        if not self.State.Active then return end
+        task.wait(1) -- let character load
+        self:_buildOrb()
+        self:_startOrbit()
+        DoNotif("orb restored", 1.5)
+    end)
+end
+
+function Modules.AdminOrb:Spawn()
+    if self.State.Active then
+        DoNotif("orb already active", 2)
+        return
+    end
+
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        DoNotif("Character not ready", 3)
+        return
+    end
+
+    self.State.Active = true
+    self:_buildOrb()
+    self:_startOrbit()
+    self:_watchCharacter()
+    DoNotif("Eye of Zuka Spawned", 2)
+end
+
+function Modules.AdminOrb:Despawn()
+    if not self.State.Active then
+        DoNotif("No orb active", 2)
+        return
+    end
+
+    self.State.Active = false
+    self:_destroyOrb()
+
+    if self.State.CharacterConnection then
+        self.State.CharacterConnection:Disconnect()
+        self.State.CharacterConnection = nil
+    end
+
+    DoNotif("Admin orb deactivated", 2)
+end
+
+function Modules.AdminOrb:Toggle()
+    if self.State.Active then
+        self:Despawn()
+    else
+        self:Spawn()
+    end
+end
+
+function Modules.AdminOrb:SetColor(r, g, b)
+    self.Config.Color = Color3.fromRGB(r, g, b)
+    self.Config.GlowColor = Color3.fromRGB(r, g, b)
+    if self.State.Orb then
+        self.State.Orb.Color = self.Config.Color
+        local mesh = self.State.Orb:FindFirstChildOfClass("SpecialMesh")
+        if mesh then
+            mesh.VertexColor = Vector3.new(
+                self.Config.Color.R,
+                self.Config.Color.G,
+                self.Config.Color.B
+            )
+        end
+        if self.State.Light then
+            self.State.Light.Color = self.Config.GlowColor
+        end
+        local sparkles = self.State.Orb:FindFirstChildOfClass("Sparkles")
+        if sparkles then sparkles.SparkleColor = self.Config.Color end
+    end
+    DoNotif(string.format("Orb color set to %d, %d, %d", r, g, b), 2)
+end
+
+RegisterCommand({
+    Name = "orb",
+    Aliases = {"adminorb"},
+    Description = "Toggle the admin orb that orbits around you"
+}, function()
+    Modules.AdminOrb:Toggle()
+end)
+
+RegisterCommand({
+    Name = "orbcolor",
+    Aliases = {},
+    Description = "Set orb color. Usage: ;orbcolor <r> <g> <b>"
+}, function(args)
+    local r, g, b = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    if not r or not g or not b then
+        DoNotif("Usage: ;orbcolor <r> <g> <b>", 3)
+        return
+    end
+    Modules.AdminOrb:SetColor(
+        math.clamp(r, 0, 255),
+        math.clamp(g, 0, 255),
+        math.clamp(b, 0, 255)
+    )
+end)
 Modules.ChatFix = {
     State = {
         Loaded = false,
@@ -29821,7 +30092,6 @@ Modules.ChatFix = {
         Connections = {}
     }
 }
-
 local NAME_PREFIXES = {
     "Cool", "Dark", "Epic", "Fire", "Gamer", "Happy", "Ice", "Jade", "King", "Lava",
     "Mega", "Ninja", "Nova", "Omega", "Pro", "Quick", "Red", "Shadow", "Super", "Tiger",
@@ -29838,7 +30108,6 @@ local NAME_NUMBERS = {
     "", "", "", "123", "456", "789", "007", "69", "420",
     "1", "2", "3", "99", "100", "2009", "2010", "2011", "XD"
 }
-
 local FAKE_MESSAGES = {
     "lol", "bro what", "gg", "this game is so fun", "anyone wanna trade?",
     "how do i get robux", "skill issue", "nah bro", "wait what just happened",
@@ -29857,22 +30126,78 @@ local FAKE_MESSAGES = {
     "ngl this slaps", "i cant", "im dead 💀", "respectfully no",
     "who asked", "i did", "carry me", "im trying my best ok",
 }
-
-local function randomName()
-    local prefix = NAME_PREFIXES[math.random(#NAME_PREFIXES)]
-    local suffix = NAME_SUFFIXES[math.random(#NAME_SUFFIXES)]
-    local number = NAME_NUMBERS[math.random(#NAME_NUMBERS)]
-    return prefix .. suffix .. number
+local REPLY_CONTEXTS = {
+    {pattern = "gg", replies = {"gg", "gg ez", "gg wp", "was fun", "rematch?"}},
+    {pattern = "help", replies = {"just ask bro", "idk either", "google it", "same", "no idea lol"}},
+    {pattern = "lag", replies = {"same bro 💀", "my wifi dead rn", "unplayable", "restart router", "skill issue"}},
+    {pattern = "how", replies = {"idk", "practice", "just do it", "took me forever too", "trial and error"}},
+    {pattern = "trade", replies = {"whatchu offering", "not interested", "what do you have", "maybe", "nah im good"}},
+    {pattern = "lol", replies = {"💀", "fr fr", "bro really", "lmaooo", "same"}},
+    {pattern = "bro", replies = {"bro really said that", "no way", "fr?", "💀", "nahh"}},
+    {pattern = "why", replies = {"idk man", "good question", "no clue", "ask the devs", "life is a mystery"}},
+    {pattern = "good", replies = {"facts", "real", "agreed", "nah not really", "kinda yeah"}},
+    {pattern = "bad", replies = {"facts", "its not that bad", "real", "get good", "skill issue"}},
+    {pattern = "die", replies = {"rip", "F", "💀", "ouch", "moment of silence"}},
+    {pattern = "win", replies = {"lets gooo", "W", "easy", "clutch", "no way bro actually won"}},
+    {pattern = "lose", replies = {"L", "rip", "next time", "it happens", "we go again"}},
+    {pattern = "update", replies = {"when is it dropping", "been waiting forever", "devs sleeping", "any day now lol", "soon™"}},
+    {pattern = "level", replies = {"what level you on", "took me forever", "some levels are rough", "keep going", "it gets harder"}},
+}
+local GENERIC_REPLIES = {
+    "lol", "fr", "real", "same", "nah", "yep", "facts", "based",
+    "💀", "🔥", "no way", "bro what", "actually", "lowkey yeah",
+    "idk man", "depends", "maybe", "not gonna lie", "kinda",
+    "wait really", "no shot", "bro 💀", "W", "L", "ratio",
+}
+local function getReply(originalMsg)
+    if originalMsg then
+        local lower = originalMsg:lower()
+        for _, ctx in ipairs(REPLY_CONTEXTS) do
+            if lower:find(ctx.pattern) then
+                return ctx.replies[math.random(#ctx.replies)]
+            end
+        end
+    end
+    return GENERIC_REPLIES[math.random(#GENERIC_REPLIES)]
 end
-
+local function injectFakeMessage(text, scrollView)
+    if not scrollView or not scrollView.Parent then return end
+    local template = nil
+    for _, child in ipairs(scrollView:GetChildren()) do
+        local tm = child:FindFirstChild("TextMessage")
+        if tm and tm:FindFirstChild("BodyText") then
+            template = child
+            break
+        end
+    end
+    if not template then return end
+    local clone = template:Clone()
+    clone.Name = "FakeReply_" .. math.random(100000, 999999)
+    local tm = clone:FindFirstChild("TextMessage")
+    if tm then
+        local body = tm:FindFirstChild("BodyText")
+        if body then
+            body.Text = text
+            body:SetAttribute("ZukaFake", true)
+        end
+        local nameLabel = tm:FindFirstChild("NameText") or tm:FindFirstChild("Username")
+        if nameLabel then nameLabel.Text = "" end
+    end
+    clone.Parent = scrollView
+    task.delay(8, function()
+        pcall(function() clone:Destroy() end)
+    end)
+local prefix = NAME_PREFIXES[math.random(#NAME_PREFIXES)]
+local suffix = NAME_SUFFIXES[math.random(#NAME_SUFFIXES)]
+local number = NAME_NUMBERS[math.random(#NAME_NUMBERS)]
+return prefix .. suffix .. number
+end
 local function randomMessage()
     return FAKE_MESSAGES[math.random(#FAKE_MESSAGES)]
 end
-
 local function fakeText()
     return randomName() .. ": " .. randomMessage()
 end
-
 function Modules.ChatFix:_svc(n)
     local ok, s = pcall(game.GetService, game, n)
     if not ok or not s then return nil end
@@ -29882,7 +30207,6 @@ function Modules.ChatFix:_svc(n)
     end
     return s
 end
-
 function Modules.ChatFix:_isLockRow(lbl)
     if not lbl or not lbl:IsA("TextLabel") then return false end
     if lbl.Name ~= "BodyText" then return false end
@@ -29893,17 +30217,24 @@ function Modules.ChatFix:_isLockRow(lbl)
     txt = txt:gsub("^%s+", "")
     return txt:match("^🔒%s*:") ~= nil
 end
-
 function Modules.ChatFix:_spoofRow(lbl)
     if not lbl or self.State.Watched[lbl] then return end
     self.State.Watched[lbl] = true
-
-    -- Replace immediately
-    pcall(function() lbl.Text = fakeText() end)
-
-    -- Watch for it reverting back to a lock message
+    local writing = false
+    local staticText = fakeText()
+    local function applySpoof()
+        writing = true
+        pcall(function()
+            lbl.Visible = false
+            lbl.Text = staticText
+            lbl.Visible = true
+        end)
+        writing = false
+    end
+    applySpoof()
     local conn
     conn = lbl:GetPropertyChangedSignal("Text"):Connect(function()
+        if writing then return end
         if not lbl or not lbl.Parent then
             if conn then conn:Disconnect() conn = nil end
             self.State.Watched[lbl] = nil
@@ -29914,23 +30245,36 @@ function Modules.ChatFix:_spoofRow(lbl)
         if txt == "" then txt = lbl.Text or "" end
         txt = txt:gsub("^%s+", "")
         if txt:match("^🔒%s*:") then
-            pcall(function() lbl.Text = fakeText() end)
+            applySpoof()
         end
     end)
     table.insert(self.State.Connections, conn)
 end
-
 function Modules.ChatFix:_hookContainer(cont)
     if not cont or self.State.Hooks[cont] then return end
     self.State.Hooks[cont] = true
-
     local function handleBody(body)
         if not self:_isLockRow(body) then return end
         if not body.Parent then return end
         self:_spoofRow(body)
     end
-
-    -- Handle already existing rows
+    local function handleRealMessage(body)
+        if body:GetAttribute("ZukaFake") then return end
+        if self:_isLockRow(body) then return end
+        local txt = ""
+        pcall(function() txt = body.ContentText end)
+        if txt == "" then txt = body.Text or "" end
+        if txt == "" then return end
+        local lp = game:GetService("Players").LocalPlayer
+        if txt:find("^" .. lp.Name .. ":") then return end
+        if math.random(100) > 40 then return end
+        task.spawn(function()
+            task.wait(math.random(15, 45) / 10)
+            if not cont or not cont.Parent then return end
+            local reply = randomName() .. ": " .. getReply(txt)
+            injectFakeMessage(reply, cont)
+        end)
+    end
     for _, row in ipairs(cont:GetChildren()) do
         local tm = row:FindFirstChild("TextMessage")
         if tm then
@@ -29938,8 +30282,6 @@ function Modules.ChatFix:_hookContainer(cont)
             if body then handleBody(body) end
         end
     end
-
-    -- Watch for new rows coming in
     local dConn
     dConn = cont.DescendantAdded:Connect(function(inst)
         if not cont.Parent then
@@ -29948,43 +30290,38 @@ function Modules.ChatFix:_hookContainer(cont)
             return
         end
         if inst:IsA("TextLabel") and inst.Name == "BodyText" then
-            task.wait() -- let Roblox populate the text first
+            task.wait()
             handleBody(inst)
+            handleRealMessage(inst)
         end
     end)
     table.insert(self.State.Connections, dConn)
 end
-
 function Modules.ChatFix:Enable()
     if self.State.Loaded then
         DoNotif("Chat fix already running", 2)
         return
     end
-
     local cg = self:_svc("CoreGui")
     if not cg then
         DoNotif("Could not get CoreGui", 3)
         return
     end
-
     local ec = nil
     local start = os.clock()
     repeat
         ec = cg:FindFirstChild("ExperienceChat")
         if not ec then task.wait(0.3) end
     until ec or (os.clock() - start > 30)
-
     if not ec then
         DoNotif("ExperienceChat not found", 3)
         return
     end
-
     for _, inst in ipairs(ec:GetDescendants()) do
         if inst.Name == "RCTScrollContentView" then
             self:_hookContainer(inst)
         end
     end
-
     local ecConn
     ecConn = ec.DescendantAdded:Connect(function(inst)
         if not ec.Parent then
@@ -29996,11 +30333,9 @@ function Modules.ChatFix:Enable()
         end
     end)
     table.insert(self.State.Connections, ecConn)
-
     self.State.Loaded = true
     DoNotif("Chat fix enabled — lock messages spoofed with fake chat", 2)
 end
-
 function Modules.ChatFix:Disable()
     for _, conn in ipairs(self.State.Connections) do
         pcall(function() conn:Disconnect() end)
@@ -30011,7 +30346,6 @@ function Modules.ChatFix:Disable()
     self.State.Loaded = false
     DoNotif("Chat fix disabled", 2)
 end
-
 RegisterCommand({
     Name = "chatfix",
     Aliases = {"fixchat"},
@@ -30019,7 +30353,6 @@ RegisterCommand({
 }, function()
     Modules.ChatFix:Enable()
 end)
-
 RegisterCommand({
     Name = "chatfixoff",
     Aliases = {"unfixchat"},
@@ -34962,7 +35295,7 @@ end)
 
 RegisterCommand({
     Name = "unmorph",
-    Aliases = {"default", "revert"},
+    Aliases = {"default"},
     Description = "Revert your character to your original avatar"
 }, function()
     Modules.CharacterMorph:Revert()
@@ -40208,15 +40541,20 @@ function processCommand(message)
     if #args == 0 then
         return true
     end
-    local cmdName = table.remove(args, 1):lower()
-    local cmdFunc = Commands[cmdName]
-    if cmdFunc then
-        local success, err = pcall(cmdFunc, args)
-        if not success then
-            warn("Command Error:", err)
-            DoNotif("Error: " .. tostring(err), 5)
+local cmdName = table.remove(args, 1):lower()
+local cmdFunc = Commands[cmdName]
+if cmdFunc then
+    local success, err = pcall(cmdFunc, args)
+    if success then
+        if Modules.AdminOrb and Modules.AdminOrb.FireBeam then
+            Modules.AdminOrb:FireBeam()
         end
     else
+        warn("Command Error:", err)
+        DoNotif("Error: " .. tostring(err), 5)
+    end
+    return true
+end
         local lowestDistance = math.huge
         local closestMatch = nil
         local SUGGESTION_THRESHOLD = 2
@@ -40232,7 +40570,6 @@ function processCommand(message)
         else
             DoNotif("Unknown command: " .. cmdName, 3)
         end
-    end
     return true
 end
 for moduleName, module in pairs(Modules) do
@@ -40308,11 +40645,10 @@ CreateMobileCommandButton()
 Modules.CommandList:Initialize()
 if TextChatService then
     TextChatService.SendingMessage:Connect(function(messageObject)
-    local wasCommand = processCommand(messageObject.Text)
-    if wasCommand then
-        messageObject.ShouldSend = false
-    end
-end)
+        local text = messageObject.Text
+        messageObject.ShouldSend = false -- block send immediately before any processing
+        processCommand(text)
+    end)
 else
 LocalPlayer.Chatted:Connect(processCommand)
 end
@@ -40321,5 +40657,9 @@ local ClientReplicator = game:GetService("NetworkClient").ClientReplicator
 local CurrentServer = game["JobId"]
 ClientReplicator.AncestryChanged:Connect(function()
     TeleportService:TeleportToPlaceInstance(game["PlaceId"], CurrentServer)
+end)
+task.spawn(function()
+    task.wait(1) -- let character finish loading
+    Modules.AdminOrb:Spawn()
 end)
 DoNotif("We're So back. The Best Underground Panel.")
