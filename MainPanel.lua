@@ -6,8 +6,6 @@ Made By Zuka. @OverZuka on ROBLOX.
 
 
 ]]
-    
-print("- Zukas Panel -")
 if getgenv().__ZUKA_BYPASS_LOADED then return end
 getgenv().__ZUKA_BYPASS_LOADED = true
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -301,6 +299,7 @@ getgenv().ZukaBypass = {
 
 initialize()
 
+print("- Zukas Panel -")
 
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
@@ -472,6 +471,13 @@ local function dismantle_readonly(target)
         if mt and set_ro then set_ro(mt, false) end
     end)
 end
+
+
+dismantle_readonly(getgenv())
+dismantle_readonly(getrenv())
+dismantle_readonly(getreg())
+
+
 local function protect_interface(instance)
     local protector = (get_hidden_gui or (syn and syn.protect_gui))
     if protector then pcall(protector, instance) end
@@ -495,6 +501,8 @@ local Services = setmetatable({}, {
         return s
     end
 })
+
+
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -28982,7 +28990,7 @@ function Modules.PlayerLeech:SetStrafeSettings(speed, radius)
 end
 RegisterCommand({
     Name = "leech",
-    Aliases = {"attach"},
+    Aliases = {},
     Description = "Attach to a player and follow them. Usage: ;leech <player>"
 }, function(args)
     if not args[1] then
@@ -41735,11 +41743,12 @@ Modules.CommandList:Initialize()
 if TextChatService then
     TextChatService.SendingMessage:Connect(function(messageObject)
         local text = messageObject.Text
-        messageObject.ShouldSend = false -- block send immediately before any processing
-        processCommand(text)
+        if text:sub(1, #Prefix) == Prefix then
+            processCommand(text)
+        end
     end)
 else
-LocalPlayer.Chatted:Connect(processCommand)
+    LocalPlayer.Chatted:Connect(processCommand)
 end
 local TeleportService = game:GetService("TeleportService")
 local ClientReplicator = game:GetService("NetworkClient").ClientReplicator
@@ -41752,4 +41761,3 @@ task.spawn(function()
     Modules.AdminOrb:Spawn()
 end)
 DoNotif("We're So back. The Best Underground Panel.")
-
