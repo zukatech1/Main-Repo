@@ -205,25 +205,14 @@ function Modules.OverseerCE:FreezeValue(tbl, key, frozenValue)
         OriginalValue = tbl[key],
         Connection = nil
     }
-    pcall(function()
-        if setreadonly then setreadonly(tbl, false)
-        elseif make_writeable then make_writeable(tbl) end
-    end)
-    pcall(rawset, tbl, key, frozenValue)
-    pcall(function()
-        if setreadonly then setreadonly(tbl, true) end
-    end)
+    if setreadonly then pcall(setreadonly, tbl, false) end
+    tbl[key] = frozenValue
+    if setreadonly then pcall(setreadonly, tbl, true) end
     self.State.FreezeList[freezeId].Connection = RunService.Heartbeat:Connect(function()
-        local ok, cur = pcall(rawget, tbl, key)
-        if ok and cur ~= frozenValue then
-            pcall(function()
-                if setreadonly then setreadonly(tbl, false)
-                elseif make_writeable then make_writeable(tbl) end
-            end)
-            pcall(rawset, tbl, key, frozenValue)
-            pcall(function()
-                if setreadonly then setreadonly(tbl, true) end
-            end)
+        if tbl[key] ~= frozenValue then
+            if setreadonly then pcall(setreadonly, tbl, false) end
+            tbl[key] = frozenValue
+            if setreadonly then pcall(setreadonly, tbl, true) end
         end
     end)
     return true, freezeId
@@ -386,18 +375,9 @@ function Modules.OverseerCE:PoisonCoroutineHijack(callback)
         end
         return originalResume(co, ...)
     end
-    -- coroutine table is readonly in Roblox; bypass with rawset or hookfunction
-    pcall(function() if setreadonly then setreadonly(coroutine, false) end end)
-    local c1 = pcall(rawset, coroutine, "create", hijackedCreate)
-    local c2 = pcall(rawset, coroutine, "wrap",   hijackedWrap)
-    local c3 = pcall(rawset, coroutine, "resume", hijackedResume)
-    if not (c1 and c2 and c3) then
-        if hookfunction then
-            pcall(hookfunction, coroutine.create, hijackedCreate)
-            pcall(hookfunction, coroutine.wrap,   hijackedWrap)
-            pcall(hookfunction, coroutine.resume, hijackedResume)
-        end
-    end
+    coroutine.create = hijackedCreate
+    coroutine.wrap = hijackedWrap
+    coroutine.resume = hijackedResume
     local poisonData = {
         Id = #self.State.ActivePoisons + 1,
         Type = "CoroutineHijack",
@@ -497,16 +477,11 @@ function Modules.OverseerCE:PoisonAntiDetection(func, legitimateSignature)
     }
     if debug and debug.getinfo then
         local originalGetInfo = debug.getinfo
-        local hookedGetInfo = function(target, ...)
+        debug.getinfo = function(target, ...)
             if target == func then
                 return signature
             end
             return originalGetInfo(target, ...)
-        end
-        -- debug table is readonly; use rawset or hookfunction
-        local dbgSet = pcall(rawset, debug, "getinfo", hookedGetInfo)
-        if not dbgSet and hookfunction then
-            pcall(hookfunction, debug.getinfo, hookedGetInfo)
         end
     end
     local poisonData = {
@@ -542,16 +517,9 @@ function Modules.OverseerCE:PoisonSelfHeal(poisonId, checkInterval)
         if not isValid then
             warn("[HEX Overseer] Self-heal: Restoring poison #" .. poisonId)
             if poison.Type == "TableHijack" then
-                pcall(function()
-                    if setreadonly then setreadonly(poison.Target, false)
-                    elseif make_writeable then make_writeable(poison.Target) end
-                end)
                 for key, value in pairs(poison.Overrides) do
-                    pcall(rawset, poison.Target, key, value)
+                    poison.Target[key] = value
                 end
-                pcall(function()
-                    if setreadonly then setreadonly(poison.Target, true) end
-                end)
             elseif poison.Type == "UpvalueInject" then
                 pcall(setupvalue, poison.TargetFunction, poison.UpvalueIndex, poison.NewValue)
             end
@@ -2569,7 +2537,7 @@ function Modules.OverseerCE:EnableAntiTamper()
         typeof = typeof
     }
     local originalGetmetatable = getmetatable
-    local hookedGetmetatable = function(tbl)
+    getmetatable = function(tbl)
         local mt = originalGetmetatable(tbl)
         if mt and self.State.ActivePatches[mt] then
             local cleanMt = {}
@@ -2584,15 +2552,13 @@ function Modules.OverseerCE:EnableAntiTamper()
         end
         return mt
     end
-
     local originalSetmetatable = setmetatable
-    local hookedSetmetatable = function(tbl, mt)
+    setmetatable = function(tbl, mt)
         print("[Anti-Tamper] setmetatable called on:", tostring(tbl))
         return originalSetmetatable(tbl, mt)
     end
-
     local originalRawset = rawset
-    local hookedRawset = function(tbl, key, value)
+    rawset = function(tbl, key, value)
         for patchId, patch in pairs(self.State.FreezeList) do
             if patch.Table == tbl and patch.Key == key then
                 print("[Anti-Tamper] Blocked rawset on frozen patch:", key)
@@ -2601,30 +2567,21 @@ function Modules.OverseerCE:EnableAntiTamper()
         end
         return originalRawset(tbl, key, value)
     end
-
     local originalType = type
-    local hookedType = function(value)
+    type = function(value)
         if self.State.HookedFunctions[value] then
             return "function"
         end
         return originalType(value)
     end
-
-    -- _G globals are readonly in Roblox; use rawset on _G to bypass
-    pcall(rawset, _G, "getmetatable", hookedGetmetatable)
-    pcall(rawset, _G, "setmetatable", hookedSetmetatable)
-    pcall(rawset, _G, "rawset",       hookedRawset)
-    pcall(rawset, _G, "type",         hookedType)
-
     if typeof then
         local originalTypeof = typeof
-        local hookedTypeof = function(value)
+        typeof = function(value)
             if self.State.HookedFunctions[value] then
                 return "function"
             end
             return originalTypeof(value)
         end
-        pcall(rawset, _G, "typeof", hookedTypeof)
     end
     self.State.AntiTamperActive = true
     print("[Anti-Tamper] Protection enabled")
@@ -2634,14 +2591,14 @@ function Modules.OverseerCE:DisableAntiTamper()
     if not self.State.AntiTamperActive then
         return {Success = false, Error = "Anti-tamper not active"}
     end
-    pcall(rawset, _G, "getmetatable", self.State.OriginalFunctions.getmetatable)
-    pcall(rawset, _G, "setmetatable", self.State.OriginalFunctions.setmetatable)
-    pcall(rawset, _G, "rawget",       self.State.OriginalFunctions.rawget)
-    pcall(rawset, _G, "rawset",       self.State.OriginalFunctions.rawset)
-    pcall(rawset, _G, "rawequal",     self.State.OriginalFunctions.rawequal)
-    pcall(rawset, _G, "type",         self.State.OriginalFunctions.type)
+    getmetatable = self.State.OriginalFunctions.getmetatable
+    setmetatable = self.State.OriginalFunctions.setmetatable
+    rawget = self.State.OriginalFunctions.rawget
+    rawset = self.State.OriginalFunctions.rawset
+    rawequal = self.State.OriginalFunctions.rawequal
+    type = self.State.OriginalFunctions.type
     if typeof then
-        pcall(rawset, _G, "typeof",   self.State.OriginalFunctions.typeof)
+        typeof = self.State.OriginalFunctions.typeof
     end
     self.State.AntiTamperActive = false
     self.State.OriginalFunctions = {}
@@ -3086,8 +3043,8 @@ function Modules.OverseerCE:CreateUI()
     screenGui.ResetOnSpawn = false
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     local main = Instance.new("Frame", screenGui)
-    main.Size = UDim2.fromOffset(900, 600)
-    main.Position = UDim2.new(0.5, -450, 0.5, -300)
+    main.Size = UDim2.fromOffset(1380, 600)
+    main.Position = UDim2.new(0.5, -690, 0.5, -300)
     main.BackgroundColor3 = self.Config.BG_PANEL
     main.BorderSizePixel = 0
     main.ClipsDescendants = false
@@ -3210,7 +3167,7 @@ function Modules.OverseerCE:CreateUI()
     self:_createBorder(moduleScroll, true)
     local moduleList = Instance.new("UIListLayout", moduleScroll)
     moduleList.Padding = UDim.new(0, 1)
-    local inspectorPanel = self:_createPanel(content, UDim2.fromOffset(292, 26), UDim2.new(1, -596, 1, -30), "Table Inspector")
+    local inspectorPanel = self:_createPanel(content, UDim2.fromOffset(292, 26), UDim2.new(1, -1076, 1, -30), "Table Inspector")
     local toolbar = Instance.new("Frame", inspectorPanel)
     toolbar.Size = UDim2.new(1, -8, 0, 28)
     toolbar.Position = UDim2.fromOffset(4, 24)
@@ -3268,7 +3225,7 @@ function Modules.OverseerCE:CreateUI()
     self:_createBorder(inspectorScroll, true)
     local inspectorList = Instance.new("UIListLayout", inspectorScroll)
     inspectorList.Padding = UDim.new(0, 0)
-    local patchPanel = self:_createPanel(content, UDim2.new(1, -304, 0, 26), UDim2.new(0, 296, 1, -30), "Active Patches")
+    local patchPanel = self:_createPanel(content, UDim2.new(1, -784, 0, 26), UDim2.new(0, 240, 1, -30), "Active Patches")
     local patchControls = Instance.new("Frame", patchPanel)
     patchControls.Size = UDim2.new(1, -8, 0, 28)
     patchControls.Position = UDim2.fromOffset(4, 24)
@@ -3339,6 +3296,268 @@ function Modules.OverseerCE:CreateUI()
         ResizeHandle = resizeHandle,
         HookScroll = nil
     }
+
+    -- ============================================================
+    -- EXPLORER PANEL (Dex-style game tree, right of patch panel)
+    -- ============================================================
+    local explorerPanel = self:_createPanel(content,
+        UDim2.new(1, -540, 0, 26),
+        UDim2.fromOffset(196, 1, -30),  -- 196px wide
+        "Explorer")
+    explorerPanel.Size = UDim2.fromOffset(196, content.AbsoluteSize.Y - 30)
+    explorerPanel.Position = UDim2.new(1, -540, 0, 26)
+    explorerPanel.ZIndex = 10
+
+    local explorerSearch = Instance.new("TextBox", explorerPanel)
+    explorerSearch.Name = "ExplorerSearch"
+    explorerSearch.Size = UDim2.new(1, -26, 0, 20)
+    explorerSearch.Position = UDim2.fromOffset(4, 24)
+    explorerSearch.BackgroundColor3 = self.Config.BG_WHITE
+    explorerSearch.Text = ""
+    explorerSearch.PlaceholderText = "Search workspace..."
+    explorerSearch.TextColor3 = self.Config.TEXT_BLACK
+    explorerSearch.Font = Enum.Font.SourceSans
+    explorerSearch.TextSize = 10
+    explorerSearch.BorderSizePixel = 0
+    explorerSearch.ClearTextOnFocus = false
+    explorerSearch.ZIndex = 11
+    self:_createBorder(explorerSearch, true)
+    local explorerSearchPad = Instance.new("UIPadding", explorerSearch)
+    explorerSearchPad.PaddingLeft = UDim.new(0, 3)
+
+    local refreshExplorerBtn = Instance.new("TextButton", explorerPanel)
+    refreshExplorerBtn.Size = UDim2.fromOffset(20, 20)
+    refreshExplorerBtn.Position = UDim2.new(1, -24, 0, 24)
+    refreshExplorerBtn.BackgroundColor3 = self.Config.BG_DARK
+    refreshExplorerBtn.Text = "⟳"
+    refreshExplorerBtn.TextColor3 = self.Config.TEXT_BLACK
+    refreshExplorerBtn.Font = Enum.Font.SourceSansBold
+    refreshExplorerBtn.TextSize = 12
+    refreshExplorerBtn.BorderSizePixel = 0
+    refreshExplorerBtn.ZIndex = 11
+    self:_createBorder(refreshExplorerBtn, true)
+
+    local explorerScroll = Instance.new("ScrollingFrame", explorerPanel)
+    explorerScroll.Name = "ExplorerScroll"
+    explorerScroll.Size = UDim2.new(1, -8, 1, -52)
+    explorerScroll.Position = UDim2.fromOffset(4, 48)
+    explorerScroll.BackgroundColor3 = self.Config.BG_WHITE
+    explorerScroll.BorderSizePixel = 0
+    explorerScroll.ScrollBarThickness = 8
+    explorerScroll.ScrollBarImageColor3 = self.Config.BG_DARK
+    explorerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    explorerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    explorerScroll.ZIndex = 11
+    self:_createBorder(explorerScroll, true)
+    local explorerList = Instance.new("UIListLayout", explorerScroll)
+    explorerList.Padding = UDim.new(0, 0)
+    explorerList.SortOrder = Enum.SortOrder.LayoutOrder
+
+    self.State.UI.ExplorerScroll = explorerScroll
+    self.State.UI.ExplorerSearch = explorerSearch
+    self.State.UI.ExplorerPanel = explorerPanel
+    self.State._ExplorerExpanded = {}
+
+    -- ============================================================
+    -- NOTEPAD PANEL (source viewer / executor, far right)
+    -- ============================================================
+    local notepadPanel = self:_createPanel(content,
+        UDim2.new(1, -340, 0, 26),
+        UDim2.fromOffset(336, 1, -30),
+        "Notepad")
+    notepadPanel.Size = UDim2.fromOffset(336, content.AbsoluteSize.Y - 30)
+    notepadPanel.Position = UDim2.new(1, -340, 0, 26)
+    notepadPanel.ZIndex = 10
+
+    -- Top toolbar: Copy | Save | Dump Functions
+    local npToolbar = Instance.new("Frame", notepadPanel)
+    npToolbar.Size = UDim2.new(1, -8, 0, 24)
+    npToolbar.Position = UDim2.fromOffset(4, 24)
+    npToolbar.BackgroundColor3 = self.Config.BG_DARK
+    npToolbar.BorderSizePixel = 0
+    npToolbar.ZIndex = 11
+    self:_createBorder(npToolbar, true)
+
+    local npCopyBtn = self:_createButton(npToolbar, "Copy to Clipboard",
+        UDim2.fromOffset(110, 20), UDim2.fromOffset(2, 2), function()
+        local src = self.State.UI.NotepadSource and self.State.UI.NotepadSource.Text or ""
+        if src == "" then
+            self:_showNotification("Nothing to copy", "warning")
+        else
+            local ok = self:_setClipboard(src)
+            self:_showNotification(ok and "Source copied!" or "Clipboard unavailable", ok and "success" or "error")
+        end
+    end)
+    npCopyBtn.ZIndex = 12
+    npCopyBtn.TextSize = 9
+
+    local npSaveBtn = self:_createButton(npToolbar, "Save to File",
+        UDim2.fromOffset(80, 20), UDim2.fromOffset(114, 2), function()
+        local src = self.State.UI.NotepadSource and self.State.UI.NotepadSource.Text or ""
+        local name = (self.State.SelectedModule and self.State.SelectedModule.Name or "source") .. ".lua"
+        if writefile then
+            local ok, err = pcall(writefile, name, src)
+            self:_showNotification(ok and ("Saved: " .. name) or ("Save failed: " .. tostring(err)),
+                ok and "success" or "error")
+        else
+            self:_showNotification("writefile not available in executor", "error")
+        end
+    end)
+    npSaveBtn.ZIndex = 12
+    npSaveBtn.TextSize = 9
+
+    local npDumpBtn = self:_createButton(npToolbar, "Dump Functions",
+        UDim2.fromOffset(90, 20), UDim2.fromOffset(196, 2), function()
+        if not self.State.SelectedModule then
+            self:_showNotification("No module selected", "warning")
+            return
+        end
+        self:_showNotification("Dumping functions...", "info")
+        task.spawn(function()
+            local decomp = self:DecompileModuleScript(self.State.SelectedModule)
+            if decomp then
+                self.State.CurrentModuleDecompiled = decomp
+                self:_NotepadDisplay(decomp.SourceCode, decomp.Name)
+                self:_showNotification("Dumped: " .. decomp.Name, "success")
+            else
+                self:_showNotification("Decompile failed", "error")
+            end
+        end)
+    end)
+    npDumpBtn.ZIndex = 12
+    npDumpBtn.TextSize = 9
+
+    -- Line number gutter + source area side by side
+    local npBody = Instance.new("Frame", notepadPanel)
+    npBody.Name = "NotepadBody"
+    npBody.Size = UDim2.new(1, -8, 1, -80)
+    npBody.Position = UDim2.fromOffset(4, 52)
+    npBody.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    npBody.BorderSizePixel = 0
+    npBody.ClipsDescendants = true
+    npBody.ZIndex = 11
+    self:_createBorder(npBody, true)
+
+    local npGutter = Instance.new("ScrollingFrame", npBody)
+    npGutter.Name = "NotepadGutter"
+    npGutter.Size = UDim2.fromOffset(30, npBody.AbsoluteSize.Y)
+    npGutter.Position = UDim2.new(0, 0, 0, 0)
+    npGutter.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    npGutter.BorderSizePixel = 0
+    npGutter.ScrollBarThickness = 0
+    npGutter.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    npGutter.CanvasSize = UDim2.new(0, 0, 0, 0)
+    npGutter.ScrollingEnabled = false
+    npGutter.ZIndex = 12
+
+    local npSource = Instance.new("TextBox", npBody)
+    npSource.Name = "NotepadSource"
+    npSource.Size = UDim2.new(1, -32, 1, 0)
+    npSource.Position = UDim2.fromOffset(32, 0)
+    npSource.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    npSource.TextColor3 = Color3.fromRGB(220, 220, 220)
+    npSource.Font = Enum.Font.Code
+    npSource.TextSize = 11
+    npSource.TextXAlignment = Enum.TextXAlignment.Left
+    npSource.TextYAlignment = Enum.TextYAlignment.Top
+    npSource.TextWrapped = false
+    npSource.ClearTextOnFocus = false
+    npSource.MultiLine = true
+    npSource.PlaceholderText = "-- Source will appear here after decompile\n-- Select a module, then click Dump Functions"
+    npSource.PlaceholderColor3 = Color3.fromRGB(90, 90, 90)
+    npSource.Text = ""
+    npSource.BorderSizePixel = 0
+    npSource.ZIndex = 12
+    local npSourcePad = Instance.new("UIPadding", npSource)
+    npSourcePad.PaddingLeft = UDim.new(0, 4)
+    npSourcePad.PaddingTop = UDim.new(0, 4)
+
+    -- Sync gutter scroll with source scroll via CanvasPosition
+    npSource:GetPropertyChangedSignal("CursorPosition"):Connect(function()
+        -- rough sync: count lines up to cursor
+        task.defer(function()
+            local txt = npSource.Text
+            local lineH = 14  -- approx px per line at TextSize 11
+            local lines = 0
+            for _ in txt:gmatch("\n") do lines += 1 end
+            npGutter.CanvasSize = UDim2.fromOffset(0, (lines + 1) * lineH)
+        end)
+    end)
+
+    -- Bottom execute bar
+    local npExecBar = Instance.new("Frame", notepadPanel)
+    npExecBar.Size = UDim2.new(1, -8, 0, 24)
+    npExecBar.Position = UDim2.new(0, 4, 1, -28)
+    npExecBar.BackgroundColor3 = self.Config.BG_DARK
+    npExecBar.BorderSizePixel = 0
+    npExecBar.ZIndex = 11
+    self:_createBorder(npExecBar, true)
+
+    -- Small scrollbar toggle for horizontal scroll label
+    local npScrollHint = Instance.new("TextLabel", npExecBar)
+    npScrollHint.Size = UDim2.fromOffset(20, 24)
+    npScrollHint.BackgroundTransparency = 1
+    npScrollHint.Text = "◁"
+    npScrollHint.TextColor3 = self.Config.TEXT_GRAY
+    npScrollHint.Font = Enum.Font.SourceSans
+    npScrollHint.TextSize = 10
+    npScrollHint.ZIndex = 12
+
+    local npExecBtn = self:_createButton(npExecBar, "Execute",
+        UDim2.fromOffset(80, 20), UDim2.new(0.5, -40, 0, 2), function()
+        local code = self.State.UI.NotepadSource and self.State.UI.NotepadSource.Text or ""
+        if code == "" then
+            self:_showNotification("Nothing to execute", "warning")
+            return
+        end
+        local fn, err = loadstring(code)
+        if not fn then
+            self:_showNotification("Compile error: " .. tostring(err), "error")
+            return
+        end
+        local ok, result = pcall(fn)
+        if ok then
+            self:_showNotification("Executed successfully", "success")
+        else
+            self:_showNotification("Runtime error: " .. tostring(result), "error")
+        end
+    end)
+    npExecBtn.ZIndex = 12
+    npExecBtn.TextSize = 10
+
+    local npClearBtn = self:_createButton(npExecBar, "Clear",
+        UDim2.fromOffset(60, 20), UDim2.new(1, -64, 0, 2), function()
+        if self.State.UI.NotepadSource then
+            self.State.UI.NotepadSource.Text = ""
+        end
+        for _, c in ipairs(npGutter:GetChildren()) do
+            if c:IsA("TextLabel") then c:Destroy() end
+        end
+        self:_showNotification("Notepad cleared", "info")
+    end)
+    npClearBtn.ZIndex = 12
+    npClearBtn.TextSize = 10
+
+    self.State.UI.NotepadSource   = npSource
+    self.State.UI.NotepadGutter   = npGutter
+    self.State.UI.NotepadPanel    = notepadPanel
+
+    -- Wire refresh button for explorer
+    refreshExplorerBtn.MouseButton1Click:Connect(function()
+        self:_ExplorerPopulate(explorerScroll, explorerSearch.Text)
+    end)
+    explorerSearch.Changed:Connect(function(prop)
+        if prop == "Text" then
+            task.delay(0.25, function()
+                self:_ExplorerPopulate(explorerScroll, explorerSearch.Text)
+            end)
+        end
+    end)
+
+    -- Initial populate
+    task.delay(0.5, function()
+        self:_ExplorerPopulate(explorerScroll, "")
+    end)
     local dragging, dragStart, startPos
     titleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -4834,6 +5053,226 @@ function Modules.OverseerCE:ExportPatches()
         self:_showNotification("JSON encoding failed", "error")
     end
 end
+
+-- ============================================================
+-- EXPLORER METHODS
+-- ============================================================
+local EXPLORER_ICONS = {
+    ModuleScript = "📄", Script = "📜", LocalScript = "📝",
+    Folder = "📁", Model = "🧊", Part = "🟦",
+    ReplicatedStorage = "🗄", Players = "👤", Workspace = "🌐",
+    StarterGui = "🖥", ServerScriptService = "⚙", default = "▸",
+}
+
+function Modules.OverseerCE:_ExplorerIcon(inst)
+    if not inst then return "▸" end
+    return EXPLORER_ICONS[inst.ClassName] or EXPLORER_ICONS.default
+end
+
+function Modules.OverseerCE:_ExplorerPopulate(scroll, filter)
+    for _, c in ipairs(scroll:GetChildren()) do
+        if not c:IsA("UIListLayout") then c:Destroy() end
+    end
+    self.State._ExplorerExpanded = self.State._ExplorerExpanded or {}
+    filter = filter and filter:lower() or ""
+
+    local roots = {}
+    local rootNames = {
+        "ReplicatedStorage","Players","StarterGui","ServerScriptService",
+        "StarterPack","Teams","SoundService","Chat","TextChatService",
+        "VoiceChatService","LocalizationService","TestService","VRService",
+        "AchievementService","AdService","AnalyticsService","AnimationClipProvider",
+        "AppLifecycleService","AppStorageService","AssetService",
+        "AudioFocusService","AvatarChatService","AvatarCreationService",
+    }
+    for _, n in ipairs(rootNames) do
+        pcall(function() table.insert(roots, game:GetService(n)) end)
+    end
+    table.insert(roots, workspace)
+
+    local order = 0
+    local function addRow(instance, depth)
+        if not instance then return end
+        local ok, kids = pcall(function() return instance:GetChildren() end)
+        local hasKids = ok and #kids > 0
+        local name = instance.Name
+        local className = instance.ClassName
+        local fullId = tostring(instance)
+        local isExpanded = self.State._ExplorerExpanded[fullId] == true
+
+        -- Filter check
+        local visible = filter == ""
+            or name:lower():find(filter, 1, true)
+            or className:lower():find(filter, 1, true)
+        if not visible then
+            -- Still recurse children so matches deeper in tree show
+            if hasKids then
+                for _, child in ipairs(kids) do
+                    addRow(child, depth + 1)
+                end
+            end
+            return
+        end
+
+        order = order + 1
+        local row = Instance.new("TextButton", scroll)
+        row.Size = UDim2.new(1, -2, 0, 18)
+        row.BackgroundColor3 = order % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245,245,250)
+        row.Text = ""
+        row.BorderSizePixel = 0
+        row.AutoButtonColor = false
+        row.LayoutOrder = order
+        row.ZIndex = 11
+
+        local arrow = Instance.new("TextLabel", row)
+        arrow.Size = UDim2.fromOffset(14, 18)
+        arrow.Position = UDim2.fromOffset(depth * 10, 0)
+        arrow.BackgroundTransparency = 1
+        arrow.Text = hasKids and (isExpanded and "▾" or "▸") or " "
+        arrow.TextColor3 = self.Config.ACCENT_BLUE
+        arrow.Font = Enum.Font.SourceSansBold
+        arrow.TextSize = 10
+        arrow.ZIndex = 12
+
+        local iconL = Instance.new("TextLabel", row)
+        iconL.Size = UDim2.fromOffset(16, 18)
+        iconL.Position = UDim2.fromOffset(depth * 10 + 14, 0)
+        iconL.BackgroundTransparency = 1
+        iconL.Text = self:_ExplorerIcon(instance)
+        iconL.Font = Enum.Font.SourceSans
+        iconL.TextSize = 11
+        iconL.ZIndex = 12
+
+        local nameLabel = Instance.new("TextLabel", row)
+        nameLabel.Size = UDim2.new(1, -(depth * 10 + 32), 1, 0)
+        nameLabel.Position = UDim2.fromOffset(depth * 10 + 30, 0)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = name
+        nameLabel.TextColor3 = className == "ModuleScript" and self.Config.ACCENT_BLUE or self.Config.TEXT_BLACK
+        nameLabel.Font = className == "ModuleScript" and Enum.Font.SourceSansBold or Enum.Font.SourceSans
+        nameLabel.TextSize = 10
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        nameLabel.ZIndex = 12
+
+        local capturedOrder = order
+        row.MouseButton1Click:Connect(function()
+            if className == "ModuleScript" then
+                -- Highlight selected
+                for _, c in ipairs(scroll:GetChildren()) do
+                    if c:IsA("TextButton") then
+                        c.BackgroundColor3 = c.LayoutOrder % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245,245,250)
+                    end
+                end
+                row.BackgroundColor3 = self.Config.HIGHLIGHT
+                nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+                -- Load module into inspector
+                self:LoadModule(instance)
+                -- Decompile + push to notepad
+                self:_showNotification("Decompiling " .. name .. "...", "info")
+                task.spawn(function()
+                    local decomp = self:DecompileModuleScript(instance)
+                    if decomp then
+                        self.State.CurrentModuleDecompiled = decomp
+                        self:_NotepadDisplay(decomp.SourceCode, decomp.Name)
+                        self:_showNotification("Loaded: " .. name, "success")
+                    else
+                        self:_showNotification("Could not decompile " .. name, "warning")
+                    end
+                end)
+            elseif hasKids then
+                self.State._ExplorerExpanded[fullId] = not isExpanded
+                self:_ExplorerPopulate(scroll, filter)
+            end
+        end)
+        row.MouseEnter:Connect(function()
+            if row.BackgroundColor3 ~= self.Config.HIGHLIGHT then
+                row.BackgroundColor3 = self.Config.BG_LIGHT
+            end
+        end)
+        row.MouseLeave:Connect(function()
+            if row.BackgroundColor3 ~= self.Config.HIGHLIGHT then
+                row.BackgroundColor3 = capturedOrder % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245,245,250)
+            end
+        end)
+
+        if isExpanded and hasKids then
+            local sortedKids = {}
+            for _, k in ipairs(kids) do table.insert(sortedKids, k) end
+            table.sort(sortedKids, function(a, b)
+                local aS = a:IsA("ModuleScript") or a:IsA("Script") or a:IsA("LocalScript")
+                local bS = b:IsA("ModuleScript") or b:IsA("Script") or b:IsA("LocalScript")
+                if aS ~= bS then return aS end
+                return a.Name < b.Name
+            end)
+            for _, child in ipairs(sortedKids) do
+                addRow(child, depth + 1)
+            end
+        end
+    end
+
+    for _, root in ipairs(roots) do
+        pcall(addRow, root, 0)
+    end
+end
+
+-- ============================================================
+-- NOTEPAD METHODS
+-- ============================================================
+
+function Modules.OverseerCE:_NotepadDisplay(source, moduleName)
+    if not self.State.UI or not self.State.UI.NotepadSource then return end
+    source = source or ("-- No source available for: " .. tostring(moduleName))
+    self.State.UI.NotepadSource.Text = source
+
+    local gutter = self.State.UI.NotepadGutter
+    if not gutter then return end
+    for _, c in ipairs(gutter:GetChildren()) do
+        if c:IsA("TextLabel") then c:Destroy() end
+    end
+
+    local lineH = 14
+    local lines = 1
+    for _ in source:gmatch("\n") do lines = lines + 1 end
+
+    if not gutter:FindFirstChildOfClass("UIListLayout") then
+        local gl = Instance.new("UIListLayout", gutter)
+        gl.Padding = UDim.new(0, 0)
+        gl.SortOrder = Enum.SortOrder.LayoutOrder
+    end
+
+    local function addBatch(s, e)
+        for i = s, e do
+            local n = Instance.new("TextLabel", gutter)
+            n.Size = UDim2.new(1, 0, 0, lineH)
+            n.BackgroundTransparency = 1
+            n.Text = tostring(i)
+            n.TextColor3 = Color3.fromRGB(100,100,100)
+            n.Font = Enum.Font.Code
+            n.TextSize = 10
+            n.TextXAlignment = Enum.TextXAlignment.Right
+            n.LayoutOrder = i
+            n.ZIndex = 13
+            local p = Instance.new("UIPadding", n)
+            p.PaddingRight = UDim.new(0, 3)
+        end
+    end
+
+    local batch = 100
+    local first = math.min(batch, lines)
+    addBatch(1, first)
+    if lines > first then
+        task.spawn(function()
+            local i = first + 1
+            while i <= lines do
+                addBatch(i, math.min(i + batch - 1, lines))
+                i = i + batch
+                task.wait()
+            end
+        end)
+    end
+end
+
 function Modules.OverseerCE:Initialize()
     local module = self
     RunService.Heartbeat:Connect(function()
@@ -5177,14 +5616,7 @@ Modules.OverseerCE.PoisonTemplates = {
         if type(anticheatModule) ~= "table" then
             return false, "Anti-cheat module must be a table"
         end
-        pcall(function()
-            if setreadonly then setreadonly(anticheatModule, false)
-            elseif make_writeable then make_writeable(anticheatModule) end
-        end)
-        pcall(rawset, anticheatModule, "Enabled", false)
-        pcall(function()
-            if setreadonly then setreadonly(anticheatModule, true) end
-        end)
+        anticheatModule.Enabled = false
         local disablePoisons = {
             CheckPlayer = function() return true end,
             Scan = function() return {} end,
