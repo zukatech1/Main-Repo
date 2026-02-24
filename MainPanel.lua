@@ -28441,6 +28441,7 @@ RegisterCommand({
     end
     Modules.vFly:SetSpoofVector(args[1], args[2], args[3])
 end)
+
 --[[
 ;leech player123 - start leeching them
 ;unleech - stop
@@ -28452,42 +28453,50 @@ end)
 ;leechstrafe - circle around them while following
 ;strafeconfig 3 5 - adjust strafe speed/radius
 ]]
+
 Modules.PlayerLeech = {
     State = {
         IsLeeching = false,
         TargetPlayer = nil,
         Connections = {},
-        LastTargetPos = nil
+        LastTargetPos = nil,
+        UI = nil
     },
     Config = {
         OffsetX = 0,
         OffsetY = 1.5,
-        OffsetZ = -3,
+        OffsetZ = 3,
         RotationX = 0,
-        RotationY = 0,
+        RotationY = 180,
         RotationZ = 0,
-        UseVelocitySpoof = true,
-        SpoofVector = Vector3.new(0, -5000, 0),
+        UseVelocitySpoof = false,
+        SpoofVector = Vector3.new(0, -50000, 0),
         SpoofInterval = 0,
         FollowMode = "attach",
         StayBehind = true,
         EnableStrafing = false,
         StrafeSpeed = 2,
-        StrafeRadius = 3
+        StrafeRadius = 3,
+        UpdateRate = 0.05
     }
 }
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 function Modules.PlayerLeech:_spoofVelocity()
     if not self.Config.UseVelocitySpoof then return end
     local character = LocalPlayer.Character
     if not character then return end
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-    local realVelocity = hrp.AssemblyLinearVelocity
-    hrp.AssemblyLinearVelocity = self.Config.SpoofVector
-    RunService.RenderStepped:Wait()
-    if hrp then
-        hrp.AssemblyLinearVelocity = realVelocity
-    end
+    pcall(function()
+        local realVelocity = hrp.AssemblyLinearVelocity
+        hrp.AssemblyLinearVelocity = self.Config.SpoofVector
+        task.wait()
+        if hrp and hrp.Parent then
+            hrp.AssemblyLinearVelocity = realVelocity
+        end
+    end)
 end
 function Modules.PlayerLeech:_calculatePosition(targetHRP)
     if not targetHRP then return nil end
@@ -28505,66 +28514,61 @@ function Modules.PlayerLeech:_calculatePosition(targetHRP)
 end
 function Modules.PlayerLeech:_attachMode()
     local character = LocalPlayer.Character
-    if not character then return end
+    if not character or not character.Parent then return end
     local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    local targetChar = self.State.TargetPlayer.Character
-    if not targetChar then return end
+    if not hrp or not hrp.Parent then return end
+    local targetChar = self.State.TargetPlayer and self.State.TargetPlayer.Character
+    if not targetChar or not targetChar.Parent then return end
     local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
-    if not targetHRP then return end
+    if not targetHRP or not targetHRP.Parent then return end
     pcall(function()
-        sethiddenproperty(hrp, "PhysicsRepRootPart", targetHRP)
+        local baseCFrame = self:_calculatePosition(targetHRP)
+        if self.Config.EnableStrafing then
+            local time = tick() * self.Config.StrafeSpeed
+            local strafeOffset = Vector3.new(
+                math.sin(time) * self.Config.StrafeRadius,
+                0,
+                math.cos(time) * self.Config.StrafeRadius
+            )
+            baseCFrame = baseCFrame * CFrame.new(strafeOffset)
+        end
+        hrp.CFrame = baseCFrame
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
     end)
-    local baseCFrame = self:_calculatePosition(targetHRP)
-    if self.Config.EnableStrafing then
-        local time = tick() * self.Config.StrafeSpeed
-        local strafeOffset = Vector3.new(
-            math.sin(time) * self.Config.StrafeRadius,
-            0,
-            math.cos(time) * self.Config.StrafeRadius
-        )
-        baseCFrame = baseCFrame * CFrame.new(strafeOffset)
-    end
-    hrp.CFrame = baseCFrame
-    hrp.AssemblyLinearVelocity = Vector3.zero
-    hrp.AssemblyAngularVelocity = Vector3.zero
-    if self.Config.UseVelocitySpoof then
-        self:_spoofVelocity()
-    end
 end
 function Modules.PlayerLeech:_teleportMode()
     local character = LocalPlayer.Character
-    if not character then return end
+    if not character or not character.Parent then return end
     local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    local targetChar = self.State.TargetPlayer.Character
-    if not targetChar then return end
+    if not hrp or not hrp.Parent then return end
+    local targetChar = self.State.TargetPlayer and self.State.TargetPlayer.Character
+    if not targetChar or not targetChar.Parent then return end
     local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
-    if not targetHRP then return end
+    if not targetHRP or not targetHRP.Parent then return end
     local currentPos = targetHRP.Position
     if self.State.LastTargetPos then
         local distance = (currentPos - self.State.LastTargetPos).Magnitude
         if distance < 5 then return end
     end
     self.State.LastTargetPos = currentPos
-    local targetCFrame = self:_calculatePosition(targetHRP)
-    hrp.CFrame = targetCFrame
-    if self.Config.UseVelocitySpoof then
-        self:_spoofVelocity()
-    end
+    pcall(function()
+        local targetCFrame = self:_calculatePosition(targetHRP)
+        hrp.CFrame = targetCFrame
+    end)
 end
 function Modules.PlayerLeech:Start(playerName)
     if self.State.IsLeeching then
-        DoNotif("Already leeching someone", 3)
+        print("⚠ Already leeching someone")
         return
     end
     local targetPlayer = Utilities.findPlayer(playerName)
     if not targetPlayer then
-        DoNotif("Player not found: " .. playerName, 3)
+        print("✗ Player not found: " .. playerName)
         return
     end
     if targetPlayer == LocalPlayer then
-        DoNotif("Cannot leech yourself", 3)
+        print("✗ Cannot leech yourself")
         return
     end
     self.State.TargetPlayer = targetPlayer
@@ -28574,23 +28578,33 @@ function Modules.PlayerLeech:Start(playerName)
     if character then
         local humanoid = character:FindFirstChild("Humanoid")
         if humanoid then
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            pcall(function()
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+            end)
         end
     end
     self.State.Connections.LeechLoop = RunService.Heartbeat:Connect(function()
+        if not self.State.IsLeeching then return end
         if not self.State.TargetPlayer or not self.State.TargetPlayer.Parent then
-            DoNotif("Target left game", 3)
+            print("✗ Target left game")
             self:Stop()
             return
         end
-        if self.Config.FollowMode == "attach" then
-            self:_attachMode()
-        else
-            self:_teleportMode()
+        if not self.State.TargetPlayer.Character then
+            return
         end
+        pcall(function()
+            if self.Config.FollowMode == "attach" then
+                self:_attachMode()
+            else
+                self:_teleportMode()
+            end
+        end)
+        task.wait(self.Config.UpdateRate)
     end)
-    DoNotif(string.format("Leeching: %s (%s mode)", targetPlayer.DisplayName, self.Config.FollowMode), 2)
+    print(string.format("✓ Leeching: %s (%s mode)", targetPlayer.DisplayName, self.Config.FollowMode))
 end
 function Modules.PlayerLeech:Stop()
     if not self.State.IsLeeching then return end
@@ -28599,7 +28613,9 @@ function Modules.PlayerLeech:Stop()
     self.State.LastTargetPos = nil
     for _, conn in pairs(self.State.Connections) do
         if conn then
-            conn:Disconnect()
+            pcall(function()
+                conn:Disconnect()
+            end)
         end
     end
     self.State.Connections = {}
@@ -28613,29 +28629,32 @@ function Modules.PlayerLeech:Stop()
         end
         local humanoid = character:FindFirstChild("Humanoid")
         if humanoid then
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+            pcall(function()
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, true)
+            end)
         end
     end
-    DoNotif("Stopped leeching", 2)
+    print("✓ Stopped leeching")
 end
 function Modules.PlayerLeech:SetOffset(x, y, z)
     self.Config.OffsetX = tonumber(x) or 0
     self.Config.OffsetY = tonumber(y) or 1.5
-    self.Config.OffsetZ = tonumber(z) or -3
-    DoNotif(string.format("Offset: (%.1f, %.1f, %.1f)", 
-        self.Config.OffsetX, self.Config.OffsetY, self.Config.OffsetZ), 2)
+    self.Config.OffsetZ = tonumber(z) or 3
+    print(string.format("✓ Offset: (%.1f, %.1f, %.1f)", 
+        self.Config.OffsetX, self.Config.OffsetY, self.Config.OffsetZ))
 end
 function Modules.PlayerLeech:SetRotation(x, y, z)
     self.Config.RotationX = tonumber(x) or 0
-    self.Config.RotationY = tonumber(y) or 0
+    self.Config.RotationY = tonumber(y) or 180
     self.Config.RotationZ = tonumber(z) or 0
-    DoNotif(string.format("Rotation: (%.1f, %.1f, %.1f)", 
-        self.Config.RotationX, self.Config.RotationY, self.Config.RotationZ), 2)
+    print(string.format("✓ Rotation: (%.1f, %.1f, %.1f)", 
+        self.Config.RotationX, self.Config.RotationY, self.Config.RotationZ))
 end
 function Modules.PlayerLeech:ToggleSpoof()
     self.Config.UseVelocitySpoof = not self.Config.UseVelocitySpoof
-    DoNotif("Velocity Spoof: " .. (self.Config.UseVelocitySpoof and "ON" or "OFF"), 2)
+    print("✓ Velocity Spoof: " .. (self.Config.UseVelocitySpoof and "ON" or "OFF"))
 end
 function Modules.PlayerLeech:SetSpoofVector(x, y, z)
     self.Config.SpoofVector = Vector3.new(
@@ -28643,8 +28662,8 @@ function Modules.PlayerLeech:SetSpoofVector(x, y, z)
         tonumber(y) or -5000,
         tonumber(z) or 0
     )
-    DoNotif(string.format("Spoof vector: (%.1f, %.1f, %.1f)", 
-        self.Config.SpoofVector.X, self.Config.SpoofVector.Y, self.Config.SpoofVector.Z), 2)
+    print(string.format("✓ Spoof vector: (%.1f, %.1f, %.1f)", 
+        self.Config.SpoofVector.X, self.Config.SpoofVector.Y, self.Config.SpoofVector.Z))
 end
 function Modules.PlayerLeech:ToggleMode()
     if self.Config.FollowMode == "attach" then
@@ -28652,11 +28671,11 @@ function Modules.PlayerLeech:ToggleMode()
     else
         self.Config.FollowMode = "attach"
     end
-    DoNotif("Follow mode: " .. self.Config.FollowMode:upper(), 2)
+    print("✓ Follow mode: " .. self.Config.FollowMode:upper())
 end
 function Modules.PlayerLeech:ToggleStrafing()
     self.Config.EnableStrafing = not self.Config.EnableStrafing
-    DoNotif("Strafing: " .. (self.Config.EnableStrafing and "ON" or "OFF"), 2)
+    print("✓ Strafing: " .. (self.Config.EnableStrafing and "ON" or "OFF"))
 end
 function Modules.PlayerLeech:SetStrafeSettings(speed, radius)
     if speed then
@@ -28665,16 +28684,16 @@ function Modules.PlayerLeech:SetStrafeSettings(speed, radius)
     if radius then
         self.Config.StrafeRadius = tonumber(radius) or 3
     end
-    DoNotif(string.format("Strafe: speed=%.1f, radius=%.1f", 
-        self.Config.StrafeSpeed, self.Config.StrafeRadius), 2)
+    print(string.format("✓ Strafe: speed=%.1f, radius=%.1f", 
+        self.Config.StrafeSpeed, self.Config.StrafeRadius))
 end
 RegisterCommand({
     Name = "leech",
-    Aliases = {},
+    Aliases = {"attach"},
     Description = "Attach to a player and follow them. Usage: ;leech <player>"
 }, function(args)
     if not args[1] then
-        DoNotif("Usage: ;leech <player>", 3)
+        print("Usage: ;leech <player>")
         return
     end
     local playerName = table.concat(args, " ")
@@ -28682,7 +28701,7 @@ RegisterCommand({
 end)
 RegisterCommand({
     Name = "unleech",
-    Aliases = {"stopleech"},
+    Aliases = {"stopleech", "detach"},
     Description = "Stop leeching current target"
 }, function()
     Modules.PlayerLeech:Stop()
@@ -28693,10 +28712,10 @@ RegisterCommand({
     Description = "Set leech position offset. Usage: ;leechoffset <x> <y> <z>"
 }, function(args)
     if #args < 3 then
-        DoNotif(string.format("Current: (%.1f, %.1f, %.1f)", 
+        print(string.format("Current offset: (%.1f, %.1f, %.1f)", 
             Modules.PlayerLeech.Config.OffsetX,
             Modules.PlayerLeech.Config.OffsetY,
-            Modules.PlayerLeech.Config.OffsetZ), 2)
+            Modules.PlayerLeech.Config.OffsetZ))
         return
     end
     Modules.PlayerLeech:SetOffset(args[1], args[2], args[3])
@@ -28707,10 +28726,10 @@ RegisterCommand({
     Description = "Set leech rotation. Usage: ;leechrotation <x> <y> <z>"
 }, function(args)
     if #args < 3 then
-        DoNotif(string.format("Current: (%.1f, %.1f, %.1f)", 
+        print(string.format("Current rotation: (%.1f, %.1f, %.1f)", 
             Modules.PlayerLeech.Config.RotationX,
             Modules.PlayerLeech.Config.RotationY,
-            Modules.PlayerLeech.Config.RotationZ), 2)
+            Modules.PlayerLeech.Config.RotationZ))
         return
     end
     Modules.PlayerLeech:SetRotation(args[1], args[2], args[3])
@@ -28729,7 +28748,7 @@ RegisterCommand({
 }, function(args)
     if #args < 3 then
         local v = Modules.PlayerLeech.Config.SpoofVector
-        DoNotif(string.format("Current: (%.1f, %.1f, %.1f)", v.X, v.Y, v.Z), 2)
+        print(string.format("Current spoof vector: (%.1f, %.1f, %.1f)", v.X, v.Y, v.Z))
         return
     end
     Modules.PlayerLeech:SetSpoofVector(args[1], args[2], args[3])
