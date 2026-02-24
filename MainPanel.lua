@@ -23532,7 +23532,8 @@ RegisterCommand({
     Description = "Opens the ultimate Overseer module, Use at your own risk."
 }, function()
     Modules.OverseerCE:CreateUI()
-end)
+end) -- The local part of the overseer to fallback, i implore you to use the updated loadstring.
+
 Modules.ModelBring = {
     State = {
         IsEnabled = false,
@@ -29683,7 +29684,7 @@ function Modules.HDAdminAccess:GrantAccess()
     if hd then
         local count = 0
         for _ in pairs(hd.commandsAllowedToUse) do count = count + 1 end
-        DoNotif(string.format("Rank set to 5, %d commands unlocked! Use prefix: %s", count, tostring(hd.pdata.Prefix or ";")), 2)
+        DoNotif(string.format("Rank set to 5, %d commands unlocked! Use prefix: %s", count, tostring(hd.pdata.Prefix or ".")), 2)
     else
         DoNotif("Hooked — try using commands in chat", 2)
     end
@@ -29813,6 +29814,782 @@ RegisterCommand({
 }, function()
     Modules.HDAdminAccess:ToggleCommandBar()
 end)
+Modules.AdonisPanel = {
+    State = {
+        Visible = false,
+        Gui = nil,
+        TerminalLines = {},
+        CommandHistory = {},
+        HistoryIndex = 0,
+        MaxLines = 500,
+        Dragging = false,
+        DragStart = nil,
+        StartPos = nil,
+        ActiveEffect = nil,
+        Macros = {},
+    },
+    Config = {
+        Theme = {
+            Background    = Color3.fromRGB(31, 31, 31),
+            BackgroundDim = Color3.fromRGB(22, 22, 22),
+            TitleBar      = Color3.fromRGB(26, 26, 26),
+            Accent        = Color3.fromRGB(195, 33, 35),
+            Text          = Color3.fromRGB(255, 255, 255),
+            SubText       = Color3.fromRGB(178, 178, 178),
+            Border        = Color3.fromRGB(27, 42, 53),
+            InputBg       = Color3.fromRGB(28, 28, 28),
+            Green         = Color3.fromRGB(80, 200, 80),
+            Yellow        = Color3.fromRGB(255, 200, 50),
+            Red           = Color3.fromRGB(220, 60, 60),
+            Purple        = Color3.fromRGB(120, 60, 200),
+            Blue          = Color3.fromRGB(50, 100, 200),
+        },
+        Size = Vector2.new(540, 360),
+        Position = UDim2.new(0.5, -270, 0.5, -180),
+        ToggleKey = Enum.KeyCode.RightShift,
+    }
+}
+local function make(class, props, parent)
+    local inst = Instance.new(class)
+    for k, v in pairs(props) do inst[k] = v end
+    if parent then inst.Parent = parent end
+    return inst
+end
+local function corner(r, p) return make("UICorner", {CornerRadius = UDim.new(0, r)}, p) end
+local function stroke(t, c, p) return make("UIStroke", {Thickness=t, Color=c or Color3.fromRGB(60,60,60), ApplyStrokeMode=Enum.ApplyStrokeMode.Border}, p) end
+local function scrollFrame(props, parent)
+    local f = make("ScrollingFrame", {
+        BackgroundColor3 = props.BackgroundColor3 or Color3.fromRGB(22,22,22),
+        BorderSizePixel = 0,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = Color3.fromRGB(80,80,80),
+        CanvasSize = UDim2.new(0,0,0,0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ScrollingDirection = Enum.ScrollingDirection.Y,
+        BottomImage = "http://roblox.com/asset?id=158348114",
+        MidImage    = "http://roblox.com/asset?id=158348114",
+        TopImage    = "http://roblox.com/asset?id=158348114",
+        Size     = props.Size or UDim2.new(1,-10,1,-10),
+        Position = props.Position or UDim2.new(0,5,0,5),
+    }, parent)
+    if props.Corner then corner(props.Corner, f) end
+    make("UIListLayout", {SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0, props.Padding or 1)}, f)
+    make("UIPadding", {PaddingLeft=UDim.new(0,4), PaddingTop=UDim.new(0,4), PaddingBottom=UDim.new(0,4)}, f)
+    return f
+end
+function Modules.AdonisPanel:_build()
+    local T = self.Config.Theme
+    local UIS = game:GetService("UserInputService")
+    local gui = make("ScreenGui", {
+        Name="ZukaAdonisPanel", DisplayOrder=999,
+        ResetOnSpawn=false, IgnoreGuiInset=true,
+    }, game:GetService("CoreGui"))
+    self.State.Gui = gui
+    local win = make("Frame", {
+        Name="Window",
+        Size=UDim2.fromOffset(self.Config.Size.X, self.Config.Size.Y),
+        Position=self.Config.Position,
+        BackgroundColor3=T.Background, BackgroundTransparency=0.08,
+        BorderSizePixel=0, ClipsDescendants=true,
+    }, gui)
+    corner(6, win)
+    stroke(1, T.Border, win)
+    local titleBar = make("Frame", {
+        Size=UDim2.new(1,0,0,26), BackgroundColor3=T.TitleBar, BorderSizePixel=0,
+    }, win)
+    corner(6, titleBar)
+    make("Frame", {Size=UDim2.new(1,0,0,6), Position=UDim2.new(0,0,1,-6), BackgroundColor3=T.TitleBar, BorderSizePixel=0}, titleBar)
+    make("TextLabel", {
+        Size=UDim2.new(1,-80,1,0), Position=UDim2.new(0,10,0,0), BackgroundTransparency=1,
+        Text="Adonis  //  Zuka's Panel", TextColor3=T.Text,
+        Font=Enum.Font.SourceSansLight, TextSize=15, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=2,
+    }, titleBar)
+    local closeBtn = make("TextButton", {
+        Size=UDim2.fromOffset(30,20), Position=UDim2.new(1,-35,0,3),
+        BackgroundColor3=T.Accent, BackgroundTransparency=0.25, BorderSizePixel=0,
+        Text="x", TextColor3=Color3.fromRGB(220,220,220), Font=Enum.Font.Cartoon, TextSize=18, ZIndex=3,
+    }, titleBar)
+    corner(4, closeBtn)
+    local minBtn = make("TextButton", {
+        Size=UDim2.fromOffset(30,20), Position=UDim2.new(1,-70,0,3),
+        BackgroundColor3=Color3.fromRGB(0,0,0), BackgroundTransparency=0.5, BorderSizePixel=0,
+        Text="-", TextColor3=T.Text, Font=Enum.Font.ArialBold, TextSize=14, ZIndex=3,
+    }, titleBar)
+    corner(4, minBtn)
+    local tabRow = make("Frame", {
+        Size=UDim2.new(1,0,0,26), Position=UDim2.new(0,0,0,26),
+        BackgroundColor3=Color3.fromRGB(20,20,20), BorderSizePixel=0,
+    }, win)
+    make("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,2)}, tabRow)
+    make("UIPadding", {PaddingLeft=UDim.new(0,4), PaddingTop=UDim.new(0,3)}, tabRow)
+    local content = make("Frame", {
+        Size=UDim2.new(1,0,1,-52), Position=UDim2.new(0,0,0,52),
+        BackgroundTransparency=1, BorderSizePixel=0, ClipsDescendants=true,
+    }, win)
+    local termPage = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=true}, content)
+    local outputScroll = scrollFrame({Size=UDim2.new(1,-10,1,-40), Position=UDim2.new(0,5,0,5), Corner=4}, termPage)
+    local inputBar = make("Frame", {
+        Size=UDim2.new(1,-10,0,28), Position=UDim2.new(0,5,1,-33),
+        BackgroundColor3=T.InputBg, BorderSizePixel=0,
+    }, termPage)
+    corner(4, inputBar)
+    stroke(1, Color3.fromRGB(50,50,50), inputBar)
+    make("TextLabel", {
+        Size=UDim2.fromOffset(20,28), BackgroundTransparency=1, Text=">",
+        TextColor3=T.Accent, Font=Enum.Font.SourceSansBold, TextSize=16, ZIndex=2,
+    }, inputBar)
+    local inputBox = make("TextBox", {
+        Size=UDim2.new(1,-25,1,0), Position=UDim2.new(0,20,0,0),
+        BackgroundTransparency=1, Text="", PlaceholderText="Enter command...",
+        PlaceholderColor3=T.SubText, TextColor3=T.Text,
+        Font=Enum.Font.SourceSans, TextSize=15,
+        TextXAlignment=Enum.TextXAlignment.Left, ClearTextOnFocus=false, ZIndex=2,
+    }, inputBar)
+    make("UIPadding", {PaddingRight=UDim.new(0,5)}, inputBox)
+    local cmdPage = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false}, content)
+    local searchBox = make("TextBox", {
+        Size=UDim2.new(1,-10,0,24), Position=UDim2.new(0,5,0,5),
+        BackgroundColor3=T.InputBg, BorderSizePixel=0, Text="",
+        PlaceholderText="Search commands...", PlaceholderColor3=T.SubText,
+        TextColor3=T.Text, Font=Enum.Font.SourceSans, TextSize=14, ClearTextOnFocus=false,
+    }, cmdPage)
+    corner(4, searchBox)
+    make("UIPadding", {PaddingLeft=UDim.new(0,6)}, searchBox)
+    local cmdScroll = scrollFrame({Size=UDim2.new(1,-10,1,-38), Position=UDim2.new(0,5,0,33), Corner=4}, cmdPage)
+    local plrPage = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false}, content)
+    local plrScroll = scrollFrame({Size=UDim2.new(1,-10,1,-10), Position=UDim2.new(0,5,0,5), Corner=4, Padding=2}, plrPage)
+    local fxPage = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false}, content)
+    local fxScroll = scrollFrame({Size=UDim2.new(1,-10,1,-10), Position=UDim2.new(0,5,0,5), Corner=4, Padding=4}, fxPage)
+    local EFFECTS = {
+        {Name="Trippy",         Desc="Random color flash",           Color=Color3.fromRGB(180,50,220)},
+        {Name="Strobe",         Desc="Black/white strobe",           Color=Color3.fromRGB(200,200,200)},
+        {Name="Blind",          Desc="Black screen overlay",         Color=Color3.fromRGB(40,40,40)},
+        {Name="Spooky",         Desc="Creepy images + sound",        Color=Color3.fromRGB(80,160,80)},
+        {Name="lifeoftheparty", Desc="Party images + music",         Color=Color3.fromRGB(255,150,50)},
+        {Name="trolling",       Desc="Trollface + sound",            Color=Color3.fromRGB(50,180,255)},
+        {Name="Pixelize",       Desc="Pixelate screen (raycast)",    Color=Color3.fromRGB(100,200,150)},
+        {Name="FadeOut",        Desc="Fade to black",                Color=Color3.fromRGB(120,120,120)},
+        {Name="Off",            Desc="Stop all active effects",      Color=Color3.fromRGB(80,80,80)},
+    }
+    for i, fx in ipairs(EFFECTS) do
+        local row = make("Frame", {
+            Size=UDim2.new(1,-5,0,44), BackgroundColor3=Color3.fromRGB(28,28,28),
+            BackgroundTransparency=0.2, BorderSizePixel=0, LayoutOrder=i, ZIndex=2,
+        }, fxScroll)
+        corner(5, row)
+        make("Frame", {Size=UDim2.fromOffset(4,44), BackgroundColor3=fx.Color, BorderSizePixel=0, ZIndex=3}, row)
+        make("TextLabel", {
+            Size=UDim2.new(1,-80,0,22), Position=UDim2.fromOffset(12,4),
+            BackgroundTransparency=1, Text=fx.Name, TextColor3=Color3.fromRGB(255,255,255),
+            Font=Enum.Font.SourceSansBold, TextSize=15, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
+        }, row)
+        make("TextLabel", {
+            Size=UDim2.new(1,-80,0,18), Position=UDim2.fromOffset(12,22),
+            BackgroundTransparency=1, Text=fx.Desc, TextColor3=T.SubText,
+            Font=Enum.Font.SourceSans, TextSize=12, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
+        }, row)
+        local applyBtn = make("TextButton", {
+            Size=UDim2.fromOffset(60,28), Position=UDim2.new(1,-68,0,8),
+            BackgroundColor3=fx.Color, BackgroundTransparency=0.3, BorderSizePixel=0,
+            Text=fx.Name=="Off" and "Stop" or "Apply",
+            TextColor3=Color3.fromRGB(255,255,255), Font=Enum.Font.SourceSansBold, TextSize=13, ZIndex=4,
+        }, row)
+        corner(4, applyBtn)
+        local fxName = fx.Name
+        applyBtn.MouseButton1Click:Connect(function() self:_applyEffect(fxName) end)
+    end
+    local logsPage = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false}, content)
+    local logSearch = make("TextBox", {
+        Size=UDim2.new(1,-68,0,24), Position=UDim2.new(0,5,0,5),
+        BackgroundColor3=T.InputBg, BorderSizePixel=0, Text="",
+        PlaceholderText="Search logs...", PlaceholderColor3=T.SubText,
+        TextColor3=T.Text, Font=Enum.Font.SourceSans, TextSize=14, ClearTextOnFocus=false,
+    }, logsPage)
+    corner(4, logSearch)
+    make("UIPadding", {PaddingLeft=UDim.new(0,6)}, logSearch)
+    local logClearBtn = make("TextButton", {
+        Size=UDim2.fromOffset(55,24), Position=UDim2.new(1,-60,0,5),
+        BackgroundColor3=T.Red, BackgroundTransparency=0.4, BorderSizePixel=0,
+        Text="Clear", TextColor3=T.Text, Font=Enum.Font.SourceSansBold, TextSize=12,
+    }, logsPage)
+    corner(4, logClearBtn)
+    local logScroll = scrollFrame({Size=UDim2.new(1,-10,1,-38), Position=UDim2.new(0,5,0,33), Corner=4}, logsPage)
+    local macroPage = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false}, content)
+    local macroScroll = scrollFrame({Size=UDim2.new(1,-10,1,-42), Position=UDim2.new(0,5,0,5), Corner=4, Padding=3}, macroPage)
+    local macroAddBar = make("Frame", {
+        Size=UDim2.new(1,-10,0,32), Position=UDim2.new(0,5,1,-37),
+        BackgroundColor3=T.InputBg, BorderSizePixel=0,
+    }, macroPage)
+    corner(4, macroAddBar)
+    stroke(1, Color3.fromRGB(50,50,50), macroAddBar)
+    local aliasInput = make("TextBox", {
+        Size=UDim2.new(0.25,0,1,0), BackgroundTransparency=1,
+        Text="", PlaceholderText="alias", PlaceholderColor3=T.SubText,
+        TextColor3=T.Accent, Font=Enum.Font.SourceSansBold, TextSize=13, ClearTextOnFocus=false,
+    }, macroAddBar)
+    make("UIPadding", {PaddingLeft=UDim.new(0,6)}, aliasInput)
+    make("TextLabel", {
+        Size=UDim2.fromOffset(12,32), Position=UDim2.new(0.25,0,0,0),
+        BackgroundTransparency=1, Text="→", TextColor3=T.SubText,
+        Font=Enum.Font.SourceSansBold, TextSize=14,
+    }, macroAddBar)
+    local cmdInput = make("TextBox", {
+        Size=UDim2.new(0.6,-8,1,0), Position=UDim2.new(0.25,14,0,0),
+        BackgroundTransparency=1, Text="",
+        PlaceholderText="command (no prefix)", PlaceholderColor3=T.SubText,
+        TextColor3=T.Text, Font=Enum.Font.SourceSans, TextSize=13, ClearTextOnFocus=false,
+    }, macroAddBar)
+    local macroAddBtn = make("TextButton", {
+        Size=UDim2.new(0.15,-4,1,-8), Position=UDim2.new(0.85,0,0,4),
+        BackgroundColor3=T.Green, BackgroundTransparency=0.3, BorderSizePixel=0,
+        Text="+", TextColor3=T.Text, Font=Enum.Font.SourceSansBold, TextSize=18,
+    }, macroAddBar)
+    corner(4, macroAddBtn)
+    self.State.Win          = win
+    self.State.OutputScroll = outputScroll
+    self.State.InputBox     = inputBox
+    self.State.CmdScroll    = cmdScroll
+    self.State.SearchBox    = searchBox
+    self.State.PlrScroll    = plrScroll
+    self.State.LogScroll    = logScroll
+    self.State.LogSearch    = logSearch
+    self.State.MacroScroll  = macroScroll
+    self.State.AliasInput   = aliasInput
+    self.State.CmdInput     = cmdInput
+    self.State.Pages = {
+        Terminal = termPage,
+        Commands = cmdPage,
+        Players  = plrPage,
+        Effects  = fxPage,
+        Logs     = logsPage,
+        Macros   = macroPage,
+    }
+    local tabDefs = {
+        {Name="Terminal", Page=termPage},
+        {Name="Commands", Page=cmdPage},
+        {Name="Players",  Page=plrPage},
+        {Name="Effects",  Page=fxPage},
+        {Name="Logs",     Page=logsPage},
+        {Name="Macros",   Page=macroPage},
+    }
+    local function setTab(tab)
+        for _, t in ipairs(tabDefs) do
+            t.Page.Visible = (t == tab)
+            if t.Btn then
+                t.Btn.BackgroundColor3 = (t==tab) and T.Accent or Color3.fromRGB(40,40,40)
+                t.Btn.BackgroundTransparency = (t==tab) and 0.2 or 0.6
+            end
+        end
+        if tab.Name == "Commands" then self:_populateCommands() end
+        if tab.Name == "Players"  then self:_populatePlayers()  end
+        if tab.Name == "Logs"     then self:_populateLogs()     end
+        if tab.Name == "Macros"   then self:_populateMacros()   end
+    end
+    for i, tab in ipairs(tabDefs) do
+        local btn = make("TextButton", {
+            Name=tab.Name.."Tab", Size=UDim2.fromOffset(76,20),
+            BackgroundColor3=i==1 and T.Accent or Color3.fromRGB(40,40,40),
+            BackgroundTransparency=i==1 and 0.2 or 0.6,
+            BorderSizePixel=0, Text=tab.Name, TextColor3=T.Text,
+            Font=Enum.Font.SourceSansBold, TextSize=12, LayoutOrder=i, ZIndex=2,
+        }, tabRow)
+        corner(4, btn)
+        tab.Btn = btn
+        btn.MouseButton1Click:Connect(function() setTab(tab) end)
+    end
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputType.Touch then
+            self.State.Dragging = true
+            self.State.DragStart = input.Position
+            self.State.StartPos = win.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if self.State.Dragging and (
+            input.UserInputType == Enum.UserInputType.MouseMovement or
+            input.UserInputType == Enum.UserInputType.Touch) then
+            local d = input.Position - self.State.DragStart
+            win.Position = UDim2.new(
+                self.State.StartPos.X.Scale, self.State.StartPos.X.Offset + d.X,
+                self.State.StartPos.Y.Scale, self.State.StartPos.Y.Offset + d.Y
+            )
+        end
+    end)
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputType.Touch then
+            self.State.Dragging = false
+        end
+    end)
+    closeBtn.MouseButton1Click:Connect(function() self:Hide() end)
+    local minimized = false
+    minBtn.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        TweenService:Create(win, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+            Size = minimized
+                and UDim2.fromOffset(self.Config.Size.X, 26)
+                or  UDim2.fromOffset(self.Config.Size.X, self.Config.Size.Y)
+        }):Play()
+        content.Visible = not minimized
+        tabRow.Visible = not minimized
+        minBtn.Text = minimized and "+" or "-"
+    end)
+    inputBox.FocusLost:Connect(function(entered)
+        if entered and inputBox.Text ~= "" then
+            local cmd = inputBox.Text
+            inputBox.Text = ""
+            table.insert(self.State.CommandHistory, 1, cmd)
+            if #self.State.CommandHistory > 50 then table.remove(self.State.CommandHistory) end
+            self.State.HistoryIndex = 0
+            self:Print("> "..cmd, T.Accent)
+            local firstWord = cmd:lower():match("^(%S+)")
+            if firstWord and self.State.Macros[firstWord] then
+                local rest = cmd:match("^%S+%s*(.*)")
+                cmd = self.State.Macros[firstWord]..(rest~="" and " "..rest or "")
+                self:Print("  macro → "..cmd, T.SubText)
+            end
+            local ok, err = pcall(function()
+                processCommand(Prefix..cmd:gsub("^"..Prefix, ""))
+            end)
+            if not ok then self:Print("Error: "..tostring(err), T.Red) end
+        end
+    end)
+    UIS.InputBegan:Connect(function(input)
+        if not self.State.Visible or not inputBox:IsFocused() then return end
+        if input.KeyCode == Enum.KeyCode.Up then
+            self.State.HistoryIndex = math.min(self.State.HistoryIndex+1, #self.State.CommandHistory)
+            local e = self.State.CommandHistory[self.State.HistoryIndex]
+            if e then inputBox.Text = e end
+        elseif input.KeyCode == Enum.KeyCode.Down then
+            self.State.HistoryIndex = math.max(self.State.HistoryIndex-1, 0)
+            inputBox.Text = self.State.HistoryIndex==0 and "" or (self.State.CommandHistory[self.State.HistoryIndex] or "")
+        end
+    end)
+    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        self:_populateCommands(searchBox.Text)
+    end)
+    logSearch:GetPropertyChangedSignal("Text"):Connect(function()
+        self:_populateLogs(logSearch.Text)
+    end)
+    logClearBtn.MouseButton1Click:Connect(function()
+        self.State.TerminalLines = {}
+        for _, c in ipairs(outputScroll:GetChildren()) do
+            if c:IsA("TextLabel") then c:Destroy() end
+        end
+        self:_populateLogs()
+        self:Print("Logs cleared.", T.SubText)
+    end)
+    macroAddBtn.MouseButton1Click:Connect(function()
+        local alias   = aliasInput.Text:lower():match("^(%S+)")
+        local command = cmdInput.Text:match("^(.-)%s*$")
+        if alias and alias~="" and command and command~="" then
+            self.State.Macros[alias] = command
+            aliasInput.Text = ""
+            cmdInput.Text = ""
+            self:_populateMacros()
+            self:Print("Macro added: "..alias.." → "..command, T.Green)
+            RegisterCommand({Name=alias, Aliases={}, Description="Macro: "..command}, function(args)
+                local full = command
+                if args and #args>0 then full = full.." "..table.concat(args," ") end
+                processCommand(Prefix..full)
+            end)
+        else
+            self:Print("Need both alias and command.", T.Red)
+        end
+    end)
+    UIS.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode == self.Config.ToggleKey then self:Toggle() end
+    end)
+    win.Visible = false
+    self:Print("Adonis  //  Zuka's Panel", T.Accent)
+    self:Print("Toggle: RightShift  |  Prefix: "..Prefix, T.SubText)
+    self:Print(string.rep("─", 52), Color3.fromRGB(55,55,55))
+end
+function Modules.AdonisPanel:Print(text, color)
+    local T = self.Config.Theme
+    color = color or T.Text
+    table.insert(self.State.TerminalLines, {Text=text, Color=color, Time=os.time()})
+    if #self.State.TerminalLines > self.State.MaxLines then
+        table.remove(self.State.TerminalLines, 1)
+    end
+    if not self.State.OutputScroll then return end
+    make("TextLabel", {
+        Size=UDim2.new(1,-5,0,0), AutomaticSize=Enum.AutomaticSize.Y,
+        BackgroundTransparency=1, Text=text, TextColor3=color,
+        Font=Enum.Font.SourceSans, TextSize=14,
+        TextXAlignment=Enum.TextXAlignment.Left, TextWrapped=true,
+        LayoutOrder=#self.State.TerminalLines, ZIndex=2,
+    }, self.State.OutputScroll)
+    task.defer(function()
+        if self.State.OutputScroll then
+            self.State.OutputScroll.CanvasPosition = Vector2.new(0, math.huge)
+        end
+    end)
+    local count = 0
+    for _, c in ipairs(self.State.OutputScroll:GetChildren()) do
+        if c:IsA("TextLabel") then count += 1 end
+    end
+    if count > self.State.MaxLines then
+        for _, c in ipairs(self.State.OutputScroll:GetChildren()) do
+            if c:IsA("TextLabel") then c:Destroy() break end
+        end
+    end
+end
+function Modules.AdonisPanel:_populateCommands(filter)
+    if not self.State.CmdScroll then return end
+    filter = filter and filter:lower() or ""
+    for _, c in ipairs(self.State.CmdScroll:GetChildren()) do
+        if c:IsA("TextButton") or c:IsA("TextLabel") then c:Destroy() end
+    end
+    local T = self.Config.Theme
+    local count = 0
+    for name in pairs(Commands) do
+        if filter=="" or name:lower():find(filter,1,true) then
+            count += 1
+            local row = make("TextButton", {
+                Size=UDim2.new(1,-5,0,22),
+                BackgroundColor3=count%2==0 and Color3.fromRGB(28,28,28) or Color3.fromRGB(34,34,34),
+                BackgroundTransparency=0.2, BorderSizePixel=0,
+                Text=" "..Prefix..name, TextColor3=T.Text,
+                Font=Enum.Font.SourceSans, TextSize=14,
+                TextXAlignment=Enum.TextXAlignment.Left, LayoutOrder=count, ZIndex=2,
+            }, self.State.CmdScroll)
+            corner(3, row)
+            row.MouseButton1Click:Connect(function()
+                self.State.InputBox.Text = name.." "
+                self.State.InputBox:CaptureFocus()
+                for _, p in pairs(self.State.Pages) do p.Visible = false end
+                self.State.Pages.Terminal.Visible = true
+            end)
+        end
+    end
+    if count == 0 then
+        make("TextLabel", {
+            Size=UDim2.new(1,-5,0,22), BackgroundTransparency=1,
+            Text=" No commands found", TextColor3=T.SubText,
+            Font=Enum.Font.SourceSans, TextSize=14, TextXAlignment=Enum.TextXAlignment.Left,
+        }, self.State.CmdScroll)
+    end
+end
+function Modules.AdonisPanel:_populatePlayers()
+    if not self.State.PlrScroll then return end
+    for _, c in ipairs(self.State.PlrScroll:GetChildren()) do
+        if c:IsA("Frame") then c:Destroy() end
+    end
+    local T = self.Config.Theme
+    for i, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+        local isLocal = plr == LocalPlayer
+        local row = make("Frame", {
+            Size=UDim2.new(1,-5,0,46),
+            BackgroundColor3=isLocal and Color3.fromRGB(30,40,30) or Color3.fromRGB(30,30,30),
+            BackgroundTransparency=0.3, BorderSizePixel=0, LayoutOrder=i, ZIndex=2,
+        }, self.State.PlrScroll)
+        corner(4, row)
+        local thumb = make("ImageLabel", {
+            Size=UDim2.fromOffset(38,38), Position=UDim2.fromOffset(4,4),
+            BackgroundColor3=Color3.fromRGB(20,20,20), BorderSizePixel=0,
+            Image=("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=48&height=48&format=png"):format(plr.UserId),
+            ZIndex=3,
+        }, row)
+        corner(19, thumb)
+        make("TextLabel", {
+            Size=UDim2.new(1,-110,0,20), Position=UDim2.fromOffset(48,4), BackgroundTransparency=1,
+            Text=plr.DisplayName..(isLocal and "  (you)" or ""),
+            TextColor3=isLocal and T.Green or T.Text, Font=Enum.Font.SourceSansBold,
+            TextSize=14, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
+        }, row)
+        make("TextLabel", {
+            Size=UDim2.new(1,-110,0,16), Position=UDim2.fromOffset(48,24), BackgroundTransparency=1,
+            Text="@"..plr.Name.."  |  "..tostring(plr.UserId),
+            TextColor3=T.SubText, Font=Enum.Font.SourceSans,
+            TextSize=12, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
+        }, row)
+        local function quickBtn(label, xOff, clr, cmd)
+            local b = make("TextButton", {
+                Size=UDim2.fromOffset(30,20), Position=UDim2.new(1,xOff,0,13),
+                BackgroundColor3=clr, BackgroundTransparency=0.3, BorderSizePixel=0,
+                Text=label, TextColor3=T.Text, Font=Enum.Font.SourceSansBold, TextSize=11, ZIndex=4,
+            }, row)
+            corner(3, b)
+            b.MouseButton1Click:Connect(function()
+                self:Print("> "..cmd.." "..plr.Name, T.Accent)
+                processCommand(Prefix..cmd.." "..plr.Name)
+            end)
+        end
+        quickBtn("TP",  -96, T.Blue,   "tp me")
+        quickBtn("SPY", -62, T.Purple, "esp")
+        quickBtn("KIL", -28, T.Red,    "kill")
+    end
+end
+function Modules.AdonisPanel:_populateLogs(filter)
+    if not self.State.LogScroll then return end
+    filter = filter and filter:lower() or ""
+    for _, c in ipairs(self.State.LogScroll:GetChildren()) do
+        if c:IsA("TextLabel") then c:Destroy() end
+    end
+    local T = self.Config.Theme
+    local lines = self.State.TerminalLines
+    local results = {}
+    if filter == "" then
+        results = lines
+    else
+        local p1, p2 = {}, {}
+        for _, line in ipairs(lines) do
+            local t = line.Text:lower()
+            if t == filter then
+                table.insert(p1, line)
+            elseif t:find(filter, 1, true) then
+                table.insert(p2, line)
+            end
+        end
+        for _, v in ipairs(p1) do table.insert(results, v) end
+        for _, v in ipairs(p2) do table.insert(results, v) end
+    end
+    for i, line in ipairs(results) do
+        local timeStr = ""
+        if line.Time then
+            timeStr = string.format("[%02d:%02d] ", math.floor(line.Time/3600)%24, math.floor(line.Time/60)%60)
+        end
+        make("TextLabel", {
+            Size=UDim2.new(1,-5,0,0), AutomaticSize=Enum.AutomaticSize.Y,
+            BackgroundTransparency=i%2==0 and 0.85 or 1,
+            BackgroundColor3=Color3.fromRGB(35,35,35),
+            Text=timeStr..line.Text, TextColor3=line.Color or T.Text,
+            Font=Enum.Font.SourceSans, TextSize=13,
+            TextXAlignment=Enum.TextXAlignment.Left, TextWrapped=true,
+            LayoutOrder=i, ZIndex=2,
+        }, self.State.LogScroll)
+    end
+    if #results == 0 then
+        make("TextLabel", {
+            Size=UDim2.new(1,-5,0,22), BackgroundTransparency=1,
+            Text=filter~="" and " No matching logs" or " No logs yet",
+            TextColor3=T.SubText, Font=Enum.Font.SourceSans,
+            TextSize=14, TextXAlignment=Enum.TextXAlignment.Left,
+        }, self.State.LogScroll)
+    end
+end
+function Modules.AdonisPanel:_populateMacros()
+    if not self.State.MacroScroll then return end
+    for _, c in ipairs(self.State.MacroScroll:GetChildren()) do
+        if c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end
+    end
+    local T = self.Config.Theme
+    local i = 0
+    if not next(self.State.Macros) then
+        make("TextLabel", {
+            Size=UDim2.new(1,-5,0,22), BackgroundTransparency=1,
+            Text=" No macros yet. Type alias → command below and hit +",
+            TextColor3=T.SubText, Font=Enum.Font.SourceSans,
+            TextSize=14, TextXAlignment=Enum.TextXAlignment.Left,
+        }, self.State.MacroScroll)
+        return
+    end
+    for alias, command in pairs(self.State.Macros) do
+        i += 1
+        local row = make("Frame", {
+            Size=UDim2.new(1,-5,0,34),
+            BackgroundColor3=i%2==0 and Color3.fromRGB(28,28,28) or Color3.fromRGB(34,34,34),
+            BackgroundTransparency=0.2, BorderSizePixel=0, LayoutOrder=i, ZIndex=2,
+        }, self.State.MacroScroll)
+        corner(4, row)
+        make("TextLabel", {
+            Size=UDim2.new(0.28,0,1,0), Position=UDim2.fromOffset(8,0), BackgroundTransparency=1,
+            Text=Prefix..alias, TextColor3=T.Accent,
+            Font=Enum.Font.SourceSansBold, TextSize=14, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
+        }, row)
+        make("TextLabel", {
+            Size=UDim2.new(0.6,0,1,0), Position=UDim2.new(0.28,12,0,0), BackgroundTransparency=1,
+            Text="→ "..Prefix..command, TextColor3=T.SubText,
+            Font=Enum.Font.SourceSans, TextSize=13, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
+        }, row)
+        local delBtn = make("TextButton", {
+            Size=UDim2.fromOffset(24,20), Position=UDim2.new(1,-30,0,7),
+            BackgroundColor3=T.Red, BackgroundTransparency=0.4, BorderSizePixel=0,
+            Text="✕", TextColor3=T.Text, Font=Enum.Font.SourceSansBold, TextSize=13, ZIndex=4,
+        }, row)
+        corner(3, delBtn)
+        local capturedAlias = alias
+        delBtn.MouseButton1Click:Connect(function()
+            self.State.Macros[capturedAlias] = nil
+            Commands[capturedAlias] = nil
+            self:Print("Macro removed: "..capturedAlias, T.SubText)
+            self:_populateMacros()
+        end)
+    end
+end
+function Modules.AdonisPanel:_applyEffect(mode)
+    local T = self.Config.Theme
+    if self.State.ActiveEffect then
+        pcall(function() self.State.ActiveEffect:Destroy() end)
+        self.State.ActiveEffect = nil
+    end
+    if mode == "Off" then
+        self:Print("Effects off.", T.SubText)
+        return
+    end
+    local effectGui = make("ScreenGui", {
+        Name="ZukaEffect_"..mode, DisplayOrder=998, ResetOnSpawn=false, IgnoreGuiInset=true,
+    }, game:GetService("CoreGui"))
+    self.State.ActiveEffect = effectGui
+    self:Print("Effect: "..mode, T.Yellow)
+    if mode == "Blind" then
+        make("Frame", {
+            Size=UDim2.new(10,0,10,0), Position=UDim2.new(-5,0,-5,0),
+            BackgroundColor3=Color3.new(0,0,0), ZIndex=10,
+        }, effectGui)
+    elseif mode == "Strobe" then
+        local bg = make("Frame", {Size=UDim2.new(10,0,10,0), Position=UDim2.new(-5,0,-5,0), BackgroundColor3=Color3.new(0,0,0), ZIndex=10}, effectGui)
+        task.spawn(function()
+            while effectGui.Parent do
+                task.wait(1/44) if not effectGui.Parent then break end
+                bg.BackgroundColor3 = Color3.new(1,1,1)
+                task.wait(1/44) if not effectGui.Parent then break end
+                bg.BackgroundColor3 = Color3.new(0,0,0)
+            end
+        end)
+    elseif mode == "Trippy" then
+        local bg = make("Frame", {Size=UDim2.new(10,0,10,0), Position=UDim2.new(-5,0,-5,0), BackgroundColor3=Color3.new(0,0,0), ZIndex=10}, effectGui)
+        task.spawn(function()
+            while effectGui.Parent do
+                task.wait(1/44) if not effectGui.Parent then break end
+                bg.BackgroundColor3 = Color3.new(math.random(), math.random(), math.random())
+            end
+        end)
+    elseif mode == "Spooky" then
+        local textures = {299735022,299735054,299735082,299735103,299735133,299735156,299735177,299735198,299735219,299735245,299735269,299735289,299735304,299735320,299735332,299735361,299735379}
+        local frame = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0)}, effectGui)
+        local img = make("ImageLabel", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0), BorderSizePixel=0}, frame)
+        local snd = make("Sound", {SoundId="rbxassetid://174270407", Looped=true}, effectGui)
+        snd:Play()
+        task.spawn(function()
+            local last
+            while effectGui.Parent do
+                local image = "rbxassetid://"..textures[math.floor(os.clock()/0.1)%#textures+1]
+                if image~=last then img.Image,last=image,image end
+                task.wait()
+            end
+            snd:Stop()
+        end)
+    elseif mode == "lifeoftheparty" then
+        local textures = {299733203,299733248,299733284,299733309,299733355,299733386,299733404,299733425,299733472,299733489,299733501,299733523,299733544,299733551,299733564,299733570,299733581,299733597,299733609,299733621,299733632,299733640,299733648,299733663,299733674,299733694}
+        local frame = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0)}, effectGui)
+        local img = make("ImageLabel", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0), BorderSizePixel=0}, frame)
+        local snd = make("Sound", {SoundId="rbxassetid://172906410", Looped=true}, effectGui)
+        snd:Play()
+        task.spawn(function()
+            local last
+            while effectGui.Parent do
+                local image = "rbxassetid://"..textures[math.floor(os.clock()/0.1)%#textures+1]
+                if image~=last then img.Image,last=image,image end
+                task.wait()
+            end
+            snd:Stop()
+        end)
+    elseif mode == "trolling" then
+        local textures = {"6172043688","6172044478","6172045193","6172045797","6172046490","6172047172","6172047947","6172048674","6172050195","6172050892","6172051669","6172053085","6172054752","6172054752","6172053085","6172051669","6172050892","6172050195","6172048674","6172047947","6172047172","6172046490","6172045797","6172045193","6172044478","6172043688"}
+        local frame = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0)}, effectGui)
+        local img = make("ImageLabel", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0), BorderSizePixel=0}, frame)
+        local snd = make("Sound", {SoundId="rbxassetid://229681899", Looped=true}, effectGui)
+        snd:Play()
+        task.spawn(function()
+            local last
+            while effectGui.Parent do
+                local image = "rbxassetid://"..textures[math.floor(os.clock()/0.13)%#textures+1]
+                if image~=last then img.Image,last=image,image end
+                task.wait()
+            end
+            snd:Stop()
+        end)
+    elseif mode == "Pixelize" then
+        local camera = workspace.CurrentCamera
+        local resX, resY = 20, 20
+        local frame = make("Frame", {Size=UDim2.new(1,0,1,0)}, effectGui)
+        local pixels = {}
+        for y=0, effectGui.AbsoluteSize.Y, resY do
+            for x=0, effectGui.AbsoluteSize.X, resX do
+                local px = make("Frame", {
+                    Parent=frame, BorderSizePixel=0,
+                    Size=UDim2.fromOffset(resX,resY),
+                    Position=UDim2.fromOffset(x-(resX/2),y-(resY/2)),
+                    BackgroundColor3=Color3.fromRGB(105,170,255),
+                })
+                table.insert(pixels, {Pixel=px, X=x, Y=y})
+            end
+        end
+        task.spawn(function()
+            while effectGui.Parent do
+                for _, p in ipairs(pixels) do
+                    local ray = camera:ScreenPointToRay(p.X, p.Y, 0)
+                    local res = workspace:Raycast(ray.Origin, ray.Direction*128)
+                    p.Pixel.BackgroundColor3 = (res and res.Instance and res.Instance.Transparency<1)
+                        and res.Instance.BrickColor.Color
+                        or Color3.fromRGB(105,170,255)
+                end
+                task.wait()
+            end
+        end)
+    elseif mode == "FadeOut" then
+        local frame = make("Frame", {
+            Size=UDim2.new(2,0,2,0), Position=UDim2.new(-1,0,-1,0),
+            BackgroundColor3=Color3.new(0,0,0), BackgroundTransparency=1,
+        }, effectGui)
+        TweenService:Create(frame, TweenInfo.new(3), {BackgroundTransparency=0}):Play()
+    end
+end
+function Modules.AdonisPanel:Show()
+    if not self.State.Gui then self:_build() end
+    self.State.Win.Visible = true
+    self.State.Visible = true
+    task.defer(function()
+        if self.State.InputBox then self.State.InputBox:CaptureFocus() end
+    end)
+end
+function Modules.AdonisPanel:Hide()
+    if self.State.Win then self.State.Win.Visible = false end
+    self.State.Visible = false
+end
+function Modules.AdonisPanel:Toggle()
+    if self.State.Visible then self:Hide() else self:Show() end
+end
+local _origDoNotif = DoNotif
+DoNotif = function(msg, duration, color)
+    _origDoNotif(msg, duration, color)
+    if Modules.AdonisPanel.State.Gui then
+        Modules.AdonisPanel:Print(msg, Modules.AdonisPanel.Config.Theme.Yellow)
+    end
+end
+RegisterCommand({Name="apanel", Aliases={"adonis","console"}, Description="Toggle Adonis-style panel"}, function()
+    Modules.AdonisPanel:Toggle()
+end)
+RegisterCommand({Name="panelclear", Aliases={"cls"}, Description="Clear panel terminal"}, function()
+    if Modules.AdonisPanel.State.OutputScroll then
+        for _, c in ipairs(Modules.AdonisPanel.State.OutputScroll:GetChildren()) do
+            if c:IsA("TextLabel") then c:Destroy() end
+        end
+        Modules.AdonisPanel.State.TerminalLines = {}
+        Modules.AdonisPanel:Print("Cleared.", Modules.AdonisPanel.Config.Theme.SubText)
+    end
+end)
+RegisterCommand({Name="effect", Aliases={"fx"}, Description="Apply visual effect. ;effect <name>"}, function(args)
+    if not args[1] then
+        DoNotif("Effects: Trippy Strobe Blind Spooky lifeoftheparty trolling Pixelize FadeOut Off", 5)
+        return
+    end
+    Modules.AdonisPanel:_applyEffect(args[1])
+end)
+RegisterCommand({Name="effectoff", Aliases={"fxoff"}, Description="Stop active effect"}, function()
+    Modules.AdonisPanel:_applyEffect("Off")
+end)
+function Modules.AdonisPanel:Initialize()
+    task.spawn(function()
+        task.wait(1)
+        self:_build()
+        warn("[AdonisPanel] Ready — RightShift or ;apanel")
+    end)
+end
 Modules.AdminOrb = {
     State = {
         Active = false,
@@ -29826,14 +30603,14 @@ Modules.AdminOrb = {
     Config = {
         OrbitRadius = 3.2,
         OrbitSpeed = 1.1,       -- radians per second
-        BobHeight = 0.55,       -- how much it bobs up and down
+        BobHeight = 1.55,       -- how much it bobs up and down
         BobSpeed = 2.2,         -- bob frequency
         HoverHeight = 3.0,      -- height above HRP
         Color = Color3.fromRGB(128, 0, 0),
         GlowColor = Color3.fromRGB(128, 0, 0),
         Size = 0.55,
         LightRange = 14,
-        LightBrightness = 1.8,
+        LightBrightness = 2.5,
         TrailEnabled = true
     }
 }
@@ -29918,7 +30695,7 @@ function Modules.AdminOrb:_buildOrb()
     label.BackgroundTransparency = 1
     label.Font = Enum.Font.GothamBold
     label.TextSize = 11
-    label.Text = "Zuka's Eye"
+    label.Text = "Zuka's Orb"
     label.TextColor3 = self.Config.Color
     label.TextStrokeTransparency = 0.4
     label.Parent = billboard
@@ -30010,7 +30787,7 @@ function Modules.AdminOrb:Spawn()
     self:_buildOrb()
     self:_startOrbit()
     self:_watchCharacter()
-    DoNotif("Eye of Zuka Spawned", 2)
+    DoNotif("Orb of Zuka Spawned", 2)
 end
 
 function Modules.AdminOrb:Despawn()
@@ -39625,7 +40402,7 @@ RegisterCommand({Name = "lagserv", Aliases = {"spayload"}, Description = "WIP"},
 RegisterCommand({Name = "doomshammer", Aliases = {}, Description = "For Dumb bossfights"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/doomshammer.lua", " Loading.. ") end)
 RegisterCommand({Name = "tptoswords", Aliases = {}, Description = "For Dumb bossfights"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/SwordGrabberBossfightGame.lua", " Loading.. ") end)
 RegisterCommand({Name = "removeff", Aliases = {}, Description = "Removes Forcefields on the client, can be useful with low security"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/removeforcefield.txt", " Loading.. ") end)
-RegisterCommand({Name = "simplespy", Aliases = {"sz"}, Description = "Better than ketamine."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/simplespy.lua", " Loading.. ") end)
+RegisterCommand({Name = "Ghidra", Aliases = {"up3hex"}, Description = "Better than all."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/HEXOverseer.lua", " Loading.. ") end)
 RegisterCommand({Name = "buildts", Aliases = {}, Description = "Script Lookup"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/bts.lua", " Loading.. ") end)
 RegisterCommand({Name = "teleporter", Aliases = {"tpui"}, Description = "Loads the Game Universe."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameFinder.lua", "stolen from nameless-admin") end)
 RegisterCommand({Name = "autofling", Aliases = {"pwned"}, Description = "Pwned Flinger"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/Ultimatefling.lua", "Loaded!") end)
