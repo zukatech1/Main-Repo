@@ -205,14 +205,25 @@ function Modules.OverseerCE:FreezeValue(tbl, key, frozenValue)
         OriginalValue = tbl[key],
         Connection = nil
     }
-    if setreadonly then pcall(setreadonly, tbl, false) end
-    tbl[key] = frozenValue
-    if setreadonly then pcall(setreadonly, tbl, true) end
+    pcall(function()
+        if setreadonly then setreadonly(tbl, false)
+        elseif make_writeable then make_writeable(tbl) end
+    end)
+    pcall(rawset, tbl, key, frozenValue)
+    pcall(function()
+        if setreadonly then setreadonly(tbl, true) end
+    end)
     self.State.FreezeList[freezeId].Connection = RunService.Heartbeat:Connect(function()
-        if tbl[key] ~= frozenValue then
-            if setreadonly then pcall(setreadonly, tbl, false) end
-            tbl[key] = frozenValue
-            if setreadonly then pcall(setreadonly, tbl, true) end
+        local ok, cur = pcall(rawget, tbl, key)
+        if ok and cur ~= frozenValue then
+            pcall(function()
+                if setreadonly then setreadonly(tbl, false)
+                elseif make_writeable then make_writeable(tbl) end
+            end)
+            pcall(rawset, tbl, key, frozenValue)
+            pcall(function()
+                if setreadonly then setreadonly(tbl, true) end
+            end)
         end
     end)
     return true, freezeId
@@ -375,9 +386,18 @@ function Modules.OverseerCE:PoisonCoroutineHijack(callback)
         end
         return originalResume(co, ...)
     end
-    coroutine.create = hijackedCreate
-    coroutine.wrap = hijackedWrap
-    coroutine.resume = hijackedResume
+    -- coroutine table is readonly in Roblox; bypass with rawset or hookfunction
+    pcall(function() if setreadonly then setreadonly(coroutine, false) end end)
+    local c1 = pcall(rawset, coroutine, "create", hijackedCreate)
+    local c2 = pcall(rawset, coroutine, "wrap",   hijackedWrap)
+    local c3 = pcall(rawset, coroutine, "resume", hijackedResume)
+    if not (c1 and c2 and c3) then
+        if hookfunction then
+            pcall(hookfunction, coroutine.create, hijackedCreate)
+            pcall(hookfunction, coroutine.wrap,   hijackedWrap)
+            pcall(hookfunction, coroutine.resume, hijackedResume)
+        end
+    end
     local poisonData = {
         Id = #self.State.ActivePoisons + 1,
         Type = "CoroutineHijack",
@@ -477,11 +497,16 @@ function Modules.OverseerCE:PoisonAntiDetection(func, legitimateSignature)
     }
     if debug and debug.getinfo then
         local originalGetInfo = debug.getinfo
-        debug.getinfo = function(target, ...)
+        local hookedGetInfo = function(target, ...)
             if target == func then
                 return signature
             end
             return originalGetInfo(target, ...)
+        end
+        -- debug table is readonly; use rawset or hookfunction
+        local dbgSet = pcall(rawset, debug, "getinfo", hookedGetInfo)
+        if not dbgSet and hookfunction then
+            pcall(hookfunction, debug.getinfo, hookedGetInfo)
         end
     end
     local poisonData = {
@@ -517,9 +542,16 @@ function Modules.OverseerCE:PoisonSelfHeal(poisonId, checkInterval)
         if not isValid then
             warn("[HEX Overseer] Self-heal: Restoring poison #" .. poisonId)
             if poison.Type == "TableHijack" then
+                pcall(function()
+                    if setreadonly then setreadonly(poison.Target, false)
+                    elseif make_writeable then make_writeable(poison.Target) end
+                end)
                 for key, value in pairs(poison.Overrides) do
-                    poison.Target[key] = value
+                    pcall(rawset, poison.Target, key, value)
                 end
+                pcall(function()
+                    if setreadonly then setreadonly(poison.Target, true) end
+                end)
             elseif poison.Type == "UpvalueInject" then
                 pcall(setupvalue, poison.TargetFunction, poison.UpvalueIndex, poison.NewValue)
             end
@@ -2537,7 +2569,7 @@ function Modules.OverseerCE:EnableAntiTamper()
         typeof = typeof
     }
     local originalGetmetatable = getmetatable
-    getmetatable = function(tbl)
+    local hookedGetmetatable = function(tbl)
         local mt = originalGetmetatable(tbl)
         if mt and self.State.ActivePatches[mt] then
             local cleanMt = {}
@@ -2552,13 +2584,15 @@ function Modules.OverseerCE:EnableAntiTamper()
         end
         return mt
     end
+
     local originalSetmetatable = setmetatable
-    setmetatable = function(tbl, mt)
+    local hookedSetmetatable = function(tbl, mt)
         print("[Anti-Tamper] setmetatable called on:", tostring(tbl))
         return originalSetmetatable(tbl, mt)
     end
+
     local originalRawset = rawset
-    rawset = function(tbl, key, value)
+    local hookedRawset = function(tbl, key, value)
         for patchId, patch in pairs(self.State.FreezeList) do
             if patch.Table == tbl and patch.Key == key then
                 print("[Anti-Tamper] Blocked rawset on frozen patch:", key)
@@ -2567,21 +2601,30 @@ function Modules.OverseerCE:EnableAntiTamper()
         end
         return originalRawset(tbl, key, value)
     end
+
     local originalType = type
-    type = function(value)
+    local hookedType = function(value)
         if self.State.HookedFunctions[value] then
             return "function"
         end
         return originalType(value)
     end
+
+    -- _G globals are readonly in Roblox; use rawset on _G to bypass
+    pcall(rawset, _G, "getmetatable", hookedGetmetatable)
+    pcall(rawset, _G, "setmetatable", hookedSetmetatable)
+    pcall(rawset, _G, "rawset",       hookedRawset)
+    pcall(rawset, _G, "type",         hookedType)
+
     if typeof then
         local originalTypeof = typeof
-        typeof = function(value)
+        local hookedTypeof = function(value)
             if self.State.HookedFunctions[value] then
                 return "function"
             end
             return originalTypeof(value)
         end
+        pcall(rawset, _G, "typeof", hookedTypeof)
     end
     self.State.AntiTamperActive = true
     print("[Anti-Tamper] Protection enabled")
@@ -2591,14 +2634,14 @@ function Modules.OverseerCE:DisableAntiTamper()
     if not self.State.AntiTamperActive then
         return {Success = false, Error = "Anti-tamper not active"}
     end
-    getmetatable = self.State.OriginalFunctions.getmetatable
-    setmetatable = self.State.OriginalFunctions.setmetatable
-    rawget = self.State.OriginalFunctions.rawget
-    rawset = self.State.OriginalFunctions.rawset
-    rawequal = self.State.OriginalFunctions.rawequal
-    type = self.State.OriginalFunctions.type
+    pcall(rawset, _G, "getmetatable", self.State.OriginalFunctions.getmetatable)
+    pcall(rawset, _G, "setmetatable", self.State.OriginalFunctions.setmetatable)
+    pcall(rawset, _G, "rawget",       self.State.OriginalFunctions.rawget)
+    pcall(rawset, _G, "rawset",       self.State.OriginalFunctions.rawset)
+    pcall(rawset, _G, "rawequal",     self.State.OriginalFunctions.rawequal)
+    pcall(rawset, _G, "type",         self.State.OriginalFunctions.type)
     if typeof then
-        typeof = self.State.OriginalFunctions.typeof
+        pcall(rawset, _G, "typeof",   self.State.OriginalFunctions.typeof)
     end
     self.State.AntiTamperActive = false
     self.State.OriginalFunctions = {}
@@ -5134,7 +5177,14 @@ Modules.OverseerCE.PoisonTemplates = {
         if type(anticheatModule) ~= "table" then
             return false, "Anti-cheat module must be a table"
         end
-        anticheatModule.Enabled = false
+        pcall(function()
+            if setreadonly then setreadonly(anticheatModule, false)
+            elseif make_writeable then make_writeable(anticheatModule) end
+        end)
+        pcall(rawset, anticheatModule, "Enabled", false)
+        pcall(function()
+            if setreadonly then setreadonly(anticheatModule, true) end
+        end)
         local disablePoisons = {
             CheckPlayer = function() return true end,
             Scan = function() return {} end,
