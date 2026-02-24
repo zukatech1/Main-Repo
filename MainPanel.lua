@@ -41533,6 +41533,1019 @@ RegisterCommand({
         end
     end
 end)
+Modules.HatFling = {
+    State = {
+        IsActive = false,
+        Connections = {},
+        Accessories = {},
+        TargetMode = "all", -- "all", "others", "nearest", "specific"
+        TargetPlayer = nil,
+        OriginalGravity = workspace.Gravity,
+        FakeDeath = false,
+        CameraPart = nil,
+        Stats = {
+            FlingsAttempted = 0,
+            PlayersTargeted = 0,
+        }
+    },
+    Config = {
+        FlingVelocity = Vector3.new(1e20, 1e20, 1e20),
+        RotVelocity = Vector3.new(1e10, 1e10, 1e10),
+        FlingDuration = 20, -- Frames to fling per target
+        UpdateRate = 0, -- How often to update (0 = every frame)
+        RequireCollision = true, -- Only use hats with CanCollide
+        DropHeight = -500,
+        DropAngle = 45, -- Angle for R15 fake death
+        UsePermDeath = false, -- Deprecated but kept for compatibility
+        AutoStop = false, -- Stop after X seconds
+        AutoStopTime = 30,
+        TargetTeammates = false,
+        TargetSelf = false,
+        MaxDistance = math.huge, -- Max distance to target players
+        Debug = false,
+    },
+    Services = {
+        Players = game:GetService("Players"),
+        RunService = game:GetService("RunService"),
+        StarterGui = game:GetService("StarterGui"),
+        Debris = game:GetService("Debris"),
+    }
+}
+
+function Modules.HatFling:GetAccessories()
+    local character = LocalPlayer.Character
+    if not character then return {} end
+    
+    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+    if not humanoid then return {} end
+    
+    local accessories = {}
+    for _, accessory in ipairs(humanoid:GetAccessories()) do
+        local handle = accessory:FindFirstChild("Handle")
+        
+        -- Filter by collision requirement
+        if handle and handle:IsA("BasePart") then
+            if not self.Config.RequireCollision or handle.CanCollide then
+                table.insert(accessories, {
+                    Accessory = accessory,
+                    Handle = handle
+                })
+            end
+        end
+    end
+    
+    return accessories
+end
+
+function Modules.HatFling:UnlockAccessories()
+    local accessories = self:GetAccessories()
+    local unlocked = 0
+    
+    for _, data in ipairs(accessories) do
+        pcall(function()
+            sethiddenproperty(data.Accessory, "BackendAccoutrementState", 3)
+            unlocked = unlocked + 1
+        end)
+    end
+    
+    if self.Config.Debug then
+        DoNotif(string.format("Unlocked %d accessories", unlocked), 2)
+    end
+    
+    return accessories
+end
+
+function Modules.HatFling:GetTargetPlayers()
+    local targets = {}
+    local localPlayer = LocalPlayer
+    
+    for _, player in ipairs(self.Services.Players:GetPlayers()) do
+        -- Skip self unless configured
+        if player == localPlayer and not self.Config.TargetSelf then
+            continue
+        end
+        
+        -- Skip teammates unless configured
+        if not self.Config.TargetTeammates and player.Team == localPlayer.Team and player ~= localPlayer then
+            continue
+        end
+        
+        -- Check distance
+        if self.Config.MaxDistance < math.huge then
+            local char = player.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local localHRP = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+            
+            if hrp and localHRP then
+                local distance = (hrp.Position - localHRP.Position).Magnitude
+                if distance > self.Config.MaxDistance then
+                    continue
+                end
+            end
+        end
+        
+        -- Mode-specific filtering
+        if self.State.TargetMode == "specific" and player ~= self.State.TargetPlayer then
+            continue
+        end
+        
+        table.insert(targets, player)
+    end
+    
+    -- Sort by distance for "nearest" mode
+    if self.State.TargetMode == "nearest" then
+        local localHRP = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if localHRP then
+            table.sort(targets, function(a, b)
+                local aHRP = a.Character and a.Character:FindFirstChild("HumanoidRootPart")
+                local bHRP = b.Character and b.Character:FindFirstChild("HumanoidRootPart")
+                if not aHRP then return false end
+                if not bHRP then return true end
+                
+                local aDist = (aHRP.Position - localHRP.Position).Magnitude
+                local bDist = (bHRP.Position - localHRP.Position).Magnitude
+                return aDist < bDist
+            end)
+        end
+    end
+    
+    return targets
+end
+
+function Modules.HatFling:SetupFakeDeath()
+    local character = LocalPlayer.Character
+    if not character then return false end
+    
+    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or not rootPart then return false end
+    
+    -- Store original gravity
+    self.State.OriginalGravity = workspace.Gravity
+    
+    -- Disable gravity and fallen parts
+    workspace.Gravity = 0
+    workspace.FallenPartsDestroyHeight = math.huge
+    
+    -- Setup fall animation
+    local animator = humanoid:FindFirstChild("Animator")
+    if animator then
+        local animScript = character:FindFirstChild("Animate")
+        local fallValue = animScript and animScript:FindFirstChild("fall")
+        local fallAnim = fallValue and fallValue:FindFirstChild("FallAnim")
+        
+        local fallAnimIds = {
+            [Enum.HumanoidRigType.R6] = "rbxassetid://180436148",
+            [Enum.HumanoidRigType.R15] = "rbxassetid://507767968"
+        }
+        
+        local animId = fallAnimIds[humanoid.RigType]
+        if animId then
+            local anim = Instance.new("Animation")
+            anim.AnimationId = animId
+            
+            local track = animator:LoadAnimation(anim)
+            track.Priority = Enum.AnimationPriority.Action
+            track.TimePosition = 0.1
+            track:Play()
+            track:AdjustWeight(5)
+        end
+    end
+    
+    -- Create camera part
+    self.State.CameraPart = Instance.new("Part")
+    self.State.CameraPart.Transparency = 1
+    self.State.CameraPart.Anchored = true
+    self.State.CameraPart.CFrame = workspace.CurrentCamera.CFrame
+    self.State.CameraPart.Parent = workspace
+    
+    -- Position character at drop height
+    local dropCFrame = CFrame.new(rootPart.Position.X, self.Config.DropHeight, rootPart.Position.Z)
+    if humanoid.RigType == Enum.HumanoidRigType.R15 then
+        dropCFrame = dropCFrame * CFrame.Angles(math.rad(self.Config.DropAngle), 0, 0)
+        humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+    end
+    
+    -- Keep character at drop position
+    self.State.Connections.PositionLoop = self.Services.RunService.PostSimulation:Connect(function()
+        if rootPart and rootPart.Parent then
+            rootPart.CFrame = dropCFrame
+            rootPart.AssemblyLinearVelocity = Vector3.zero
+            rootPart.AssemblyAngularVelocity = Vector3.zero
+        end
+    end)
+    
+    self.State.FakeDeath = true
+    return true
+end
+
+function Modules.HatFling:FlingTarget(handle, targetRootPart)
+    if not handle or not targetRootPart then return end
+    
+    pcall(function()
+        for i = 1, self.Config.FlingDuration do
+            sethiddenproperty(handle, "PhysicsRepRootPart", targetRootPart)
+            handle.CFrame = targetRootPart.CFrame
+            handle.AssemblyLinearVelocity = self.Config.FlingVelocity
+            handle.AssemblyAngularVelocity = self.Config.RotVelocity
+            task.wait()
+        end
+    end)
+end
+
+function Modules.HatFling:StartFlingLoop()
+    local offset = 0
+    
+    self.State.Connections.FlingLoop = self.Services.RunService.Heartbeat:Connect(function()
+        local accessories = self.State.Accessories
+        local targets = self:GetTargetPlayers()
+        
+        if #accessories == 0 or #targets == 0 then return end
+        
+        -- Distribute hats across targets
+        for hatIndex, data in ipairs(accessories) do
+            local targetIndex = ((hatIndex + offset - 1) % #targets) + 1
+            local targetPlayer = targets[targetIndex]
+            
+            local targetChar = targetPlayer.Character
+            local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+            
+            if targetRoot then
+                task.spawn(function()
+                    self:FlingTarget(data.Handle, targetRoot)
+                    self.State.Stats.FlingsAttempted = self.State.Stats.FlingsAttempted + 1
+                end)
+            end
+        end
+        
+        offset = offset + 1
+        if offset > #targets then
+            offset = 0
+            self.State.Stats.PlayersTargeted = #targets
+        end
+        
+        if self.Config.UpdateRate > 0 then
+            task.wait(self.Config.UpdateRate)
+        end
+    end)
+end
+
+function Modules.HatFling:SetupReset()
+    local resetBind = Instance.new("BindableEvent")
+    
+    resetBind.Event:Connect(function()
+        self:Disable()
+        task.wait(0.1)
+        
+        -- Trigger respawn
+        if self.Config.UsePermDeath then
+            pcall(function()
+                replicatesignal(LocalPlayer.ConnectDiedSignalBackend)
+            end)
+        end
+    end)
+    
+    pcall(function()
+        self.Services.StarterGui:SetCore("ResetButtonCallback", resetBind)
+    end)
+    
+    -- Restore on character added
+    self.State.Connections.CharacterAdded = LocalPlayer.CharacterAdded:Connect(function()
+        self:RestoreWorld()
+        task.wait(0.5)
+        pcall(function()
+            self.Services.StarterGui:SetCore("ResetButtonCallback", true)
+        end)
+    end)
+end
+
+function Modules.HatFling:RestoreWorld()
+    -- Restore gravity
+    workspace.Gravity = self.State.OriginalGravity
+    workspace.FallenPartsDestroyHeight = -500
+    
+    -- Restore camera
+    if self.State.CameraPart then
+        pcall(function()
+            workspace.CurrentCamera.CameraSubject = LocalPlayer.Character and 
+                LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+            self.State.CameraPart:Destroy()
+        end)
+        self.State.CameraPart = nil
+    end
+end
+
+function Modules.HatFling:Enable()
+    if self.State.IsActive then
+        DoNotif("Hat Fling already active", 3)
+        return
+    end
+    
+    local character = LocalPlayer.Character
+    if not character then
+        DoNotif("No character found", 3)
+        return
+    end
+    
+    -- Get and unlock accessories
+    DoNotif("Unlocking accessories...", 2)
+    self.State.Accessories = self:UnlockAccessories()
+    
+    if #self.State.Accessories == 0 then
+        DoNotif("No usable accessories found. Equip hats!", 3)
+        return
+    end
+    
+    DoNotif(string.format("Found %d accessories", #self.State.Accessories), 2)
+    
+    -- Setup fake death
+    DoNotif("Setting up fake death...", 2)
+    if not self:SetupFakeDeath() then
+        DoNotif("Failed to setup fake death", 3)
+        return
+    end
+    
+    -- Start fling loop
+    self:StartFlingLoop()
+    self:SetupReset()
+    
+    -- Auto-stop timer
+    if self.Config.AutoStop then
+        task.delay(self.Config.AutoStopTime, function()
+            if self.State.IsActive then
+                self:Disable()
+                DoNotif("Auto-stopped after " .. self.Config.AutoStopTime .. "s", 2)
+            end
+        end)
+    end
+    
+    -- Kill character after setup
+    task.wait(0.2)
+    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+    if humanoid then
+        humanoid:ChangeState(Enum.HumanoidStateType.Dead)
+    end
+    
+    -- Wait for death
+    local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+    if torso then
+        torso.AncestryChanged:Wait()
+    end
+    
+    -- Set camera to fake part
+    if self.State.CameraPart then
+        workspace.CurrentCamera.CameraSubject = self.State.CameraPart
+    end
+    
+    self.State.IsActive = true
+    self.State.Stats.FlingsAttempted = 0
+    self.State.Stats.PlayersTargeted = 0
+    
+    DoNotif(string.format("Hat Fling active! Mode: %s, Hats: %d", 
+        self.State.TargetMode, #self.State.Accessories), 3)
+end
+
+function Modules.HatFling:Disable()
+    if not self.State.IsActive then return end
+    
+    self.State.IsActive = false
+    
+    -- Disconnect all connections
+    for _, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    table.clear(self.State.Connections)
+    
+    -- Restore world
+    self:RestoreWorld()
+    
+    -- Clear state
+    self.State.Accessories = {}
+    self.State.FakeDeath = false
+    
+    DoNotif(string.format("Hat Fling disabled. Stats: %d flings attempted, %d players targeted", 
+        self.State.Stats.FlingsAttempted, self.State.Stats.PlayersTargeted), 3)
+end
+
+function Modules.HatFling:SetTargetMode(mode)
+    local validModes = {all = true, others = true, nearest = true, specific = true}
+    
+    if not validModes[mode:lower()] then
+        DoNotif("Invalid mode. Use: all, others, nearest, specific", 3)
+        return
+    end
+    
+    self.State.TargetMode = mode:lower()
+    DoNotif("Target mode: " .. mode:lower(), 2)
+end
+
+function Modules.HatFling:SetTargetPlayer(playerName)
+    local player = self.Services.Players:FindFirstChild(playerName)
+    
+    if not player then
+        DoNotif("Player not found: " .. playerName, 3)
+        return
+    end
+    
+    self.State.TargetPlayer = player
+    self.State.TargetMode = "specific"
+    DoNotif("Targeting: " .. player.Name, 2)
+end
+
+function Modules.HatFling:SetFlingPower(velocity, rotVelocity)
+    velocity = tonumber(velocity) or 1e20
+    rotVelocity = tonumber(rotVelocity) or velocity / 10
+    
+    self.Config.FlingVelocity = Vector3.new(velocity, velocity, velocity)
+    self.Config.RotVelocity = Vector3.new(rotVelocity, rotVelocity, rotVelocity)
+    
+    DoNotif(string.format("Fling power: %.0e", velocity), 2)
+end
+
+function Modules.HatFling:ShowStats()
+    DoNotif(string.format(
+        "Stats:\nActive: %s\nHats: %d\nFlings: %d\nPlayers: %d\nMode: %s",
+        tostring(self.State.IsActive),
+        #self.State.Accessories,
+        self.State.Stats.FlingsAttempted,
+        self.State.Stats.PlayersTargeted,
+        self.State.TargetMode
+    ), 5)
+end
+
+-- Commands
+RegisterCommand({
+    Name = "hatfling",
+    Aliases = {"hfling", "massfling"},
+    Description = "Mass fling exploit using hats. Equip accessories first!"
+}, function(args)
+    if #args > 0 then
+        local subcommand = args[1]:lower()
+        
+        if subcommand == "mode" and args[2] then
+            Modules.HatFling:SetTargetMode(args[2])
+        elseif subcommand == "target" and args[2] then
+            Modules.HatFling:SetTargetPlayer(args[2])
+        elseif subcommand == "power" and args[2] then
+            Modules.HatFling:SetFlingPower(args[2], args[3])
+        elseif subcommand == "stats" then
+            Modules.HatFling:ShowStats()
+        elseif subcommand == "off" or subcommand == "disable" then
+            Modules.HatFling:Disable()
+        else
+            Modules.HatFling:Enable()
+        end
+    else
+        if Modules.HatFling.State.IsActive then
+            Modules.HatFling:Disable()
+        else
+            Modules.HatFling:Enable()
+        end
+    end
+end)
+
+RegisterCommand({
+    Name = "hflingmode",
+    Aliases = {"hfm"},
+    Description = "Set targeting mode: all, others, nearest, specific"
+}, function(args)
+    if not args[1] then
+        DoNotif("Current mode: " .. Modules.HatFling.State.TargetMode, 2)
+        return
+    end
+    Modules.HatFling:SetTargetMode(args[1])
+end)
+
+RegisterCommand({
+    Name = "hflingtarget",
+    Aliases = {"hft"},
+    Description = "Set specific target player. Usage: ;hflingtarget <username>"
+}, function(args)
+    if not args[1] then
+        local target = Modules.HatFling.State.TargetPlayer
+        DoNotif("Current target: " .. (target and target.Name or "None"), 2)
+        return
+    end
+    Modules.HatFling:SetTargetPlayer(args[1])
+end)
+Modules.ToolFly = {
+    State = {
+        IsActive = false,
+        Tool = nil,
+        Handle = nil,
+        OriginalHandleName = nil,
+        BodyMovers = {
+            Position = nil,
+            Gyro = nil
+        },
+        Keys = {
+            Q = false,
+            E = false,
+            W = false,
+            A = false,
+            S = false,
+            D = false
+        },
+        Connections = {},
+        Speed = 0,
+        FlingActive = false,
+        OriginalCameraSubject = nil,
+    },
+    Config = {
+        MaxSpeed = 50,
+        MinSpeed = 1,
+        MovementPower = 10,
+        FlingPower = 69420,
+        FlingKey = Enum.KeyCode.X,
+        SmoothAcceleration = true,
+        AccelerationRate = 0.01,
+        BobAmount = 40, -- Vertical bobbing while idle
+        AutoFindTool = true,
+        PreferredTools = {}, -- List of tool names to prefer
+        Debug = false,
+    },
+    Services = {
+        Players = game:GetService("Players"),
+        RunService = game:GetService("RunService"),
+        StarterGui = game:GetService("StarterGui"),
+        UserInputService = game:GetService("UserInputService"),
+    }
+}
+
+function Modules.ToolFly:FindBestTool()
+    local character = LocalPlayer.Character
+    local backpack = LocalPlayer.Backpack
+    
+    if not character then return nil end
+    
+    -- Check for preferred tools first
+    for _, toolName in ipairs(self.Config.PreferredTools) do
+        local tool = character:FindFirstChild(toolName) or backpack:FindFirstChild(toolName)
+        if tool and tool:IsA("Tool") then
+            return tool
+        end
+    end
+    
+    -- Find any tool
+    local tool = character:FindFirstChildWhichIsA("Tool") or backpack:FindFirstChildWhichIsA("Tool")
+    return tool
+end
+
+function Modules.ToolFly:ValidateTool(tool)
+    if not tool or not tool:IsA("Tool") then
+        return false, "Invalid tool"
+    end
+    
+    local handle = tool:FindFirstChild("Handle")
+    if not handle or not handle:IsA("BasePart") then
+        return false, "Tool has no valid Handle"
+    end
+    
+    return true, handle
+end
+
+function Modules.ToolFly:GainNetworkOwnership()
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
+    
+    if not humanoid then
+        return false, "No humanoid found"
+    end
+    
+    -- Equip and unequip twice to ensure network ownership
+    for i = 1, 2 do
+        humanoid:EquipTool(self.State.Tool)
+        repeat task.wait() until character:FindFirstChildWhichIsA("Tool")
+        humanoid:UnequipTools()
+        task.wait(0.1)
+    end
+    
+    return true
+end
+
+function Modules.ToolFly:TriggerDeathState()
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
+    
+    if not humanoid then
+        return false, "No humanoid found"
+    end
+    
+    -- Trigger special death state without actual respawn
+    repeat
+        LocalPlayer:Move(Vector3.new(math.huge, math.huge, math.huge))
+        task.wait()
+    until humanoid.Health == 0
+    
+    -- Wait for character parts to be removed
+    repeat task.wait() until not character:FindFirstChildWhichIsA("BasePart")
+    
+    return true
+end
+
+function Modules.ToolFly:SetupHandle()
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
+    
+    if not humanoid then
+        return false, "No humanoid after death state"
+    end
+    
+    -- Equip tool
+    humanoid:EquipTool(self.State.Tool)
+    task.wait(0.2)
+    
+    -- Store original name and rename handle
+    self.State.OriginalHandleName = self.State.Handle.Name
+    self.State.Handle.Name = "HumanoidRootPart"
+    self.State.Handle.Parent = character
+    
+    -- Set camera to follow handle
+    self.State.OriginalCameraSubject = workspace.CurrentCamera.CameraSubject
+    workspace.CurrentCamera.CameraSubject = self.State.Handle
+    
+    return true
+end
+
+function Modules.ToolFly:CreateBodyMovers()
+    if not self.State.Handle then return false end
+    
+    -- Create BodyPosition
+    local bodyPosition = Instance.new("BodyPosition")
+    bodyPosition.Name = "ToolFlyPosition"
+    bodyPosition.P = self.Config.MovementPower * 1000
+    bodyPosition.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bodyPosition.Position = self.State.Handle.Position
+    bodyPosition.Parent = self.State.Handle
+    
+    -- Create BodyGyro
+    local bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.Name = "ToolFlyGyro"
+    bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bodyGyro.CFrame = self.State.Handle.CFrame
+    bodyGyro.Parent = self.State.Handle
+    
+    self.State.BodyMovers.Position = bodyPosition
+    self.State.BodyMovers.Gyro = bodyGyro
+    
+    return true
+end
+
+function Modules.ToolFly:DestroyBodyMovers()
+    if self.State.BodyMovers.Position then
+        pcall(function() self.State.BodyMovers.Position:Destroy() end)
+        self.State.BodyMovers.Position = nil
+    end
+    
+    if self.State.BodyMovers.Gyro then
+        pcall(function() self.State.BodyMovers.Gyro:Destroy() end)
+        self.State.BodyMovers.Gyro = nil
+    end
+end
+
+function Modules.ToolFly:SetupControls()
+    local uis = self.Services.UserInputService
+    
+    -- Key press handler
+    self.State.Connections.InputBegan = uis.InputBegan:Connect(function(input, typing)
+        if typing then return end
+        
+        local keyName = input.KeyCode.Name
+        if self.State.Keys[keyName] ~= nil then
+            self.State.Keys[keyName] = true
+        end
+        
+        -- Fling toggle
+        if input.KeyCode == self.Config.FlingKey then
+            self:ToggleFling()
+        end
+    end)
+    
+    -- Key release handler
+    self.State.Connections.InputEnded = uis.InputEnded:Connect(function(input, typing)
+        if typing then return end
+        
+        local keyName = input.KeyCode.Name
+        if self.State.Keys[keyName] ~= nil then
+            self.State.Keys[keyName] = false
+        end
+    end)
+end
+
+function Modules.ToolFly:UpdateMovement()
+    if not self.State.Handle or not self.State.BodyMovers.Position or not self.State.BodyMovers.Gyro then
+        return
+    end
+    
+    local bodyPos = self.State.BodyMovers.Position
+    local bodyGyro = self.State.BodyMovers.Gyro
+    local camera = workspace.CurrentCamera
+    local keys = self.State.Keys
+    
+    -- Calculate new position
+    local new = bodyGyro.CFrame - bodyGyro.CFrame.Position + bodyPos.Position
+    
+    -- Reset speed if not all keys pressed
+    if not (keys.Q and keys.E and keys.W and keys.A and keys.S and keys.D) then
+        self.State.Speed = self.Config.MaxSpeed * 0.75
+    end
+    
+    -- Vertical movement
+    if keys.Q then
+        new = new * CFrame.new(0, -self.State.Speed / 2, 0)
+    end
+    if keys.E then
+        new = new * CFrame.new(0, self.State.Speed / 2, 0)
+    end
+    
+    -- Forward/backward
+    if keys.W then
+        new = new + camera.CFrame.LookVector * self.State.Speed
+        if self.Config.SmoothAcceleration then
+            self.State.Speed = math.min(self.State.Speed + self.Config.AccelerationRate, self.Config.MaxSpeed)
+        end
+    end
+    if keys.S then
+        new = new - camera.CFrame.LookVector * self.State.Speed
+        if self.Config.SmoothAcceleration then
+            self.State.Speed = math.min(self.State.Speed + self.Config.AccelerationRate, self.Config.MaxSpeed)
+        end
+    end
+    
+    -- Left/right
+    if keys.A then
+        new = new * CFrame.new(-self.State.Speed, 0, 0)
+        if self.Config.SmoothAcceleration then
+            self.State.Speed = math.min(self.State.Speed + self.Config.AccelerationRate, self.Config.MaxSpeed)
+        end
+    end
+    if keys.D then
+        new = new * CFrame.new(self.State.Speed, 0, 0)
+        if self.Config.SmoothAcceleration then
+            self.State.Speed = math.min(self.State.Speed + self.Config.AccelerationRate, self.Config.MaxSpeed)
+        end
+    end
+    
+    -- Apply position
+    bodyPos.Position = new.Position
+    
+    -- Apply rotation
+    if keys.W then
+        bodyGyro.CFrame = camera.CFrame * CFrame.Angles(-math.rad(self.State.Speed * 5), 0, 0)
+    elseif keys.S then
+        bodyGyro.CFrame = camera.CFrame * CFrame.Angles(math.rad(self.State.Speed * 5), 0, 0)
+    else
+        -- Idle bobbing effect
+        local time = tick() * 2
+        bodyGyro.CFrame = camera.CFrame
+        bodyPos.Position = new.Position + Vector3.new(0, math.sin(time) / self.Config.BobAmount, 0)
+    end
+end
+
+function Modules.ToolFly:UpdateFling()
+    if not self.State.FlingActive or not self.State.Handle then return end
+    
+    local velocity = self.State.Handle.AssemblyLinearVelocity
+    local flingVector = (self.State.Handle.CFrame.LookVector * self.Config.FlingPower) + 
+                        Vector3.new(0, self.Config.FlingPower, 0)
+    
+    self.State.Handle.AssemblyLinearVelocity = velocity + flingVector
+    self.Services.RunService.RenderStepped:Wait()
+    self.State.Handle.AssemblyLinearVelocity = velocity
+end
+
+function Modules.ToolFly:ToggleFling()
+    self.State.FlingActive = not self.State.FlingActive
+    DoNotif("Fling: " .. (self.State.FlingActive and "ON" or "OFF"), 2)
+end
+
+function Modules.ToolFly:StartLoops()
+    -- Movement loop
+    self.State.Connections.MovementLoop = self.Services.RunService.Heartbeat:Connect(function()
+        pcall(function()
+            self:UpdateMovement()
+        end)
+    end)
+    
+    -- Fling loop
+    self.State.Connections.FlingLoop = self.Services.RunService.Heartbeat:Connect(function()
+        pcall(function()
+            self:UpdateFling()
+        end)
+    end)
+end
+
+function Modules.ToolFly:SetupReset()
+    local resetBind = Instance.new("BindableEvent")
+    
+    resetBind.Event:Connect(function()
+        self:Disable()
+        
+        -- Trigger actual respawn
+        pcall(function()
+            replicatesignal(LocalPlayer.ConnectDiedSignalBackend)
+        end)
+    end)
+    
+    -- Override reset button
+    pcall(function()
+        self.Services.StarterGui:SetCore("ResetButtonCallback", resetBind)
+    end)
+    
+    -- Restore on character added
+    self.State.Connections.CharacterAdded = LocalPlayer.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        pcall(function()
+            self.Services.StarterGui:SetCore("ResetButtonCallback", true)
+        end)
+    end)
+end
+
+function Modules.ToolFly:Enable()
+    if self.State.IsActive then
+        DoNotif("ToolFly already active", 3)
+        return
+    end
+    
+    DoNotif("Starting ToolFly setup...", 2)
+    
+    -- Step 1: Find tool
+    local tool = self:FindBestTool()
+    if not tool then
+        DoNotif("No tool found. Equip a tool and try again.", 3)
+        return
+    end
+    
+    local valid, handleOrError = self:ValidateTool(tool)
+    if not valid then
+        DoNotif("Tool validation failed: " .. handleOrError, 3)
+        return
+    end
+    
+    self.State.Tool = tool
+    self.State.Handle = handleOrError
+    
+    DoNotif("Tool found: " .. tool.Name, 2)
+    
+    -- Step 2: Gain network ownership
+    DoNotif("Gaining network ownership...", 2)
+    local success, err = self:GainNetworkOwnership()
+    if not success then
+        DoNotif("Failed to gain ownership: " .. err, 3)
+        return
+    end
+    
+    -- Step 3: Trigger death state
+    DoNotif("Triggering death state...", 2)
+    success, err = self:TriggerDeathState()
+    if not success then
+        DoNotif("Failed death state: " .. err, 3)
+        return
+    end
+    
+    -- Step 4: Setup handle
+    DoNotif("Setting up handle...", 2)
+    success, err = self:SetupHandle()
+    if not success then
+        DoNotif("Failed handle setup: " .. err, 3)
+        return
+    end
+    
+    -- Step 5: Create body movers
+    if not self:CreateBodyMovers() then
+        DoNotif("Failed to create body movers", 3)
+        self:Cleanup()
+        return
+    end
+    
+    -- Step 6: Setup controls and loops
+    self:SetupControls()
+    self:StartLoops()
+    self:SetupReset()
+    
+    self.State.IsActive = true
+    self.State.Speed = self.Config.MaxSpeed * 0.75
+    
+    DoNotif(string.format("ToolFly active! Controls: QWESD, Fling: %s", self.Config.FlingKey.Name), 3)
+end
+
+function Modules.ToolFly:Disable()
+    if not self.State.IsActive then return end
+    
+    self.State.IsActive = false
+    
+    -- Disconnect all connections
+    for _, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    table.clear(self.State.Connections)
+    
+    -- Destroy body movers
+    self:DestroyBodyMovers()
+    
+    -- Restore handle name
+    if self.State.Handle and self.State.OriginalHandleName then
+        pcall(function()
+            self.State.Handle.Name = self.State.OriginalHandleName
+        end)
+    end
+    
+    -- Restore camera subject
+    if self.State.OriginalCameraSubject then
+        pcall(function()
+            workspace.CurrentCamera.CameraSubject = self.State.OriginalCameraSubject
+        end)
+    end
+    
+    -- Reset state
+    self.State.FlingActive = false
+    self.State.Speed = 0
+    for key in pairs(self.State.Keys) do
+        self.State.Keys[key] = false
+    end
+    
+    DoNotif("ToolFly disabled", 2)
+end
+
+function Modules.ToolFly:Cleanup()
+    self:Disable()
+    self.State.Tool = nil
+    self.State.Handle = nil
+    self.State.OriginalHandleName = nil
+end
+
+function Modules.ToolFly:SetSpeed(speed)
+    speed = tonumber(speed)
+    if not speed or speed < self.Config.MinSpeed then
+        DoNotif("Invalid speed", 3)
+        return
+    end
+    
+    self.Config.MaxSpeed = speed
+    DoNotif(string.format("Max speed: %d", speed), 2)
+end
+
+function Modules.ToolFly:SetFlingPower(power)
+    power = tonumber(power)
+    if not power or power < 0 then
+        DoNotif("Invalid fling power", 3)
+        return
+    end
+    
+    self.Config.FlingPower = power
+    DoNotif(string.format("Fling power: %d", power), 2)
+end
+
+function Modules.ToolFly:AddPreferredTool(toolName)
+    if not toolName or toolName == "" then
+        DoNotif("Invalid tool name", 3)
+        return
+    end
+    
+    table.insert(self.Config.PreferredTools, toolName)
+    DoNotif("Added preferred tool: " .. toolName, 2)
+end
+
+RegisterCommand({
+    Name = "toolfly",
+    Aliases = {"tfly", "fefly"},
+    Description = "FE tool flight exploit. Equip a tool first!"
+}, function(args)
+    if #args > 0 then
+        local subcommand = args[1]:lower()
+        
+        if subcommand == "speed" and args[2] then
+            Modules.ToolFly:SetSpeed(args[2])
+        elseif subcommand == "fling" and args[2] then
+            Modules.ToolFly:SetFlingPower(args[2])
+        elseif subcommand == "prefer" and args[2] then
+            Modules.ToolFly:AddPreferredTool(args[2])
+        elseif subcommand == "off" or subcommand == "disable" then
+            Modules.ToolFly:Disable()
+        else
+            Modules.ToolFly:Enable()
+        end
+    else
+        if Modules.ToolFly.State.IsActive then
+            Modules.ToolFly:Disable()
+        else
+            Modules.ToolFly:Enable()
+        end
+    end
+end)
+
+RegisterCommand({
+    Name = "tflingpower",
+    Aliases = {"tfp"},
+    Description = "Set tool fling power. Usage: ;tflingpower <power>"
+}, function(args)
+    if not args[1] then
+        DoNotif(string.format("Current fling power: %d", Modules.ToolFly.Config.FlingPower), 2)
+        return
+    end
+    Modules.ToolFly:SetFlingPower(args[1])
+end)
 Modules.AntiAttach = {
     State = {
         IsEnabled = false,
