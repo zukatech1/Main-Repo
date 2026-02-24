@@ -84,19 +84,6 @@ Modules.OverseerCE = {
         HOVER_BRIGHTNESS = 1.1
     }
 }
-function Modules.OverseerCE:Initialize()
-    if self.State.Base64DecoderEnabled then
-        self:InitializeBase64Decoder()
-    end
-    if self.State.AntiTamperActive then
-        self:SetupAntiTamper()
-    end
-    if self.State.AutoRefresh then
-        self:SetupAutoRefresh()
-    end
-    print("[HEX Overseer] Initialized successfully")
-    print("[HEX Overseer] Version 1.0 - Advanced Module Editor & Poison System")
-end
 function Modules.OverseerCE:InitializeBase64Decoder()
     local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
     self.Base64Decode = function(data)
@@ -159,7 +146,9 @@ function Modules.OverseerCE:SetupAntiTamper()
     end)
     self.State.AntiTamperActive = true
 end
-function Modules.OverseerCE:DisableAntiTamper()
+-- Note: DisableHeartbeatAntiTamper is the legacy simple version.
+-- The full DisableAntiTamper (which restores hooked globals) is defined below.
+function Modules.OverseerCE:DisableHeartbeatAntiTamper()
     if self.AntiTamperConnection then
         self.AntiTamperConnection:Disconnect()
         self.AntiTamperConnection = nil
@@ -660,7 +649,7 @@ function Modules.OverseerCE:UnlockMetatable(tbl)
     if unlocked then
         return true, "Unlocked using: " .. (unlockMethod or "unknown")
     else
-        return true, "Readonly access via: " .. method
+        return false, "Readonly access via: " .. (method or "unknown")
     end
 end
 function Modules.OverseerCE:DecompileFunction(func)
@@ -3302,7 +3291,7 @@ function Modules.OverseerCE:CreateUI()
     -- ============================================================
     local explorerPanel = self:_createPanel(content,
         UDim2.new(1, -540, 0, 26),
-        UDim2.fromOffset(196, 1, -30),  -- 196px wide
+        UDim2.new(0, 196, 1, -30),
         "Explorer")
     explorerPanel.Size = UDim2.fromOffset(196, content.AbsoluteSize.Y - 30)
     explorerPanel.Position = UDim2.new(1, -540, 0, 26)
@@ -3363,7 +3352,7 @@ function Modules.OverseerCE:CreateUI()
     -- ============================================================
     local notepadPanel = self:_createPanel(content,
         UDim2.new(1, -340, 0, 26),
-        UDim2.fromOffset(336, 1, -30),
+        UDim2.new(0, 336, 1, -30),
         "Notepad")
     notepadPanel.Size = UDim2.fromOffset(336, content.AbsoluteSize.Y - 30)
     notepadPanel.Position = UDim2.new(1, -340, 0, 26)
@@ -3617,6 +3606,8 @@ function Modules.OverseerCE:CreateUI()
             end)
         end
     end)
+    self:ScanModules()
+end
 function Modules.OverseerCE:CreateHookManagerPanel(parent)
     local panel = self:_createPanel(parent, UDim2.fromOffset(4, 4), UDim2.new(1, -8, 1, -8), "Hook Manager")
     panel.ZIndex = 100
@@ -3762,8 +3753,6 @@ function Modules.OverseerCE:CreateHookRow(hookId, hook)
     row.MouseLeave:Connect(function()
         row.BackgroundColor3 = hook.Enabled and self.Config.BG_WHITE or Color3.fromRGB(240, 240, 240)
     end)
-end
-    self:ScanModules()
 end
 function Modules.OverseerCE:ScanModules()
     if not self.State.UI then return end
@@ -4070,11 +4059,6 @@ function Modules.OverseerCE:CreateInspectorRow(key, value, parentTable, isMetata
         end
     end)
     freezeBtn.TextSize = 9
-    if valueType == "table" then
-        patchBtn.Text = "Dive"
-    elseif valueType == "function" then
-        patchBtn.Text = "Hook"
-    end
 	if valueType == "table" then
         local lastClick = 0
         row.InputBegan:Connect(function(input)
@@ -4096,7 +4080,15 @@ function Modules.OverseerCE:CreateInspectorRow(key, value, parentTable, isMetata
     end)
     row.MouseLeave:Connect(function()
         if isPatched then
-            if patch and patch.Frozen then
+            -- Re-check patch state at time of leave (patch may have changed)
+            local currentPatch = nil
+            for _, p in pairs(self.State.ActivePatches) do
+                if p.Table == parentTable and p.Key == key then
+                    currentPatch = p
+                    break
+                end
+            end
+            if currentPatch and currentPatch.Frozen then
                 row.BackgroundColor3 = Color3.fromRGB(255, 220, 220)
             else
                 row.BackgroundColor3 = Color3.fromRGB(240, 255, 240)
@@ -4249,17 +4241,6 @@ function Modules.OverseerCE:GoBack()
     self.State.VisitedTables = {}
     self:RefreshInspector()
 end
-function Modules.OverseerCE:ParseValue(text, targetType)
-    if targetType == "number" then
-        local num = tonumber(text)
-        return num
-    elseif targetType == "boolean" then
-        return text:lower() == "true"
-    elseif targetType == "string" then
-        return text:match('^"(.*)"$') or text
-    end
-    return text
-end
 function Modules.OverseerCE:ShowFunctionInfo(key, func, parentTable)
     self:ShowQuickHookMenu(func, parentTable, key)
 end
@@ -4339,8 +4320,8 @@ function Modules.OverseerCE:OpenToolWindow(toolName)
         self:CreateDecompilerPanel(contentArea)
     elseif toolName == "Tools" then
         self:CreateToolsMenuUI(contentArea)
-	elseif toolname == "Posions" then
-		self:CreatePoisonMenuUI(ContentArea)					
+	elseif toolName == "Poisons" then
+		self:CreatePoisonMenuUI(contentArea)				
     end
     local dragging, dragStart, startPos
     titleBar.InputBegan:Connect(function(input)
@@ -5275,6 +5256,15 @@ end
 
 function Modules.OverseerCE:Initialize()
     local module = self
+    -- Base64 decoder setup (was in the old stub Initialize)
+    if self.State.Base64DecoderEnabled then
+        self:InitializeBase64Decoder()
+    end
+    -- Auto refresh setup (was in the old stub Initialize)
+    if self.State.AutoRefresh then
+        self:SetupAutoRefresh()
+    end
+    -- Freeze heartbeat loop
     RunService.Heartbeat:Connect(function()
         for patchId, patch in pairs(module.State.FreezeList) do
             pcall(function()
@@ -5324,7 +5314,7 @@ function Modules.OverseerCE:PoisonTableHijack(moduleTable, overrides)
     if type(moduleTable) ~= "table" then
         return false, "Target must be a table"
     end
-    local mt = self:GetRawMetatable(moduleTable) or {}
+    local mt = (self:GetRawMetatable(moduleTable)) or {}
     local oldIndex = mt.__index
     local oldNewIndex = mt.__newindex
     local originalMT = {
