@@ -6,298 +6,7 @@ Made By Zuka. @OverZuka on ROBLOX.
 
 
 ]]
-if getgenv().__ZUKA_BYPASS_LOADED then return end
-getgenv().__ZUKA_BYPASS_LOADED = true
-if not game:IsLoaded() then game.Loaded:Wait() end
-local Players = game:GetService("Players")
-repeat task.wait(0.1) until Players.LocalPlayer
-local LocalPlayer = Players.LocalPlayer
-local newcc = newcclosure or function(f) return f end
-local hookf = hookfunction
-local get_mt = getrawmetatable
-local set_ro = setreadonly
-local gc = getgc or get_gc_objects
-local Stats = {
-    KickAttempts = 0,
-    RemotesBlocked = 0,
-    DetectionsCaught = 0,
-    FunctionsHooked = 0,
-    ClientChecksBlocked = 0,
-}
-local HookedFunctions = {}
-local function safeHook(fn, replacement)
-    if type(fn) ~= "function" then return false end
-    local ok = pcall(function()
-        hookf(fn, newcc(replacement))
-    end)
-    if ok then
-        table.insert(HookedFunctions, fn)
-        Stats.FunctionsHooked += 1
-    end
-    return ok
-end
-local function findAdonisTable()
-    for _, v in gc(true) do
-        if type(v) == "table" then
-            local hasDetected = type(rawget(v, "Detected")) == "function"
-            local hasRemovePlayer = type(rawget(v, "RemovePlayer")) == "function"
-            local hasCheckAllClients = type(rawget(v, "CheckAllClients")) == "function"
-            local hasKickedPlayers = rawget(v, "KickedPlayers") ~= nil
-            local hasSpoofCache = rawget(v, "SpoofCheckCache") ~= nil
-            local hasTimeoutLimit = rawget(v, "ClientTimeoutLimit") ~= nil
-            local score = (hasDetected and 1 or 0)
-                + (hasRemovePlayer and 1 or 0)
-                + (hasCheckAllClients and 1 or 0)
-                + (hasKickedPlayers and 1 or 0)
-                + (hasSpoofCache and 1 or 0)
-                + (hasTimeoutLimit and 1 or 0)
-            if score >= 3 then
-                return v
-            end
-        end
-    end
-    return nil
-end
-local function hookAdonisTable(tbl)
-    if not tbl then return end
-    if type(tbl.Detected) == "function" then
-        safeHook(tbl.Detected, function(player, action, info)
-            Stats.DetectionsCaught += 1
-            warn(string.format("[ZukaBypass] Blocked Anti.Detected | action=%s info=%s", tostring(action), tostring(info)))
-        end)
-    end
-    if type(tbl.RemovePlayer) == "function" then
-        safeHook(tbl.RemovePlayer, function(p, info)
-            Stats.KickAttempts += 1
-            warn(string.format("[ZukaBypass] Blocked RemovePlayer | info=%s", tostring(info)))
-        end)
-    end
-    if type(tbl.CheckAllClients) == "function" then
-        safeHook(tbl.CheckAllClients, function()
-            Stats.ClientChecksBlocked += 1
-        end)
-    end
-    if type(tbl.UserSpoofCheck) == "function" then
-        safeHook(tbl.UserSpoofCheck, function(p, ...)
-            return nil
-        end)
-    end
-    if type(tbl.CharacterCheck) == "function" then
-        safeHook(tbl.CharacterCheck, function(player, ...)
-        end)
-    end
-    if type(tbl.KickedPlayers) == "table" then
-        pcall(function()
-            local mt = getmetatable(tbl.KickedPlayers) or {}
-            rawset(mt, "__index", function() return false end)
-            rawset(mt, "__newindex", function() end)
-            setmetatable(tbl.KickedPlayers, mt)
-        end)
-    end
-    if type(tbl.SpoofCheckCache) == "table" then
-        pcall(function()
-            local mt = {}
-            rawset(mt, "__index", function(t, k)
-                return {{
-                    Id = k,
-                    Username = LocalPlayer.Name,
-                    DisplayName = LocalPlayer.DisplayName
-                }}
-            end)
-            setmetatable(tbl.SpoofCheckCache, mt)
-        end)
-    end
-    pcall(function()
-        tbl.ClientTimeoutLimit = math.huge
-    end)
-end
-local function findAndPatchRemoteClients()
-    local userId = tostring(LocalPlayer.UserId)
-    for _, v in gc(true) do
-        if type(v) == "table" then
-            local client = rawget(v, userId)
-            if type(client) == "table" and
-               rawget(client, "LastUpdate") ~= nil and
-               rawget(v, "MaxLen") ~= nil then
-                task.spawn(function()
-                    while task.wait(10) do
-                        pcall(function()
-                            local c = v[userId]
-                            if c then
-                                c.LastUpdate = os.time()
-                                c.PlayerLoaded = true
-                            end
-                        end)
-                    end
-                end)
-                warn("[ZukaBypass] Found and patched Remote.Clients")
-                return v
-            end
-        end
-    end
-end
-local function installNamecallHook()
-    local mt = get_mt(game)
-    if not mt then return end
-    local oldNamecall = mt.__namecall
-    set_ro(mt, false)
-    mt.__namecall = newcc(function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
-        if checkcaller() then
-            return oldNamecall(self, ...)
-        end
-        if method == "Kick" and self == LocalPlayer then
-            local msg = tostring(args[1] or ""):lower()
-            if msg:find("adonis") or msg:find("anti cheat") or
-               msg:find("detected") or msg:find("exploit") or
-               msg:find("acli") then
-                Stats.KickAttempts += 1
-                warn(string.format("[ZukaBypass] Blocked Kick: %s", tostring(args[1])))
-                return nil
-            end
-        end
-        if method == "FireServer" or method == "InvokeServer" then
-            local name = self.Name
-            local blocked = {
-                ["__FUNCTION"] = true,
-                ["_FUNCTION"] = true,
-                ["ClientCheck"] = true,
-                ["ProcessCommand"] = true,
-                ["LogError"] = true,
-                ["ClientLoaded"] = true,
-            }
-            if blocked[name] then
-                Stats.RemotesBlocked += 1
-                if method == "InvokeServer" then
-                    return "Pong"
-                end
-                return nil
-            end
-        end
-        return oldNamecall(self, ...)
-    end)
-    set_ro(mt, true)
-end
-local function installDebugHooks()
-    pcall(function()
-        local oldInfo = debug.info or debug.getinfo
-        if oldInfo then
-            hookf(oldInfo, newcc(function(fn, ...)
-                for _, hooked in ipairs(HookedFunctions) do
-                    if fn == hooked then
-                        return nil
-                    end
-                end
-                return oldInfo(fn, ...)
-            end))
-        end
-    end)
-    pcall(function()
-        if debug.getupvalues then
-            hookf(debug.getupvalues, newcc(function(fn, ...)
-                for _, hooked in ipairs(HookedFunctions) do
-                    if fn == hooked then return {} end
-                end
-                return debug.getupvalues(fn, ...)
-            end))
-        end
-    end)
-    pcall(function()
-        if debug.getlocals then
-            hookf(debug.getlocals, newcc(function(fn, ...)
-                for _, hooked in ipairs(HookedFunctions) do
-                    if fn == hooked then return {} end
-                end
-                return debug.getlocals(fn, ...)
-            end))
-        end
-    end)
-end
-local function protectKick()
-    local origKick = LocalPlayer.Kick
-    safeHook(origKick, function(self, reason, ...)
-        local msg = tostring(reason or ""):lower()
-        if msg:find("adonis") or msg:find("anti cheat") or
-           msg:find("exploit") or msg:find("acli") or
-           msg:find("cheat") then
-            Stats.KickAttempts += 1
-            warn(string.format("[ZukaBypass] Blocked Kick (function level): %s", tostring(reason)))
-            return nil
-        end
-        return origKick(self, reason, ...)
-    end)
-    task.spawn(function()
-        while task.wait(5) do
-            pcall(function()
-                if LocalPlayer and LocalPlayer.Parent then
-                end
-            end)
-        end
-    end)
-end
-local oldRequire
-oldRequire = hookf(getrenv().require, newcc(function(module)
-    if not checkcaller() and typeof(module) == "Instance" then
-        local name = module.Name:lower()
-        if name:find("topbar") or name:find("icon") then
-            return {}
-        end
-    end
-    return oldRequire(module)
-end))
-local cachedAdonisTable = nil
-local function rescan()
-    local tbl = findAdonisTable()
-    if tbl and tbl ~= cachedAdonisTable then
-        cachedAdonisTable = tbl
-        hookAdonisTable(tbl)
-        warn("[ZukaBypass] Adonis table found and hooked on rescan")
-    end
-    findAndPatchRemoteClients()
-end
-local function initialize()
-    installNamecallHook()
-    installDebugHooks()
-    protectKick()
-    local tbl = findAdonisTable()
-    if tbl then
-        cachedAdonisTable = tbl
-        hookAdonisTable(tbl)
-        warn("[ZukaBypass] Adonis hooked successfully")
-    else
-        warn("[ZukaBypass] Adonis not found on initial scan — will rescan")
-    end
-    findAndPatchRemoteClients()
-    task.spawn(function()
-        while task.wait(20) do
-            pcall(rescan)
-        end
-    end)
-    task.spawn(function()
-        while task.wait(60) do
-            print(string.format(
-                "[ZukaBypass] Runtime stats — Kicks blocked: %d | Remotes blocked: %d | Detections caught: %d | Client checks blocked: %d | Functions hooked: %d",
-                Stats.KickAttempts, Stats.RemotesBlocked, Stats.DetectionsCaught, Stats.ClientChecksBlocked, Stats.FunctionsHooked
-            ))
-        end
-    end)
-    warn("[ZukaBypass] v2 loaded — Built from Adonis source")
-end
-getgenv().ZukaBypass = {
-    Version = "2.0",
-    Stats = Stats,
-    Rescan = function()
-        pcall(rescan)
-        warn("[ZukaBypass] Manual rescan complete")
-    end,
-    GetStats = function()
-        return Stats
-    end
-}
 
-
-initialize()
 
 print("- Zukas Panel -")
 
@@ -4642,6 +4351,129 @@ RegisterCommand({
     print("Attempts Blocked:", stats.AttemptsBlocked)
     print("Uptime:", string.format("%.1f", stats.Uptime) .. "s")
 end)
+Modules.Fling = {
+    State = {
+        IsFlinging = false,
+        OldPos = nil,
+        WelcomeDone = false,
+        FPDH = workspace.FallenPartsDestroyHeight
+    },
+    Config = {
+        Whitelist = {20460194},
+        FlingWaitTime = 2,
+        Power = 9e7
+    },
+    Services = {
+        Players = game:GetService("Players"),
+        RunService = game:GetService("RunService"),
+        StarterGui = game:GetService("StarterGui")
+    }
+}
+function Modules.Fling:Notify(title, text, duration)
+    self.Services.StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = duration or 5
+    })
+end
+function Modules.Fling:GetTarget(Name)
+    local Players = self.Services.Players
+    local LocalPlayer = Players.LocalPlayer
+    Name = Name:lower()
+    if Name == "all" or Name == "others" then
+        local targets = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then table.insert(targets, p) end
+        end
+        return targets
+    elseif Name == "random" then
+        local pList = Players:GetPlayers()
+        table.remove(pList, table.find(pList, LocalPlayer))
+        return {pList[math.random(#pList)]}
+    else
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and (p.Name:lower():find(Name) or p.DisplayName:lower():find(Name)) then
+                return {p}
+            end
+        end
+    end
+    return nil
+end
+function Modules.Fling:SkidFling(TargetPlayer)
+    local Player = self.Services.Players.LocalPlayer
+    local Character = Player.Character
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Humanoid and Humanoid.RootPart
+    local TCharacter = TargetPlayer.Character
+    if not TCharacter or not TCharacter:FindFirstChildOfClass("Humanoid") then return end
+    local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
+    local TRootPart = THumanoid.RootPart
+    local THead = TCharacter:FindFirstChild("Head")
+    if Character and Humanoid and RootPart then
+        if RootPart.Velocity.Magnitude < 50 then
+            self.State.OldPos = RootPart.CFrame
+        end
+        workspace.CurrentCamera.CameraSubject = THead or TRootPart or THumanoid
+        local function FPos(BasePart, Pos, Ang)
+            RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+            Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+            RootPart.Velocity = Vector3.new(self.Config.Power, self.Config.Power * 10, self.Config.Power)
+            RootPart.RotVelocity = Vector3.new(self.Config.Power * 10, self.Config.Power * 10, self.Config.Power * 10)
+        end
+        local function SFBasePart(BasePart)
+            local Time = tick()
+            local Angle = 0
+            repeat
+                if RootPart and THumanoid then
+                    Angle = Angle + 100
+                    FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                    task.wait()
+                else break end
+            until BasePart.Velocity.Magnitude > 500 or tick() > Time + self.Config.FlingWaitTime
+        end
+        workspace.FallenPartsDestroyHeight = 0/0
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+        if TRootPart then SFBasePart(TRootPart) elseif THead then SFBasePart(THead) end
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+        workspace.CurrentCamera.CameraSubject = Humanoid
+        repeat
+            RootPart.CFrame = self.State.OldPos * CFrame.new(0, .5, 0)
+            Character:SetPrimaryPartCFrame(self.State.OldPos * CFrame.new(0, .5, 0))
+            Humanoid:ChangeState("GettingUp")
+            for _, v in ipairs(Character:GetChildren()) do
+                if v:IsA("BasePart") then v.Velocity, v.RotVelocity = Vector3.new(), Vector3.new() end
+            end
+            task.wait()
+        until (RootPart.Position - self.State.OldPos.p).Magnitude < 10
+        workspace.FallenPartsDestroyHeight = self.State.FPDH
+    end
+end
+function Modules.Fling:Initialize()
+    local module = self
+    if not self.State.WelcomeDone then
+        self:Notify("Flinger", "Have at it.", 5)
+        self.State.WelcomeDone = true
+    end
+    RegisterCommand({
+        Name = "fling",
+        Aliases = {"skidfling", "kill"},
+        Description = "Flings a target player using physics manipulation."
+    }, function(args)
+        local targetName = args[1] or ""
+        local targets = module:GetTarget(targetName)
+        if targets then
+            for _, p in ipairs(targets) do
+                if table.find(module.Config.Whitelist, p.UserId) then
+                    module:Notify("Error", p.Name .. " is whitelisted.", 5)
+                else
+                    module:SkidFling(p)
+                end
+            end
+        else
+            module:Notify("Error", "Target not found.", 5)
+        end
+    end)
+end
 Modules.FlingProtection = {
 State = {
 IsEnabled = false,
@@ -31434,7 +31266,8 @@ function Modules.ChatFix:Enable()
     DoNotif("Chat fix enabled — lock messages spoofed with fake chat", 2)
 end
 function Modules.ChatFix:Disable()
-    for _, conn in ipairs(self.State.Connections) do
+    -- Changed ipairs to pairs since Connections is a dictionary
+    for _, conn in pairs(self.State.Connections) do
         pcall(function() conn:Disconnect() end)
     end
     self.State.Connections = {}
@@ -42546,6 +42379,39 @@ RegisterCommand({
     end
     Modules.ToolFly:SetFlingPower(args[1])
 end)
+Modules.AdonisBypass = {
+    State = {
+        IsLoaded = false,
+    },
+    Config = {
+        DelayTime = 10
+    }
+}
+function Modules.AdonisBypass:Execute()
+    if self.State.IsLoaded then return end
+    task.delay(self.Config.DelayTime, function()
+        local success, err = pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/ByeByeAdonis.lua"))()
+        end)
+        if success then
+            self.State.IsLoaded = true
+            print("- Zukas Panel -")
+        else
+            warn("Failed to load Zukas Panel: " .. tostring(err))
+        end
+    end)
+end
+function Modules.AdonisBypass:Initialize()
+    local module = self
+    module:Execute()
+    RegisterCommand({
+        Name = "ByeBye",
+        Aliases = {"antiadonis"},
+        Description = "Manually attempts to trigger the Adonis bypass."
+    }, function()
+        module:Execute()
+    end)
+end
 Modules.AntiAttach = {
     State = {
         IsEnabled = false,
@@ -42595,8 +42461,7 @@ function Modules.AntiAttach:_voidAttacker(attacker)
             local hrp = character and character:FindFirstChild("HumanoidRootPart")
             
             if hrp then
-                -- Just spike your own velocity downward
-                -- Since they're attached, they inherit it and get dragged down
+
                 hrp.AssemblyLinearVelocity = Vector3.new(0, self.Config.VoidVelocity, 0)
                 hrp.AssemblyAngularVelocity = Vector3.zero
             else
