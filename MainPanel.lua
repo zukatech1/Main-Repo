@@ -1,6 +1,6 @@
 --[[  This won't be fully functional on xeno or solara because of their limititations.
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/MainPanel.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/BackroomsWeaponEditor.lua"))()
 
 Made By Zuka. @OverZuka on ROBLOX.
 
@@ -12791,31 +12791,42 @@ end)
 Modules.CFrameDesync = {
     State = {
         IsEnabled = false,
-        OriginalCFrame = nil,
-        VisualCFrame = nil,
-        ServerCFrame = nil,
+        DesyncActive = false,
+        
+        -- Movement Data
+        RealCFrame = CFrame.new(),
+        VisualOffset = CFrame.new(), -- Now using CFrame for rotation + position
+        
+        -- UI & Objects
         UI = nil,
         Mode = "position",
         Increment = 1,
         Connections = {},
-        DesyncActive = false,
         FakeCharacter = nil
     },
     Config = {
         HighlightColor = Color3.fromRGB(255, 0, 200),
         ShowFakeCharacter = true,
-        UpdateRate = 0.1
     }
 }
 
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
+
+-- Helper: Get Character Validation
+local function getChar()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChild("Humanoid")
+    return char, hrp, hum
+end
 
 function Modules.CFrameDesync:_createUI()
     local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "CFrameDesync_Zuka"
+    screenGui.Name = "CFrameDesync_Architect"
     screenGui.ResetOnSpawn = false
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
     self.State.UI = screenGui
@@ -12824,25 +12835,20 @@ function Modules.CFrameDesync:_createUI()
     mainFrame.Name = "MainFrame"
     mainFrame.Size = UDim2.fromOffset(340, 520)
     mainFrame.Position = UDim2.new(1, -350, 0.5, -260)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
     
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
     
     local stroke = Instance.new("UIStroke", mainFrame)
-    stroke.Color = Color3.fromRGB(255, 0, 200)
+    stroke.Color = self.Config.HighlightColor
     stroke.Thickness = 2
-    
-    local glowTween = TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-        Thickness = 3
-    })
-    glowTween:Play()
     
     local titleBar = Instance.new("Frame", mainFrame)
     titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, 0, 0, 35)
-    titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    titleBar.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
     titleBar.BorderSizePixel = 0
     Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
     
@@ -12851,394 +12857,264 @@ function Modules.CFrameDesync:_createUI()
     title.Position = UDim2.fromOffset(10, 0)
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.Code
-    title.Text = "▸ CFRAME DESYNC"
-    title.TextColor3 = Color3.fromRGB(255, 0, 200)
-    title.TextSize = 16
+    title.Text = "▸ CFRAME DESYNC // ARCHITECT"
+    title.TextColor3 = self.Config.HighlightColor
+    title.TextSize = 14
     title.TextXAlignment = Enum.TextXAlignment.Left
     
     local statusIndicator = Instance.new("TextLabel", titleBar)
     statusIndicator.Name = "StatusIndicator"
     statusIndicator.Size = UDim2.fromOffset(60, 20)
-    statusIndicator.Position = UDim2.new(1, -130, 0.5, -10)
-    statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    statusIndicator.BorderSizePixel = 0
+    statusIndicator.Position = UDim2.new(1, -100, 0.5, -10)
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
     statusIndicator.Font = Enum.Font.GothamBold
     statusIndicator.Text = "OFF"
     statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
     statusIndicator.TextSize = 10
     Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
     
-    local closeBtn = Instance.new("TextButton", titleBar)
-    closeBtn.Size = UDim2.fromOffset(30, 30)
-    closeBtn.Position = UDim2.new(1, -32, 0, 2)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
-    closeBtn.BorderSizePixel = 0
-    closeBtn.Text = "×"
-    closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 20
-    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
-    
-    closeBtn.MouseButton1Click:Connect(function()
-        self:Disable()
-    end)
-    
-    -- Make draggable
-    local dragStart, startPos
+    -- Draggable Logic
+    local dragging, dragInput, dragStart, startPos
     titleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
             dragStart = input.Position
             startPos = mainFrame.Position
-            
-            local moveConn, endConn
-            moveConn = game:GetService("UserInputService").InputChanged:Connect(function(moveInput)
-                if moveInput.UserInputType == Enum.UserInputType.MouseMovement then
-                    local delta = moveInput.Position - dragStart
-                    mainFrame.Position = UDim2.new(
-                        startPos.X.Scale, startPos.X.Offset + delta.X,
-                        startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                    )
-                end
-            end)
-            
-            endConn = game:GetService("UserInputService").InputEnded:Connect(function(endInput)
-                if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
-                    moveConn:Disconnect()
-                    endConn:Disconnect()
-                end
-            end)
         end
     end)
     
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    
+    titleBar.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+
     local content = Instance.new("Frame", mainFrame)
     content.Name = "Content"
     content.Size = UDim2.new(1, -20, 1, -45)
     content.Position = UDim2.fromOffset(10, 40)
     content.BackgroundTransparency = 1
     
-    -- Desync Toggle
+    -- Toggle Button
     local desyncToggle = Instance.new("TextButton", content)
     desyncToggle.Name = "DesyncToggle"
     desyncToggle.Size = UDim2.new(1, 0, 0, 45)
-    desyncToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
-    desyncToggle.BorderSizePixel = 0
+    desyncToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
     desyncToggle.Font = Enum.Font.GothamBold
-    desyncToggle.Text = "ACTIVATE DESYNC"
+    desyncToggle.Text = "ACTIVATE SYSTEM"
     desyncToggle.TextColor3 = Color3.new(1, 1, 1)
-    desyncToggle.TextSize = 16
+    desyncToggle.TextSize = 14
     Instance.new("UICorner", desyncToggle).CornerRadius = UDim.new(0, 6)
     
     desyncToggle.MouseButton1Click:Connect(function()
         self:ToggleDesync()
     end)
     
-    -- Mode Selection
+    -- Mode Buttons
     local modeLabel = Instance.new("TextLabel", content)
     modeLabel.Size = UDim2.new(1, 0, 0, 20)
     modeLabel.Position = UDim2.fromOffset(0, 55)
     modeLabel.BackgroundTransparency = 1
-    modeLabel.Font = Enum.Font.GothamBold
-    modeLabel.Text = "Mode:"
-    modeLabel.TextColor3 = Color3.new(1, 1, 1)
-    modeLabel.TextSize = 13
+    modeLabel.Text = "MANIPULATION MODE:"
+    modeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    modeLabel.Font = Enum.Font.Code
+    modeLabel.TextSize = 12
     modeLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
+
     local modeButtons = {}
-    local modes = {"position", "rotation"}
-    for i, mode in ipairs(modes) do
+    for i, mode in ipairs({"position", "rotation"}) do
         local btn = Instance.new("TextButton", content)
-        btn.Name = mode .. "Btn"
-        btn.Size = UDim2.fromOffset(150, 30)
-        btn.Position = UDim2.fromOffset((i-1) * 160, 80)
-        btn.BackgroundColor3 = mode == "position" and Color3.fromRGB(255, 0, 200) or Color3.fromRGB(50, 50, 65)
-        btn.BorderSizePixel = 0
-        btn.Font = Enum.Font.GothamSemibold
+        btn.Size = UDim2.new(0.48, 0, 0, 30)
+        btn.Position = UDim2.fromOffset((i-1) * 165, 80)
+        btn.BackgroundColor3 = mode == self.State.Mode and self.Config.HighlightColor or Color3.fromRGB(30, 30, 35)
         btn.Text = mode:upper()
+        btn.Font = Enum.Font.GothamBold
         btn.TextColor3 = Color3.new(1, 1, 1)
         btn.TextSize = 11
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-        
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
         modeButtons[mode] = btn
         
         btn.MouseButton1Click:Connect(function()
             self.State.Mode = mode
             for m, b in pairs(modeButtons) do
-                b.BackgroundColor3 = m == mode and Color3.fromRGB(255, 0, 200) or Color3.fromRGB(50, 50, 65)
+                b.BackgroundColor3 = m == mode and self.Config.HighlightColor or Color3.fromRGB(30, 30, 35)
             end
         end)
     end
+
+    -- Increment Input
+    local incBox = Instance.new("TextBox", content)
+    incBox.Size = UDim2.new(1, 0, 0, 30)
+    incBox.Position = UDim2.fromOffset(0, 120)
+    incBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    incBox.Text = "Increment: 1"
+    incBox.TextColor3 = Color3.new(1, 1, 1)
+    incBox.Font = Enum.Font.Code
+    incBox.TextSize = 12
+    Instance.new("UICorner", incBox).CornerRadius = UDim.new(0, 4)
     
-    -- Increment
-    local incrementLabel = Instance.new("TextLabel", content)
-    incrementLabel.Size = UDim2.new(1, 0, 0, 20)
-    incrementLabel.Position = UDim2.fromOffset(0, 120)
-    incrementLabel.BackgroundTransparency = 1
-    incrementLabel.Font = Enum.Font.GothamBold
-    incrementLabel.Text = "Increment: 1"
-    incrementLabel.TextColor3 = Color3.new(1, 1, 1)
-    incrementLabel.TextSize = 13
-    incrementLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local incrementSlider = Instance.new("TextBox", content)
-    incrementSlider.Size = UDim2.new(1, 0, 0, 30)
-    incrementSlider.Position = UDim2.fromOffset(0, 145)
-    incrementSlider.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    incrementSlider.BorderSizePixel = 0
-    incrementSlider.Font = Enum.Font.Code
-    incrementSlider.Text = "1"
-    incrementSlider.TextColor3 = Color3.new(1, 1, 1)
-    incrementSlider.TextSize = 14
-    incrementSlider.PlaceholderText = "0.1 / 1 / 5 / 10"
-    Instance.new("UICorner", incrementSlider).CornerRadius = UDim.new(0, 6)
-    
-    incrementSlider.FocusLost:Connect(function()
-        local value = tonumber(incrementSlider.Text)
-        if value and value > 0 then
-            self.State.Increment = value
-            incrementLabel.Text = "Increment: " .. value
-        else
-            incrementSlider.Text = tostring(self.State.Increment)
+    incBox.FocusLost:Connect(function()
+        local val = tonumber(incBox.Text:match("%d+%.?%d*"))
+        if val then
+            self.State.Increment = val
+            incBox.Text = "Increment: " .. val
         end
     end)
-    
-    -- Controls
-    local controlsLabel = Instance.new("TextLabel", content)
-    controlsLabel.Size = UDim2.new(1, 0, 0, 20)
-    controlsLabel.Position = UDim2.fromOffset(0, 185)
-    controlsLabel.BackgroundTransparency = 1
-    controlsLabel.Font = Enum.Font.GothamBold
-    controlsLabel.Text = "Visual Position Controls:"
-    controlsLabel.TextColor3 = Color3.new(1, 1, 1)
-    controlsLabel.TextSize = 13
-    controlsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
+
+    -- Directional Controls
     local controls = {
-        {text = "+X", offset = Vector3.new(1, 0, 0), pos = {0, 210}},
-        {text = "-X", offset = Vector3.new(-1, 0, 0), pos = {110, 210}},
-        {text = "+Y", offset = Vector3.new(0, 1, 0), pos = {0, 245}},
-        {text = "-Y", offset = Vector3.new(0, -1, 0), pos = {110, 245}},
-        {text = "+Z", offset = Vector3.new(0, 0, 1), pos = {0, 280}},
-        {text = "-Z", offset = Vector3.new(0, 0, -1), pos = {110, 280}},
+        {t = "+X", o = Vector3.new(1, 0, 0), p = {0, 160}},
+        {t = "-X", o = Vector3.new(-1, 0, 0), p = {110, 160}},
+        {t = "+Y", o = Vector3.new(0, 1, 0), p = {0, 195}},
+        {t = "-Y", o = Vector3.new(0, -1, 0), p = {110, 195}},
+        {t = "+Z", o = Vector3.new(0, 0, 1), p = {0, 230}},
+        {t = "-Z", o = Vector3.new(0, 0, -1), p = {110, 230}},
     }
-    
+
     for _, ctrl in ipairs(controls) do
         local btn = Instance.new("TextButton", content)
         btn.Size = UDim2.fromOffset(100, 30)
-        btn.Position = UDim2.fromOffset(ctrl.pos[1], ctrl.pos[2])
-        btn.BackgroundColor3 = Color3.fromRGB(200, 60, 120)
-        btn.BorderSizePixel = 0
-        btn.Font = Enum.Font.GothamBold
-        btn.Text = ctrl.text
+        btn.Position = UDim2.fromOffset(ctrl.p[1], ctrl.p[2])
+        btn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        btn.Text = ctrl.t
         btn.TextColor3 = Color3.new(1, 1, 1)
-        btn.TextSize = 14
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        btn.Font = Enum.Font.GothamBold
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
         
         btn.MouseButton1Click:Connect(function()
-            self:AdjustVisualCFrame(ctrl.offset)
+            self:AdjustOffset(ctrl.o)
         end)
     end
-    
-    -- Preset buttons
-    local presetsLabel = Instance.new("TextLabel", content)
-    presetsLabel.Size = UDim2.new(1, 0, 0, 20)
-    presetsLabel.Position = UDim2.fromOffset(0, 320)
-    presetsLabel.BackgroundTransparency = 1
-    presetsLabel.Font = Enum.Font.GothamBold
-    presetsLabel.Text = "Presets:"
-    presetsLabel.TextColor3 = Color3.new(1, 1, 1)
-    presetsLabel.TextSize = 13
-    presetsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local undergroundBtn = Instance.new("TextButton", content)
-    undergroundBtn.Size = UDim2.new(0.48, 0, 0, 30)
-    undergroundBtn.Position = UDim2.fromOffset(0, 345)
-    undergroundBtn.BackgroundColor3 = Color3.fromRGB(150, 100, 50)
-    undergroundBtn.BorderSizePixel = 0
-    undergroundBtn.Font = Enum.Font.GothamBold
-    undergroundBtn.Text = "UNDERGROUND"
-    undergroundBtn.TextColor3 = Color3.new(1, 1, 1)
-    undergroundBtn.TextSize = 10
-    Instance.new("UICorner", undergroundBtn).CornerRadius = UDim.new(0, 6)
-    
-    undergroundBtn.MouseButton1Click:Connect(function()
-        self:PresetUnderground()
-    end)
-    
-    local skyBtn = Instance.new("TextButton", content)
-    skyBtn.Size = UDim2.new(0.48, 0, 0, 30)
-    skyBtn.Position = UDim2.new(0.52, 0, 0, 345)
-    skyBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
-    skyBtn.BorderSizePixel = 0
-    skyBtn.Font = Enum.Font.GothamBold
-    skyBtn.Text = "SKY"
-    skyBtn.TextColor3 = Color3.new(1, 1, 1)
-    skyBtn.TextSize = 10
-    Instance.new("UICorner", skyBtn).CornerRadius = UDim.new(0, 6)
-    
-    skyBtn.MouseButton1Click:Connect(function()
-        self:PresetSky()
-    end)
-    
-    -- Quick Actions
-    local actionsLabel = Instance.new("TextLabel", content)
-    actionsLabel.Size = UDim2.new(1, 0, 0, 20)
-    actionsLabel.Position = UDim2.fromOffset(0, 385)
-    actionsLabel.BackgroundTransparency = 1
-    actionsLabel.Font = Enum.Font.GothamBold
-    actionsLabel.Text = "Quick Actions:"
-    actionsLabel.TextColor3 = Color3.new(1, 1, 1)
-    actionsLabel.TextSize = 13
-    actionsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
+
+    -- Presets & Sync
     local resetBtn = Instance.new("TextButton", content)
-    resetBtn.Size = UDim2.new(0.48, 0, 0, 35)
-    resetBtn.Position = UDim2.fromOffset(0, 410)
-    resetBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
-    resetBtn.BorderSizePixel = 0
+    resetBtn.Size = UDim2.new(1, 0, 0, 35)
+    resetBtn.Position = UDim2.fromOffset(0, 275)
+    resetBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 40)
+    resetBtn.Text = "RESET OFFSET"
     resetBtn.Font = Enum.Font.GothamBold
-    resetBtn.Text = "RESET"
     resetBtn.TextColor3 = Color3.new(1, 1, 1)
-    resetBtn.TextSize = 13
-    Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 6)
-    
-    resetBtn.MouseButton1Click:Connect(function()
-        self:ResetDesync()
-    end)
-    
-    local syncBtn = Instance.new("TextButton", content)
-    syncBtn.Size = UDim2.new(0.48, 0, 0, 35)
-    syncBtn.Position = UDim2.new(0.52, 0, 0, 410)
-    syncBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
-    syncBtn.BorderSizePixel = 0
-    syncBtn.Font = Enum.Font.GothamBold
-    syncBtn.Text = "SYNC"
-    syncBtn.TextColor3 = Color3.new(1, 1, 1)
-    syncBtn.TextSize = 13
-    Instance.new("UICorner", syncBtn).CornerRadius = UDim.new(0, 6)
-    
-    syncBtn.MouseButton1Click:Connect(function()
-        self:SyncToServer()
-    end)
-    
+    Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 4)
+    resetBtn.MouseButton1Click:Connect(function() self.State.VisualOffset = CFrame.new() self:UpdateDisplay() end)
+
     -- Info Box
     local infoBox = Instance.new("TextLabel", content)
     infoBox.Name = "InfoBox"
-    infoBox.Size = UDim2.new(1, 0, 0, 60)
-    infoBox.Position = UDim2.fromOffset(0, 455)
-    infoBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-    infoBox.BorderSizePixel = 0
+    infoBox.Size = UDim2.new(1, 0, 0, 100)
+    infoBox.Position = UDim2.fromOffset(0, 320)
+    infoBox.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
     infoBox.Font = Enum.Font.Code
-    infoBox.Text = "Desync: OFF\nVisual Offset: 0, 0, 0"
-    infoBox.TextColor3 = Color3.fromRGB(255, 150, 200)
-    infoBox.TextSize = 10
-    infoBox.TextWrapped = true
+    infoBox.Text = "SYSTEM IDLE"
+    infoBox.TextColor3 = self.Config.HighlightColor
+    infoBox.TextSize = 11
     infoBox.TextXAlignment = Enum.TextXAlignment.Left
     infoBox.TextYAlignment = Enum.TextYAlignment.Top
-    Instance.new("UICorner", infoBox).CornerRadius = UDim.new(0, 6)
-    
-    local padding = Instance.new("UIPadding", infoBox)
-    padding.PaddingLeft = UDim.new(0, 8)
-    padding.PaddingTop = UDim.new(0, 8)
-    
+    Instance.new("UICorner", infoBox).CornerRadius = UDim.new(0, 4)
+    Instance.new("UIPadding", infoBox).PaddingLeft = UDim.new(0, 8)
+
     screenGui.Parent = CoreGui
-    
     return desyncToggle, statusIndicator, infoBox
 end
 
 function Modules.CFrameDesync:ToggleDesync()
-    if not self.State.DesyncActive then
-        self:ActivateDesync()
-    else
+    if self.State.DesyncActive then
         self:DeactivateDesync()
+    else
+        self:ActivateDesync()
     end
 end
 
 function Modules.CFrameDesync:ActivateDesync()
-    local character = LocalPlayer.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then
-        print("✗ Character not found")
-        return
-    end
-    
+    local _, hrp = getChar()
+    if not hrp then return end
+
     self.State.DesyncActive = true
-    self.State.OriginalCFrame = character.HumanoidRootPart.CFrame
-    self.State.ServerCFrame = self.State.OriginalCFrame
-    self.State.VisualCFrame = self.State.OriginalCFrame
+    self.State.RealCFrame = hrp.CFrame
     
-    -- Create fake character
     if self.Config.ShowFakeCharacter then
         self:CreateFakeCharacter()
     end
-    
-    -- Update UI
-    local desyncToggle = self.State.UI.MainFrame.Content.DesyncToggle
-    local statusIndicator = self.State.UI.MainFrame.TitleBar.StatusIndicator
-    
-    desyncToggle.Text = "DEACTIVATE DESYNC"
-    desyncToggle.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
-    statusIndicator.Text = "ACTIVE"
-    statusIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 200)
-    statusIndicator.TextColor3 = Color3.new(1, 1, 1)
-    
-    -- Start desync loop
-    self.State.Connections.DesyncLoop = RunService.Heartbeat:Connect(function()
-        self:UpdateDesync()
+
+    local ui = self.State.UI.MainFrame
+    ui.Content.DesyncToggle.Text = "DEACTIVATE SYSTEM"
+    ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(120, 30, 50)
+    ui.TitleBar.StatusIndicator.Text = "ACTIVE"
+    ui.TitleBar.StatusIndicator.BackgroundColor3 = self.Config.HighlightColor
+
+    -- THE CORE LOGIC: Flip-Flop Implementation
+    -- Heartbeat: Runs after physics. We set the HRP to the FAKE position so the server sees it.
+    self.State.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
+        local _, root = getChar()
+        if root then
+            self.State.RealCFrame = root.CFrame -- Cache the actual physics position
+            root.CFrame = self.State.RealCFrame * self.State.VisualOffset -- Shift to desync pos
+        end
     end)
-    
-    print("✓ Desync activated")
+
+    -- RenderStepped: Runs before rendering. We restore the HRP to the REAL position.
+    -- This prevents anchoring because the local client/camera sees the real pos.
+    self.State.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
+        local _, root = getChar()
+        if root then
+            root.CFrame = self.State.RealCFrame -- Restore for rendering/local movement
+            self:UpdateVisuals()
+        end
+    end)
+
+    self:UpdateDisplay()
 end
 
 function Modules.CFrameDesync:DeactivateDesync()
     self.State.DesyncActive = false
     
-    -- Sync back to server
-    local character = LocalPlayer.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        character.HumanoidRootPart.CFrame = self.State.ServerCFrame
+    for _, conn in pairs(self.State.Connections) do
+        conn:Disconnect()
     end
-    
-    -- Remove fake character
+    table.clear(self.State.Connections)
+
     if self.State.FakeCharacter then
         self.State.FakeCharacter:Destroy()
         self.State.FakeCharacter = nil
     end
-    
-    -- Disconnect desync loop
-    if self.State.Connections.DesyncLoop then
-        self.State.Connections.DesyncLoop:Disconnect()
-        self.State.Connections.DesyncLoop = nil
-    end
-    
-    -- Update UI
-    local desyncToggle = self.State.UI.MainFrame.Content.DesyncToggle
-    local statusIndicator = self.State.UI.MainFrame.TitleBar.StatusIndicator
-    
-    desyncToggle.Text = "ACTIVATE DESYNC"
-    desyncToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
-    statusIndicator.Text = "OFF"
-    statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
-    
-    print("✓ Desync deactivated")
+
+    local ui = self.State.UI.MainFrame
+    ui.Content.DesyncToggle.Text = "ACTIVATE SYSTEM"
+    ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    ui.TitleBar.StatusIndicator.Text = "OFF"
+    ui.TitleBar.StatusIndicator.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+
     self:UpdateDisplay()
 end
 
 function Modules.CFrameDesync:CreateFakeCharacter()
-    local character = LocalPlayer.Character
-    if not character then return end
-    
-    -- Clone character
+    local char = LocalPlayer.Character
+    if not char then return end
+
     local fake = Instance.new("Model")
-    fake.Name = "FakeCharacter_" .. LocalPlayer.Name
+    fake.Name = "Desync_Visualizer"
     
-    for _, part in pairs(character:GetChildren()) do
+    for _, part in pairs(char:GetChildren()) do
         if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-            local clone = part:Clone()
-            clone.CanCollide = false
-            clone.Transparency = 0.5
-            clone.Material = Enum.Material.ForceField
-            clone.Color = Color3.fromRGB(255, 0, 200)
-            clone.Parent = fake
+            local p = part:Clone()
+            p.CanCollide = false
+            p.CanTouch = false
+            p.CanQuery = false
+            p.Transparency = 0.6
+            p.Material = Enum.Material.ForceField
+            p.Color = self.Config.HighlightColor
+            p.Parent = fake
+            
+            -- Remove unnecessary scripts/decals from clone
+            for _, child in pairs(p:GetChildren()) do
+                if not child:IsA("SpecialMesh") then child:Destroy() end
+            end
         end
     end
     
@@ -13246,167 +13122,66 @@ function Modules.CFrameDesync:CreateFakeCharacter()
     self.State.FakeCharacter = fake
 end
 
-function Modules.CFrameDesync:UpdateDesync()
-    local character = LocalPlayer.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+function Modules.CFrameDesync:UpdateVisuals()
+    local char = LocalPlayer.Character
+    if not char or not self.State.FakeCharacter then return end
+
+    local targetCFrame = self.State.RealCFrame * self.State.VisualOffset
     
-    local hrp = character.HumanoidRootPart
-    
-    -- Update server position (what the server sees)
-    self.State.ServerCFrame = hrp.CFrame
-    
-    -- Apply visual offset
-    hrp.CFrame = self.State.VisualCFrame
-    
-    -- Update fake character position
-    if self.State.FakeCharacter then
-        for _, part in pairs(self.State.FakeCharacter:GetChildren()) do
-            if part:IsA("BasePart") then
-                local realPart = character:FindFirstChild(part.Name)
-                if realPart then
-                    part.CFrame = realPart.CFrame
-                end
-            end
+    for _, part in pairs(self.State.FakeCharacter:GetChildren()) do
+        local realPart = char:FindFirstChild(part.Name)
+        if realPart then
+            -- Position the fake part relative to the desync center
+            local relative = char.HumanoidRootPart.CFrame:Inverse() * realPart.CFrame
+            part.CFrame = targetCFrame * relative
         end
     end
-    
-    self:UpdateDisplay()
 end
 
-function Modules.CFrameDesync:AdjustVisualCFrame(offset)
-    if not self.State.DesyncActive then
-        print("⚠ Desync is not active")
-        return
-    end
-    
-    local increment = self.State.Increment
-    
+function Modules.CFrameDesync:AdjustOffset(vec)
+    local inc = self.State.Increment
     if self.State.Mode == "position" then
-        self.State.VisualCFrame = self.State.VisualCFrame + (offset * increment)
-    elseif self.State.Mode == "rotation" then
-        local angles = offset * math.rad(increment * 15)
-        self.State.VisualCFrame = self.State.VisualCFrame * CFrame.Angles(angles.X, angles.Y, angles.Z)
+        self.State.VisualOffset = self.State.VisualOffset * CFrame.new(vec * inc)
+    else
+        local r = vec * math.rad(inc * 5)
+        self.State.VisualOffset = self.State.VisualOffset * CFrame.Angles(r.X, r.Y, r.Z)
     end
-    
-    self:UpdateDisplay()
-end
-
-function Modules.CFrameDesync:ResetDesync()
-    if not self.State.DesyncActive then
-        print("⚠ Desync is not active")
-        return
-    end
-    
-    self.State.VisualCFrame = self.State.ServerCFrame
-    print("✓ Reset visual position to server position")
-    self:UpdateDisplay()
-end
-
-function Modules.CFrameDesync:SyncToServer()
-    if not self.State.DesyncActive then
-        print("⚠ Desync is not active")
-        return
-    end
-    
-    -- Move server position to visual position
-    self.State.ServerCFrame = self.State.VisualCFrame
-    
-    local character = LocalPlayer.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        character.HumanoidRootPart.CFrame = self.State.ServerCFrame
-    end
-    
-    print("✓ Synced server position to visual position")
-    self:UpdateDisplay()
-end
-
-function Modules.CFrameDesync:PresetUnderground()
-    if not self.State.DesyncActive then
-        print("⚠ Desync is not active")
-        return
-    end
-    
-    self.State.VisualCFrame = self.State.ServerCFrame - Vector3.new(0, 50, 0)
-    print("✓ Applied underground preset")
-    self:UpdateDisplay()
-end
-
-function Modules.CFrameDesync:PresetSky()
-    if not self.State.DesyncActive then
-        print("⚠ Desync is not active")
-        return
-    end
-    
-    self.State.VisualCFrame = self.State.ServerCFrame + Vector3.new(0, 200, 0)
-    print("✓ Applied sky preset")
     self:UpdateDisplay()
 end
 
 function Modules.CFrameDesync:UpdateDisplay()
     if not self.State.UI then return end
+    local info = self.State.UI.MainFrame.Content.InfoBox
     
-    local infoBox = self.State.UI.MainFrame.Content.InfoBox
-    
-    if self.State.DesyncActive then
-        local visualPos = self.State.VisualCFrame.Position
-        local serverPos = self.State.ServerCFrame.Position
-        local offset = visualPos - serverPos
-        
-        infoBox.Text = string.format(
-            "Desync: ACTIVE\n\nVisual Pos:\nX: %.2f, Y: %.2f, Z: %.2f\n\nServer Pos:\nX: %.2f, Y: %.2f, Z: %.2f\n\nOffset:\nX: %.2f, Y: %.2f, Z: %.2f",
-            visualPos.X, visualPos.Y, visualPos.Z,
-            serverPos.X, serverPos.Y, serverPos.Z,
-            offset.X, offset.Y, offset.Z
-        )
-        infoBox.TextColor3 = Color3.fromRGB(255, 100, 200)
-    else
-        infoBox.Text = "Desync: OFF\n\nActivate desync to start"
-        infoBox.TextColor3 = Color3.fromRGB(150, 150, 150)
+    if not self.State.DesyncActive then
+        info.Text = "STATUS: INACTIVE\nWAITING FOR PROTOCOL START..."
+        return
     end
+
+    local pos = self.State.VisualOffset.Position
+    local x, y, z = self.State.VisualOffset:ToEulerAnglesXYZ()
+    
+    info.Text = string.format(
+        "NETWORK STATUS: DESYNCED\n\nOFFSET POS:\nX: %.2f | Y: %.2f | Z: %.2f\n\nOFFSET ROT:\nX: %.2f | Y: %.2f | Z: %.2f",
+        pos.X, pos.Y, pos.Z,
+        math.deg(x), math.deg(y), math.deg(z)
+    )
 end
 
 function Modules.CFrameDesync:Enable()
     if self.State.IsEnabled then return end
     self.State.IsEnabled = true
-    
     self:_createUI()
-    
-    print("✓ CFrame Desync enabled")
 end
 
 function Modules.CFrameDesync:Disable()
-    if not self.State.IsEnabled then return end
-    
-    -- Deactivate desync if active
-    if self.State.DesyncActive then
-        self:DeactivateDesync()
-    end
-    
+    self:DeactivateDesync()
+    if self.State.UI then self.State.UI:Destroy() self.State.UI = nil end
     self.State.IsEnabled = false
-    
-    -- Disconnect all connections
-    for _, conn in pairs(self.State.Connections) do
-        if conn then
-            conn:Disconnect()
-        end
-    end
-    table.clear(self.State.Connections)
-    
-    -- Destroy UI
-    if self.State.UI then
-        self.State.UI:Destroy()
-        self.State.UI = nil
-    end
-    
-    print("✓ CFrame Desync disabled")
 end
 
 function Modules.CFrameDesync:Toggle()
-    if self.State.IsEnabled then
-        self:Disable()
-    else
-        self:Enable()
-    end
+    if self.State.IsEnabled then self:Disable() else self:Enable() end
 end
 
 RegisterCommand({
@@ -42400,7 +42175,7 @@ Modules.AdonisBypass = {
         IsLoaded = false,
     },
     Config = {
-        DelayTime = 10
+        DelayTime = 30
     }
 }
 function Modules.AdonisBypass:Execute()
