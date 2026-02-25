@@ -20,11 +20,10 @@ safetyPart.Name = "AntiVoidPlatform"
 safetyPart.Size = CONFIG.platformSize
 safetyPart.Anchored = true
 safetyPart.CanCollide = true
-safetyPart.Transparency = CONFIG.visualize and 0.5 or 1
-safetyPart.Material = Enum.Material.Neon
-safetyPart.BrickColor = BrickColor.new("Bright blue")
-safetyPart.Parent = workspace
-safetyPart.Position = Vector3.new(0, CONFIG.platformHeight, 0)
+safetyPart.Material = Enum.Material.Plastic
+safetyPart.BrickColor = BrickColor.new("Medium green")
+safetyPart.TopSurface = Enum.SurfaceType.Studs
+safetyPart.BottomSurface = Enum.SurfaceType.Studs
 
 -- Teleport to platform function
 local function teleportToPlatform()
