@@ -1,91 +1,105 @@
 
---[[ this adds a baseplate right above the spot in the void that kills you ]]
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-
--- Configuration
+-- Configuration Table
 local CONFIG = {
-    platformHeight = -450,
-    platformSize = Vector3.new(2048, 1, 2048),
+    platformHeight = Workspace.FallenPartsDestroyHeight + 5, -- Automatically sits just above the kill zone
     followPlayer = true,
-    visualize = false -- Set to true to see the platform
+    visualize = true,
+    size = Vector3.new(2048, 1, 2048),
+    color = Color3.fromRGB(0, 170, 255),
+    material = Enum.Material.Neon,
+    transparency = 0.8
 }
 
--- Create safety platform
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Cleanup existing instances to prevent stacking
+local existing = Workspace:FindFirstChild("AntiVoidPlatform")
+if existing then existing:Destroy() end
+local existingSpawn = Workspace:FindFirstChild("VoidSpawn")
+if existingSpawn then existingSpawn:Destroy() end
+
+-- Platform Initialization
 local safetyPart = Instance.new("Part")
 safetyPart.Name = "AntiVoidPlatform"
-safetyPart.Size = CONFIG.platformSize
+safetyPart.Size = CONFIG.size
 safetyPart.Anchored = true
 safetyPart.CanCollide = true
-safetyPart.Material = Enum.Material.Plastic
-safetyPart.BrickColor = BrickColor.new("Medium green")
-safetyPart.TopSurface = Enum.SurfaceType.Studs
-safetyPart.BottomSurface = Enum.SurfaceType.Studs
+safetyPart.Transparency = CONFIG.visualize and CONFIG.transparency or 1
+safetyPart.Material = CONFIG.material
+safetyPart.Color = CONFIG.color
+safetyPart.Position = Vector3.new(0, CONFIG.platformHeight, 0)
+safetyPart.Parent = Workspace
 
--- Teleport to platform function
+-- Logic for teleportation
 local function teleportToPlatform()
-    if character and humanoidRootPart then
-        humanoidRootPart.CFrame = CFrame.new(safetyPart.Position + Vector3.new(0, 10, 0))
-        print("Teleported to platform")
+    if character and rootPart then
+        -- Teleporting slightly above the part to avoid clipping
+        rootPart.CFrame = CFrame.new(safetyPart.Position + Vector3.new(0, 15, 0))
+        print("[!] Emergency Teleport Executed")
     end
 end
 
--- Set spawn location function
+-- Spawn Location Logic
 local function setSpawnAtPlatform()
     local spawnLocation = Instance.new("SpawnLocation")
     spawnLocation.Name = "VoidSpawn"
-    spawnLocation.Size = Vector3.new(10, 1, 10)
+    spawnLocation.Size = Vector3.new(12, 1, 12)
     spawnLocation.Anchored = true
     spawnLocation.CanCollide = true
-    spawnLocation.Transparency = 0.3
+    spawnLocation.Transparency = 0.5
     spawnLocation.BrickColor = BrickColor.new("Lime green")
-    spawnLocation.Parent = workspace
-    spawnLocation.Position = safetyPart.Position + Vector3.new(0, 5, 0)
+    spawnLocation.Position = safetyPart.Position + Vector3.new(0, 2, 0)
     spawnLocation.Duration = 0
-    print("Spawn location created at platform")
+    spawnLocation.Parent = Workspace
+    print("[+] Respawn Anchor Set at Void Threshold")
     return spawnLocation
 end
 
--- Platform following logic
-if CONFIG.followPlayer then
-    game:GetService("RunService").Heartbeat:Connect(function()
-        if character and humanoidRootPart then
-            safetyPart.Position = Vector3.new(
-                humanoidRootPart.Position.X, 
-                CONFIG.platformHeight, 
-                humanoidRootPart.Position.Z
-            )
-        end
-    end)
-end
-
--- Keybind setup (optional)
-local UserInputService = game:GetService("UserInputService")
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    
-    if input.KeyCode == Enum.KeyCode.V then -- Press V to teleport
-        teleportToPlatform()
-    elseif input.KeyCode == Enum.KeyCode.B then -- Press B to toggle visibility
-        CONFIG.visualize = not CONFIG.visualize
-        safetyPart.Transparency = CONFIG.visualize and 0.5 or 1
-        print("Platform visibility:", CONFIG.visualize)
+-- Persistence Loop
+RunService.Heartbeat:Connect(function()
+    if CONFIG.followPlayer and rootPart and rootPart.Parent then
+        -- Keep the platform centered under the player on the X/Z axes
+        safetyPart.Position = Vector3.new(
+            rootPart.Position.X, 
+            CONFIG.platformHeight, 
+            rootPart.Position.Z
+        )
     end
 end)
 
--- Character respawn handling
-player.CharacterAdded:Connect(function(newChar)
-    character = newChar
-    humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+-- Input Controller
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    if input.KeyCode == Enum.KeyCode.V then 
+        teleportToPlatform()
+    elseif input.KeyCode == Enum.KeyCode.B then 
+        CONFIG.visualize = not CONFIG.visualize
+        safetyPart.Transparency = CONFIG.visualize and CONFIG.transparency or 1
+        print("[?] Visibility Toggled:", CONFIG.visualize)
+    end
 end)
 
-print("Anti-Void Platform Active")
-print("Press V to teleport to platform")
-print("Press B to toggle platform visibility")
+-- Character Integrity Protocol
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    rootPart = newChar:WaitForChild("HumanoidRootPart")
+end)
 
--- Optional: Uncomment to create spawn location
+-- Execution
 setSpawnAtPlatform()
+
+print("-----------------------------------------")
+print("CALM ANTI-VOID LOADED")
+print("Void Level Detected:", Workspace.FallenPartsDestroyHeight)
+print("Hotkey [V]: Teleport to Platform")
+print("Hotkey [B]: Toggle Platform Visibility")
+print("-----------------------------------------")
