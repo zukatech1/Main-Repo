@@ -276,6 +276,8 @@ function Utilities.calculateLevenshteinDistance(s1: string, s2: string): number
     end
     return matrix[len1][len2]
 end
+
+
         local Prefix = ";"
         local Commands = {}
         local CommandInfo = {}
@@ -370,6 +372,19 @@ function RegisterCommandDual(info, func)
         end
     end
 end
+
+getgenv().Prefix          = Prefix
+getgenv().Commands        = Commands
+getgenv().Modules         = Modules
+getgenv().RegisterCommand = RegisterCommand
+getgenv().DoNotif         = DoNotif
+getgenv().Players         = Players
+getgenv().LocalPlayer     = LocalPlayer
+getgenv().UserInputService= UserInputService
+getgenv().TweenService    = TweenService
+getgenv().RunService      = RunService
+getgenv().Workspace       = Workspace
+
 local function loadAimbotGUI(args)
     local CoreGui = game:GetService("CoreGui")
     if CoreGui:FindFirstChild("UTS_CGE_Suite") and not args then
@@ -4451,12 +4466,12 @@ end
 function Modules.Fling:Initialize()
     local module = self
     if not self.State.WelcomeDone then
-        self:Notify("Flinger", "Have at it.", 5)
+        self:Notify("Flinger", "Working", 1)
         self.State.WelcomeDone = true
     end
     RegisterCommand({
-        Name = "fling",
-        Aliases = {"skidfling", "kill"},
+        Name = "ffling",
+        Aliases = {"fff"},
         Description = "Flings a target player using physics manipulation."
     }, function(args)
         local targetName = args[1] or ""
@@ -40538,6 +40553,7 @@ function Modules.Disarmer:Initialize()
         end
     end)
 end
+
 
 
 local function loadstringCmd(url, notif)
