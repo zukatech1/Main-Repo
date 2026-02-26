@@ -12799,6 +12799,133 @@ RegisterCommand({
 }, function()
     Modules.CFrameEditor:Toggle()
 end)
+Modules.HeadCam = {
+    State = {
+        IsEnabled = false,
+        Part = nil,
+        Connections = {},
+        OriginalCameraType = nil,
+    },
+    Config = {
+        -- Flip axes: -1 to flip, 1 to keep normal
+        FlipX = 1,
+        FlipY = 1,
+        FlipZ = -1, -- Flips forward/back by default (looks "through" head)
+        OffsetFromHead = CFrame.new(0, 0.5, 0), -- Slight upward offset on head
+    }
+}
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+function Modules.HeadCam:Enable()
+    if self.State.IsEnabled then return end
+
+    local char = LocalPlayer.Character
+    if not char then DoNotif("No character", 2) return end
+    local head = char:FindFirstChild("Head")
+    if not head then DoNotif("No head found", 2) return end
+
+    -- Create the part
+    local part = Instance.new("Part")
+    part.Name = "HeadCamPart"
+    part.Size = Vector3.new(0.1, 0.1, 0.1)
+    part.Transparency = 1
+    part.CanCollide = false
+    part.CanTouch = false
+    part.CanQuery = false
+    part.Anchored = false
+    part.Parent = workspace
+
+    -- Weld to head
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = head
+    weld.Part1 = part
+    weld.Parent = part
+
+    part.CFrame = head.CFrame * self.Config.OffsetFromHead
+
+    self.State.Part = part
+    self.State.IsEnabled = true
+
+    -- Store and override camera
+    local camera = workspace.CurrentCamera
+    self.State.OriginalCameraType = camera.CameraType
+    camera.CameraType = Enum.CameraType.Scriptable
+
+    -- RenderStepped: update camera to part's CFrame with flip applied
+    self.State.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
+        if not part or not part.Parent then return end
+
+        local cf = part.CFrame
+        local x, y, z = cf:ToEulerAnglesXYZ()
+
+        -- Apply flipped CFrame
+        local flippedCF = CFrame.new(cf.Position) *
+            CFrame.Angles(
+                x * self.Config.FlipX,
+                y * self.Config.FlipY,
+                z * self.Config.FlipZ
+            )
+
+        camera.CFrame = flippedCF
+    end)
+
+    DoNotif("HeadCam: ON", 2)
+end
+
+function Modules.HeadCam:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+
+    for _, conn in pairs(self.State.Connections) do
+        conn:Disconnect()
+    end
+    table.clear(self.State.Connections)
+
+    if self.State.Part then
+        self.State.Part:Destroy()
+        self.State.Part = nil
+    end
+
+    -- Restore camera
+    local camera = workspace.CurrentCamera
+    camera.CameraType = self.State.OriginalCameraType or Enum.CameraType.Custom
+
+    DoNotif("HeadCam: OFF", 2)
+end
+
+function Modules.HeadCam:Toggle()
+    if self.State.IsEnabled then self:Disable() else self:Enable() end
+end
+
+function Modules.HeadCam:SetFlip(x, y, z)
+    self.Config.FlipX = x ~= nil and x or self.Config.FlipX
+    self.Config.FlipY = y ~= nil and y or self.Config.FlipY
+    self.Config.FlipZ = z ~= nil and z or self.Config.FlipZ
+    DoNotif(string.format("Flip: X=%d Y=%d Z=%d", self.Config.FlipX, self.Config.FlipY, self.Config.FlipZ), 2)
+end
+
+RegisterCommand({
+    Name = "headcam",
+    Aliases = {"hcam"},
+    Description = "Toggle head-mounted camera with flipped CFrame view"
+}, function()
+    Modules.HeadCam:Toggle()
+end)
+
+RegisterCommand({
+    Name = "headcamflip",
+    Aliases = {"hflip"},
+    Description = "Set flip axes. Usage: ;headcamflip <x> <y> <z> (use 1 or -1)"
+}, function(args)
+    Modules.HeadCam:SetFlip(
+        tonumber(args[1]),
+        tonumber(args[2]),
+        tonumber(args[3])
+    )
+end)
 Modules.CFrameDesync = {
     State = {
         IsEnabled = false,
@@ -28209,7 +28336,10 @@ function Modules.HRPDesync:Detach()
     if not char or not rigType then return DoNotif("No character found.", 2) end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
+
     self.State.BodyRoot = CFrame.new(hrp.Position + CurrentCamera.CFrame.LookVector * 2)
+
+    -- Save and break motors
     self.State.SavedMotors = {}
     for _, motor in ipairs(self:_getMotors(char)) do
         table.insert(self.State.SavedMotors, {
@@ -28219,22 +28349,48 @@ function Modules.HRPDesync:Detach()
         })
         pcall(function() motor.Part0 = nil end)
     end
+
     self.State.BodyParts = self:_getBodyParts(char)
-    pcall(function() hrp.Anchored = true end)
+
+    -- DON'T anchor HRP and DON'T platform stand — just freeze it with a BodyPosition/BodyGyro instead
+    local bp = Instance.new("BodyPosition")
+    bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bp.D = 10000
+    bp.P = 100000
+    bp.Position = hrp.Position
+    bp.Parent = hrp
+
+    local bg = Instance.new("BodyGyro")
+    bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    bg.D = 10000
+    bg.P = 100000
+    bg.CFrame = hrp.CFrame
+    bg.Parent = hrp
+
+    self.State.HRPLock = {bp = bp, bg = bg}
+
+    -- Keep humanoid alive and walking normally
     local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then hum.PlatformStand = true end
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+    end
+
     self.State.IsDetached = true
     self.State.Connections.Render = RunService.RenderStepped:Connect(function(dt)
         if not self.State.IsDetached then return end
         self:_updateBodyRoot(dt)
         self:_driveBodyParts()
     end)
+
     DoNotif("HRP Desync: DETACHED | Mode: " .. self.State.DriveMode, 2)
 end
 function Modules.HRPDesync:Reattach()
     local _, char = self:_getRig()
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
+
     for _, saved in ipairs(self.State.SavedMotors) do
         pcall(function()
             saved.motor.Part0 = saved.p0
@@ -28244,16 +28400,27 @@ function Modules.HRPDesync:Reattach()
     end
     self.State.SavedMotors = {}
     self.State.BodyParts   = {}
-    if hrp and self.State.BodyRoot then
-        hrp.Anchored = false
-        hrp.CFrame   = self.State.BodyRoot
+
+    -- Clean up HRP lock
+    if self.State.HRPLock then
+        if self.State.HRPLock.bp then self.State.HRPLock.bp:Destroy() end
+        if self.State.HRPLock.bg then self.State.HRPLock.bg:Destroy() end
+        self.State.HRPLock = nil
     end
+
+    -- Restore humanoid states
     local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then hum.PlatformStand = false end
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
+    end
+
     if self.State.Connections.Render then
         self.State.Connections.Render:Disconnect()
         self.State.Connections.Render = nil
     end
+
     self.State.IsDetached = false
     self.State.BodyRoot   = nil
     DoNotif("HRP Desync: Reattached.", 2)
