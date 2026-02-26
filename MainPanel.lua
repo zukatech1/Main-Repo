@@ -28337,7 +28337,8 @@ function Modules.HRPDesync:Detach()
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    self.State.BodyRoot = CFrame.new(hrp.Position + CurrentCamera.CFrame.LookVector * 2)
+    -- Store frozen position for HRP
+    self.State.BodyRoot = hrp.CFrame
 
     -- Save and break motors
     self.State.SavedMotors = {}
@@ -28352,7 +28353,7 @@ function Modules.HRPDesync:Detach()
 
     self.State.BodyParts = self:_getBodyParts(char)
 
-    -- DON'T anchor HRP and DON'T platform stand — just freeze it with a BodyPosition/BodyGyro instead
+    -- Lock HRP in place, body parts roam free
     local bp = Instance.new("BodyPosition")
     bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
     bp.D = 10000
@@ -28369,7 +28370,6 @@ function Modules.HRPDesync:Detach()
 
     self.State.HRPLock = {bp = bp, bg = bg}
 
-    -- Keep humanoid alive and walking normally
     local hum = char:FindFirstChildOfClass("Humanoid")
     if hum then
         hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
@@ -28378,14 +28378,46 @@ function Modules.HRPDesync:Detach()
     end
 
     self.State.IsDetached = true
+
+    -- Track where the player is actually walking to drive body parts
+    self.State.WalkRoot = hrp.CFrame
+
     self.State.Connections.Render = RunService.RenderStepped:Connect(function(dt)
         if not self.State.IsDetached then return end
-        self:_updateBodyRoot(dt)
+        -- WalkRoot follows camera/movement so body parts know where to go
+        self:_updateWalkRoot(dt)
         self:_driveBodyParts()
     end)
 
     DoNotif("HRP Desync: DETACHED | Mode: " .. self.State.DriveMode, 2)
 end
+
+-- Replaces _updateBodyRoot — now tracks where the player is walking
+function Modules.HRPDesync:_updateWalkRoot(dt)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    -- WalkRoot just mirrors the camera position so body follows the player
+    local yaw = math.atan2(-CurrentCamera.CFrame.LookVector.X, -CurrentCamera.CFrame.LookVector.Z)
+    self.State.WalkRoot = CFrame.new(CurrentCamera.CFrame.Position) * CFrame.Angles(0, yaw, 0)
+end
+
+-- Body parts follow WalkRoot, not the frozen HRP
+function Modules.HRPDesync:_driveBodyParts()
+    if not self.State.WalkRoot then return end
+
+    for _, part in ipairs(self.State.BodyParts) do
+        if part and part.Parent then
+            local offset = NPC_PART_OFFSETS[part.Name] or CFrame.new()
+            pcall(function()
+                part.CFrame = part.CFrame:Lerp(self.State.WalkRoot * offset, 0.35)
+            end)
+        end
+    end
+end
+
 function Modules.HRPDesync:Reattach()
     local _, char = self:_getRig()
     if not char then return end
@@ -28401,14 +28433,12 @@ function Modules.HRPDesync:Reattach()
     self.State.SavedMotors = {}
     self.State.BodyParts   = {}
 
-    -- Clean up HRP lock
     if self.State.HRPLock then
         if self.State.HRPLock.bp then self.State.HRPLock.bp:Destroy() end
         if self.State.HRPLock.bg then self.State.HRPLock.bg:Destroy() end
         self.State.HRPLock = nil
     end
 
-    -- Restore humanoid states
     local hum = char:FindFirstChildOfClass("Humanoid")
     if hum then
         hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
@@ -28423,6 +28453,7 @@ function Modules.HRPDesync:Reattach()
 
     self.State.IsDetached = false
     self.State.BodyRoot   = nil
+    self.State.WalkRoot   = nil
     DoNotif("HRP Desync: Reattached.", 2)
 end
 function Modules.HRPDesync:Toggle()
