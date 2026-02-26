@@ -13047,48 +13047,71 @@ function Modules.CFrameDesync:ActivateDesync()
     if not hrp then return end
 
     self.State.DesyncActive = true
-    self.State.RealCFrame = hrp.CFrame
-    
+
     if self.Config.ShowFakeCharacter then
         self:CreateFakeCharacter()
     end
 
+    -- ONLY update visuals, touch nothing else
+    self.State.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
+        local _, root = getChar()
+        if root then
+            self.State.RealCFrame = root.CFrame
+            self:UpdateVisuals()
+        end
+    end)
+
+    -- Update UI
     local ui = self.State.UI.MainFrame
     ui.Content.DesyncToggle.Text = "DEACTIVATE SYSTEM"
     ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(120, 30, 50)
     ui.TitleBar.StatusIndicator.Text = "ACTIVE"
     ui.TitleBar.StatusIndicator.BackgroundColor3 = self.Config.HighlightColor
 
-    -- THE CORE LOGIC: Flip-Flop Implementation
-    -- Heartbeat: Runs after physics. We set the HRP to the FAKE position so the server sees it.
-    self.State.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
-        local _, root = getChar()
-        if root then
-            self.State.RealCFrame = root.CFrame -- Cache the actual physics position
-            root.CFrame = self.State.RealCFrame * self.State.VisualOffset -- Shift to desync pos
-        end
-    end)
-
-    -- RenderStepped: Runs before rendering. We restore the HRP to the REAL position.
-    -- This prevents anchoring because the local client/camera sees the real pos.
-    self.State.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
-        local _, root = getChar()
-        if root then
-            root.CFrame = self.State.RealCFrame -- Restore for rendering/local movement
-            self:UpdateVisuals()
-        end
-    end)
-
     self:UpdateDisplay()
+end
+
+function Modules.CFrameDesync:StartFakeReplication()
+    local _, hrp = getChar()
+    if not hrp then return end
+
+    -- Create an invisible anchored part the server thinks is relevant
+    -- The actual desync signal is sent via CFrame manipulation of a 
+    -- network-owned part, not the HRP itself
+    local fakePart = Instance.new("Part")
+    fakePart.Name = "DesyncAnchor"
+    fakePart.Size = Vector3.new(0.1, 0.1, 0.1)
+    fakePart.Transparency = 1
+    fakePart.CanCollide = false
+    fakePart.CanTouch = false
+    fakePart.CanQuery = false
+    fakePart.Anchored = false
+    fakePart.CFrame = hrp.CFrame * self.State.VisualOffset
+    fakePart.Parent = workspace
+
+    -- Give local player network ownership
+    fakePart:SetNetworkOwner(LocalPlayer)
+    self.State.FakePart = fakePart
+
+    self.State.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
+        if fakePart and fakePart.Parent then
+            fakePart.CFrame = self.State.RealCFrame * self.State.VisualOffset
+        end
+    end)
 end
 
 function Modules.CFrameDesync:DeactivateDesync()
     self.State.DesyncActive = false
-    
+
     for _, conn in pairs(self.State.Connections) do
         conn:Disconnect()
     end
     table.clear(self.State.Connections)
+
+    if self.State.FakePart then
+        self.State.FakePart:Destroy()
+        self.State.FakePart = nil
+    end
 
     if self.State.FakeCharacter then
         self.State.FakeCharacter:Destroy()
@@ -28985,6 +29008,7 @@ function Modules.vFly:_getMovementVector()
     local UserInputService = game:GetService("UserInputService")
     local camera = workspace.CurrentCamera
     local moveVector = Vector3.zero
+
     if UserInputService:IsKeyDown(Enum.KeyCode.W) then
         moveVector = moveVector + camera.CFrame.LookVector
     end
@@ -29000,24 +29024,22 @@ function Modules.vFly:_getMovementVector()
     if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
         moveVector = moveVector + Vector3.new(0, 1, 0)
     end
-    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or 
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or
        UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
         moveVector = moveVector - Vector3.new(0, 1, 0)
     end
-    return moveVector.Unit
-end
-function Modules.vFly:_spoofVelocity()
-    if not self.Config.UseVelocitySpoof then return end
-    local character = LocalPlayer.Character
-    if not character then return end
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    local realVelocity = hrp.AssemblyLinearVelocity
-    hrp.AssemblyLinearVelocity = self.Config.SpoofVector
-    RunService.RenderStepped:Wait()
-    if hrp then
-        hrp.AssemblyLinearVelocity = realVelocity
+
+    -- Fix: guard against zero vector before calling .Unit
+    if moveVector.Magnitude > 0 then
+        return moveVector.Unit
     end
+    return Vector3.zero
+end
+
+function Modules.vFly:_spoofVelocity(hrp)
+    if not self.Config.UseVelocitySpoof then return end
+    if not hrp then return end
+    hrp.AssemblyLinearVelocity = self.Config.SpoofVector
 end
 function Modules.vFly:Enable()
     if self.State.IsFlying then return end
@@ -29037,22 +29059,24 @@ function Modules.vFly:Enable()
     end
     self.State.IsFlying = true
     self.State.Connections.vFlyLoop = RunService.Heartbeat:Connect(function()
-        local character = LocalPlayer.Character
-        if not character then return end
-        local hrp = character:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-        local camera = workspace.CurrentCamera
-        local moveVector = self:_getMovementVector()
-        if self.State.BodyVelocity then
-            self.State.BodyVelocity.Velocity = moveVector * self.Config.Speed
-        end
-        if self.State.BodyGyro then
-            self.State.BodyGyro.CFrame = camera.CFrame
-        end
-        if self.Config.UseVelocitySpoof then
-            self:_spoofVelocity()
-        end
-    end)
+    local character = LocalPlayer.Character
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local camera = workspace.CurrentCamera
+    local moveVector = self:_getMovementVector()
+
+    if self.State.BodyVelocity then
+        self.State.BodyVelocity.Velocity = moveVector * self.Config.Speed
+    end
+    if self.State.BodyGyro then
+        self.State.BodyGyro.CFrame = camera.CFrame
+    end
+
+    -- Pass hrp directly, no more Wait() desync
+    self:_spoofVelocity(hrp)
+end)
     DoNotif(string.format("vFly: ON (Speed: %d)", self.Config.Speed), 2)
 end
 function Modules.vFly:Disable()
@@ -41356,6 +41380,118 @@ RegisterCommand({Name = "reachfix", Aliases = {"fix"}, Description = "Makes your
 RegisterCommand({Name = "worldofstands", Aliases = {"wos"}, Description = "For https://www.roblox.com/games/6728870912/World-of-Stands - Removes dash cooldown"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/WOS.lua", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "zfucker", Aliases = {}, Description = "zfucker for the zl series."}, function() loadstringCmd("https://raw.githubusercontent.com/osukfcdays/zlfucker/refs/heads/main/main.luau", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "ConvertR6", Aliases = {}, Description = "Work In progress"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/r15tor6.lua", "Loading, Wait a sec.") end)
+Modules.UniversalSword = {
+    State = {
+        IsEnabled = false,
+        LungeDebounce = false,
+        Connections = {},
+        Assets = {
+            SlashAnim = "rbxassetid://1294457",
+            LungeAnim = "rbxassetid://1294452",
+            SlashSound = "rbxassetid://12222216",
+            LungeSound = "rbxassetid://12222208"
+        }
+    }
+}
+function Modules.UniversalSword:RegisterHit(range)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool then return end
+    local hitPart = tool:FindFirstChild("Handle") or char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
+    if not hitPart then return end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local targetHRP = p.Character.HumanoidRootPart
+            local dist = (char.HumanoidRootPart.Position - targetHRP.Position).Magnitude
+            if dist <= range then
+                firetouchinterest(targetHRP, hitPart, 0)
+                firetouchinterest(targetHRP, hitPart, 1)
+            end
+        end
+    end
+end
+function Modules.UniversalSword:PerformSlash()
+    if not self.State.IsEnabled then return end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    local anim = Instance.new("Animation")
+    anim.AnimationId = self.State.Assets.SlashAnim
+    local load = hum:LoadAnimation(anim)
+    load:Play()
+    local sfx = Instance.new("Sound", char.PrimaryPart)
+    sfx.SoundId = self.State.Assets.SlashSound
+    sfx.Volume = 0.6
+    sfx:Play()
+    self:RegisterHit(7)
+    task.delay(0.6, function() sfx:Destroy() anim:Destroy() end)
+end
+function Modules.UniversalSword:PerformLunge()
+    if not self.State.IsEnabled or self.State.LungeDebounce then return end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp then return end
+    self.State.LungeDebounce = true
+    local anim = Instance.new("Animation")
+    anim.AnimationId = self.State.Assets.LungeAnim
+    local load = hum:LoadAnimation(anim)
+    load:Play()
+    local sfx = Instance.new("Sound", hrp)
+    sfx.SoundId = self.State.Assets.LungeSound
+    sfx.Volume = 0.7
+    sfx:Play()
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(1, 0, 1) * 40000 
+    bv.Velocity = hrp.CFrame.LookVector * 65
+    bv.Parent = hrp
+    task.spawn(function()
+        local start = tick()
+        while tick() - start < 0.45 do
+            self:RegisterHit(12)
+            task.wait(0.05)
+        end
+        bv:Destroy()
+        task.wait(0.5)
+        self.State.LungeDebounce = false
+        sfx:Destroy()
+        anim:Destroy()
+    end)
+end
+function Modules.UniversalSword:Initialize()
+    local function HookTool(tool)
+        if not tool:IsA("Tool") then return end
+        if self.State.Connections[tool] then self.State.Connections[tool]:Disconnect() end
+        self.State.Connections[tool] = tool.Activated:Connect(function()
+            self:PerformSlash()
+        end)
+    end
+    self.State.Connections["SwordChar"] = LocalPlayer.CharacterAdded:Connect(function(char)
+        char.ChildAdded:Connect(HookTool)
+    end)
+    if LocalPlayer.Character then
+        LocalPlayer.Character.ChildAdded:Connect(HookTool)
+        local existing = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+        if existing then HookTool(existing) end
+    end
+    self.State.Connections["LungeInput"] = UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe or not self.State.IsEnabled then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool") then
+                self:PerformLunge()
+            end
+        end
+    end)
+    RegisterCommand({
+        Name = "universalsword",
+        Aliases = {"swordlogic"},
+        Description = "classic sword animations and damage for all tools (LMB Slash / RMB Lunge)."
+    }, function()
+        self.State.IsEnabled = not self.State.IsEnabled
+        DoNotif("Universal Sword: " .. (self.State.IsEnabled and "ENABLED" or "DISABLED"), 2)
+    end)
+end
 Modules.IYPluginManager = {
     State = {
         IsEnabled = false,
