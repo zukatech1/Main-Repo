@@ -41535,6 +41535,7 @@ local function loadstringCmd(url, notif)
     end)
     DoNotif(notif, 3)
 end
+
 RegisterCommand({Name = "zsniper", Aliases = {}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/sniperZG.lua", "Loading..") end)
 RegisterCommand({Name = "zshotgun", Aliases = {}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/ShotgunMinigunScriptWorking.lua", "Loading..") end)
 RegisterCommand({Name = "noanim", Aliases = {}, Description = "Pauses/Removes All animations for the player."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/animationremover.lua", " Loading.. ") end)
@@ -41578,11 +41579,14 @@ RegisterCommand({Name = "reachfix", Aliases = {"fix"}, Description = "Makes your
 RegisterCommand({Name = "worldofstands", Aliases = {"wos"}, Description = "For https://www.roblox.com/games/6728870912/World-of-Stands - Removes dash cooldown"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/WOS.lua", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "zfucker", Aliases = {}, Description = "zfucker for the zl series."}, function() loadstringCmd("https://raw.githubusercontent.com/osukfcdays/zlfucker/refs/heads/main/main.luau", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "ConvertR6", Aliases = {}, Description = "Work In progress"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/r15tor6.lua", "Loading, Wait a sec.") end)
+RegisterCommand({Name = "flinggun", Aliases = {}, Description = "For backrooms"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/patchgunflingversion.lua", "Loading, Wait a sec.") end)
+
 Modules.UniversalSword = {
     State = {
         IsEnabled = false,
         LungeDebounce = false,
         Connections = {},
+        LoadedAnims = {},
         Assets = {
             SlashAnim = "rbxassetid://1294457",
             LungeAnim = "rbxassetid://1294452",
@@ -41591,105 +41595,240 @@ Modules.UniversalSword = {
         }
     }
 }
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
 function Modules.UniversalSword:RegisterHit(range)
     local char = LocalPlayer.Character
     if not char then return end
+    
     local tool = char:FindFirstChildOfClass("Tool")
     if not tool then return end
+    
     local hitPart = tool:FindFirstChild("Handle") or char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
     if not hitPart then return end
+    
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local targetHRP = p.Character.HumanoidRootPart
             local dist = (char.HumanoidRootPart.Position - targetHRP.Position).Magnitude
+            
             if dist <= range then
-                firetouchinterest(targetHRP, hitPart, 0)
-                firetouchinterest(targetHRP, hitPart, 1)
+                pcall(function()
+                    firetouchinterest(targetHRP, hitPart, 0)
+                    task.wait()
+                    firetouchinterest(targetHRP, hitPart, 1)
+                end)
             end
         end
     end
 end
+
+function Modules.UniversalSword:LoadAnimation(animId)
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return nil end
+    
+    -- Check if already loaded
+    if self.State.LoadedAnims[animId] then
+        return self.State.LoadedAnims[animId]
+    end
+    
+    -- Create and load new animation
+    local anim = Instance.new("Animation")
+    anim.AnimationId = animId
+    
+    local success, track = pcall(function()
+        return hum:LoadAnimation(anim)
+    end)
+    
+    if success and track then
+        self.State.LoadedAnims[animId] = track
+        return track
+    end
+    
+    return nil
+end
+
 function Modules.UniversalSword:PerformSlash()
     if not self.State.IsEnabled then return end
+    
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not hum then return end
-    local anim = Instance.new("Animation")
-    anim.AnimationId = self.State.Assets.SlashAnim
-    local load = hum:LoadAnimation(anim)
-    load:Play()
-    local sfx = Instance.new("Sound", char.PrimaryPart)
+    
+    -- Load and play animation
+    local animTrack = self:LoadAnimation(self.State.Assets.SlashAnim)
+    if animTrack then
+        animTrack:Play()
+    end
+    
+    -- Play sound
+    local sfx = Instance.new("Sound")
     sfx.SoundId = self.State.Assets.SlashSound
     sfx.Volume = 0.6
+    sfx.Parent = char.PrimaryPart or char:FindFirstChild("HumanoidRootPart")
     sfx:Play()
+    
+    -- Register hit
+    task.wait(0.2)
     self:RegisterHit(7)
-    task.delay(0.6, function() sfx:Destroy() anim:Destroy() end)
+    
+    -- Cleanup
+    task.delay(1, function()
+        if sfx then sfx:Destroy() end
+    end)
 end
+
 function Modules.UniversalSword:PerformLunge()
     if not self.State.IsEnabled or self.State.LungeDebounce then return end
+    
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hum or not hrp then return end
+    
     self.State.LungeDebounce = true
-    local anim = Instance.new("Animation")
-    anim.AnimationId = self.State.Assets.LungeAnim
-    local load = hum:LoadAnimation(anim)
-    load:Play()
-    local sfx = Instance.new("Sound", hrp)
+    
+    -- Load and play animation
+    local animTrack = self:LoadAnimation(self.State.Assets.LungeAnim)
+    if animTrack then
+        animTrack:Play()
+    end
+    
+    -- Play sound
+    local sfx = Instance.new("Sound")
     sfx.SoundId = self.State.Assets.LungeSound
     sfx.Volume = 0.7
+    sfx.Parent = hrp
     sfx:Play()
+    
+    -- Create lunge velocity
     local bv = Instance.new("BodyVelocity")
     bv.MaxForce = Vector3.new(1, 0, 1) * 40000 
     bv.Velocity = hrp.CFrame.LookVector * 65
     bv.Parent = hrp
+    
+    -- Hit detection during lunge
     task.spawn(function()
         local start = tick()
         while tick() - start < 0.45 do
             self:RegisterHit(12)
             task.wait(0.05)
         end
-        bv:Destroy()
+        
+        -- Cleanup
+        if bv then bv:Destroy() end
+        
         task.wait(0.5)
         self.State.LungeDebounce = false
-        sfx:Destroy()
-        anim:Destroy()
+        
+        if sfx then sfx:Destroy() end
     end)
 end
+
+function Modules.UniversalSword:CleanupAnimations()
+    for _, track in pairs(self.State.LoadedAnims) do
+        if track then
+            pcall(function()
+                track:Stop()
+                track:Destroy()
+            end)
+        end
+    end
+    self.State.LoadedAnims = {}
+end
+
 function Modules.UniversalSword:Initialize()
     local function HookTool(tool)
         if not tool:IsA("Tool") then return end
-        if self.State.Connections[tool] then self.State.Connections[tool]:Disconnect() end
+        
+        -- Disconnect old connection if exists
+        if self.State.Connections[tool] then 
+            self.State.Connections[tool]:Disconnect() 
+        end
+        
+        -- Hook tool activation
         self.State.Connections[tool] = tool.Activated:Connect(function()
-            self:PerformSlash()
+            if self.State.IsEnabled then
+                self:PerformSlash()
+            end
         end)
     end
+    
+    -- Hook character respawn
     self.State.Connections["SwordChar"] = LocalPlayer.CharacterAdded:Connect(function(char)
+        -- Clear old animations
+        self:CleanupAnimations()
+        
+        -- Wait for character to load
+        task.wait(0.5)
+        
+        -- Hook new tools
         char.ChildAdded:Connect(HookTool)
+        
+        -- Hook existing tool if any
+        local existing = char:FindFirstChildOfClass("Tool")
+        if existing then
+            HookTool(existing)
+        end
     end)
+    
+    -- Hook current character if exists
     if LocalPlayer.Character then
         LocalPlayer.Character.ChildAdded:Connect(HookTool)
+        
         local existing = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-        if existing then HookTool(existing) end
+        if existing then 
+            HookTool(existing) 
+        end
     end
+    
+    -- Hook lunge input (right click)
     self.State.Connections["LungeInput"] = UserInputService.InputBegan:Connect(function(input, gpe)
         if gpe or not self.State.IsEnabled then return end
+        
         if input.UserInputType == Enum.UserInputType.MouseButton2 then
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool") then
                 self:PerformLunge()
             end
         end
     end)
-    RegisterCommand({
-        Name = "universalsword",
-        Aliases = {"swordlogic"},
-        Description = "classic sword animations and damage for all tools (LMB Slash / RMB Lunge)."
-    }, function()
-        self.State.IsEnabled = not self.State.IsEnabled
-        DoNotif("Universal Sword: " .. (self.State.IsEnabled and "ENABLED" or "DISABLED"), 2)
-    end)
+    
+    print("✓ Universal Sword initialized")
 end
+
+function Modules.UniversalSword:Disable()
+    self.State.IsEnabled = false
+    
+    for _, conn in pairs(self.State.Connections) do
+        if conn then
+            pcall(function()
+                conn:Disconnect()
+            end)
+        end
+    end
+    self.State.Connections = {}
+    
+    self:CleanupAnimations()
+    
+    print("✓ Universal Sword disabled")
+end
+
+function Modules.UniversalSword:Toggle()
+    self.State.IsEnabled = not self.State.IsEnabled
+    print("✓ Universal Sword: " .. (self.State.IsEnabled and "ENABLED" or "DISABLED"))
+end
+
+RegisterCommand({
+    Name = "universalsword",
+    Aliases = {"usword", "swordlogic"},
+    Description = "Classic sword animations and damage for all tools (LMB Slash / RMB Lunge)."
+}, function()
+    Modules.UniversalSword:Toggle()
+end)
 Modules.IYPluginManager = {
     State = {
         IsEnabled = false,
@@ -43740,3 +43879,4 @@ task.spawn(function()
     Modules.AdminOrb:Spawn()
 end)
 DoNotif("We're So back. The Best Underground Panel.")
+
