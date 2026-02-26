@@ -404,13 +404,15 @@ function RunCustomAnimation(Char)
     local function onRunning(speed)
         humanoidSpeed = speed
         if speed > 0.75 then
-            playAnimation("walk", 0.2, Humanoid)
-            if pose ~= "Running" then
-                pose = "Running"
-                updateVelocity(0)
+            if not currentlyPlayingEmote then
+                playAnimation("walk", 0.2, Humanoid)
+                if pose ~= "Running" then
+                    pose = "Running"
+                    updateVelocity(0)
+                end
             end
         else
-            if emoteNames[currentAnim] == nil and not currentlyPlayingEmote then
+            if not currentlyPlayingEmote then
                 playAnimation("idle", 0.2, Humanoid)
                 pose = "Standing"
             end
@@ -484,6 +486,10 @@ function RunCustomAnimation(Char)
             playAnimation("fall", 0.2, Humanoid)
         elseif pose == "Seated" then
             playAnimation("sit", 0.5, Humanoid)
+        elseif pose == "Standing" then
+            if currentAnim ~= "idle" and not currentlyPlayingEmote then
+                playAnimation("idle", 0.1, Humanoid)
+            end
         elseif pose == "Running" then
             playAnimation("walk", 0.2, Humanoid)
             updateVelocity(currentTime)
@@ -537,8 +543,9 @@ function RunCustomAnimation(Char)
         end
     end)
     if Character.Parent ~= nil then
-        playAnimation("idle", 0.1, Humanoid)
         pose = "Standing"
+        task.wait(0.1)
+        playAnimation("idle", 0.1, Humanoid)
     end
     task.spawn(function()
         while Character.Parent ~= nil do
