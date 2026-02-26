@@ -27541,6 +27541,770 @@ function Modules.HumanShield:Initialize()
         DoNotif("Bringing " .. count .. " player(s). Check console (F9)", 2)
     end)
 end
+Modules.NPCShield = {
+    State = {
+        IsEnabled = false,
+        TrackedNPCs = {},
+        Connections = {},
+    },
+    Config = {
+        DISTANCE = 3.5,
+        VERTICAL_OFFSET = 0,
+    },
+}
+
+function Modules.NPCShield:Stop()
+    self.State.IsEnabled = false
+    for _, connection in pairs(self.State.Connections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
+    self.State.Connections = {}
+    self.State.TrackedNPCs = {}
+end
+
+function Modules.NPCShield:_isValidNPC(model)
+    if not model or not model.Parent then return false end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character == model then return false end
+    end
+    return model:FindFirstChild("HumanoidRootPart") ~= nil
+end
+
+function Modules.NPCShield:_setupNPCBring(model)
+    local tRoot = model:FindFirstChild("HumanoidRootPart")
+    if not tRoot then return end
+
+    local connectionId = "Bring_NPC_" .. model:GetDebugId()
+
+    if self.State.Connections[connectionId] then
+        self.State.Connections[connectionId]:Disconnect()
+    end
+
+    local connection = RunService.Heartbeat:Connect(function()
+        local myChar = Players.LocalPlayer.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+        if not self.State.TrackedNPCs[model] then
+            if self.State.Connections[connectionId] then
+                self.State.Connections[connectionId]:Disconnect()
+                self.State.Connections[connectionId] = nil
+            end
+            return
+        end
+
+        -- NPC was removed from workspace
+        if not tRoot.Parent then
+            self:_watchForRespawn(model, connectionId)
+            return
+        end
+
+        if not myRoot then return end
+
+        tRoot.Velocity = Vector3.new(0, 30.01, 0)
+        tRoot.CFrame = myRoot.CFrame * CFrame.new(0, self.Config.VERTICAL_OFFSET, -self.Config.DISTANCE)
+    end)
+
+    self.State.Connections[connectionId] = connection
+end
+
+-- Watches for the NPC model to repopulate its HumanoidRootPart after death/respawn
+function Modules.NPCShield:_watchForRespawn(model, connectionId)
+    -- Disconnect the old bring loop first
+    if self.State.Connections[connectionId] then
+        self.State.Connections[connectionId]:Disconnect()
+        self.State.Connections[connectionId] = nil
+    end
+
+    local watchId = "Watch_" .. connectionId
+    local elapsed = 0
+
+    self.State.Connections[watchId] = RunService.Heartbeat:Connect(function(dt)
+        elapsed = elapsed + dt
+
+        if not self.State.TrackedNPCs[model] then
+            self.State.Connections[watchId]:Disconnect()
+            self.State.Connections[watchId] = nil
+            return
+        end
+
+        -- Give up after 30s
+        if elapsed > 30 then
+            self.State.Connections[watchId]:Disconnect()
+            self.State.Connections[watchId] = nil
+            return
+        end
+
+        local hrp = model:FindFirstChild("HumanoidRootPart")
+        local humanoid = model:FindFirstChildOfClass("Humanoid")
+
+        if hrp and humanoid and humanoid.Health > 0 then
+            self.State.Connections[watchId]:Disconnect()
+            self.State.Connections[watchId] = nil
+            task.wait(0.1)
+            if self.State.TrackedNPCs[model] and self.State.IsEnabled then
+                self:_setupNPCBring(model)
+                DoNotif(model.Name .. " respawned - re-bringing", 1.5)
+            end
+        end
+    end)
+end
+
+function Modules.NPCShield:_trackNPC(model)
+    if self.State.TrackedNPCs[model] then return end
+    self.State.TrackedNPCs[model] = true
+    self:_setupNPCBring(model)
+end
+
+function Modules.NPCShield:_untrackNPC(model)
+    self.State.TrackedNPCs[model] = nil
+    local connectionId = "Bring_NPC_" .. model:GetDebugId()
+    if self.State.Connections[connectionId] then
+        self.State.Connections[connectionId]:Disconnect()
+        self.State.Connections[connectionId] = nil
+    end
+    local watchId = "Watch_" .. connectionId
+    if self.State.Connections[watchId] then
+        self.State.Connections[watchId]:Disconnect()
+        self.State.Connections[watchId] = nil
+    end
+end
+
+function Modules.NPCShield:_gatherNPCs()
+    local found = {}
+    for _, descendant in ipairs(Workspace:GetDescendants()) do
+        if descendant:IsA("Model") and self:_isValidNPC(descendant) then
+            local humanoid = descendant:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                table.insert(found, descendant)
+            end
+        end
+    end
+    return found
+end
+
+function Modules.NPCShield:PossessAll()
+    if self.State.IsEnabled then self:Stop() end
+
+    local myChar = Players.LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
+        return DoNotif("Your character not found.", 2)
+    end
+
+    local npcs = self:_gatherNPCs()
+
+    if #npcs == 0 then
+        return DoNotif("No valid NPCs found in workspace.", 2)
+    end
+
+    self.State.IsEnabled = true
+
+    for _, model in ipairs(npcs) do
+        self:_trackNPC(model)
+    end
+
+    -- Watch for new NPCs that spawn in mid-session
+    self.State.Connections.DescendantAdded = Workspace.DescendantAdded:Connect(function(descendant)
+        if not self.State.IsEnabled then return end
+        task.defer(function()
+            if descendant:IsA("Model") and self:_isValidNPC(descendant) and not self.State.TrackedNPCs[descendant] then
+                self:_trackNPC(descendant)
+                DoNotif("New NPC detected - bringing " .. descendant.Name, 1.5)
+            end
+        end)
+    end)
+
+    DoNotif("NPC Shield Active: " .. #npcs .. " NPC(s)", 2)
+end
+
+function Modules.NPCShield:Possess(targetName)
+    local found = nil
+    local lower = targetName:lower()
+
+    for _, descendant in ipairs(Workspace:GetDescendants()) do
+        if descendant:IsA("Model") and self:_isValidNPC(descendant) then
+            if descendant.Name:lower():find(lower) then
+                found = descendant
+                break
+            end
+        end
+    end
+
+    if not found then
+        return DoNotif("NPC '" .. targetName .. "' not found.", 2)
+    end
+
+    if self.State.IsEnabled then self:Stop() end
+
+    self.State.IsEnabled = true
+    self:_trackNPC(found)
+    DoNotif("NPC Shield Active: " .. found.Name .. " (persistent)", 2)
+end
+
+function Modules.NPCShield:Initialize()
+    local module = self
+
+    RegisterCommand({
+        Name = "npcbring",
+        Aliases = {"nb", "npcshield"},
+        Description = "Brings NPC(s) in front of you persistently. Use 'all' or an NPC name."
+    }, function(args)
+        if module.State.IsEnabled then
+            module:Stop()
+            DoNotif("NPC Shield Released.", 2)
+        else
+            if #args > 0 then
+                if args[1]:lower() == "all" then
+                    module:PossessAll()
+                else
+                    module:Possess(args[1])
+                end
+            else
+                DoNotif("Usage: ;npcbring [npcname/all]", 3)
+            end
+        end
+    end)
+
+    RegisterCommand({
+        Name = "npcrelease",
+        Aliases = {"nr"},
+        Description = "Releases a specific NPC from the shield."
+    }, function(args)
+        if not module.State.IsEnabled then
+            return DoNotif("NPC Shield is not active.", 2)
+        end
+        if not args[1] then
+            return DoNotif("Usage: ;npcrelease [npcname]", 3)
+        end
+
+        local lower = args[1]:lower()
+        local target = nil
+
+        for model in pairs(module.State.TrackedNPCs) do
+            if model and model.Parent and model.Name:lower():find(lower) then
+                target = model
+                break
+            end
+        end
+
+        if not target then
+            return DoNotif("NPC not found in shield list.", 2)
+        end
+
+        module:_untrackNPC(target)
+        DoNotif("Released: " .. target.Name, 2)
+    end)
+
+    RegisterCommand({
+        Name = "npclist",
+        Aliases = {"nl"},
+        Description = "Lists all NPCs currently being brought."
+    }, function()
+        if not module.State.IsEnabled then
+            return DoNotif("NPC Shield is not active.", 2)
+        end
+
+        local count = 0
+        print("=== Brought NPCs ===")
+        for model in pairs(module.State.TrackedNPCs) do
+            if model and model.Parent then
+                print("  • " .. model.Name)
+                count = count + 1
+            end
+        end
+        print("====================")
+        DoNotif("Bringing " .. count .. " NPC(s). Check console (F9)", 2)
+    end)
+end
+Modules.NPCDmgNeutralizer = {
+    State = {
+        IsEnabled = false,
+        Neutralized = {},
+        Connections = {},
+    },
+    Config = {
+        DESTROY_DAMAGE_PARTS = false,
+        RESCAN_INTERVAL      = 1.5,
+        STRIP_BODY_TOUCHED   = true,
+        DAMAGE_PART_NAMES = {
+            "damage","hitbox","hit","hurtbox","attack",
+            "punch","slash","sword","blade","weapon",
+            "hurt","melee","fist","claw","bite",
+        },
+        BODY_PART_NAMES = {
+            "HumanoidRootPart","Torso","UpperTorso","LowerTorso",
+            "LeftArm","RightArm","LeftUpperArm","RightUpperArm",
+            "LeftLowerArm","RightLowerArm","LeftHand","RightHand","Head",
+        },
+    },
+}
+function Modules.NPCDmgNeutralizer:_isValidNPC(model)
+    if not model or not model.Parent then return false end
+    if model == LocalPlayer.Character then return false end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character == model then return false end
+    end
+    return model:FindFirstChild("HumanoidRootPart") ~= nil
+end
+function Modules.NPCDmgNeutralizer:_isDamagePart(part)
+    if not part:IsA("BasePart") then return false end
+    local n = part.Name:lower()
+    for _, kw in ipairs(self.Config.DAMAGE_PART_NAMES) do
+        if n:find(kw, 1, true) then return true end
+    end
+    return false
+end
+function Modules.NPCDmgNeutralizer:_isBodyPart(part)
+    if not part:IsA("BasePart") then return false end
+    if #self.Config.BODY_PART_NAMES == 0 then return true end
+    for _, name in ipairs(self.Config.BODY_PART_NAMES) do
+        if part.Name == name then return true end
+    end
+    return false
+end
+function Modules.NPCDmgNeutralizer:_stripTouched(part)
+    local count = 0
+    if getconnections then
+        for _, signal in ipairs({part.Touched, part.TouchEnded}) do
+            local ok, conns = pcall(getconnections, signal)
+            if ok and conns then
+                for _, conn in ipairs(conns) do
+                    pcall(function() conn:Disable() count = count + 1 end)
+                end
+            end
+        end
+    end
+    pcall(function() part.CanTouch = false end)
+    return count
+end
+function Modules.NPCDmgNeutralizer:_neutralize(model)
+    if not self:_isValidNPC(model) then return end
+    for _, desc in ipairs(model:GetDescendants()) do
+        if self:_isDamagePart(desc) then
+            if self.Config.DESTROY_DAMAGE_PARTS then
+                pcall(function() desc:Destroy() end)
+            else
+                self:_stripTouched(desc)
+            end
+        elseif self.Config.STRIP_BODY_TOUCHED and self:_isBodyPart(desc) then
+            self:_stripTouched(desc)
+        end
+    end
+    model.DescendantAdded:Connect(function(desc)
+        if not self.State.IsEnabled then return end
+        task.defer(function()
+            if self:_isDamagePart(desc) then
+                if self.Config.DESTROY_DAMAGE_PARTS then
+                    pcall(function() desc:Destroy() end)
+                else
+                    self:_stripTouched(desc)
+                end
+            elseif self.Config.STRIP_BODY_TOUCHED and self:_isBodyPart(desc) then
+                self:_stripTouched(desc)
+            end
+        end)
+    end)
+    self.State.Neutralized[model] = true
+end
+function Modules.NPCDmgNeutralizer:_scanAll()
+    for _, desc in ipairs(Workspace:GetDescendants()) do
+        if desc:IsA("Model") and not self.State.Neutralized[desc] and self:_isValidNPC(desc) then
+            self:_neutralize(desc)
+        end
+    end
+end
+function Modules.NPCDmgNeutralizer:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    self.State.Neutralized = {}
+    self:_scanAll()
+    self.State.Connections.Added = Workspace.DescendantAdded:Connect(function(desc)
+        if not self.State.IsEnabled then return end
+        task.defer(function()
+            if desc:IsA("Model") and not self.State.Neutralized[desc] and self:_isValidNPC(desc) then
+                self:_neutralize(desc)
+            end
+        end)
+    end)
+    self.State.Connections.Removing = Workspace.DescendantRemoving:Connect(function(desc)
+        if desc:IsA("Model") then self.State.Neutralized[desc] = nil end
+    end)
+    task.spawn(function()
+        while self.State.IsEnabled do
+            task.wait(self.Config.RESCAN_INTERVAL)
+            if self.State.IsEnabled then self:_scanAll() end
+        end
+    end)
+    DoNotif("NPC Dmg Neutralizer: Enabled", 2)
+end
+function Modules.NPCDmgNeutralizer:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    for _, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    self.State.Connections = {}
+    DoNotif("NPC Dmg Neutralizer: Disabled (existing strips remain)", 2)
+end
+function Modules.NPCDmgNeutralizer:Toggle()
+    if self.State.IsEnabled then self:Disable() else self:Enable() end
+end
+function Modules.NPCDmgNeutralizer:Initialize()
+    local module = self
+    RegisterCommand({
+        Name = "npcneutralize",
+        Aliases = {"nn", "nodmg", "npcgod"},
+        Description = "Strips Touched damage connections from all NPC hitbox/body parts.",
+    }, function()
+        module:Toggle()
+    end)
+    RegisterCommand({
+        Name = "npcdestroyparts",
+        Aliases = {"ndp"},
+        Description = "Toggles whether DamageParts are destroyed entirely vs just disconnected.",
+    }, function()
+        module.Config.DESTROY_DAMAGE_PARTS = not module.Config.DESTROY_DAMAGE_PARTS
+        DoNotif("Destroy DamageParts: " .. (module.Config.DESTROY_DAMAGE_PARTS and "ON" or "OFF"), 2)
+    end)
+end
+Modules.NPCDmgNeutralizer = {
+    State = {
+        IsEnabled = false,
+        Neutralized = {},
+        Connections = {},
+    },
+    Config = {
+        DESTROY_DAMAGE_PARTS = false,
+        RESCAN_INTERVAL      = 1.5,
+        STRIP_BODY_TOUCHED   = true,
+        DAMAGE_PART_NAMES = {
+            "damage","hitbox","hit","hurtbox","attack",
+            "punch","slash","sword","blade","weapon",
+            "hurt","melee","fist","claw","bite",
+        },
+        BODY_PART_NAMES = {
+            "HumanoidRootPart","Torso","UpperTorso","LowerTorso",
+            "LeftArm","RightArm","LeftUpperArm","RightUpperArm",
+            "LeftLowerArm","RightLowerArm","LeftHand","RightHand","Head",
+        },
+    },
+}
+function Modules.NPCDmgNeutralizer:_isValidNPC(model)
+    if not model or not model.Parent then return false end
+    if model == LocalPlayer.Character then return false end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character == model then return false end
+    end
+    return model:FindFirstChild("HumanoidRootPart") ~= nil
+end
+function Modules.NPCDmgNeutralizer:_isDamagePart(part)
+    if not part:IsA("BasePart") then return false end
+    local n = part.Name:lower()
+    for _, kw in ipairs(self.Config.DAMAGE_PART_NAMES) do
+        if n:find(kw, 1, true) then return true end
+    end
+    return false
+end
+function Modules.NPCDmgNeutralizer:_isBodyPart(part)
+    if not part:IsA("BasePart") then return false end
+    if #self.Config.BODY_PART_NAMES == 0 then return true end
+    for _, name in ipairs(self.Config.BODY_PART_NAMES) do
+        if part.Name == name then return true end
+    end
+    return false
+end
+function Modules.NPCDmgNeutralizer:_stripTouched(part)
+    local count = 0
+    if getconnections then
+        for _, signal in ipairs({part.Touched, part.TouchEnded}) do
+            local ok, conns = pcall(getconnections, signal)
+            if ok and conns then
+                for _, conn in ipairs(conns) do
+                    pcall(function() conn:Disable() count = count + 1 end)
+                end
+            end
+        end
+    end
+    pcall(function() part.CanTouch = false end)
+    return count
+end
+function Modules.NPCDmgNeutralizer:_neutralize(model)
+    if not self:_isValidNPC(model) then return end
+    for _, desc in ipairs(model:GetDescendants()) do
+        if self:_isDamagePart(desc) then
+            if self.Config.DESTROY_DAMAGE_PARTS then
+                pcall(function() desc:Destroy() end)
+            else
+                self:_stripTouched(desc)
+            end
+        elseif self.Config.STRIP_BODY_TOUCHED and self:_isBodyPart(desc) then
+            self:_stripTouched(desc)
+        end
+    end
+    model.DescendantAdded:Connect(function(desc)
+        if not self.State.IsEnabled then return end
+        task.defer(function()
+            if self:_isDamagePart(desc) then
+                if self.Config.DESTROY_DAMAGE_PARTS then
+                    pcall(function() desc:Destroy() end)
+                else
+                    self:_stripTouched(desc)
+                end
+            elseif self.Config.STRIP_BODY_TOUCHED and self:_isBodyPart(desc) then
+                self:_stripTouched(desc)
+            end
+        end)
+    end)
+    self.State.Neutralized[model] = true
+end
+function Modules.NPCDmgNeutralizer:_scanAll()
+    for _, desc in ipairs(Workspace:GetDescendants()) do
+        if desc:IsA("Model") and not self.State.Neutralized[desc] and self:_isValidNPC(desc) then
+            self:_neutralize(desc)
+        end
+    end
+end
+function Modules.NPCDmgNeutralizer:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    self.State.Neutralized = {}
+    self:_scanAll()
+    self.State.Connections.Added = Workspace.DescendantAdded:Connect(function(desc)
+        if not self.State.IsEnabled then return end
+        task.defer(function()
+            if desc:IsA("Model") and not self.State.Neutralized[desc] and self:_isValidNPC(desc) then
+                self:_neutralize(desc)
+            end
+        end)
+    end)
+    self.State.Connections.Removing = Workspace.DescendantRemoving:Connect(function(desc)
+        if desc:IsA("Model") then self.State.Neutralized[desc] = nil end
+    end)
+    task.spawn(function()
+        while self.State.IsEnabled do
+            task.wait(self.Config.RESCAN_INTERVAL)
+            if self.State.IsEnabled then self:_scanAll() end
+        end
+    end)
+    DoNotif("NPC Dmg Neutralizer: Enabled", 2)
+end
+function Modules.NPCDmgNeutralizer:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    for _, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    self.State.Connections = {}
+    DoNotif("NPC Dmg Neutralizer: Disabled (existing strips remain)", 2)
+end
+function Modules.NPCDmgNeutralizer:Toggle()
+    if self.State.IsEnabled then self:Disable() else self:Enable() end
+end
+function Modules.NPCDmgNeutralizer:Initialize()
+    local module = self
+    RegisterCommand({
+        Name = "npcneutralize",
+        Aliases = {"nn", "nodmg", "npcgod"},
+        Description = "Strips Touched damage connections from all NPC hitbox/body parts.",
+    }, function()
+        module:Toggle()
+    end)
+    RegisterCommand({
+        Name = "npcdestroyparts",
+        Aliases = {"ndp"},
+        Description = "Toggles whether DamageParts are destroyed entirely vs just disconnected.",
+    }, function()
+        module.Config.DESTROY_DAMAGE_PARTS = not module.Config.DESTROY_DAMAGE_PARTS
+        DoNotif("Destroy DamageParts: " .. (module.Config.DESTROY_DAMAGE_PARTS and "ON" or "OFF"), 2)
+    end)
+end
+Modules.HRPDesync = {
+    State = {
+        IsDetached   = false,
+        DriveMode    = "camera",
+        SavedMotors  = {},
+        BodyParts    = {},
+        BodyRoot     = nil,
+        Connections  = {},
+        HeldKeys     = {},
+    },
+    Config = {
+        MOVE_SPEED   = 28,
+        OFFSET_DIST  = 5,
+        OFFSET_HEIGHT = 0,
+        SMOOTH       = 0.18,
+    },
+}
+local NPC_PART_OFFSETS = {
+    Head          = CFrame.new(0,  1.5,  0),
+    LeftUpperArm  = CFrame.new( 1.5, 0.8, 0),
+    RightUpperArm = CFrame.new(-1.5, 0.8, 0),
+    LeftLowerArm  = CFrame.new( 1.5,-0.3, 0),
+    RightLowerArm = CFrame.new(-1.5,-0.3, 0),
+    LeftHand      = CFrame.new( 1.5,-1.0, 0),
+    RightHand     = CFrame.new(-1.5,-1.0, 0),
+    LeftUpperLeg  = CFrame.new( 0.5,-1.5, 0),
+    RightUpperLeg = CFrame.new(-0.5,-1.5, 0),
+    LeftLowerLeg  = CFrame.new( 0.5,-2.5, 0),
+    RightLowerLeg = CFrame.new(-0.5,-2.5, 0),
+    LeftFoot      = CFrame.new( 0.5,-3.2, 0),
+    RightFoot     = CFrame.new(-0.5,-3.2, 0),
+    ["Left Arm"]  = CFrame.new( 1.5, 0,   0),
+    ["Right Arm"] = CFrame.new(-1.5, 0,   0),
+    ["Left Leg"]  = CFrame.new( 0.5,-2.0, 0),
+    ["Right Leg"] = CFrame.new(-0.5,-2.0, 0),
+}
+function Modules.HRPDesync:_getRig()
+    local char = LocalPlayer.Character
+    if not char then return nil, nil end
+    if char:FindFirstChild("UpperTorso") then return "R15", char
+    elseif char:FindFirstChild("Torso")  then return "R6",  char end
+    return nil, char
+end
+function Modules.HRPDesync:_getMotors(char)
+    local motors = {}
+    for _, desc in ipairs(char:GetDescendants()) do
+        if desc:IsA("Motor6D") and desc.Name ~= "Root" and desc.Name ~= "RootJoint" then
+            table.insert(motors, desc)
+        end
+    end
+    return motors
+end
+function Modules.HRPDesync:_getBodyParts(char)
+    local skip = { HumanoidRootPart=true, Torso=true, UpperTorso=true, LowerTorso=true }
+    local parts = {}
+    for _, desc in ipairs(char:GetDescendants()) do
+        if desc:IsA("BasePart") and not skip[desc.Name] then
+            table.insert(parts, desc)
+        end
+    end
+    return parts
+end
+function Modules.HRPDesync:Detach()
+    local rigType, char = self:_getRig()
+    if not char or not rigType then return DoNotif("No character found.", 2) end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    self.State.BodyRoot = CFrame.new(hrp.Position + CurrentCamera.CFrame.LookVector * 2)
+    self.State.SavedMotors = {}
+    for _, motor in ipairs(self:_getMotors(char)) do
+        table.insert(self.State.SavedMotors, {
+            motor = motor,
+            c0 = motor.C0, c1 = motor.C1,
+            p0 = motor.Part0, p1 = motor.Part1,
+        })
+        pcall(function() motor.Part0 = nil end)
+    end
+    self.State.BodyParts = self:_getBodyParts(char)
+    pcall(function() hrp.Anchored = true end)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then hum.PlatformStand = true end
+    self.State.IsDetached = true
+    self.State.Connections.Render = RunService.RenderStepped:Connect(function(dt)
+        if not self.State.IsDetached then return end
+        self:_updateBodyRoot(dt)
+        self:_driveBodyParts()
+    end)
+    DoNotif("HRP Desync: DETACHED | Mode: " .. self.State.DriveMode, 2)
+end
+function Modules.HRPDesync:Reattach()
+    local _, char = self:_getRig()
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    for _, saved in ipairs(self.State.SavedMotors) do
+        pcall(function()
+            saved.motor.Part0 = saved.p0
+            saved.motor.C0    = saved.c0
+            saved.motor.C1    = saved.c1
+        end)
+    end
+    self.State.SavedMotors = {}
+    self.State.BodyParts   = {}
+    if hrp and self.State.BodyRoot then
+        hrp.Anchored = false
+        hrp.CFrame   = self.State.BodyRoot
+    end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then hum.PlatformStand = false end
+    if self.State.Connections.Render then
+        self.State.Connections.Render:Disconnect()
+        self.State.Connections.Render = nil
+    end
+    self.State.IsDetached = false
+    self.State.BodyRoot   = nil
+    DoNotif("HRP Desync: Reattached.", 2)
+end
+function Modules.HRPDesync:Toggle()
+    if self.State.IsDetached then self:Reattach() else self:Detach() end
+end
+function Modules.HRPDesync:_updateBodyRoot(dt)
+    local br = self.State.BodyRoot
+    if not br then return end
+    local lerp = math.clamp(self.Config.SMOOTH * 60 * dt, 0, 1)
+    if self.State.DriveMode == "camera" then
+        local dist = math.clamp((br.Position - CurrentCamera.CFrame.Position).Magnitude, 2, 60)
+        local yaw  = math.atan2(-CurrentCamera.CFrame.LookVector.X, -CurrentCamera.CFrame.LookVector.Z)
+        local goal = CFrame.new(CurrentCamera.CFrame.Position + CurrentCamera.CFrame.LookVector * dist)
+            * CFrame.Angles(0, yaw, 0)
+        self.State.BodyRoot = br:Lerp(goal, lerp)
+    elseif self.State.DriveMode == "wasd" then
+        local flat  = Vector3.new(CurrentCamera.CFrame.LookVector.X,  0, CurrentCamera.CFrame.LookVector.Z).Unit
+        local right = Vector3.new(CurrentCamera.CFrame.RightVector.X, 0, CurrentCamera.CFrame.RightVector.Z).Unit
+        local move  = Vector3.zero
+        local hk    = self.State.HeldKeys
+        if hk[Enum.KeyCode.W] then move = move + flat  end
+        if hk[Enum.KeyCode.S] then move = move - flat  end
+        if hk[Enum.KeyCode.A] then move = move - right end
+        if hk[Enum.KeyCode.D] then move = move + right end
+        if hk[Enum.KeyCode.E] then move = move + Vector3.new(0,1,0) end
+        if hk[Enum.KeyCode.Q] then move = move - Vector3.new(0,1,0) end
+        if move.Magnitude > 0 then move = move.Unit * self.Config.MOVE_SPEED * dt end
+        local newPos = br.Position + move
+        local yaw = move.Magnitude > 0.001
+            and math.atan2(-move.X, -move.Z + 0.0001)
+            or  math.atan2(-br.LookVector.X, -br.LookVector.Z)
+        self.State.BodyRoot = CFrame.new(newPos) * CFrame.Angles(0, yaw, 0)
+    elseif self.State.DriveMode == "offset" then
+        local goal = CurrentCamera.CFrame * CFrame.new(0, self.Config.OFFSET_HEIGHT, -self.Config.OFFSET_DIST)
+        local yaw  = math.atan2(-CurrentCamera.CFrame.LookVector.X, -CurrentCamera.CFrame.LookVector.Z)
+        self.State.BodyRoot = br:Lerp(CFrame.new(goal.Position) * CFrame.Angles(0, yaw, 0), lerp)
+    end
+end
+function Modules.HRPDesync:_driveBodyParts()
+    if not self.State.BodyRoot then return end
+    for _, part in ipairs(self.State.BodyParts) do
+        if part and part.Parent then
+            local offset = NPC_PART_OFFSETS[part.Name] or CFrame.new()
+            pcall(function()
+                part.CFrame = part.CFrame:Lerp(self.State.BodyRoot * offset, 0.35)
+            end)
+        end
+    end
+end
+function Modules.HRPDesync:Initialize()
+    local module = self
+    self.State.Connections.KeyDown = UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        module.State.HeldKeys[input.KeyCode] = true
+    end)
+    self.State.Connections.KeyUp = UserInputService.InputEnded:Connect(function(input)
+        module.State.HeldKeys[input.KeyCode] = false
+    end)
+    LocalPlayer.CharacterAdded:Connect(function()
+        module.State.IsDetached = false
+        module.State.BodyRoot   = nil
+        module.State.BodyParts  = {}
+        module.State.SavedMotors = {}
+    end)
+    RegisterCommand({
+        Name = "hrp",
+        Aliases = {},
+        Description = "Toggles Motor6D body detach. HRP stays in place, body moves freely.",
+    }, function()
+        module:Toggle()
+    end)
+end
 Modules.VelocitySpoofer = {
     State = {
         IsEnabled = false,
@@ -36915,6 +37679,207 @@ RegisterCommand({
         DoNotif("Usage: ;wp add,remove,tp,list", 4)
     end
 end)
+Modules.NPCEsp = {
+    State = {
+        IsEnabled = false,
+        TrackedNPCs = {},
+        Connections = {},
+    },
+    Config = {
+        MAX_DISTANCE    = 500,
+        RESCAN_INTERVAL = 1.5,
+        BOX_TRANSPARENCY = 0.45,
+        COLOR_NEAR      = Color3.fromRGB(255, 80,  80),
+        COLOR_MID       = Color3.fromRGB(255, 200, 50),
+        COLOR_FAR       = Color3.fromRGB(80,  180, 255),
+        COLOR_NEAR_DIST = 50,
+        COLOR_FAR_DIST  = 300,
+    },
+}
+function Modules.NPCEsp:_isValidNPC(model)
+    if not model or not model.Parent then return false end
+    if model == LocalPlayer.Character then return false end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character == model then return false end
+    end
+    return model:FindFirstChild("HumanoidRootPart") ~= nil
+end
+function Modules.NPCEsp:_getDistanceColor(dist)
+    local t = math.clamp(
+        (dist - self.Config.COLOR_NEAR_DIST) / (self.Config.COLOR_FAR_DIST - self.Config.COLOR_NEAR_DIST),
+        0, 1
+    )
+    if t <= 0.5 then
+        return self.Config.COLOR_NEAR:Lerp(self.Config.COLOR_MID, t * 2)
+    else
+        return self.Config.COLOR_MID:Lerp(self.Config.COLOR_FAR, (t - 0.5) * 2)
+    end
+end
+function Modules.NPCEsp:_createESP(model)
+    local hrp = model:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local box = Instance.new("BoxHandleAdornment")
+    box.Name = "NPC_ESP_Box"
+    box.Adornee = hrp
+    box.AlwaysOnTop = true
+    box.ZIndex = 5
+    box.Size = hrp.Size + Vector3.new(0.4, 0.4, 0.4)
+    box.Color3 = self.Config.COLOR_NEAR
+    box.Transparency = self.Config.BOX_TRANSPARENCY
+    box.Parent = hrp
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "NPC_ESP_Label"
+    billboard.Adornee = hrp
+    billboard.AlwaysOnTop = true
+    billboard.Size = UDim2.new(0, 120, 0, 54)
+    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+    billboard.ResetOnSpawn = false
+    billboard.Parent = hrp
+    local nameLabel = Instance.new("TextLabel", billboard)
+    nameLabel.Size = UDim2.new(1, 0, 0, 18)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Font = Enum.Font.Code
+    nameLabel.TextSize = 14
+    nameLabel.TextStrokeTransparency = 0.4
+    nameLabel.Text = model.Name
+    local distLabel = Instance.new("TextLabel", billboard)
+    distLabel.Size = UDim2.new(1, 0, 0, 16)
+    distLabel.Position = UDim2.new(0, 0, 0, 19)
+    distLabel.BackgroundTransparency = 1
+    distLabel.Font = Enum.Font.Code
+    distLabel.TextSize = 13
+    distLabel.TextColor3 = Color3.fromRGB(180, 220, 180)
+    distLabel.TextStrokeTransparency = 0.4
+    distLabel.Text = "? studs"
+    local hpLabel = Instance.new("TextLabel", billboard)
+    hpLabel.Size = UDim2.new(1, 0, 0, 16)
+    hpLabel.Position = UDim2.new(0, 0, 0, 36)
+    hpLabel.BackgroundTransparency = 1
+    hpLabel.Font = Enum.Font.Code
+    hpLabel.TextSize = 13
+    hpLabel.TextStrokeTransparency = 0.4
+    hpLabel.Text = ""
+    local conns = {}
+    table.insert(conns, model.AncestryChanged:Connect(function()
+        if not model.Parent then
+            pcall(function() box:Destroy() end)
+            pcall(function() billboard:Destroy() end)
+            for _, c in ipairs(conns) do c:Disconnect() end
+            self.State.TrackedNPCs[model] = nil
+        end
+    end))
+    self.State.TrackedNPCs[model] = {
+        box = box, billboard = billboard,
+        nameLabel = nameLabel, distLabel = distLabel, hpLabel = hpLabel,
+        connections = conns,
+    }
+end
+function Modules.NPCEsp:_removeESP(model)
+    local data = self.State.TrackedNPCs[model]
+    if not data then return end
+    pcall(function() data.box:Destroy() end)
+    pcall(function() data.billboard:Destroy() end)
+    for _, c in ipairs(data.connections or {}) do pcall(function() c:Disconnect() end) end
+    self.State.TrackedNPCs[model] = nil
+end
+function Modules.NPCEsp:_clearAll()
+    for model in pairs(self.State.TrackedNPCs) do
+        self:_removeESP(model)
+    end
+end
+function Modules.NPCEsp:_scan()
+    local seen = {}
+    for _, desc in ipairs(Workspace:GetDescendants()) do
+        if desc:IsA("Model") and self:_isValidNPC(desc) then
+            seen[desc] = true
+            if not self.State.TrackedNPCs[desc] then
+                self:_createESP(desc)
+            end
+        end
+    end
+    for model in pairs(self.State.TrackedNPCs) do
+        if not seen[model] then self:_removeESP(model) end
+    end
+end
+function Modules.NPCEsp:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    self:_scan()
+    self.State.Connections.Render = RunService.RenderStepped:Connect(function()
+        local camPos = CurrentCamera.CFrame.Position
+        for model, data in pairs(self.State.TrackedNPCs) do
+            if not model.Parent or not data.box.Parent then
+                self:_removeESP(model) continue
+            end
+            local hrp = model:FindFirstChild("HumanoidRootPart")
+            if not hrp then self:_removeESP(model) continue end
+            local dist = (camPos - hrp.Position).Magnitude
+            local inRange = self.Config.MAX_DISTANCE == 0 or dist <= self.Config.MAX_DISTANCE
+            data.box.Visible = inRange
+            data.billboard.Enabled = inRange
+            if not inRange then continue end
+            data.distLabel.Text = string.format("%.0f studs", dist)
+            local col = self:_getDistanceColor(dist)
+            data.box.Color3 = col
+            data.nameLabel.TextColor3 = col
+            local hum = model:FindFirstChildOfClass("Humanoid")
+            if hum then
+                local ratio = hum.MaxHealth > 0 and (hum.Health / hum.MaxHealth) or 0
+                data.hpLabel.Text = string.format("HP: %d/%d", math.floor(hum.Health), math.floor(hum.MaxHealth))
+                data.hpLabel.TextColor3 = ratio > 0.4
+                    and Color3.fromRGB(100, 230, 120)
+                    or  Color3.fromRGB(230, 80, 80)
+            else
+                data.hpLabel.Text = ""
+            end
+        end
+    end)
+    self.State.Connections.Scan = RunService.Heartbeat:Connect(function()
+    end)
+    task.spawn(function()
+        while self.State.IsEnabled do
+            task.wait(self.Config.RESCAN_INTERVAL)
+            if self.State.IsEnabled then self:_scan() end
+        end
+    end)
+    self.State.Connections.Added = Workspace.DescendantAdded:Connect(function(desc)
+        if not self.State.IsEnabled then return end
+        task.defer(function()
+            if desc:IsA("Model") and self:_isValidNPC(desc) and not self.State.TrackedNPCs[desc] then
+                self:_createESP(desc)
+            end
+        end)
+    end)
+    self.State.Connections.Removing = Workspace.DescendantRemoving:Connect(function(desc)
+        if desc:IsA("Model") and self.State.TrackedNPCs[desc] then
+            self:_removeESP(desc)
+        end
+    end)
+    DoNotif("NPC ESP: Enabled", 2)
+end
+function Modules.NPCEsp:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    for _, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    self.State.Connections = {}
+    self:_clearAll()
+    DoNotif("NPC ESP: Disabled", 2)
+end
+function Modules.NPCEsp:Toggle()
+    if self.State.IsEnabled then self:Disable() else self:Enable() end
+end
+function Modules.NPCEsp:Initialize()
+    local module = self
+    RegisterCommand({
+        Name = "npcesp",
+        Aliases = {"ne", "npcvis"},
+        Description = "Toggles ESP highlighting and labels on all humanoid NPCs.",
+    }, function()
+        module:Toggle()
+    end)
+end
 Modules.FpsMeter = {
     State = {
         IsEnabled = false,
@@ -40383,7 +41348,7 @@ RegisterCommand({Name = "zcooldowns", Aliases = {"ncd"}, Description = "For http
 RegisterCommand({Name = "zshovel", Aliases = {}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/ShovelAnimation.lua", "Loading Shovel.") end)
 RegisterCommand({Name = "patchgun", Aliases = {}, Description = "Avoid being kicked for being idle."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/PatchedGuns.lua", "Guns Patched.") end)
 RegisterCommand({Name = "zmelee", Aliases = {}, Description = "For https://www.roblox.com/games/6850833423/Zombie-Infection-Game."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/MeleeDamagex2.lua", "Loading..") end)
-RegisterCommand({Name = "npcesp", Aliases = {"shownpc"}, Description = "Npc wallhack."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/NPCesp.lua", "Loading GUI..") end)
+RegisterCommand({Name = "poisongun", Aliases = {"pgun"}, Description = "Weapon Patcher"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/universalweaponpatcher.lua", "Loading GUI..") end)
 RegisterCommand({Name = "rem", Aliases = {}, Description = "In game exploit creation kit.."}, function() loadstringCmd("https://e-vil.com/anbu/rem.lua", "Loading Rem.") end)
 RegisterCommand({Name = "Copyconsole", Aliases = {"copy"}, Description = "Allows you to copy errors from the console.."}, function() loadstringCmd("https://raw.githubusercontent.com/scriptlisenbe-stack/luaprojectse3/refs/heads/main/consolecopy.lua", "Copy Console Activated.") end)
 RegisterCommand({Name = "besp", Aliases = {}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/BasicEsp.lua", "Loading Box esp") end)
