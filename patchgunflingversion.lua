@@ -162,9 +162,9 @@ if LocalPlayer.Character then
     end
 end
 if count > 0 then
-    print(string.format("Found %d weapons, patching...", count))
+    print(string.format("Found %d, patching...", count))
 else
-    print("No weapons found. Waiting...")
+    print("Waiting...")
 end
 print("")
 LocalPlayer.Backpack.ChildAdded:Connect(function(item)
@@ -191,11 +191,9 @@ end
 LocalPlayer.CharacterAdded:Connect(function(character)
     task.wait(1)
     setupCharacterMonitor(character)
-    print("Respawned - Auto-patcher active")
 end)
 _G.PatchAllWeapons = function()
     print("")
-    print("=== MANUAL PATCH ALL ===")
     local patched = 0
     for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
         if item:IsA("Tool") then
@@ -217,12 +215,12 @@ _G.PatchAllWeapons = function()
             end
         end
     end
-    print(string.format("Patched %d weapons", patched))
+    print(string.format("FLinger for %d Active", patched))
 end
 _G.PatcherStatus = function()
     print("")
-    print("=== PATCHER STATUS ===")
-    print(string.format("Total modules patched: %d", totalPatched))
+    print("=== Fling STATUS ===")
+    print(string.format("Fling Applied: %d", totalPatched))
     print("")
     local weaponCount = {}
     for module, data in pairs(patchedModules) do
