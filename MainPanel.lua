@@ -5256,7 +5256,7 @@ function Modules.NetCommander:Initialize()
         module:Execute(args, true)
     end)
     RegisterCommand({
-        Name = "pin",
+        Name = "pinremote",
         Aliases = {"mark"},
         Description = "Pins a remote path."
     }, function(args)
@@ -5265,7 +5265,7 @@ function Modules.NetCommander:Initialize()
         DoNotif("Pinned: " .. module.State.PinnedPath, 2)
     end)
     RegisterCommand({
-        Name = "runpin",
+        Name = "runremote",
         Aliases = {"r"},
         Description = "Runs the pinned remote."
     }, function(args)
@@ -11916,44 +11916,201 @@ RegisterCommand({
     end
 end)
 Modules.GrabTools = {
-State = {
-IsEnabled = false,
-Connection = nil
+    State = {
+        IsEnabled   = false,
+        Connection  = nil,
+        Grabbed     = {},
+        TotalGrabbed = 0,
+    },
+    Config = {
+        ScanInterval  = 0.25,
+        VerboseNotify = true,
+        DeepSearch    = true,
+        GrabFromChars = false,
+    }
 }
-}
-function Modules.GrabTools:_onHeartbeat()
-    local localPlayerBackpack = LocalPlayer and LocalPlayer:FindFirstChild("Backpack")
-    if not localPlayerBackpack then return end
+function Modules.GrabTools:_getBackpack()
+    if not LocalPlayer then return nil end
+    return LocalPlayer:FindFirstChildOfClass("Backpack")
+end
+function Modules.GrabTools:_getCharacterTools()
+    local held = {}
+    if LocalPlayer and LocalPlayer.Character then
+        for _, v in ipairs(LocalPlayer.Character:GetChildren()) do
+            if v:IsA("Tool") then
+                held[v] = true
+            end
+        end
+    end
+    return held
+end
+function Modules.GrabTools:_collectTargets()
+    local targets = {}
+    if self.Config.DeepSearch then
+        for _, inst in ipairs(Workspace:GetDescendants()) do
+            if inst:IsA("Tool") then
+                table.insert(targets, inst)
+            end
+        end
+    else
         for _, child in ipairs(Workspace:GetChildren()) do
-            if child:IsA("Tool") and child:FindFirstChild("Handle") and not child.Handle.Anchored then
-                child.Parent = localPlayerBackpack
-                DoNotif("Grabbed Tool: " .. child.Name, 1.5)
+            if child:IsA("Tool") then
+                table.insert(targets, child)
             end
         end
     end
-    function Modules.GrabTools:Toggle()
-        local self = Modules.GrabTools
-        self.State.IsEnabled = not self.State.IsEnabled
-        if self.State.IsEnabled then
-            if self.State.Connection then self.State.Connection:Disconnect() end
-                self.State.Connection = RunService.Heartbeat:Connect(function() self:_onHeartbeat() end)
-                DoNotif("Tool Grabber Enabled", 2)
-            else
-            if self.State.Connection then
-                self.State.Connection:Disconnect()
-                self.State.Connection = nil
+    if self.Config.GrabFromChars then
+        for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+            if plr ~= LocalPlayer then
+                local bp = plr:FindFirstChildOfClass("Backpack")
+                if bp then
+                    for _, tool in ipairs(bp:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            table.insert(targets, tool)
+                        end
+                    end
+                end
             end
-            DoNotif("Tool Grabber Disabled", 2)
         end
     end
-    function Modules.GrabTools:Initialize()
-        local module = self
-        RegisterCommand({
-        Name = "grabtools",
-        Aliases = {"gt", "toolgrab"},
-        Description = "Toggles an auto-grabber for all dropped tools in the workspace."
-        }, function(args)
-        module:Toggle()
+    return targets
+end
+function Modules.GrabTools:_tryGrab(tool, backpack)
+    if self.State.Grabbed[tool] then return false end
+    local parent = tool.Parent
+    if parent == backpack then return false end
+    if LocalPlayer.Character and parent == LocalPlayer.Character then return false end
+    local handle = tool:FindFirstChild("Handle")
+    if handle and handle.Anchored then return false end
+    local ok, err = pcall(function()
+        tool.Parent = backpack
+    end)
+    if ok then
+        self.State.Grabbed[tool] = true
+        self.State.TotalGrabbed  = self.State.TotalGrabbed + 1
+        if self.Config.VerboseNotify then
+            DoNotif("🎒 Grabbed: " .. tool.Name, 1.2)
+        end
+        return true
+    else
+        return false
+    end
+end
+function Modules.GrabTools:_scan()
+    local backpack = self:_getBackpack()
+    if not backpack then return end
+    local targets   = self:_collectTargets()
+    local grabCount = 0
+    for _, tool in ipairs(targets) do
+        if self:_tryGrab(tool, backpack) then
+            grabCount = grabCount + 1
+        end
+    end
+    if not self.Config.VerboseNotify and grabCount > 0 then
+        DoNotif("🎒 Grabbed " .. grabCount .. " tool" .. (grabCount > 1 and "s" or ""), 1.5)
+    end
+end
+function Modules.GrabTools:Enable()
+    if self.State.IsEnabled then
+        DoNotif("GrabTools already active", 1.5)
+        return
+    end
+    local backpack = self:_getBackpack()
+    if not backpack then
+        DoNotif("No backpack found — are you in a game?", 2)
+        return
+    end
+    self.State.IsEnabled    = true
+    self.State.Grabbed      = {}
+    self.State.TotalGrabbed = 0
+    local timer = 0
+    self.State.Connection = RunService.Heartbeat:Connect(function(dt)
+        if not self.State.IsEnabled then return end
+        timer = timer + dt
+        if timer >= self.Config.ScanInterval then
+            timer = 0
+            self:_scan()
+        end
+    end)
+    DoNotif("GrabTools ON — scanning every " .. self.Config.ScanInterval .. "s", 2)
+end
+function Modules.GrabTools:Disable()
+    if not self.State.IsEnabled then
+        DoNotif("GrabTools already off", 1.5)
+        return
+    end
+    self.State.IsEnabled = false
+    if self.State.Connection then
+        self.State.Connection:Disconnect()
+        self.State.Connection = nil
+    end
+    DoNotif("GrabTools OFF — grabbed " .. self.State.TotalGrabbed .. " tool(s) total", 2.5)
+    self.State.Grabbed      = {}
+    self.State.TotalGrabbed = 0
+end
+function Modules.GrabTools:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+function Modules.GrabTools:GrabOnce()
+    local backpack = self:_getBackpack()
+    if not backpack then
+        DoNotif("No backpack found", 2)
+        return
+    end
+    local oldGrabbed = self.State.Grabbed
+    self.State.Grabbed = {}
+    local targets   = self:_collectTargets()
+    local grabbed   = 0
+    for _, tool in ipairs(targets) do
+        if self:_tryGrab(tool, backpack) then
+            grabbed = grabbed + 1
+        end
+    end
+    self.State.Grabbed = oldGrabbed
+    DoNotif("One-shot grab: got " .. grabbed .. " tool(s)", 2)
+end
+function Modules.GrabTools:Initialize()
+    RegisterCommand({
+        Name        = "grabtools",
+        Aliases     = {"gt", "toolgrab"},
+        Description = "Toggle auto tool grabber — picks up ALL tools from anywhere in workspace"
+    }, function()
+        Modules.GrabTools:Toggle()
+    end)
+    RegisterCommand({
+        Name        = "grab1",
+        Aliases     = {"grabonce", "graball"},
+        Description = "One-shot: instantly grab every tool in workspace right now"
+    }, function()
+        Modules.GrabTools:GrabOnce()
+    end)
+    RegisterCommand({
+        Name        = "grabdeep",
+        Aliases     = {"gtdeep"},
+        Description = "Toggle deep search (scans all descendants, not just workspace surface)"
+    }, function()
+        Modules.GrabTools.Config.DeepSearch = not Modules.GrabTools.Config.DeepSearch
+        DoNotif("GrabTools deep search: " .. (Modules.GrabTools.Config.DeepSearch and "ON" or "OFF"), 2)
+    end)
+    RegisterCommand({
+        Name        = "grabchars",
+        Aliases     = {"gtchars"},
+        Description = "Toggle grabbing tools from other players backpacks too"
+    }, function()
+        Modules.GrabTools.Config.GrabFromChars = not Modules.GrabTools.Config.GrabFromChars
+        DoNotif("GrabTools grab from chars: " .. (Modules.GrabTools.Config.GrabFromChars and "ON" or "OFF"), 2)
+    end)
+    RegisterCommand({
+        Name        = "grabverbose",
+        Aliases     = {"gtv"},
+        Description = "Toggle per-tool grab notifications"
+    }, function()
+        Modules.GrabTools.Config.VerboseNotify = not Modules.GrabTools.Config.VerboseNotify
+        DoNotif("GrabTools verbose: " .. (Modules.GrabTools.Config.VerboseNotify and "ON" or "OFF"), 2)
     end)
 end
 Modules.AdminSpoofDemonstration = {
@@ -30304,292 +30461,7 @@ RegisterCommand({
     Modules.NetworkFling.Config.OrbitMode = not Modules.NetworkFling.Config.OrbitMode
     DoNotif("Orbit mode: " .. (Modules.NetworkFling.Config.OrbitMode and "ON" or "OFF"), 2)
 end)
-Modules.HDAdminAccess = {
-    State = {
-        HasAccess = false,
-        HDAdminInstance = nil,
-        HDMain = nil,
-        OriginalFunctions = {}
-    }
-}
 
-local function _getHDMain()
-    local ok, fw = pcall(function()
-        return require(game:GetService("ReplicatedStorage").HDAdminHDClient.SharedModules.MainFramework)
-    end)
-    if ok and fw then
-        local ok2, main = pcall(function() return fw:CheckInitialized() end)
-        if ok2 and main then
-            return main
-        end
-    end
-    return nil
-end
-
-function Modules.HDAdminAccess:_findHDAdmin()
-    local hdRoot = game:GetService("ReplicatedStorage"):FindFirstChild("HDAdminHDClient")
-    if hdRoot then return hdRoot end
-    for _, location in ipairs({
-        game:GetService("ReplicatedStorage"),
-        game:GetService("ReplicatedFirst"),
-        LocalPlayer:FindFirstChild("PlayerScripts"),
-        LocalPlayer:FindFirstChild("PlayerGui")
-    }) do
-        if location then
-            for _, child in ipairs(location:GetDescendants()) do
-                if child.Name:lower():find("hdadmin") then
-                    return child
-                end
-            end
-        end
-    end
-    return nil
-end
-
-function Modules.HDAdminAccess:_hookPermissions()
-    local hdRoot = game:GetService("ReplicatedStorage"):FindFirstChild("HDAdminHDClient")
-    if not hdRoot then
-        DoNotif("HD Admin not found in game", 3)
-        return false
-    end
-    self.State.HDAdminInstance = hdRoot
-
-    -- Get the main framework table
-    local hd = _getHDMain()
-    if not hd then
-        DoNotif("Could not get HD Admin main table", 3)
-        return false
-    end
-    self.State.HDMain = hd
-
-    -- Directly set rank in pdata
-    pcall(function()
-        if setreadonly then pcall(function() setreadonly(hd.pdata, false) end) end
-        hd.pdata.Rank = 5
-        hd.pdata.SaveRank = false -- prevent server from overwriting
-    end)
-
-    -- Unlock and fill commandsAllowedToUse
-    pcall(function()
-        if setreadonly then pcall(function() setreadonly(hd.commandsAllowedToUse, false) end) end
-        for cmdName, _ in pairs(hd.commandRanks) do
-            hd.commandsAllowedToUse[cmdName] = true
-        end
-    end)
-
-    -- Hook ClientAPI/ClientNetwork modules for any rank checks
-    local modules = hdRoot:FindFirstChild("Modules")
-    if modules then
-        for _, modName in ipairs({"ClientAPI", "ClientNetwork"}) do
-            local mod = modules:FindFirstChild(modName)
-            if mod then
-                local ok, t = pcall(require, mod)
-                if ok and type(t) == "table" then
-                    pcall(function() if setreadonly then setreadonly(t, false) end end)
-                    for _, key in ipairs({"getRank","getPermissions","checkPermission","checkAdmin","isAdmin","getUserRank","hasPermission"}) do
-                        if t[key] then
-                            if key:find("[Rr]ank") or key:find("[Pp]ermission") then
-                                t[key] = function(...) return 5 end
-                            else
-                                t[key] = function(...) return true end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    return true
-end
-
-function Modules.HDAdminAccess:_spoofRemotes()
-    local mt = getrawmetatable(game)
-    if mt then
-        local oldNamecall = mt.__namecall
-        setreadonly(mt, false)
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            if method == "InvokeServer" and self:IsA("RemoteFunction") then
-                local name = self.Name:lower()
-                if name:find("rank") or name:find("admin") or name:find("permission") then
-                    return 5
-                end
-            end
-            return oldNamecall(self, ...)
-        end)
-        setreadonly(mt, true)
-    end
-end
-
-function Modules.HDAdminAccess:_activateHDAdmin()
-    local hd = self.State.HDMain or _getHDMain()
-    if not hd then return false end
-
-    -- Try to open the command bar via the main module
-    pcall(function()
-        local cmdBar = hd:GetModule("CmdBar")
-        if cmdBar then
-            if cmdBar.OpenCmdBar then cmdBar:OpenCmdBar()
-            elseif cmdBar.open then cmdBar:open()
-            elseif cmdBar.toggle then cmdBar:toggle() end
-        end
-    end)
-
-    -- Make the HD Admin GUI visible
-    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if playerGui then
-        local hdGui = playerGui:FindFirstChild("HDAdminInterface")
-        if hdGui then hdGui.Enabled = true end
-    end
-
-    return true
-end
-
-function Modules.HDAdminAccess:GrantAccess()
-    DoNotif("Attempting HD Admin access...", 2)
-
-    local hooked = self:_hookPermissions()
-    if not hooked then return end
-
-    self:_spoofRemotes()
-
-    task.wait(0.3)
-
-    local hd = self.State.HDMain
-    if hd then
-        local count = 0
-        for _ in pairs(hd.commandsAllowedToUse) do count = count + 1 end
-        DoNotif(string.format("Rank set to 5, %d commands unlocked! Use prefix: %s", count, tostring(hd.pdata.Prefix or ".")), 2)
-    else
-        DoNotif("Hooked — try using commands in chat", 2)
-    end
-
-    self.State.HasAccess = true
-end
-
-function Modules.HDAdminAccess:OpenPanel()
-    if not self.State.HasAccess then
-        self:GrantAccess()
-    else
-        self:_activateHDAdmin()
-    end
-end
-
-function Modules.HDAdminAccess:ListCommands()
-    local hd = self.State.HDMain or _getHDMain()
-    if not hd then
-        DoNotif("HD Admin not loaded — run hdadmin first", 3)
-        return
-    end
-
-    local prefix = hd.pdata and hd.pdata.Prefix or ";"
-    local lines = {"=== HD ADMIN COMMANDS (prefix: " .. prefix .. ") ==="}
-    local count = 0
-
-    -- commandRanks has every command name and its required rank
-    for cmdName, reqRank in pairs(hd.commandRanks) do
-        table.insert(lines, string.format("%s%s [rank %s]", prefix, cmdName, tostring(reqRank)))
-        count = count + 1
-    end
-
-    table.sort(lines)
-    for _, line in ipairs(lines) do print(line) end
-    print("\nTotal: " .. count .. " commands")
-
-    -- Copy to clipboard too
-    pcall(function() setclipboard(table.concat(lines, "\n")) end)
-    DoNotif(string.format("%d commands listed in console", count), 2)
-end
-
-function Modules.HDAdminAccess:ToggleCommandBar()
-    local hd = self.State.HDMain or _getHDMain()
-    if hd then
-        local ok = pcall(function()
-            local cmdBar = hd:GetModule("CmdBar")
-            if cmdBar and cmdBar.OpenCmdBar then
-                cmdBar:OpenCmdBar()
-                return
-            end
-        end)
-        if ok then
-            DoNotif("Command bar toggled", 2)
-            return
-        end
-    end
-
-    -- Fallback: find TextBox in PlayerGui
-    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if playerGui then
-        for _, v in ipairs(playerGui:GetDescendants()) do
-            if v:IsA("TextBox") and v.PlaceholderText and v.PlaceholderText:lower():find("command") then
-                v.Visible = not v.Visible
-                if v.Visible then v:CaptureFocus() end
-                return
-            end
-        end
-    end
-    DoNotif("Command bar not found", 3)
-end
-
-function Modules.HDAdminAccess:ExecuteCommand(commandString)
-    local hd = self.State.HDMain or _getHDMain()
-    if not hd then
-        DoNotif("HD Admin not loaded", 3)
-        return
-    end
-    pcall(function()
-        local chatHandler = hd:GetModule("ChatHandler")
-        if chatHandler and chatHandler.ProcessMessage then
-            chatHandler:ProcessMessage(commandString)
-        end
-    end)
-    DoNotif("Executed: " .. commandString, 2)
-end
-
-RegisterCommand({
-    Name = "hdadmin",
-    Aliases = {"hda"},
-    Description = "Grant access to HD Admin system"
-}, function()
-    Modules.HDAdminAccess:GrantAccess()
-end)
-
-RegisterCommand({
-    Name = "openhd",
-    Aliases = {"hdopen"},
-    Description = "Open the HD Admin panel"
-}, function()
-    Modules.HDAdminAccess:OpenPanel()
-end)
-
-RegisterCommand({
-    Name = "hdlist",
-    Aliases = {"listhd"},
-    Description = "List all HD Admin commands in console"
-}, function()
-    Modules.HDAdminAccess:ListCommands()
-end)
-
-RegisterCommand({
-    Name = "runhd",
-    Aliases = {"hdrun"},
-    Description = "Execute an HD Admin command. Usage: ;runhd <command>"
-}, function(args)
-    if not args[1] then
-        DoNotif("Usage: ;runhd <command>", 3)
-        return
-    end
-    Modules.HDAdminAccess:ExecuteCommand(table.concat(args, " "))
-end)
-
-RegisterCommand({
-    Name = "hdbar",
-    Aliases = {},
-    Description = "Toggle HD Admin command bar"
-}, function()
-    Modules.HDAdminAccess:ToggleCommandBar()
-end)
 Modules.AdonisPanel = {
     State = {
         Visible = false,
@@ -31386,7 +31258,7 @@ Modules.AdminOrb = {
         GlowColor = Color3.fromRGB(128, 0, 0),
         Size = 0.55,
         LightRange = 14,
-        LightBrightness = 2.5,
+        LightBrightness = 3.5,
         TrailEnabled = true
     }
 }
@@ -31642,12 +31514,42 @@ Modules.ChatFix = {
         Loaded = false,
         Hooks = {},
         Watched = {},
-        Connections = {}
+        Connections = {},
+        ChatHistory = {},
+        PendingRequests = {},
     }
 }
+local GEMINI_API_KEY   = ""
+local GEMINI_MODEL     = "gemini-2.0-flash"
+local GEMINI_ENDPOINT  = "https://generativelanguage.googleapis.com/v1beta/models/"
+    .. GEMINI_MODEL .. ":generateContent?key=" .. GEMINI_API_KEY
+local REPLY_CHANCE          = 100
+local LOCALPLAYER_REPLY_CHANCE = 100
+local MAX_HISTORY           = 100
+local REPLY_DELAY_MIN       = 1.2
+local REPLY_DELAY_MAX       = 3.8
+local GEMINI_TIMEOUT        = 8
+local SYSTEM_PROMPT = [[You are a real Roblox player in a game called ]] .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name .. [[.
+Your job is to blend in with real players naturally.
+
+Strict rules:
+- Replies must be 1-6 words ONLY, no exceptions
+- Read the last few messages for context and reply relevantly
+- Never repeat what was just said
+- Vary your style: sometimes ask questions, sometimes react, sometimes be sarcastic
+- Use current Gen Z / Roblox slang naturally: fr, ngl, bro, no cap, lowkey, W, L, ratio, based, skill issue, cooked, mid, bussin, it's giving, no shot, on god, slay, rizzler, fanum tax, etc.
+- React to the specific topic being discussed (trading, dying, winning, lagging, etc.)
+- Occasionally be funny or slightly unhinged like a real player
+- Use 💀😭🙏 emojis sparingly (1 in every 4-5 replies max)
+- NEVER use periods, commas, or formal punctuation
+- NEVER say things like "as an AI" or break character
+- NEVER repeat a reply you recently made
+- Output ONLY the reply text, nothing else, no quotes, no labels]]
+
+
 local NAME_PREFIXES = {
     "Cool", "Dark", "Epic", "Fire", "Gamer", "Happy", "Ice", "Jade", "King", "Lava",
-    "Mega", "Ninja", "Nova", "Omega", "Pro", "Quick", "Red", "Shadow", "Super", "Tiger",
+    "Mega", "MasterX", "Nova", "Omega", "Pro", "Quick", "Red", "Shadow", "Super", "Tiger",
     "Ultra", "Void", "Wild", "Xeno", "Zap", "Blaze", "Cyber", "Dragon", "Edge", "Frost",
     "Ghost", "Hyper", "Iron", "Jet", "Killer", "Legend", "Moon", "Night", "Pixel", "Rogue"
 }
@@ -31655,11 +31557,11 @@ local NAME_SUFFIXES = {
     "Blade", "Boss", "Blox", "Claw", "Craft", "Dash", "Dude", "Fire", "Fox", "Gamer",
     "Guy", "Hero", "Hunter", "King", "Knight", "Lord", "Master", "Nova", "Player", "Pro",
     "Roblox", "Runner", "Slayer", "Storm", "Strike", "Sword", "Tiger", "Titan", "Wolf", "X",
-    "YT", "Zer0", "Zilla", "Bro", "Man", "Boy", "Girl", "Star", "Skull", "Viper"
+    "YT", "Zer0", "Zilla", "Bro", "Man", "Boy", "Girl", "Star", "Skull", "Grill"
 }
 local NAME_NUMBERS = {
     "", "", "", "123", "456", "789", "007", "69", "420",
-    "1", "2", "3", "99", "100", "2009", "2010", "2011", "XD"
+    "1", "2", "3", "99", "100", "1337", "2010", "2011", "XD"
 }
 local FAKE_MESSAGES = {
     "lol", "bro what", "gg", "this game is so fun", "anyone wanna trade?",
@@ -31674,44 +31576,99 @@ local FAKE_MESSAGES = {
     "literally", "not me losing again", "gg wp", "try harder next time",
     "is this game good", "just started playing", "woah", "bro really said that",
     "no shot", "actually insane", "calm down", "its just a game",
-    "😭", "💀", "🔥", "😂", "no cap", "on god", "bro thinks hes slick",
+    "😭", "bro zuka?", "we're so back", "no cap", "on god", "bro thinks hes slick",
     "wait is that allowed", "how", "WHY", "ok that was cold", "yooo",
     "ngl this slaps", "i cant", "im dead 💀", "respectfully no",
     "who asked", "i did", "carry me", "im trying my best ok",
 }
-local REPLY_CONTEXTS = {
-    {pattern = "gg", replies = {"gg", "gg ez", "gg wp", "was fun", "rematch?"}},
-    {pattern = "help", replies = {"just ask bro", "idk either", "google it", "same", "no idea lol"}},
-    {pattern = "lag", replies = {"same bro 💀", "my wifi dead rn", "unplayable", "restart router", "skill issue"}},
-    {pattern = "how", replies = {"idk", "practice", "just do it", "took me forever too", "trial and error"}},
-    {pattern = "trade", replies = {"whatchu offering", "not interested", "what do you have", "maybe", "nah im good"}},
-    {pattern = "lol", replies = {"💀", "fr fr", "bro really", "lmaooo", "same"}},
-    {pattern = "bro", replies = {"bro really said that", "no way", "fr?", "💀", "nahh"}},
-    {pattern = "why", replies = {"idk man", "good question", "no clue", "ask the devs", "life is a mystery"}},
-    {pattern = "good", replies = {"facts", "real", "agreed", "nah not really", "kinda yeah"}},
-    {pattern = "bad", replies = {"facts", "its not that bad", "real", "get good", "skill issue"}},
-    {pattern = "die", replies = {"rip", "F", "💀", "ouch", "moment of silence"}},
-    {pattern = "win", replies = {"lets gooo", "W", "easy", "clutch", "no way bro actually won"}},
-    {pattern = "lose", replies = {"L", "rip", "next time", "it happens", "we go again"}},
-    {pattern = "update", replies = {"when is it dropping", "been waiting forever", "devs sleeping", "any day now lol", "soon™"}},
-    {pattern = "level", replies = {"what level you on", "took me forever", "some levels are rough", "keep going", "it gets harder"}},
-}
 local GENERIC_REPLIES = {
     "lol", "fr", "real", "same", "nah", "yep", "facts", "based",
-    "💀", "🔥", "no way", "bro what", "actually", "lowkey yeah",
+    "💀", "no way", "bro what", "actually", "lowkey yeah",
     "idk man", "depends", "maybe", "not gonna lie", "kinda",
     "wait really", "no shot", "bro 💀", "W", "L", "ratio",
 }
-local function getReply(originalMsg)
-    if originalMsg then
-        local lower = originalMsg:lower()
-        for _, ctx in ipairs(REPLY_CONTEXTS) do
-            if lower:find(ctx.pattern) then
-                return ctx.replies[math.random(#ctx.replies)]
+local HttpService = game:GetService("HttpService")
+local function randomName()
+    local prefix = NAME_PREFIXES[math.random(#NAME_PREFIXES)]
+    local suffix = NAME_SUFFIXES[math.random(#NAME_SUFFIXES)]
+    local number = NAME_NUMBERS[math.random(#NAME_NUMBERS)]
+    return prefix .. suffix .. number
+end
+local function randomMessage()
+    return FAKE_MESSAGES[math.random(#FAKE_MESSAGES)]
+end
+local function fakeText()
+    return randomName() .. ": " .. randomMessage()
+end
+local function staticReply()
+    return GENERIC_REPLIES[math.random(#GENERIC_REPLIES)]
+end
+local function pushHistory(sender, message)
+    local history = Modules.ChatFix.State.ChatHistory
+    table.insert(history, {sender = sender, message = message})
+    if #history > MAX_HISTORY then
+        table.remove(history, 1)
+    end
+end
+local function buildContext()
+    local lines = {}
+    for _, entry in ipairs(Modules.ChatFix.State.ChatHistory) do
+        table.insert(lines, entry.sender .. ": " .. entry.message)
+    end
+    return table.concat(lines, "\n")
+end
+local function callGemini(triggerMessage, callback)
+    task.spawn(function()
+        local context = buildContext()
+        local userPrompt = context ~= "" 
+            and ("Recent chat:\n" .. context .. "\n\nReply to this message: " .. triggerMessage)
+            or  ("Reply to this Roblox chat message: " .. triggerMessage)
+        local body = HttpService:JSONEncode({
+            system_instruction = {
+                parts = {{ text = SYSTEM_PROMPT }}
+            },
+            contents = {
+                {
+                    role = "user",
+                    parts = {{ text = userPrompt }}
+                }
+            },
+            generationConfig = {
+                maxOutputTokens = 40,
+                temperature = 0.95,
+                topP = 0.9,
+            }
+        })
+        local success, result = pcall(function()
+            local requestFn = syn and syn.request or (http and http.request) or request
+            return requestFn({
+                Url     = GEMINI_ENDPOINT,
+                Method  = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body    = body,
+            })
+        end)
+        if not success or not result then
+            callback(nil)
+            return
+        end
+        local ok, decoded = pcall(HttpService.JSONDecode, HttpService, result.Body)
+        if not ok or not decoded then
+            callback(nil)
+            return
+        end
+        local reply = nil
+        pcall(function()
+            reply = decoded.candidates[1].content.parts[1].text
+        end)
+        if reply then
+            reply = reply:gsub("\n", " "):gsub("^%s+", ""):gsub("%s+$", "")
+            if #reply > 80 then
+                reply = reply:sub(1, 80)
             end
         end
-    end
-    return GENERIC_REPLIES[math.random(#GENERIC_REPLIES)]
+        callback(reply)
+    end)
 end
 local function injectFakeMessage(text, scrollView)
     if not scrollView or not scrollView.Parent then return end
@@ -31725,7 +31682,31 @@ local function injectFakeMessage(text, scrollView)
     end
     if not template then return end
     local clone = template:Clone()
-    clone.Name = "FakeReply_" .. math.random(100000, 999999)
+clone.Name = "FakeReply_" .. math.random(100000, 999999)
+
+-- set ZukaFake on the BodyText BEFORE parenting
+local tm = clone:FindFirstChild("TextMessage")
+if tm then
+    local body = tm:FindFirstChild("BodyText")
+    if body then
+        body.Text = text
+        body:SetAttribute("ZukaFake", true)  -- must be BEFORE clone.Parent
+    end
+    local nameLabel = tm:FindFirstChild("NameText") or tm:FindFirstChild("Username")
+    if nameLabel then nameLabel.Text = "" end
+end
+
+local maxOrder = 0
+for _, child in ipairs(scrollView:GetChildren()) do
+    if child:IsA("Frame") or child:IsA("GuiObject") then
+        local lo = child.LayoutOrder
+        if lo and lo > maxOrder then maxOrder = lo end
+    end
+end
+clone.LayoutOrder = maxOrder + 1
+
+clone.Parent = scrollView  -- parent LAST, after attribute is already set
+
     local tm = clone:FindFirstChild("TextMessage")
     if tm then
         local body = tm:FindFirstChild("BodyText")
@@ -31736,20 +31717,20 @@ local function injectFakeMessage(text, scrollView)
         local nameLabel = tm:FindFirstChild("NameText") or tm:FindFirstChild("Username")
         if nameLabel then nameLabel.Text = "" end
     end
+
+    -- Parent AFTER setting LayoutOrder so it renders in the right spot
     clone.Parent = scrollView
-    task.delay(8, function()
-        pcall(function() clone:Destroy() end)
+
+    -- Auto scroll to bottom so the message is visible
+    pcall(function()
+        local scrollFrame = scrollView.Parent
+        while scrollFrame and not scrollFrame:IsA("ScrollingFrame") do
+            scrollFrame = scrollFrame.Parent
+        end
+        if scrollFrame and scrollFrame:IsA("ScrollingFrame") then
+            scrollFrame.CanvasPosition = Vector2.new(0, scrollFrame.AbsoluteCanvasSize.Y)
+        end
     end)
-local prefix = NAME_PREFIXES[math.random(#NAME_PREFIXES)]
-local suffix = NAME_SUFFIXES[math.random(#NAME_SUFFIXES)]
-local number = NAME_NUMBERS[math.random(#NAME_NUMBERS)]
-return prefix .. suffix .. number
-end
-local function randomMessage()
-    return FAKE_MESSAGES[math.random(#FAKE_MESSAGES)]
-end
-local function fakeText()
-    return randomName() .. ": " .. randomMessage()
 end
 function Modules.ChatFix:_svc(n)
     local ok, s = pcall(game.GetService, game, n)
@@ -31773,13 +31754,13 @@ end
 function Modules.ChatFix:_spoofRow(lbl)
     if not lbl or self.State.Watched[lbl] then return end
     self.State.Watched[lbl] = true
-    local writing = false
+    local writing    = false
     local staticText = fakeText()
     local function applySpoof()
         writing = true
         pcall(function()
             lbl.Visible = false
-            lbl.Text = staticText
+            lbl.Text    = staticText
             lbl.Visible = true
         end)
         writing = false
@@ -31803,51 +31784,88 @@ function Modules.ChatFix:_spoofRow(lbl)
     end)
     table.insert(self.State.Connections, conn)
 end
+local function isLocalPlayer(txt)
+    local lp = game:GetService("Players").LocalPlayer
+    return txt:find("^" .. lp.Name .. "%s*:")
+end
+local function parseChatLine(txt)
+    local sender, msg = txt:match("^([^:]+):%s*(.+)$")
+    return sender or "Unknown", msg or txt
+end
+function Modules.ChatFix:_handleIncomingMessage(body, scrollView)
+    if body:GetAttribute("ZukaFake") then return end
+    if self:_isLockRow(body) then return end
+    local txt = ""
+    pcall(function() txt = body.ContentText end)
+    if txt == "" then txt = body.Text or "" end
+    if txt == "" then return end
+    local fromLocal = isLocalPlayer(txt)
+    local chance = fromLocal and LOCALPLAYER_REPLY_CHANCE or REPLY_CHANCE
+    local sender, msg = parseChatLine(txt)
+    pushHistory(sender, msg)
+    if math.random(100) > chance then return end
+    local debounceKey = txt:sub(1, 30)
+    if self.State.PendingRequests[debounceKey] then return end
+    self.State.PendingRequests[debounceKey] = true
+    task.spawn(function()
+        task.wait(math.random(REPLY_DELAY_MIN * 10, REPLY_DELAY_MAX * 10) / 10)
+        if not scrollView or not scrollView.Parent then
+            self.State.PendingRequests[debounceKey] = nil
+            return
+        end
+        local fakeName = randomName()
+        local replied = false
+        local timeoutAt = os.clock() + GEMINI_TIMEOUT
+        callGemini(txt, function(geminiReply)
+            if replied then return end
+            replied = true
+            self.State.PendingRequests[debounceKey] = nil
+            local replyText
+            if geminiReply and geminiReply ~= "" then
+                replyText = fakeName .. ": " .. geminiReply
+            else
+                replyText = fakeName .. ": " .. staticReply()
+            end
+            if scrollView and scrollView.Parent then
+                injectFakeMessage(replyText, scrollView)
+                pushHistory(fakeName, geminiReply or staticReply())
+            end
+        end)
+        task.spawn(function()
+            repeat task.wait(0.5) until replied or os.clock() > timeoutAt
+            if not replied then
+                replied = true
+                self.State.PendingRequests[debounceKey] = nil
+                if scrollView and scrollView.Parent then
+                    local fallback = fakeName .. ": " .. staticReply()
+                    injectFakeMessage(fallback, scrollView)
+                end
+            end
+        end)
+    end)
+end
 function Modules.ChatFix:_hookContainer(cont)
     if not cont or self.State.Hooks[cont] then return end
     self.State.Hooks[cont] = true
-    local function handleBody(body)
-        if not self:_isLockRow(body) then return end
-        if not body.Parent then return end
-        self:_spoofRow(body)
-    end
-    local function handleRealMessage(body)
-        if body:GetAttribute("ZukaFake") then return end
-        if self:_isLockRow(body) then return end
-        local txt = ""
-        pcall(function() txt = body.ContentText end)
-        if txt == "" then txt = body.Text or "" end
-        if txt == "" then return end
-        local lp = game:GetService("Players").LocalPlayer
-        if txt:find("^" .. lp.Name .. ":") then return end
-        if math.random(100) > 40 then return end
-        task.spawn(function()
-            task.wait(math.random(15, 45) / 10)
-            if not cont or not cont.Parent then return end
-            local reply = randomName() .. ": " .. getReply(txt)
-            injectFakeMessage(reply, cont)
-        end)
-    end
     for _, row in ipairs(cont:GetChildren()) do
         local tm = row:FindFirstChild("TextMessage")
         if tm then
             local body = tm:FindFirstChild("BodyText")
-            if body then handleBody(body) end
+            if body then
+                if self:_isLockRow(body) then
+                    self:_spoofRow(body)
+                end
+            end
         end
     end
     local dConn
     dConn = cont.DescendantAdded:Connect(function(inst)
-        if not cont.Parent then
-            if dConn then dConn:Disconnect() dConn = nil end
-            self.State.Hooks[cont] = nil
-            return
-        end
-        if inst:IsA("TextLabel") and inst.Name == "BodyText" then
-            task.wait()
-            handleBody(inst)
-            handleRealMessage(inst)
-        end
-    end)
+    if inst:IsA("TextLabel") and inst.Name == "BodyText" then
+        task.wait()
+        if inst:GetAttribute("ZukaFake") then return end  -- re-check after wait
+        self:_handleIncomingMessage(inst, cont)
+    end
+end)
     table.insert(self.State.Connections, dConn)
 end
 function Modules.ChatFix:Enable()
@@ -31860,7 +31878,7 @@ function Modules.ChatFix:Enable()
         DoNotif("Could not get CoreGui", 3)
         return
     end
-    local ec = nil
+    local ec    = nil
     local start = os.clock()
     repeat
         ec = cg:FindFirstChild("ExperienceChat")
@@ -31887,285 +31905,580 @@ function Modules.ChatFix:Enable()
     end)
     table.insert(self.State.Connections, ecConn)
     self.State.Loaded = true
-    DoNotif("Chat fix enabled — lock messages spoofed with fake chat", 2)
+    DoNotif("Chat fix enabled — Gemini AI replies active ✓", 2)
 end
 function Modules.ChatFix:Disable()
-    -- Changed ipairs to pairs since Connections is a dictionary
     for _, conn in pairs(self.State.Connections) do
         pcall(function() conn:Disconnect() end)
     end
-    self.State.Connections = {}
-    self.State.Hooks = {}
-    self.State.Watched = {}
-    self.State.Loaded = false
+    self.State.Connections  = {}
+    self.State.Hooks        = {}
+    self.State.Watched      = {}
+    self.State.PendingRequests = {}
+    self.State.ChatHistory  = {}
+    self.State.Loaded       = false
     DoNotif("Chat fix disabled", 2)
 end
 RegisterCommand({
-    Name = "chatfix",
-    Aliases = {"fixchat"},
-    Description = "Replace 🔒 lock messages with fake random chat"
+    Name        = "chatfix",
+    Aliases     = {"fixchat"},
+    Description = "Enable AI chat replies (Gemini 2.0 Flash)"
 }, function()
     Modules.ChatFix:Enable()
 end)
 RegisterCommand({
-    Name = "chatfixoff",
-    Aliases = {"unfixchat"},
-    Description = "Disable chat fix"
+    Name        = "chatfixoff",
+    Aliases     = {"unfixchat"},
+    Description = "Disable AI chat replies"
 }, function()
     Modules.ChatFix:Disable()
 end)
-Modules.CmdrAccess = {
+RegisterCommand({
+    Name        = "clearchathistory",
+    Aliases     = {"clearchat"},
+    Description = "Clear Gemini chat context history"
+}, function()
+    Modules.ChatFix.State.ChatHistory = {}
+    DoNotif("Chat history cleared", 2)
+end)
+Modules.WorkspaceESP = {
     State = {
-        HasAccess = false,
-        CmdrInstance = nil,
-        OriginalPermissions = nil
+        Gui         = nil,
+        MainFrame   = nil,
+        ScrollFrame = nil,
+        RootItemsMap = {},
+        Connections  = {},
+        IsOpen       = false,
+    },
+    Config = {
+        Theme = {
+            Bg      = Color3.fromRGB(15, 15, 15),
+            Header  = Color3.fromRGB(25, 25, 25),
+            Accent  = Color3.fromRGB(0, 255, 140),
+            Text    = Color3.fromRGB(255, 255, 255),
+            SubText = Color3.fromRGB(180, 180, 180),
+        },
+        Size = Vector2.new(320, 500),
     }
 }
-function Modules.CmdrAccess:_findCmdr()
-    local cmdr = game:GetService("ReplicatedStorage"):FindFirstChild("Cmdr") or
-                 game:GetService("ReplicatedStorage"):FindFirstChild("CmdrClient")
-    if cmdr then
-        return cmdr
+function Modules.WorkspaceESP:_addESP(object)
+    if not object or not object.Parent then return end
+    local T = self.Config.Theme
+    local oldH = object:FindFirstChild("ESP_Highlight")
+    local oldT = object:FindFirstChild("ESP_Tag")
+    if oldH then oldH:Destroy() end
+    if oldT then oldT:Destroy() end
+    local h = Instance.new("Highlight")
+    h.Name             = "ESP_Highlight"
+    h.FillColor        = T.Accent
+    h.OutlineColor     = T.Accent
+    h.FillTransparency = 0.5
+    h.Adornee          = object
+    h.Parent           = object
+    local b = Instance.new("BillboardGui")
+    b.Name        = "ESP_Tag"
+    b.Size        = UDim2.new(0, 100, 0, 25)
+    b.AlwaysOnTop = true
+    b.StudsOffset = Vector3.new(0, 2, 0)
+    if object:IsA("Model") then
+        local p = object.PrimaryPart or object:FindFirstChildWhichIsA("BasePart")
+        if p then b.Adornee = p end
+    elseif object:IsA("Folder") then
+        local p = object:FindFirstChildWhichIsA("BasePart")
+        if p then b.Adornee = p end
     end
-    if LocalPlayer:FindFirstChild("PlayerGui") then
-        local cmdrGui = LocalPlayer.PlayerGui:FindFirstChild("Cmdr")
-        if cmdrGui then
-            return cmdrGui
-        end
-    end
-    if LocalPlayer:FindFirstChild("PlayerScripts") then
-        local cmdrScript = LocalPlayer.PlayerScripts:FindFirstChild("Cmdr") or
-                          LocalPlayer.PlayerScripts:FindFirstChild("CmdrClient")
-        if cmdrScript then
-            return cmdrScript
-        end
-    end
-    return nil
+    local t = Instance.new("TextLabel")
+    t.Size                  = UDim2.new(1, 0, 1, 0)
+    t.BackgroundTransparency = 1
+    t.Text                  = object.Name
+    t.TextColor3            = T.Accent
+    t.Font                  = Enum.Font.Code
+    t.TextSize              = 14
+    t.TextStrokeTransparency = 0.5
+    t.Parent                = b
+    b.Parent                = object
 end
-function Modules.CmdrAccess:_hookPermissions()
-    local cmdr = self:_findCmdr()
-    if not cmdr then
-        DoNotif("Cmdr not found in game", 3)
-        return false
-    end
-    self.State.CmdrInstance = cmdr
-    local success, cmdrClient = pcall(function()
-        return require(cmdr)
-    end)
-    if not success then
-        DoNotif("Failed to load Cmdr client", 3)
-        return false
-    end
-    if cmdrClient and type(cmdrClient) == "table" then
-        pcall(function()
-            if setreadonly then setreadonly(cmdrClient, false) end
-        end)
-        for key, value in pairs(cmdrClient) do
-            if type(value) == "function" then
-                local keyLower = tostring(key):lower()
-                if keyLower:find("permission") or keyLower:find("admin") or keyLower:find("access") then
-                    self.State.OriginalPermissions = self.State.OriginalPermissions or {}
-                    self.State.OriginalPermissions[key] = value
-                    cmdrClient[key] = function(...)
-                        return true
-                    end
-                end
-            end
-        end
-        if cmdrClient.Registry then
-            pcall(function()
-                if setreadonly then setreadonly(cmdrClient.Registry, false) end
-            end)
-        end
-    end
-    return true
+function Modules.WorkspaceESP:_removeESP(object)
+    if not object then return end
+    local h = object:FindFirstChild("ESP_Highlight")
+    local t = object:FindFirstChild("ESP_Tag")
+    if h then h:Destroy() end
+    if t then t:Destroy() end
 end
-function Modules.CmdrAccess:_activateCmdr()
-    local cmdrGui = LocalPlayer.PlayerGui:FindFirstChild("Cmdr")
-    if cmdrGui then
-        cmdrGui.Enabled = true
-        local window = cmdrGui:FindFirstChild("Window") or cmdrGui:FindFirstChildWhichIsA("Frame", true)
-        if window then
-            window.Visible = true
-        end
-        return true
-    end
-    local cmdr = self.State.CmdrInstance
-    if cmdr then
-        local success, client = pcall(function()
-            return require(cmdr)
-        end)
-        if success and client then
-            pcall(function()
-                if client.Show then client:Show() end
-                if client.SetActivationKeys then 
-                    client:SetActivationKeys({Enum.KeyCode.Semicolon, Enum.KeyCode.Quote})
-                end
-                if client.Activate then client:Activate() end
-            end)
-            return true
-        end
+function Modules.WorkspaceESP:_isValid(obj)
+    return obj:IsA("Model") or obj:IsA("Folder")
+end
+function Modules.WorkspaceESP:_hasValidChildren(obj)
+    for _, child in pairs(obj:GetChildren()) do
+        if self:_isValid(child) then return true end
     end
     return false
 end
-function Modules.CmdrAccess:_spoofUserId()
-    local mt = getrawmetatable(game)
-    if not mt then return false end
-    pcall(function()
-        if setreadonly then setreadonly(mt, false) end
-    end)
-    local oldNamecall = mt.__namecall
-    mt.__namecall = newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
-        if method == "GetRankInGroup" or method == "IsInGroup" then
-            return 255
+function Modules.WorkspaceESP:_setRecursiveESP(object, state)
+    if state then self:_addESP(object) else self:_removeESP(object) end
+    for _, child in pairs(object:GetChildren()) do
+        if self:_isValid(child) then
+            self:_setRecursiveESP(child, state)
         end
-        return oldNamecall(self, ...)
-    end)
-    return true
+    end
 end
-function Modules.CmdrAccess:_injectAdminCommands()
-    local cmdr = self.State.CmdrInstance
-    if not cmdr then return false end
-    local success = pcall(function()
-        local client = require(cmdr)
-        if client.Registry then
-            pcall(function()
-                if setreadonly then setreadonly(client.Registry, false) end
-            end)
-            if client.Registry.Cmdr then
-                local cmdrReg = client.Registry.Cmdr
-                pcall(function()
-                    if setreadonly then setreadonly(cmdrReg, false) end
-                end)
-                if cmdrReg.GetPermissionLevel then
-                    cmdrReg.GetPermissionLevel = function() return 255 end
-                end
-                if cmdrReg.GetAdminLevel then
-                    cmdrReg.GetAdminLevel = function() return 255 end
+function Modules.WorkspaceESP:_updateChildCheckboxes(container, state)
+    for _, itemWrapper in pairs(container:GetChildren()) do
+        if itemWrapper:IsA("Frame") then
+            local row = itemWrapper:FindFirstChild("Row")
+            if row then
+                local checkbox = row:FindFirstChild("Checkbox")
+                if checkbox then
+                    checkbox.Text = state and "X" or ""
                 end
             end
-        end
-        if client.Util then
-            pcall(function()
-                if setreadonly then setreadonly(client.Util, false) end
-                if client.Util.RunElevated then
-                    client.Util.RunElevated = function(func) return func() end
-                end
-            end)
-        end
-    end)
-    return success
-end
-function Modules.CmdrAccess:GrantAccess()
-    DoNotif("Attempting Cmdr access...", 2)
-    local cmdr = self:_findCmdr()
-    if not cmdr then
-        DoNotif("Cmdr not found - game may not have it", 3)
-        return
-    end
-    DoNotif("Found Cmdr, hooking permissions...", 2)
-    self:_hookPermissions()
-    self:_spoofUserId()
-    self:_injectAdminCommands()
-    task.wait(0.5)
-    local activated = self:_activateCmdr()
-    if activated then
-        DoNotif("Cmdr access granted! Press ; or ' to open", 2)
-        self.State.HasAccess = true
-    else
-        DoNotif("Access hooked, try opening manually", 2)
-        self.State.HasAccess = true
-    end
-end
-function Modules.CmdrAccess:OpenCmdr()
-    if not self.State.HasAccess then
-        self:GrantAccess()
-    else
-        self:_activateCmdr()
-    end
-end
-function Modules.CmdrAccess:ListCommands()
-    local cmdr = self.State.CmdrInstance
-    if not cmdr then
-        DoNotif("Cmdr not loaded", 3)
-        return
-    end
-    local success, client = pcall(function()
-        return require(cmdr)
-    end)
-    if success and client then
-        print("\n=== CMDR COMMANDS ===")
-        if client.Registry and client.Registry.Cmdr and client.Registry.Cmdr.Commands then
-            local commands = client.Registry.Cmdr.Commands
-            local count = 0
-            for cmdName, cmdData in pairs(commands) do
-                print(string.format("%s - %s", cmdName, cmdData.Description or "No description"))
-                count = count + 1
+            local nestedChildren = itemWrapper:FindFirstChild("Children")
+            if nestedChildren and nestedChildren.Visible then
+                self:_updateChildCheckboxes(nestedChildren, state)
             end
-            print(string.format("\nTotal commands: %d", count))
-            DoNotif(string.format("Listed %d commands (check console)", count), 2)
-        else
-            DoNotif("Could not access command registry", 3)
         end
     end
 end
-function Modules.CmdrAccess:ExecuteCommand(commandString)
-    local cmdr = self.State.CmdrInstance
-    if not cmdr then
-        DoNotif("Cmdr not loaded", 3)
-        return
+function Modules.WorkspaceESP:_createItem(parentContainer, object, depth)
+    local T = self.Config.Theme
+    local itemWrapper = Instance.new("Frame")
+    itemWrapper.Name              = object.Name
+    itemWrapper.Size              = UDim2.new(1, 0, 0, 0)
+    itemWrapper.AutomaticSize     = Enum.AutomaticSize.Y
+    itemWrapper.BackgroundTransparency = 1
+    itemWrapper.Parent            = parentContainer
+    local wrapperLayout = Instance.new("UIListLayout")
+    wrapperLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    wrapperLayout.Parent    = itemWrapper
+    local rowFrame = Instance.new("Frame")
+    rowFrame.Name            = "Row"
+    rowFrame.Size            = UDim2.new(1, 0, 0, 24)
+    rowFrame.BackgroundColor3 = T.Header
+    rowFrame.BorderSizePixel = 0
+    rowFrame.Parent          = itemWrapper
+    local indent     = 15 * depth
+    local canExpand  = self:_hasValidChildren(object)
+    local expandBtn  = nil
+    if canExpand then
+        expandBtn = Instance.new("TextButton")
+        expandBtn.Name               = "ExpandBtn"
+        expandBtn.Size               = UDim2.new(0, 20, 1, 0)
+        expandBtn.Position           = UDim2.fromOffset(indent, 0)
+        expandBtn.BackgroundTransparency = 1
+        expandBtn.Text               = "+"
+        expandBtn.TextColor3         = T.SubText
+        expandBtn.Font               = Enum.Font.Code
+        expandBtn.TextSize           = 14
+        expandBtn.Parent             = rowFrame
     end
-    local success, client = pcall(function()
-        return require(cmdr)
-    end)
-    if success and client then
-        pcall(function()
-            if client.Run then
-                client:Run(commandString)
-            elseif client.HandleCommand then
-                client:HandleCommand(commandString)
+    local checkbox = Instance.new("TextButton")
+    checkbox.Name               = "Checkbox"
+    checkbox.Size               = UDim2.new(0, 24, 1, 0)
+    checkbox.Position           = UDim2.fromOffset(indent + (canExpand and 20 or 0), 0)
+    checkbox.BackgroundTransparency = 1
+    checkbox.Text               = ""
+    checkbox.TextColor3         = T.Accent
+    checkbox.Font               = Enum.Font.Code
+    checkbox.TextSize           = 18
+    checkbox.TextXAlignment     = Enum.TextXAlignment.Center
+    checkbox.Parent             = rowFrame
+    local cStroke = Instance.new("UIStroke")
+    cStroke.Color     = T.Accent
+    cStroke.Thickness = 1
+    cStroke.Parent    = checkbox
+    local label = Instance.new("TextLabel")
+    label.Size              = UDim2.new(1, -(indent + (canExpand and 50 or 30)), 1, 0)
+    label.Position          = UDim2.fromOffset(indent + (canExpand and 50 or 30), 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3        = T.Text
+    label.TextXAlignment    = Enum.TextXAlignment.Left
+    label.Font              = Enum.Font.Code
+    label.TextSize          = 13
+    label.Text              = object.Name .. " [" .. object.ClassName .. "]"
+    label.Parent            = rowFrame
+    local childContainer = Instance.new("Frame")
+    childContainer.Name              = "Children"
+    childContainer.Size              = UDim2.new(1, 0, 0, 0)
+    childContainer.AutomaticSize    = Enum.AutomaticSize.Y
+    childContainer.BackgroundTransparency = 1
+    childContainer.Visible           = false
+    childContainer.Parent            = itemWrapper
+    local childLayout = Instance.new("UIListLayout")
+    childLayout.SortOrder = Enum.SortOrder.Name
+    childLayout.Parent    = childContainer
+    if object:FindFirstChild("ESP_Highlight") then
+        checkbox.Text = "X"
+    end
+    if canExpand then
+        local isExpanded = false
+        expandBtn.MouseButton1Click:Connect(function()
+            isExpanded = not isExpanded
+            expandBtn.Text = isExpanded and "-" or "+"
+            if isExpanded then
+                if #childContainer:GetChildren() == 1 then
+                    for _, child in pairs(object:GetChildren()) do
+                        if self:_isValid(child) then
+                            self:_createItem(childContainer, child, depth + 1)
+                        end
+                    end
+                end
+                childContainer.Visible = true
+            else
+                childContainer.Visible = false
             end
         end)
-        DoNotif("Executed: " .. commandString, 2)
-    else
-        DoNotif("Failed to execute command", 3)
     end
+    checkbox.MouseButton1Click:Connect(function()
+        local willEnable = (checkbox.Text == "")
+        checkbox.Text = willEnable and "X" or ""
+        self:_setRecursiveESP(object, willEnable)
+        self:_updateChildCheckboxes(childContainer, willEnable)
+    end)
+    return itemWrapper
 end
-RegisterCommand({
-    Name = "cmdr",
-    Aliases = {"admin"},
-    Description = "Grant access to Cmdr admin system if game has it"
-}, function()
-    Modules.CmdrAccess:GrantAccess()
-end)
-RegisterCommand({
-    Name = "opencmdr",
-    Aliases = {"cmdropen"},
-    Description = "Open the Cmdr window"
-}, function()
-    Modules.CmdrAccess:OpenCmdr()
-end)
-RegisterCommand({
-    Name = "cmdlist",
-    Aliases = {"listcmdr"},
-    Description = "List all available Cmdr commands (prints to console)"
-}, function()
-    Modules.CmdrAccess:ListCommands()
-end)
-RegisterCommand({
-    Name = "runcmdr",
-    Aliases = {"cmdrrun"},
-    Description = "Execute a Cmdr command. Usage: ;runcmdr <command>"
-}, function(args)
-    if not args[1] then
-        DoNotif("Usage: ;runcmdr <command>", 3)
+function Modules.WorkspaceESP:_build()
+    local T  = self.Config.Theme
+    local sz = self.Config.Size
+    if self.State.Gui then
+        pcall(function() self.State.Gui:Destroy() end)
+        self.State.Gui = nil
+    end
+    local gui = Instance.new("ScreenGui")
+    gui.Name            = "ZukaWorkspaceESP"
+    gui.ResetOnSpawn    = false
+    gui.IgnoreGuiInset  = true
+    gui.DisplayOrder    = 998
+    gui.Parent          = game:GetService("CoreGui")
+    self.State.Gui      = gui
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name             = "MainWindow"
+    mainFrame.Size             = UDim2.fromOffset(sz.X, sz.Y)
+    mainFrame.Position         = UDim2.new(0.5, -sz.X/2, 0.5, -sz.Y/2)
+    mainFrame.BackgroundColor3 = T.Bg
+    mainFrame.BorderSizePixel  = 0
+    mainFrame.Parent           = gui
+    self.State.MainFrame        = mainFrame
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 6)
+    mainCorner.Parent       = mainFrame
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color     = T.Accent
+    mainStroke.Thickness = 1
+    mainStroke.Parent    = mainFrame
+    local header = Instance.new("Frame")
+    header.Name             = "Header"
+    header.Size             = UDim2.new(1, 0, 0, 40)
+    header.BackgroundColor3 = T.Header
+    header.BorderSizePixel  = 0
+    header.Parent           = mainFrame
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.CornerRadius = UDim.new(0, 6)
+    headerCorner.Parent       = header
+    local headerFix = Instance.new("Frame")
+    headerFix.Size             = UDim2.new(1, 0, 0, 15)
+    headerFix.Position         = UDim2.new(0, 0, 1, -15)
+    headerFix.BackgroundColor3 = T.Header
+    headerFix.BorderSizePixel  = 0
+    headerFix.Parent           = header
+    local title = Instance.new("TextLabel")
+    title.Text               = "MODEL EXPLORER  [LIVE]"
+    title.TextColor3         = T.Accent
+    title.Font               = Enum.Font.Code
+    title.TextSize           = 16
+    title.BackgroundTransparency = 1
+    title.Size               = UDim2.new(1, -50, 1, 0)
+    title.Position           = UDim2.fromOffset(15, 0)
+    title.TextXAlignment     = Enum.TextXAlignment.Left
+    title.Parent             = header
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Text               = "—"
+    closeBtn.TextColor3         = T.Accent
+    closeBtn.Font               = Enum.Font.Code
+    closeBtn.TextSize           = 20
+    closeBtn.BackgroundTransparency = 1
+    closeBtn.Size               = UDim2.new(0, 30, 1, 0)
+    closeBtn.Position           = UDim2.new(1, -60, 0, 0)
+    closeBtn.Parent             = header
+    local destroyBtn = Instance.new("TextButton")
+    destroyBtn.Text               = "✕"
+    destroyBtn.TextColor3         = T.Accent
+    destroyBtn.Font               = Enum.Font.Code
+    destroyBtn.TextSize           = 16
+    destroyBtn.BackgroundTransparency = 1
+    destroyBtn.Size               = UDim2.new(0, 30, 1, 0)
+    destroyBtn.Position           = UDim2.new(1, -30, 0, 0)
+    destroyBtn.Parent             = header
+    local body = Instance.new("Frame")
+    body.Name               = "Body"
+    body.Size               = UDim2.new(1, 0, 1, -45)
+    body.Position           = UDim2.new(0, 0, 0, 42)
+    body.BackgroundTransparency = 1
+    body.Parent             = mainFrame
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Size                = UDim2.new(1, -10, 1, -10)
+    scrollFrame.Position            = UDim2.fromOffset(5, 5)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.ScrollBarThickness  = 4
+    scrollFrame.ScrollBarImageColor3 = T.Accent
+    scrollFrame.BorderSizePixel     = 0
+    scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scrollFrame.Parent              = body
+    self.State.ScrollFrame           = scrollFrame
+    local mainLayout = Instance.new("UIListLayout")
+    mainLayout.SortOrder = Enum.SortOrder.Name
+    mainLayout.Parent    = scrollFrame
+    local dragging, dragStart, startPos
+    header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging  = true
+            dragStart = input.Position
+            startPos  = mainFrame.Position
+        end
+    end)
+    header.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    local dragConn = UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local d = input.Position - dragStart
+            mainFrame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + d.X,
+                startPos.Y.Scale, startPos.Y.Offset + d.Y
+            )
+        end
+    end)
+    table.insert(self.State.Connections, dragConn)
+    local isMin = false
+    closeBtn.MouseButton1Click:Connect(function()
+        isMin = not isMin
+        if isMin then
+            mainFrame:TweenSize(UDim2.fromOffset(sz.X, 40), "Out", "Quad", 0.2, true)
+            closeBtn.Text = "+"
+        else
+            mainFrame:TweenSize(UDim2.fromOffset(sz.X, sz.Y), "Out", "Quad", 0.2, true)
+            closeBtn.Text = "—"
+        end
+    end)
+    destroyBtn.MouseButton1Click:Connect(function()
+        self:Close()
+    end)
+    self.State.RootItemsMap = {}
+    for _, obj in pairs(workspace:GetChildren()) do
+        if self:_isValid(obj) then
+            local guiItem = self:_createItem(scrollFrame, obj, 0)
+            self.State.RootItemsMap[obj] = guiItem
+        end
+    end
+    local addedConn = workspace.ChildAdded:Connect(function(child)
+        if self:_isValid(child) and not self.State.RootItemsMap[child] then
+            local guiItem = self:_createItem(scrollFrame, child, 0)
+            self.State.RootItemsMap[child] = guiItem
+        end
+    end)
+    table.insert(self.State.Connections, addedConn)
+    local removedConn = workspace.ChildRemoved:Connect(function(child)
+        if self.State.RootItemsMap[child] then
+            self.State.RootItemsMap[child]:Destroy()
+            self.State.RootItemsMap[child] = nil
+        end
+    end)
+    table.insert(self.State.Connections, removedConn)
+    self.State.IsOpen = true
+end
+function Modules.WorkspaceESP:Open()
+    if self.State.IsOpen and self.State.Gui and self.State.Gui.Parent then
+        if self.State.MainFrame then
+            self.State.MainFrame.Visible = true
+        end
         return
     end
-    local commandString = table.concat(args, " ")
-    Modules.CmdrAccess:ExecuteCommand(commandString)
-end)
+    self:_build()
+    DoNotif("Workspace ESP opened", 1.5)
+end
+function Modules.WorkspaceESP:Close()
+    for _, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    self.State.Connections  = {}
+    self.State.RootItemsMap = {}
+    self.State.IsOpen       = false
+    if self.State.Gui then
+        pcall(function() self.State.Gui:Destroy() end)
+        self.State.Gui        = nil
+        self.State.MainFrame  = nil
+        self.State.ScrollFrame = nil
+    end
+    DoNotif("Workspace ESP closed", 1.5)
+end
+function Modules.WorkspaceESP:Toggle()
+    if self.State.IsOpen then
+        self:Close()
+    else
+        self:Open()
+    end
+end
+function Modules.WorkspaceESP:ClearAll()
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") or obj:IsA("Folder") then
+            self:_removeESP(obj)
+        end
+    end
+    DoNotif("All workspace ESP cleared", 1.5)
+end
+function Modules.WorkspaceESP:Initialize()
+    RegisterCommand({
+        Name        = "wesp",
+        Aliases     = {"workspaceesp", "modelexplorer"},
+        Description = "Open the live Workspace Model Explorer / ESP panel"
+    }, function()
+        Modules.WorkspaceESP:Toggle()
+    end)
+    RegisterCommand({
+        Name        = "wespclear",
+        Aliases     = {"clearwesp"},
+        Description = "Remove all workspace ESP highlights and tags"
+    }, function()
+        Modules.WorkspaceESP:ClearAll()
+    end)
+end
+Modules.CmdrPoison = {
+    State = {
+        IsActive     = false,
+        OldRequire   = nil,
+        OldNamecall  = nil,
+        HookActive   = false,
+    }
+}
+function Modules.CmdrPoison:_isCmdrModule(name)
+    if type(name) ~= "string" then return false end
+    local n = name:lower()
+    return n:find("cmdr") or n:find("command") or n:find("admin")
+end
+function Modules.CmdrPoison:_buildFakeRegistry()
+    return {
+        Client = {
+            Registry = {
+                PlayerRegistry = {
+                    [game:GetService("Players").LocalPlayer] = {
+                        Permissions = setmetatable({}, {
+                            __index = function() return true end,
+                            __newindex = function() end,
+                        })
+                    },
+                    LocalPlayer = {
+                        Permissions = setmetatable({}, {
+                            __index = function() return true end,
+                            __newindex = function() end,
+                        })
+                    },
+                }
+            }
+        },
+        RemoteEvent = game:GetService("ReplicatedStorage"):FindFirstChild("CmdrClient")
+            or game:GetService("ReplicatedStorage"):FindFirstChild("CommandRemote"),
+        Commands = {},
+    }
+end
+function Modules.CmdrPoison:Enable()
+    if self.State.IsActive then
+        DoNotif("CmdrPoison already active", 1.5)
+        return
+    end
+    local ok1 = pcall(function()
+        local oldRequire = getrenv().require
+        self.State.OldRequire = oldRequire
+        getrenv().require = function(module)
+            local modPath = typeof(module) == "Instance" and module.Name or tostring(module)
+            if self:_isCmdrModule(modPath) then
+                warn("[CmdrPoison] Intercepted require: " .. modPath)
+                return self:_buildFakeRegistry()
+            end
+            return oldRequire(module)
+        end
+    end)
+    if not ok1 then
+        DoNotif("CmdrPoison: getrenv().require hook failed", 3)
+    end
+    local ok2 = pcall(function()
+        local mt = getrawmetatable(game)
+        local oldNamecall = mt.__namecall
+        self.State.OldNamecall = oldNamecall
+        setreadonly(mt, false)
+        mt.__namecall = newcclosure(function(self_, ...)
+            local method = getnamecallmethod()
+            if method == "Require" and typeof(self_) == "Instance"
+            and self_:IsA("ModuleScript")
+            and Modules.CmdrPoison:_isCmdrModule(self_.Name) then
+                warn("[CmdrPoison] Late-intercepted require: " .. self_.Name)
+                return Modules.CmdrPoison:_buildFakeRegistry()
+            end
+            return oldNamecall(self_, ...)
+        end)
+        setreadonly(mt, true)
+        self.State.HookActive = true
+    end)
+    if not ok2 then
+        DoNotif("CmdrPoison: namecall hook failed", 3)
+    end
+    self.State.IsActive = true
+    DoNotif("CmdrPoison active — cmdr/admin modules poisoned", 2)
+end
+function Modules.CmdrPoison:Disable()
+    if not self.State.IsActive then
+        DoNotif("CmdrPoison not running", 1.5)
+        return
+    end
+    if self.State.OldRequire then
+        pcall(function()
+            getrenv().require = self.State.OldRequire
+        end)
+        self.State.OldRequire = nil
+    end
+    if self.State.HookActive and self.State.OldNamecall then
+        pcall(function()
+            local mt = getrawmetatable(game)
+            setreadonly(mt, false)
+            mt.__namecall = self.State.OldNamecall
+            setreadonly(mt, true)
+        end)
+        self.State.OldNamecall = nil
+        self.State.HookActive  = false
+    end
+    self.State.IsActive = false
+    DoNotif("CmdrPoison disabled — hooks restored", 2)
+end
+function Modules.CmdrPoison:Toggle()
+    if self.State.IsActive then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+function Modules.CmdrPoison:Initialize()
+    RegisterCommand({
+        Name        = "cmdrpoison",
+        Aliases     = {"poisoncmdr", "adminpoison"},
+        Description = "Poison cmdr/admin module requires to spoof full permissions"
+    }, function()
+        Modules.CmdrPoison:Toggle()
+    end)
+    RegisterCommand({
+        Name        = "cmdrpoisonon",
+        Aliases     = {"cpoisonon"},
+        Description = "Enable cmdr poison"
+    }, function()
+        Modules.CmdrPoison:Enable()
+    end)
+    RegisterCommand({
+        Name        = "cmdrpoisonoff",
+        Aliases     = {"cpoisonoff"},
+        Description = "Disable cmdr poison and restore hooks"
+    }, function()
+        Modules.CmdrPoison:Disable()
+    end)
+end
 Modules.TableUnlocker = {
     State = {
         UnlockedTables = {},
@@ -33245,6 +33558,996 @@ RegisterCommand({
 }, function()
     Modules.PropertyEditor:Toggle()
 end)
+Modules.HDPoison = {
+    State = {
+        IsActive    = false,
+        KeepAlive   = false,
+        Connections = {},
+        Attempts    = 0,
+    },
+    Config = {
+        MaxAttempts    = 6,
+        AttemptDelay   = 3,
+        InitialDelay   = 1.5,
+        KeepAliveDelay = 8,
+        Verbose        = true,
+    }
+}
+local function log(...)
+    if Modules.HDPoison.Config.Verbose then
+        print("[HDPoison]", ...)
+    end
+end
+local function getSig()
+    local RS  = game:GetService("ReplicatedStorage")
+    local hdc = RS:FindFirstChild("HDAdminHDClient")
+    if not hdc then return nil end
+    return hdc:FindFirstChild("Signals")
+end
+local function getHD(timeout)
+    timeout = timeout or 20
+    local start = os.clock()
+    local RS    = game:GetService("ReplicatedStorage")
+    local hdClient
+    repeat
+        hdClient = RS:FindFirstChild("HDAdminHDClient")
+        if not hdClient then task.wait(0.3) end
+    until hdClient or (os.clock() - start > timeout)
+    if not hdClient then return nil end
+    local sm  = hdClient:WaitForChild("SharedModules", timeout - (os.clock() - start))
+    if not sm then return nil end
+    local mfw = sm:WaitForChild("MainFramework", timeout - (os.clock() - start))
+    if not mfw then return nil end
+    local ok, hd = pcall(require, mfw)
+    if not ok or type(hd) ~= "table" then return nil end
+    pcall(function() hd:CheckInitialized() end)
+    return hd
+end
+local lp = game:GetService("Players").LocalPlayer
+local function fireRankChanged(sig, rank, rankName)
+    rank     = rank     or 4
+    rankName = rankName or "Owner"
+    local ok = pcall(function()
+        firesignal(sig.RankChanged.OnClientEvent, rank, rankName)
+    end)
+    log("RankChanged →", rank, rankName, ok and "OK" or "FAIL")
+    return ok
+end
+local function dumpRanks(sig)
+    pcall(function()
+        local r = sig.RetrieveRanksInfo:InvokeServer()
+        if r then log("RetrieveRanksInfo →", game:GetService("HttpService"):JSONEncode(r)) end
+    end)
+    pcall(function()
+        local r = sig.RetrieveServerRanks:InvokeServer()
+        if r then log("RetrieveServerRanks →", game:GetService("HttpService"):JSONEncode(r)) end
+    end)
+    pcall(function()
+        local r = sig.RetrieveData:InvokeServer(lp)
+        if r then log("RetrieveData →", game:GetService("HttpService"):JSONEncode(r)) end
+    end)
+    pcall(function()
+        local r = sig.RetrieveGamepasses:InvokeServer()
+        if r then log("RetrieveGamepasses →", game:GetService("HttpService"):JSONEncode(r)) end
+    end)
+end
+local function changeMainVars(sig)
+    local vars = {"Rank", "PlayerRank", "AdminLevel", "OwnerRank", "Permission"}
+    for _, v in ipairs(vars) do
+        pcall(function() sig.ChangeMainVariable:FireServer(v, 4)            end)
+        pcall(function() sig.ChangeMainVariable:FireServer(lp, v, 4)        end)
+        pcall(function() sig.ChangeMainVariable:FireServer(lp.UserId, v, 4) end)
+    end
+    log("ChangeMainVariable → fired", #vars * 3, "payloads")
+end
+local function executeClientCmds(sig)
+    local cmds = {
+        {"fly",    {lp}},
+        {"noclip", {lp}},
+        {"speed",  {lp, 100}},
+        {"jump",   {lp, 100}},
+        {"god",    {lp}},
+        {"invis",  {lp}},
+    }
+    for _, c in ipairs(cmds) do
+        pcall(function() firesignal(sig.ExecuteClientCommand.OnClientEvent,           c[1], c[2]) end)
+        pcall(function() firesignal(sig.ActivateClientCommand.OnClientEvent,          c[1], c[2]) end)
+        pcall(function() firesignal(sig.ReplicationEffectClientCommand.OnClientEvent, c[1], c[2]) end)
+    end
+    log("ExecuteClientCommand + ActivateClientCommand → fired")
+end
+local function requestCmds(sig, hd)
+    local prefix   = (hd and hd.pdata and hd.pdata.Prefix)  or ";"
+    local splitKey = (hd and hd.pdata and hd.pdata.SplitKey) or " "
+    local cmds = {
+        prefix .. "rank"      .. splitKey .. lp.Name .. splitKey .. "owner",
+        prefix .. "rank"      .. splitKey .. lp.Name .. splitKey .. "4",
+        prefix .. "rank"      .. splitKey .. "me"    .. splitKey .. "owner",
+        prefix .. "rank"      .. splitKey .. "me"    .. splitKey .. "4",
+        prefix .. "god"       .. splitKey .. lp.Name,
+        prefix .. "god"       .. splitKey .. "me",
+        prefix .. "fly"       .. splitKey .. lp.Name,
+        prefix .. "noclip"    .. splitKey .. lp.Name,
+        prefix .. "unsuspend" .. splitKey .. lp.Name,
+        prefix .. "unban"     .. splitKey .. lp.Name,
+    }
+    for _, cmd in ipairs(cmds) do
+        pcall(function() sig.RequestCommand:FireServer(cmd)               end)
+        pcall(function() sig.RequestCommandSilent:FireServer(cmd)         end)
+        pcall(function() sig.RequestCommandModification:InvokeServer(cmd) end)
+    end
+    log("RequestCommand(s) → fired", #cmds, "cmds via 3 pipes")
+end
+local function changeSettings(sig)
+    local settings = {{"Rank", 4}, {"AdminRank", 4}, {"OwnerRank", 4}}
+    for _, s in ipairs(settings) do
+        pcall(function() sig.ChangeSetting:FireServer(s[1], s[2])   end)
+        pcall(function() sig.ChangeSetting:InvokeServer(s[1], s[2]) end)
+    end
+    log("ChangeSetting → fired")
+end
+local function removeOtherRanks(sig)
+    pcall(function()
+        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+            if p ~= lp then
+                sig.RemovePermRank:FireServer(p)
+                sig.RemovePermRank:InvokeServer(p)
+            end
+        end
+    end)
+    log("RemovePermRank → fired at other players")
+end
+local function mutateHD(hd)
+    if not hd then return end
+    pcall(function()
+        hd.pdata.Rank     = 4
+        hd.pdata.Level    = 4
+        hd.pdata.RankName = "Owner"
+    end)
+    local refreshes = {
+        {"ClientCoreFunctions", "RankChangedUpdater"},
+        {"ClientCoreFunctions", "UpdateIconVisiblity"},
+        {"PageCommands",        "CreateCommands"},
+        {"PageAbout",           "UpdateRankName"},
+    }
+    task.spawn(function()
+        for _, r in ipairs(refreshes) do
+            pcall(function()
+                local mod = hd:GetModule(r[1])
+                if mod and mod[r[2]] then mod[r[2]](mod, r[3]) end
+            end)
+            task.wait()
+        end
+    end)
+    log("pdata mutated + client refresh fired")
+end
+function Modules.HDPoison:_pass(sig, hd)
+    fireRankChanged(sig)
+    dumpRanks(sig)
+    changeMainVars(sig)
+    executeClientCmds(sig)
+    requestCmds(sig, hd)
+    changeSettings(sig)
+    removeOtherRanks(sig)
+    mutateHD(hd)
+end
+function Modules.HDPoison:_startKeepAlive(sig)
+    self.State.KeepAlive = true
+    task.spawn(function()
+        while self.State.KeepAlive do
+            task.wait(self.Config.KeepAliveDelay)
+            if not self.State.KeepAlive then break end
+            pcall(function()
+                firesignal(sig.RankChanged.OnClientEvent, 4, "Owner")
+            end)
+            pcall(function()
+                local RS = game:GetService("ReplicatedStorage")
+                local hd = require(RS.HDAdminHDClient.SharedModules.MainFramework)
+                if hd and hd.pdata then
+                    hd.pdata.Rank     = 4
+                    hd.pdata.RankName = "Owner"
+                end
+            end)
+            log("KeepAlive ping: RankChanged(4)")
+        end
+    end)
+end
+function Modules.HDPoison:Enable()
+    if self.State.IsActive then DoNotif("HDPoison already running", 1.5) return end
+    self.State.IsActive = true
+    self.State.Attempts = 0
+    task.spawn(function()
+        DoNotif("HDPoison: waiting for signals...", 2)
+        local sig
+        local deadline = os.clock() + 20
+        repeat
+            sig = getSig()
+            if not sig then task.wait(0.5) end
+        until sig or os.clock() > deadline
+        if not sig then
+            DoNotif("HDPoison: Signals not found (timeout)", 3)
+            self.State.IsActive = false
+            return
+        end
+        local hd = getHD(10)
+        DoNotif("HDPoison: ready — starting " .. self.Config.MaxAttempts .. " passes", 2)
+        task.wait(self.Config.InitialDelay)
+        for i = 1, self.Config.MaxAttempts do
+            if not self.State.IsActive then break end
+            self.State.Attempts = i
+            self:_pass(sig, hd)
+            DoNotif(string.format("HDPoison pass %d/%d complete", i, self.Config.MaxAttempts), 1.5)
+            if i < self.Config.MaxAttempts then task.wait(self.Config.AttemptDelay) end
+        end
+        if self.State.IsActive then
+            DoNotif("HDPoison: passes done — keepalive active", 2)
+            self:_startKeepAlive(sig)
+        end
+    end)
+end
+function Modules.HDPoison:Disable()
+    if not self.State.IsActive then DoNotif("HDPoison not running", 1.5) return end
+    self.State.IsActive  = false
+    self.State.KeepAlive = false
+    for _, c in ipairs(self.State.Connections) do pcall(function() c:Disconnect() end) end
+    self.State.Connections = {}
+    DoNotif("HDPoison stopped after " .. self.State.Attempts .. " pass(es)", 2)
+    self.State.Attempts = 0
+end
+function Modules.HDPoison:Toggle()
+    if self.State.IsActive then self:Disable() else self:Enable() end
+end
+function Modules.HDPoison:RunOnce()
+    task.spawn(function()
+        DoNotif("HDPoison: one-shot...", 2)
+        local sig = getSig()
+        if not sig then DoNotif("HDPoison: Signals not found", 3) return end
+        local hd = getHD(10)
+        self:_pass(sig, hd)
+        DoNotif("HDPoison one-shot done", 2)
+    end)
+end
+function Modules.HDPoison:Initialize()
+    RegisterCommand({
+        Name        = "hdadmin",
+        Aliases     = {},
+        Description = "Toggle HDAdmin signal poison"
+    }, function() Modules.HDPoison:Toggle() end)
+    RegisterCommand({
+        Name        = "hdonce",
+        Aliases     = {},
+        Description = "Single HDAdmin poison pass"
+    }, function() Modules.HDPoison:RunOnce() end)
+    RegisterCommand({
+        Name        = "hdoff",
+        Aliases     = {},
+        Description = "Stop HDAdmin poison"
+    }, function() Modules.HDPoison:Disable() end)
+end
+task.defer(function()
+    Modules.HDPoison:Initialize()
+end)
+local function reportStatus(id, state, info)
+    pcall(function()
+        if _G.ZukaTerminal then
+            _G.ZukaTerminal:SetHDStatus(id, state, info)
+        end
+    end)
+end
+local _origPass = Modules.HDPoison._pass
+function Modules.HDPoison:_pass(sig, hd)
+    local rkOk = pcall(function() firesignal(sig.RankChanged.OnClientEvent, 4, "Owner") end)
+    reportStatus("RankChanged", rkOk and "ok" or "fail")
+    local dumpOk = false
+    pcall(function()
+        local r = sig.RetrieveRanksInfo:InvokeServer()
+        if r then dumpOk = true end
+    end)
+    reportStatus("RetrieveRanksInfo", dumpOk and "ok" or "warn")
+    local srOk = false
+    pcall(function()
+        local r = sig.RetrieveServerRanks:InvokeServer()
+        if r then srOk = true end
+    end)
+    reportStatus("RetrieveServerRanks", srOk and "ok" or "warn")
+    local rdOk = false
+    pcall(function()
+        local r = sig.RetrieveData:InvokeServer(lp)
+        if r then rdOk = true end
+    end)
+    reportStatus("RetrieveData", rdOk and "ok" or "warn")
+    local cmvFired = 0
+    local vars = {"Rank","PlayerRank","AdminLevel","OwnerRank","Permission"}
+    for _, v in ipairs(vars) do
+        pcall(function() sig.ChangeMainVariable:FireServer(v, 4) cmvFired=cmvFired+1 end)
+        pcall(function() sig.ChangeMainVariable:FireServer(lp, v, 4) end)
+        pcall(function() sig.ChangeMainVariable:FireServer(lp.UserId, v, 4) end)
+    end
+    reportStatus("ChangeMainVariable", cmvFired > 0 and "ok" or "fail", "×"..cmvFired)
+    local eccOk = pcall(function()
+        local cmds = {{"fly",{lp}},{"noclip",{lp}},{"god",{lp}},{"speed",{lp,100}},{"invis",{lp}}}
+        for _,c in ipairs(cmds) do
+            firesignal(sig.ExecuteClientCommand.OnClientEvent, c[1], c[2])
+        end
+    end)
+    reportStatus("ExecuteClientCommand", eccOk and "ok" or "fail")
+    local accOk = pcall(function()
+        local cmds = {{"fly",{lp}},{"noclip",{lp}},{"god",{lp}}}
+        for _,c in ipairs(cmds) do
+            firesignal(sig.ActivateClientCommand.OnClientEvent, c[1], c[2])
+        end
+    end)
+    reportStatus("ActivateClientCommand", accOk and "ok" or "fail")
+    local prefix   = (hd and hd.pdata and hd.pdata.Prefix)  or ";"
+    local splitKey = (hd and hd.pdata and hd.pdata.SplitKey) or " "
+    local cmds = {
+        prefix.."rank"..splitKey..lp.Name..splitKey.."owner",
+        prefix.."rank"..splitKey..lp.Name..splitKey.."4",
+        prefix.."rank"..splitKey.."me"..splitKey.."owner",
+        prefix.."god"..splitKey..lp.Name,
+        prefix.."fly"..splitKey..lp.Name,
+        prefix.."unsuspend"..splitKey..lp.Name,
+    }
+    local rcOk = pcall(function() for _,c in ipairs(cmds) do sig.RequestCommand:FireServer(c) end end)
+    reportStatus("RequestCommand", rcOk and "ok" or "fail")
+    local rsOk = pcall(function() for _,c in ipairs(cmds) do sig.RequestCommandSilent:FireServer(c) end end)
+    reportStatus("RequestCommandSilent", rsOk and "ok" or "fail")
+    local rmOk = pcall(function() for _,c in ipairs(cmds) do sig.RequestCommandModification:InvokeServer(c) end end)
+    reportStatus("RequestCommandMod", rmOk and "ok" or "fail")
+    local csOk = pcall(function()
+        for _,s in ipairs({{"Rank",4},{"AdminRank",4},{"OwnerRank",4}}) do
+            sig.ChangeSetting:FireServer(s[1],s[2])
+        end
+    end)
+    reportStatus("ChangeSetting", csOk and "ok" or "fail")
+    local rprOk = pcall(function()
+        for _,p in ipairs(game:GetService("Players"):GetPlayers()) do
+            if p ~= lp then sig.RemovePermRank:FireServer(p) end
+        end
+    end)
+    reportStatus("RemovePermRank", rprOk and "ok" or "warn")
+    local pdOk = pcall(function()
+        if not hd then error("no hd") end
+        hd.pdata.Rank=4 hd.pdata.Level=4 hd.pdata.RankName="Owner"
+    end)
+    task.spawn(function()
+        if not hd then return end
+        local refreshes={{"ClientCoreFunctions","RankChangedUpdater"},{"ClientCoreFunctions","UpdateIconVisiblity"},{"PageCommands","CreateCommands"},{"PageAbout","UpdateRankName"}}
+        for _,r in ipairs(refreshes) do
+            pcall(function() local m=hd:GetModule(r[1]) if m and m[r[2]] then m[r[2]](m,r[3]) end end)
+            task.wait()
+        end
+    end)
+    reportStatus("pdataMutation", pdOk and "ok" or "fail")
+end
+local _origKeepAlive = Modules.HDPoison._startKeepAlive
+function Modules.HDPoison:_startKeepAlive(sig)
+    self.State.KeepAlive = true
+    reportStatus("KeepAlive", "active")
+    task.spawn(function()
+        while self.State.KeepAlive do
+            task.wait(self.Config.KeepAliveDelay)
+            if not self.State.KeepAlive then break end
+            pcall(function() firesignal(sig.RankChanged.OnClientEvent, 4, "Owner") end)
+            pcall(function()
+                local RS = game:GetService("ReplicatedStorage")
+                local hd = require(RS.HDAdminHDClient.SharedModules.MainFramework)
+                if hd and hd.pdata then hd.pdata.Rank=4 hd.pdata.RankName="Owner" end
+            end)
+        end
+        reportStatus("KeepAlive", "fail")
+    end)
+end
+Modules.RemoteSpy = {
+    State = {
+        Gui          = nil,
+        MainFrame    = nil,
+        SpyLogs      = nil,
+        RemotesList  = nil,
+        InputPopup   = nil,
+        ArgTextBox   = nil,
+        TabFrames    = {},
+        TabButtons   = {},
+        RemoteBlocks = {},
+        Connections  = {},
+        LogCount     = 0,
+        IsOpen       = false,
+        Hooked       = false,
+        OldNamecall  = nil,
+        CurrentRemote = nil,
+        CurrentMethod = nil,
+    },
+    Config = {
+        Theme = {
+            Bg         = Color3.fromRGB(25, 25, 35),
+            TitleBar   = Color3.fromRGB(45, 45, 60),
+            Row        = Color3.fromRGB(40, 40, 50),
+            RowAlt     = Color3.fromRGB(35, 35, 45),
+            TabIdle    = Color3.fromRGB(60, 60, 75),
+            TabActive  = Color3.fromRGB(0, 150, 255),
+            Green      = Color3.fromRGB(50, 200, 50),
+            Red        = Color3.fromRGB(200, 50, 50),
+            Blue       = Color3.fromRGB(50, 150, 255),
+            Orange     = Color3.fromRGB(255, 150, 0),
+            Text       = Color3.new(1, 1, 1),
+            SubText    = Color3.fromRGB(150, 150, 180),
+            FireColor  = Color3.fromRGB(0, 255, 150),
+            InvokeColor = Color3.fromRGB(255, 150, 0),
+        },
+        LogLifetime  = 30,
+        AutoScan     = true,
+    }
+}
+local function mkCorner(r, p)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r or 8)
+    c.Parent = p
+    return c
+end
+local function mkStroke(t, c, p)
+    local s = Instance.new("UIStroke")
+    s.Thickness = t
+    s.Color = c
+    s.Parent = p
+    return s
+end
+function Modules.RemoteSpy:_parseArgs(input)
+    if input == "" or input:match("^%s*$") then return {} end
+    if input:match("^%-%-") then return {} end
+    local func, err = loadstring("return " .. input)
+    if func then
+        local ok, result = pcall(func)
+        if ok then
+            if type(result) == "table" then return result end
+            if type(result) == "string" or type(result) == "number" or type(result) == "boolean" then
+                return {result}
+            end
+        end
+    end
+    return {input}
+end
+function Modules.RemoteSpy:_hook()
+    if self.State.Hooked then return end
+    local T  = self.Config.Theme
+    local ok, mt = pcall(getrawmetatable, game)
+    if not ok or not mt then
+        DoNotif("RemoteSpy: getrawmetatable failed", 3)
+        return
+    end
+    local oldNamecall = mt.__namecall
+    self.State.OldNamecall = oldNamecall
+    pcall(setreadonly, mt, false)
+    mt.__namecall = newcclosure(function(self_, ...)
+        local method = getnamecallmethod()
+        local args   = {...}
+        if (method == "FireServer" or method == "InvokeServer")
+        and (self_:IsA("RemoteEvent") or self_:IsA("RemoteFunction")) then
+            if Modules.RemoteSpy.State.RemoteBlocks[self_.Name] then
+                return
+            end
+            Modules.RemoteSpy:_logRemote(self_, method, args)
+        end
+        return oldNamecall(self_, ...)
+    end)
+    pcall(setreadonly, mt, true)
+    self.State.Hooked = true
+end
+function Modules.RemoteSpy:_unhook()
+    if not self.State.Hooked then return end
+    local ok, mt = pcall(getrawmetatable, game)
+    if ok and mt and self.State.OldNamecall then
+        pcall(setreadonly, mt, false)
+        mt.__namecall = self.State.OldNamecall
+        pcall(setreadonly, mt, true)
+    end
+    self.State.Hooked      = false
+    self.State.OldNamecall = nil
+end
+function Modules.RemoteSpy:_logRemote(remote, method, args)
+    local spyLogs = self.State.SpyLogs
+    if not spyLogs or not spyLogs.Parent then return end
+    local T = self.Config.Theme
+    self.State.LogCount = self.State.LogCount + 1
+    local n = self.State.LogCount
+    local log = Instance.new("TextButton")
+    log.Name               = "Log" .. n
+    log.Size               = UDim2.new(1, -10, 0, 28)
+    log.BackgroundColor3   = n % 2 == 0 and T.Row or T.RowAlt
+    log.TextColor3         = method == "FireServer" and T.FireColor or T.InvokeColor
+    log.TextSize           = 12
+    log.Font               = Enum.Font.Code
+    log.TextXAlignment     = Enum.TextXAlignment.Left
+    log.AutomaticSize      = Enum.AutomaticSize.Y
+    log.TextWrapped        = true
+    log.Text               = string.format(
+        "  [%s] %s  ›  %s(%s)",
+        os.date("%H:%M:%S"),
+        remote.Name,
+        method,
+        type(args[1]) == "string" and '"'..args[1]..'"' or tostring(args[1] or "")
+    )
+    log.Parent = spyLogs
+    mkCorner(4, log)
+    log.MouseButton1Click:Connect(function()
+        pcall(setclipboard, remote:GetFullName())
+        DoNotif("Copied: " .. remote:GetFullName(), 1.5)
+    end)
+    game:GetService("Debris"):AddItem(log, self.Config.LogLifetime)
+    task.defer(function()
+        if spyLogs and spyLogs.Parent then
+            spyLogs.CanvasSize = UDim2.new(0, 0, 0, n * 30 + 10)
+            spyLogs.CanvasPosition = Vector2.new(0, math.huge)
+        end
+    end)
+end
+function Modules.RemoteSpy:_scanRemotes()
+    local remotesList = self.State.RemotesList
+    if not remotesList then return end
+    local T = self.Config.Theme
+    remotesList:ClearAllChildren()
+    local yPos = 0
+    for _, obj in pairs(game:GetDescendants()) do
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            local isFunc = obj:IsA("RemoteFunction")
+            local rowH   = isFunc and 55 or 45
+            local remoteFrame = Instance.new("Frame")
+            remoteFrame.Size             = UDim2.new(1, -10, 0, rowH)
+            remoteFrame.Position         = UDim2.fromOffset(5, yPos)
+            remoteFrame.BackgroundColor3 = T.RowAlt
+            remoteFrame.BorderSizePixel  = 0
+            remoteFrame.Parent           = remotesList
+            mkCorner(6, remoteFrame)
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size              = UDim2.new(0.55, 0, 0, 20)
+            nameLabel.Position          = UDim2.fromOffset(10, 5)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text              = obj.Name .. "  (" .. obj.ClassName .. ")"
+            nameLabel.TextColor3        = T.Text
+            nameLabel.TextSize          = 13
+            nameLabel.TextXAlignment    = Enum.TextXAlignment.Left
+            nameLabel.Font              = Enum.Font.GothamSemibold
+            nameLabel.Parent            = remoteFrame
+            local pathLabel = Instance.new("TextLabel")
+            pathLabel.Size              = UDim2.new(1, -120, 0, 14)
+            pathLabel.Position          = UDim2.fromOffset(10, 26)
+            pathLabel.BackgroundTransparency = 1
+            pathLabel.Text              = obj:GetFullName()
+            pathLabel.TextColor3        = T.SubText
+            pathLabel.TextSize          = 10
+            pathLabel.TextXAlignment    = Enum.TextXAlignment.Left
+            pathLabel.Font              = Enum.Font.Code
+            pathLabel.TextTruncate      = Enum.TextTruncate.AtEnd
+            pathLabel.Parent            = remoteFrame
+            local isBlocked = self.State.RemoteBlocks[obj.Name] or false
+            local blockBtn = Instance.new("TextButton")
+            blockBtn.Size            = UDim2.fromOffset(52, 22)
+            blockBtn.Position        = UDim2.new(1, -165, 0, 10)
+            blockBtn.BackgroundColor3 = isBlocked and Color3.fromRGB(255,100,100) or T.Red
+            blockBtn.Text            = isBlocked and "BLOCKED" or "BLOCK"
+            blockBtn.TextColor3      = T.Text
+            blockBtn.Font            = Enum.Font.GothamBold
+            blockBtn.TextSize        = 10
+            blockBtn.Parent          = remoteFrame
+            mkCorner(4, blockBtn)
+            blockBtn.MouseButton1Click:Connect(function()
+                self.State.RemoteBlocks[obj.Name] = not self.State.RemoteBlocks[obj.Name]
+                local blocked = self.State.RemoteBlocks[obj.Name]
+                blockBtn.BackgroundColor3 = blocked and Color3.fromRGB(255,100,100) or T.Red
+                blockBtn.Text             = blocked and "BLOCKED" or "BLOCK"
+            end)
+            local fireBtn = Instance.new("TextButton")
+            fireBtn.Size            = UDim2.fromOffset(42, 22)
+            fireBtn.Position        = UDim2.new(1, -108, 0, 10)
+            fireBtn.BackgroundColor3 = T.Green
+            fireBtn.Text            = "FIRE"
+            fireBtn.TextColor3      = T.Text
+            fireBtn.Font            = Enum.Font.GothamBold
+            fireBtn.TextSize        = 10
+            fireBtn.Parent          = remoteFrame
+            mkCorner(4, fireBtn)
+            fireBtn.MouseButton1Click:Connect(function()
+                self.State.CurrentRemote = obj
+                self.State.CurrentMethod = "FireServer"
+                self.State.ArgTextBox.Text = '-- Example: "hello", LocalPlayer, {speed = 100}'
+                self.State.InputPopup.Visible = true
+                self.State.ArgTextBox:CaptureFocus()
+            end)
+            local copyBtn = Instance.new("TextButton")
+            copyBtn.Size            = UDim2.fromOffset(42, 22)
+            copyBtn.Position        = UDim2.new(1, -61, 0, 10)
+            copyBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 110)
+            copyBtn.Text            = "COPY"
+            copyBtn.TextColor3      = T.Text
+            copyBtn.Font            = Enum.Font.GothamBold
+            copyBtn.TextSize        = 10
+            copyBtn.Parent          = remoteFrame
+            mkCorner(4, copyBtn)
+            copyBtn.MouseButton1Click:Connect(function()
+                pcall(setclipboard, obj:GetFullName())
+                DoNotif("Copied path: " .. obj.Name, 1.5)
+            end)
+            if isFunc then
+                local invokeBtn = Instance.new("TextButton")
+                invokeBtn.Size            = UDim2.fromOffset(52, 18)
+                invokeBtn.Position        = UDim2.new(1, -165, 0, 34)
+                invokeBtn.BackgroundColor3 = T.Blue
+                invokeBtn.Text            = "INVOKE"
+                invokeBtn.TextColor3      = T.Text
+                invokeBtn.Font            = Enum.Font.GothamBold
+                invokeBtn.TextSize        = 10
+                invokeBtn.Parent          = remoteFrame
+                mkCorner(4, invokeBtn)
+                invokeBtn.MouseButton1Click:Connect(function()
+                    self.State.CurrentRemote = obj
+                    self.State.CurrentMethod = "InvokeServer"
+                    self.State.ArgTextBox.Text = '-- Example: "getData", 1'
+                    self.State.InputPopup.Visible = true
+                    self.State.ArgTextBox:CaptureFocus()
+                end)
+            end
+            yPos = yPos + rowH + 5
+        end
+    end
+    remotesList.CanvasSize = UDim2.new(0, 0, 0, yPos)
+    DoNotif("RemoteSpy: found " .. math.floor(yPos / 50) .. " remotes", 1.5)
+end
+function Modules.RemoteSpy:_build()
+    local T  = self.Config.Theme
+    local UIS = game:GetService("UserInputService")
+    if self.State.Gui then
+        pcall(function() self.State.Gui:Destroy() end)
+    end
+    local gui = Instance.new("ScreenGui")
+    gui.Name           = "ZukaRemoteSpy"
+    gui.ResetOnSpawn   = false
+    gui.IgnoreGuiInset = true
+    gui.DisplayOrder   = 999
+    gui.Parent         = game:GetService("CoreGui")
+    self.State.Gui     = gui
+    local inputPopup = Instance.new("Frame")
+    inputPopup.Name             = "ArgInputPopup"
+    inputPopup.Size             = UDim2.fromOffset(360, 210)
+    inputPopup.Position         = UDim2.new(0.5, -180, 0.5, -105)
+    inputPopup.BackgroundColor3 = T.Bg
+    inputPopup.BorderSizePixel  = 0
+    inputPopup.Visible          = false
+    inputPopup.ZIndex           = 10
+    inputPopup.Parent           = gui
+    mkCorner(10, inputPopup)
+    mkStroke(1, Color3.fromRGB(80,80,110), inputPopup)
+    self.State.InputPopup = inputPopup
+    local popupTitle = Instance.new("TextLabel")
+    popupTitle.Size             = UDim2.new(1, 0, 0, 36)
+    popupTitle.BackgroundColor3 = T.TitleBar
+    popupTitle.BorderSizePixel  = 0
+    popupTitle.Text             = "  📝  Enter Arguments"
+    popupTitle.TextColor3       = T.Text
+    popupTitle.TextSize         = 14
+    popupTitle.Font             = Enum.Font.GothamBold
+    popupTitle.TextXAlignment   = Enum.TextXAlignment.Left
+    popupTitle.ZIndex           = 11
+    popupTitle.Parent           = inputPopup
+    mkCorner(10, popupTitle)
+    local argTextBox = Instance.new("TextBox")
+    argTextBox.Size               = UDim2.new(1, -20, 0, 90)
+    argTextBox.Position           = UDim2.fromOffset(10, 46)
+    argTextBox.BackgroundColor3   = T.RowAlt
+    argTextBox.BorderSizePixel    = 0
+    argTextBox.Text               = ""
+    argTextBox.PlaceholderText    = 'lua args: "hello", 123, true, {key="val"}'
+    argTextBox.PlaceholderColor3  = Color3.fromRGB(100,100,120)
+    argTextBox.TextColor3         = T.Text
+    argTextBox.TextSize           = 12
+    argTextBox.Font               = Enum.Font.Code
+    argTextBox.MultiLine          = true
+    argTextBox.TextYAlignment     = Enum.TextYAlignment.Top
+    argTextBox.ClearTextOnFocus   = false
+    argTextBox.ZIndex             = 11
+    argTextBox.Parent             = inputPopup
+    mkCorner(6, argTextBox)
+    self.State.ArgTextBox = argTextBox
+    local sendBtn = Instance.new("TextButton")
+    sendBtn.Size            = UDim2.new(0.48, -10, 0, 32)
+    sendBtn.Position        = UDim2.new(0, 10, 1, -38)
+    sendBtn.BackgroundColor3 = T.Green
+    sendBtn.Text            = "SEND"
+    sendBtn.TextColor3      = T.Text
+    sendBtn.Font            = Enum.Font.GothamBold
+    sendBtn.TextSize        = 13
+    sendBtn.ZIndex          = 11
+    sendBtn.Parent          = inputPopup
+    mkCorner(6, sendBtn)
+    local cancelBtn = Instance.new("TextButton")
+    cancelBtn.Size            = UDim2.new(0.48, 0, 0, 32)
+    cancelBtn.Position        = UDim2.new(0.52, 0, 1, -38)
+    cancelBtn.BackgroundColor3 = T.Red
+    cancelBtn.Text            = "CANCEL"
+    cancelBtn.TextColor3      = T.Text
+    cancelBtn.Font            = Enum.Font.GothamBold
+    cancelBtn.TextSize        = 13
+    cancelBtn.ZIndex          = 11
+    cancelBtn.Parent          = inputPopup
+    mkCorner(6, cancelBtn)
+    sendBtn.MouseButton1Click:Connect(function()
+        local remote = self.State.CurrentRemote
+        local method = self.State.CurrentMethod
+        if remote and method then
+            local args = self:_parseArgs(argTextBox.Text)
+            if method == "FireServer" then
+                pcall(function() remote:FireServer(unpack(args)) end)
+            elseif method == "InvokeServer" then
+                local ok, result = pcall(function() return remote:InvokeServer(unpack(args)) end)
+                self:Print("Invoke result: " .. tostring(ok and result or "Error"), ok and T.FireColor or T.Red)
+            end
+            DoNotif(method .. " → " .. remote.Name .. " [" .. #args .. " arg(s)]", 2)
+        end
+        inputPopup.Visible = false
+    end)
+    cancelBtn.MouseButton1Click:Connect(function()
+        inputPopup.Visible = false
+    end)
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name             = "MainWindow"
+    mainFrame.Size             = UDim2.fromOffset(520, 420)
+    mainFrame.Position         = UDim2.fromOffset(10, 10)
+    mainFrame.BackgroundColor3 = T.Bg
+    mainFrame.BorderSizePixel  = 0
+    mainFrame.Parent           = gui
+    self.State.MainFrame        = mainFrame
+    mkCorner(8, mainFrame)
+    mkStroke(1, Color3.fromRGB(60,60,80), mainFrame)
+    local titleBar = Instance.new("Frame")
+    titleBar.Name             = "TitleBar"
+    titleBar.Size             = UDim2.new(1, 0, 0, 36)
+    titleBar.BackgroundColor3 = T.TitleBar
+    titleBar.BorderSizePixel  = 0
+    titleBar.Parent           = mainFrame
+    mkCorner(8, titleBar)
+    local titleFix = Instance.new("Frame")
+    titleFix.Size             = UDim2.new(1, 0, 0, 10)
+    titleFix.Position         = UDim2.new(0, 0, 1, -10)
+    titleFix.BackgroundColor3 = T.TitleBar
+    titleFix.BorderSizePixel  = 0
+    titleFix.Parent           = titleBar
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size               = UDim2.new(1, -80, 1, 0)
+    titleLabel.Position           = UDim2.fromOffset(12, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text               = "🔍  I spy with my little eye"
+    titleLabel.TextColor3         = T.Text
+    titleLabel.TextSize           = 14
+    titleLabel.Font               = Enum.Font.GothamBold
+    titleLabel.TextXAlignment     = Enum.TextXAlignment.Left
+    titleLabel.Parent             = titleBar
+    local minBtn = Instance.new("TextButton")
+    minBtn.Size            = UDim2.fromOffset(28, 28)
+    minBtn.Position        = UDim2.new(1, -64, 0, 4)
+    minBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+    minBtn.Text            = "–"
+    minBtn.TextColor3      = T.Text
+    minBtn.Font            = Enum.Font.GothamBold
+    minBtn.TextSize        = 18
+    minBtn.Parent          = titleBar
+    mkCorner(6, minBtn)
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size            = UDim2.fromOffset(28, 28)
+    closeBtn.Position        = UDim2.new(1, -32, 0, 4)
+    closeBtn.BackgroundColor3 = T.Red
+    closeBtn.Text            = "✕"
+    closeBtn.TextColor3      = T.Text
+    closeBtn.Font            = Enum.Font.GothamBold
+    closeBtn.TextSize        = 14
+    closeBtn.Parent          = titleBar
+    mkCorner(6, closeBtn)
+    local scanBtn = Instance.new("TextButton")
+    scanBtn.Size            = UDim2.fromOffset(70, 24)
+    scanBtn.Position        = UDim2.new(1, -80, 0, 44)
+    scanBtn.BackgroundColor3 = T.Green
+    scanBtn.Text            = "⟳ SCAN"
+    scanBtn.TextColor3      = T.Text
+    scanBtn.Font            = Enum.Font.GothamBold
+    scanBtn.TextSize        = 12
+    scanBtn.Parent          = mainFrame
+    mkCorner(6, scanBtn)
+    local tabDefs = {"Spy", "Remotes"}
+    self.State.TabFrames  = {}
+    self.State.TabButtons = {}
+    for i, tabName in ipairs(tabDefs) do
+        local tabBtn = Instance.new("TextButton")
+        tabBtn.Size            = UDim2.fromOffset(90, 24)
+        tabBtn.Position        = UDim2.fromOffset((i-1)*95 + 10, 44)
+        tabBtn.BackgroundColor3 = i==1 and T.TabActive or T.TabIdle
+        tabBtn.Text            = tabName
+        tabBtn.TextColor3      = T.Text
+        tabBtn.Font            = Enum.Font.Gotham
+        tabBtn.TextSize        = 12
+        tabBtn.Parent          = mainFrame
+        mkCorner(5, tabBtn)
+        self.State.TabButtons[tabName] = tabBtn
+        local tabFrame = Instance.new("ScrollingFrame")
+        tabFrame.Size               = UDim2.new(1, -20, 1, -80)
+        tabFrame.Position           = UDim2.fromOffset(10, 76)
+        tabFrame.BackgroundTransparency = 1
+        tabFrame.ScrollBarThickness = 5
+        tabFrame.ScrollBarImageColor3 = Color3.fromRGB(80,80,110)
+        tabFrame.CanvasSize         = UDim2.new(0, 0, 0, 0)
+        tabFrame.BorderSizePixel    = 0
+        tabFrame.Visible            = (i == 1)
+        tabFrame.Parent             = mainFrame
+        self.State.TabFrames[tabName] = tabFrame
+        tabBtn.MouseButton1Click:Connect(function()
+            for t, b in pairs(self.State.TabButtons) do
+                b.BackgroundColor3         = T.TabIdle
+                self.State.TabFrames[t].Visible = false
+            end
+            tabBtn.BackgroundColor3        = T.TabActive
+            self.State.TabFrames[tabName].Visible = true
+        end)
+    end
+    self.State.SpyLogs     = self.State.TabFrames["Spy"]
+    self.State.RemotesList = self.State.TabFrames["Remotes"]
+    scanBtn.MouseButton1Click:Connect(function()
+        scanBtn.Text            = "SCANNING..."
+        scanBtn.BackgroundColor3 = T.Orange
+        self:_scanRemotes()
+        task.delay(0.5, function()
+            scanBtn.Text            = "⟳ SCAN"
+            scanBtn.BackgroundColor3 = T.Green
+        end)
+    end)
+    local minimized = false
+    minBtn.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        mainFrame.Size = minimized and UDim2.fromOffset(520, 36) or UDim2.fromOffset(520, 420)
+        minBtn.Text    = minimized and "+" or "–"
+    end)
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Close()
+    end)
+    local dragging, dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging  = true
+            dragStart = input.Position
+            startPos  = mainFrame.Position
+        end
+    end)
+    titleBar.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    local dragConn = UIS.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local d = input.Position - dragStart
+            mainFrame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + d.X,
+                startPos.Y.Scale, startPos.Y.Offset + d.Y
+            )
+        end
+    end)
+    table.insert(self.State.Connections, dragConn)
+    local keyConn = UIS.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode == Enum.KeyCode.Insert then
+            mainFrame.Visible = not mainFrame.Visible
+        end
+    end)
+    table.insert(self.State.Connections, keyConn)
+    self.State.IsOpen = true
+    if self.Config.AutoScan then
+        task.delay(0.5, function()
+            self:_scanRemotes()
+        end)
+    end
+end
+function Modules.RemoteSpy:Print(text, color)
+    local spyLogs = self.State.SpyLogs
+    if not spyLogs then return end
+    local T = self.Config.Theme
+    self.State.LogCount = self.State.LogCount + 1
+    local n = self.State.LogCount
+    local log = Instance.new("TextLabel")
+    log.Size               = UDim2.new(1, -10, 0, 22)
+    log.BackgroundColor3   = n%2==0 and T.Row or T.RowAlt
+    log.TextColor3         = color or T.Text
+    log.TextSize           = 12
+    log.Font               = Enum.Font.Code
+    log.TextXAlignment     = Enum.TextXAlignment.Left
+    log.Text               = "  " .. text
+    log.Parent             = spyLogs
+    mkCorner(4, log)
+    task.defer(function()
+        if spyLogs and spyLogs.Parent then
+            spyLogs.CanvasSize    = UDim2.new(0, 0, 0, n * 24 + 10)
+            spyLogs.CanvasPosition = Vector2.new(0, math.huge)
+        end
+    end)
+end
+function Modules.RemoteSpy:Open()
+    if self.State.IsOpen and self.State.Gui and self.State.Gui.Parent then
+        if self.State.MainFrame then
+            self.State.MainFrame.Visible = true
+        end
+        return
+    end
+    self:_build()
+    self:_hook()
+    DoNotif("RemoteSpy opened — INSERT to hide", 2)
+end
+function Modules.RemoteSpy:Close()
+    for _, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    self.State.Connections = {}
+    self.State.IsOpen      = false
+    self.State.LogCount    = 0
+    if self.State.Gui then
+        pcall(function() self.State.Gui:Destroy() end)
+        self.State.Gui         = nil
+        self.State.MainFrame   = nil
+        self.State.SpyLogs     = nil
+        self.State.RemotesList = nil
+        self.State.InputPopup  = nil
+        self.State.ArgTextBox  = nil
+    end
+    DoNotif("RemoteSpy closed", 1.5)
+end
+function Modules.RemoteSpy:Toggle()
+    if self.State.IsOpen then
+        self:Close()
+    else
+        self:Open()
+    end
+end
+function Modules.RemoteSpy:StopHook()
+    self:_unhook()
+    DoNotif("RemoteSpy hook removed", 1.5)
+end
+function Modules.RemoteSpy:Initialize()
+    RegisterCommand({
+        Name        = "remotespy",
+        Aliases     = {"respy", "sspy"},
+        Description = "Toggle the Remote Spy / Explorer panel"
+    }, function()
+        Modules.RemoteSpy:Toggle()
+    end)
+    RegisterCommand({
+        Name        = "spyhook",
+        Aliases     = {"hookspy"},
+        Description = "Toggle the namecall hook (intercepts FireServer/InvokeServer)"
+    }, function()
+        if Modules.RemoteSpy.State.Hooked then
+            Modules.RemoteSpy:StopHook()
+        else
+            Modules.RemoteSpy:_hook()
+            DoNotif("RemoteSpy hook active", 1.5)
+        end
+    end)
+    RegisterCommand({
+        Name        = "spyscan",
+        Aliases     = {"rscan"},
+        Description = "Re-scan all remotes in the game"
+    }, function()
+        if not Modules.RemoteSpy.State.IsOpen then
+            DoNotif("Open RemoteSpy first: ;remotespy", 2)
+            return
+        end
+        Modules.RemoteSpy:_scanRemotes()
+    end)
+    RegisterCommand({
+        Name        = "spyclear",
+        Aliases     = {"rspyclear"},
+        Description = "Clear all spy log entries"
+    }, function()
+        local logs = Modules.RemoteSpy.State.SpyLogs
+        if logs then
+            logs:ClearAllChildren()
+            Modules.RemoteSpy.State.LogCount = 0
+            DoNotif("Spy logs cleared", 1.5)
+        end
+    end)
+end
 Modules.RemoteForcer = {
     State = {
         Remotes = {},
@@ -41383,7 +42686,7 @@ RegisterCommand({Name = "doomshammer", Aliases = {}, Description = "For Dumb bos
 RegisterCommand({Name = "tptoswords", Aliases = {}, Description = "For Dumb bossfights"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/SwordGrabberBossfightGame.lua", " Loading.. ") end)
 RegisterCommand({Name = "removeff", Aliases = {}, Description = "Removes Forcefields on the client, can be useful with low security"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/removeforcefield.txt", " Loading.. ") end)
 RegisterCommand({Name = "Ghidra", Aliases = {"up3hex"}, Description = "Better than all."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/HEXOverseer.lua", " Loading.. ") end)
-RegisterCommand({Name = "buildts", Aliases = {}, Description = "Script Lookup"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/bts.lua", " Loading.. ") end)
+RegisterCommand({Name = "removeadonis", Aliases = {}, Description = "Says no adonis"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/ByeByeAdonis.lua", " Loading.. ") end)
 RegisterCommand({Name = "teleporter", Aliases = {"tpui"}, Description = "Loads the Game Universe."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameFinder.lua", "stolen from nameless-admin") end)
 RegisterCommand({Name = "autofling", Aliases = {"pwned"}, Description = "Pwned Flinger"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/Ultimatefling.lua", "Loaded!") end)
 RegisterCommand({Name = "wallwalk", Aliases = {"ww"}, Description = "WIP"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/WorkINPro.lua", "Anti Gay Shield Activated.") end)
@@ -43456,12 +44759,13 @@ RegisterCommand({
     end
     Modules.ToolFly:SetFlingPower(args[1])
 end)
+
 Modules.AdonisBypass = {
     State = {
         IsLoaded = false,
     },
     Config = {
-        DelayTime = 30
+        DelayTime = 25
     }
 }
 function Modules.AdonisBypass:Execute()
@@ -43484,11 +44788,12 @@ function Modules.AdonisBypass:Initialize()
     RegisterCommand({
         Name = "ByeBye",
         Aliases = {"antiadonis"},
-        Description = "Manually attempts to trigger the Adonis bypass."
+        Description = "Manually bypass Adonis "
     }, function()
         module:Execute()
     end)
 end
+
 Modules.AntiAttach = {
     State = {
         IsEnabled = false,
