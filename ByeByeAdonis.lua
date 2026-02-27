@@ -267,42 +267,45 @@ getgenv().ZukaBypass = {
 }
 initialize()
 
-local getgenv, getnamecallmethod, hookmetamethod, newcclosure, checkcaller, stringlower = getgenv, getnamecallmethod, hookmetamethod, newcclosure, checkcaller, string.lower;
-local function ClonedService(name)
-	local Service = game.GetService;
-	local Reference = cloneref or function(reference)
-		return reference;
-	end;
-	return Reference(Service(game, name));
-end;
-if (getgenv()).ED_AntiKick then
-	return;
-end;
-local Players, StarterGui, OldNamecall = ClonedService("Players"), ClonedService("StarterGui");
-(getgenv()).ED_AntiKick = {
-	Enabled = true,
-	SendNotifications = true,
-	CheckCaller = true
-};
-OldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
-	if ((getgenv()).ED_AntiKick.CheckCaller and (not checkcaller()) or true) and stringlower(getnamecallmethod()) == "kick" and ED_AntiKick.Enabled then
-		if (getgenv()).ED_AntiKick.SendNotifications then
-			StarterGui:SetCore("SendNotification", {
-				Title = "Zuka Tech",
-				Text = "The script has successfully intercepted an attempted kick.",
-				Icon = "rbxassetid://6238540373",
-				Duration = 2
-			});
-		end;
-		return nil;
-	end;
-	return OldNamecall(...);
-end));
-if (getgenv()).ED_AntiKick.SendNotifications then
-	StarterGui:SetCore("SendNotification", {
-		Title = "Zuka Tech",
-		Text = "Shield Loaded",
-		Icon = "rbxassetid://6238537240",
-		Duration = 3
-	});
-end;
+if getgenv().ZukaAntiKick then return end
+getgenv().ZukaAntiKick = {
+    Enabled           = true,
+    Notifications     = true,
+    CheckCaller       = true,
+    BlockedCount      = 0,
+}
+local function cloned(name)
+    local ref = cloneref or function(r) return r end
+    return ref(game:GetService(name))
+end
+local StarterGui = cloned("StarterGui")
+local function notify(title, text, icon, duration)
+    if not getgenv().ZukaAntiKick.Notifications then return end
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title    = title,
+            Text     = text,
+            Icon     = icon or "rbxassetid://6238540373",
+            Duration = duration or 3,
+        })
+    end)
+end
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+    local cfg = getgenv().ZukaAntiKick
+    if cfg.Enabled
+    and string.lower(getnamecallmethod()) == "kick"
+    and (not cfg.CheckCaller or not checkcaller())
+    then
+        cfg.BlockedCount += 1
+        notify(
+            "AntiKick",
+            "Kick attempt blocked. (#" .. cfg.BlockedCount .. ")",
+            "rbxassetid://6238540373",
+            2
+        )
+        return nil
+    end
+    return oldNamecall(self, ...)
+end))
+notify("AntiKick", "Shield active.", "rbxassetid://6238537240", 3)
