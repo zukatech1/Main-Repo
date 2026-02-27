@@ -23,8 +23,11 @@ function RunCustomAnimation(Char)
     local smallButNotZero = 0.0001
     local runBlendtime = 0.2
     local lastBlendTime = 0
+
+    -- FIX: raised walk threshold so minor physics drift doesn't trigger walk
     local WALK_SPEED = 6.4
     local RUN_SPEED = 12.8
+    local WALK_THRESHOLD = 2.0   -- was 0.75 — anything below this is treated as idle
     local EMOTE_TRANSITION_TIME = 0.1
     local currentAnim = ""
     local currentAnimInstance = nil
@@ -34,7 +37,7 @@ function RunCustomAnimation(Char)
     local currentlyPlayingEmote = false
     local PreloadedAnims = {}
     local animTable = {}
-    local animNames = { 
+    local animNames = {
         idle = {
             { id = "http://www.roblox.com/asset/?id=12521158637", weight = 9 },
             { id = "http://www.roblox.com/asset/?id=12521162526", weight = 1 },
@@ -43,7 +46,7 @@ function RunCustomAnimation(Char)
             { id = "http://www.roblox.com/asset/?id=12518152696", weight = 10 }
         },
         run = {
-            { id = "http://www.roblox.com/asset/?id=12518152696", weight = 10 } 
+            { id = "http://www.roblox.com/asset/?id=12518152696", weight = 10 }
         },
         jump = {
             { id = "http://www.roblox.com/asset/?id=12520880485", weight = 10 }
@@ -190,7 +193,7 @@ function RunCustomAnimation(Char)
     local function get2DWeight(px, p1, p2, sx, s1, s2)
         local avgLength = 0.5 * (s1 + s2)
         local p_1 = {x = (sx - s1)/avgLength, y = (angleWeight * signedAngle(p1, px))}
-        local p12 = {x = (s2 - s1)/avgLength, y = (angleWeight * signedAngle(p1, p2))}	
+        local p12 = {x = (s2 - s1)/avgLength, y = (angleWeight * signedAngle(p1, p2))}
         local denom = smallButNotZero + (p12.x*p12.x + p12.y*p12.y)
         local numer = p_1.x * p12.x + p_1.y * p12.y
         local r = math.max(0, math.min(1, 1.0 - numer/denom))
@@ -239,7 +242,7 @@ function RunCustomAnimation(Char)
         end
         for n, v in pairs(locomotionMap) do
             if h[n] > 0.0 then
-                if not v.track.IsPlaying then 
+                if not v.track.IsPlaying then
                     pcall(function()
                         v.track:Play(runBlendtime)
                         v.track.TimePosition = groupTimePosition
@@ -255,13 +258,6 @@ function RunCustomAnimation(Char)
                     v.track:Stop(runBlendtime)
                 end)
             end
-        end
-    end
-    local function getWalkDirection()
-        if Humanoid.MoveDirection ~= Vector3.zero then
-            return Humanoid.MoveDirection
-        else
-            return Humanoid.MoveDirection
         end
     end
     local function updateVelocity(currentTime)
@@ -340,7 +336,7 @@ function RunCustomAnimation(Char)
             else
                 currentAnimTrack = humanoid:LoadAnimation(anim)
                 currentAnimTrack.Priority = Enum.AnimationPriority.Core
-                currentAnimTrack:Play(transitionTime)	
+                currentAnimTrack:Play(transitionTime)
                 currentAnimKeyframeHandler = currentAnimTrack.KeyframeReached:Connect(keyFrameReachedFunc)
             end
         end)
@@ -401,9 +397,12 @@ function RunCustomAnimation(Char)
         toolAnimInstance = nil
         toolAnimTrack = nil
     end
+
+    -- FIX 1: onRunning now uses WALK_THRESHOLD instead of the old hardcoded 0.75
+    -- This prevents tiny velocity jitter from triggering the walk anim while standing
     local function onRunning(speed)
         humanoidSpeed = speed
-        if speed > 0.75 then
+        if speed > WALK_THRESHOLD then
             if not currentlyPlayingEmote then
                 playAnimation("walk", 0.2, Humanoid)
                 if pose ~= "Running" then
@@ -412,12 +411,15 @@ function RunCustomAnimation(Char)
                 end
             end
         else
+            -- FIX 2: explicitly reset pose to Standing so stepAnimate
+            -- doesn't keep re-triggering walk on the next frame
             if not currentlyPlayingEmote then
-                playAnimation("idle", 0.2, Humanoid)
                 pose = "Standing"
+                playAnimation("idle", 0.2, Humanoid)
             end
         end
     end
+
     local function onDied()
         pose = "Dead"
     end
@@ -487,12 +489,23 @@ function RunCustomAnimation(Char)
         elseif pose == "Seated" then
             playAnimation("sit", 0.5, Humanoid)
         elseif pose == "Standing" then
-            if currentAnim ~= "idle" and not currentlyPlayingEmote then
-                playAnimation("idle", 0.1, Humanoid)
+            -- FIX 3: double-check actual humanoid speed here too so stepAnimate
+            -- can't override onRunning's idle decision with a stale "Running" pose
+            if humanoidSpeed <= WALK_THRESHOLD then
+                if currentAnim ~= "idle" and not currentlyPlayingEmote then
+                    playAnimation("idle", 0.1, Humanoid)
+                end
             end
         elseif pose == "Running" then
-            playAnimation("walk", 0.2, Humanoid)
-            updateVelocity(currentTime)
+            -- FIX 4: guard the walk branch — if speed has dropped back below
+            -- threshold since the last onRunning fired, snap back to idle here
+            if humanoidSpeed > WALK_THRESHOLD then
+                playAnimation("walk", 0.2, Humanoid)
+                updateVelocity(currentTime)
+            else
+                pose = "Standing"
+                playAnimation("idle", 0.2, Humanoid)
+            end
         elseif pose == "Dead" or pose == "GettingUp" or pose == "FallingDown" or pose == "PlatformStanding" then
             stopAllAnimations()
         end
