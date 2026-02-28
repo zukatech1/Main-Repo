@@ -1,15 +1,12 @@
 --[[  This won't be fully functional on xeno or solara because of their limititations.
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/BackroomsWeaponEditor.lua"))()
 
 Made By Zuka. @OverZuka on ROBLOX.
 
 
 ]]
 
-
 print("- Zukas Panel -")
-
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 local CoreGui = game:GetService("CoreGui")
@@ -180,13 +177,9 @@ local function dismantle_readonly(target)
         if mt and set_ro then set_ro(mt, false) end
     end)
 end
-
-
 dismantle_readonly(getgenv())
 dismantle_readonly(getrenv())
 dismantle_readonly(getreg())
-
-
 local function protect_interface(instance)
     local protector = (get_hidden_gui or (syn and syn.protect_gui))
     if protector then pcall(protector, instance) end
@@ -210,8 +203,6 @@ local Services = setmetatable({}, {
         return s
     end
 })
-
-
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -276,8 +267,6 @@ function Utilities.calculateLevenshteinDistance(s1: string, s2: string): number
     end
     return matrix[len1][len2]
 end
-
-
         local Prefix = ";"
         local Commands = {}
         local CommandInfo = {}
@@ -372,7 +361,6 @@ function RegisterCommandDual(info, func)
         end
     end
 end
-
 getgenv().Prefix          = Prefix
 getgenv().Commands        = Commands
 getgenv().Modules         = Modules
@@ -384,7 +372,21 @@ getgenv().UserInputService= UserInputService
 getgenv().TweenService    = TweenService
 getgenv().RunService      = RunService
 getgenv().Workspace       = Workspace
-
+getgenv().addcmd = function(name, aliases, func)
+    if not name or not func then
+        warn("[addcmd] Registration failed: missing name or function.")
+        return
+    end
+    local wrapped = function(args)
+        local speaker = game:GetService("Players").LocalPlayer
+        local ok, err = pcall(func, args, speaker)
+        if not ok then
+            warn("[addcmd] Error in command '" .. tostring(name) .. "':", err)
+        end
+    end
+    RegisterCommand({ Name = name, Aliases = aliases or {}, Description = "" }, wrapped)
+end
+addcmd = getgenv().addcmd
 local function loadAimbotGUI(args)
     local CoreGui = game:GetService("CoreGui")
     if CoreGui:FindFirstChild("UTS_CGE_Suite") and not args then
@@ -1416,7 +1418,6 @@ RegisterCommand({
         end
     end
 end)
-
 Modules.Performance = {
     State = {
         IsEnabled = false,
@@ -3348,7 +3349,6 @@ end)
     RegisterCommand({Name = "clicktp", Aliases = {}, Description = "Hold Left CTRL and click to teleport."}, function(args)
     Modules.ClickTP:Toggle(args)
 end)
-
 Modules.FovChanger = {
     State = {
         IsEnabled = false,
@@ -3674,18 +3674,14 @@ Modules.BypassDevProduct = {
         Enabled = false
     }
 }
-
 RegisterCommand({
     Name = "bypassdevproduct",
     Aliases = {"bpdp", "unlockproducts"},
     Description = "Bypasses developer product purchase prompts."
 }, function(args)
     Modules.BypassDevProduct.State.Enabled = not Modules.BypassDevProduct.State.Enabled
-    
     if Modules.BypassDevProduct.State.Enabled then
         print("Developer product bypass enabled.")
-        
-        -- Hook PromptProductPurchase to simulate successful purchase
         local oldPromptProductPurchase
         oldPromptProductPurchase = hookfunction(MarketplaceService.PromptProductPurchase, function(...)
             if Modules.BypassDevProduct.State.Enabled then
@@ -3703,7 +3699,6 @@ Modules.BypassGamepass = {
         Enabled = false
     }
 }
-
 RegisterCommand({
     Name = "bypassgamepass",
     Aliases = {"bpgp", "unlockgamepasses"},
@@ -3714,13 +3709,9 @@ RegisterCommand({
         print("Error: Could not find LocalPlayer.")
         return
     end
-    
     Modules.BypassGamepass.State.Enabled = not Modules.BypassGamepass.State.Enabled
-    
     if Modules.BypassGamepass.State.Enabled then
         print("Gamepass bypass enabled.")
-        
-        -- Hook UserOwnsGamePassAsync
         local oldUserOwnsGamePassAsync
         oldUserOwnsGamePassAsync = hookfunction(MarketplaceService.UserOwnsGamePassAsync, function(self, userId, gamePassId)
             if userId == localPlayer.UserId and Modules.BypassGamepass.State.Enabled then
@@ -3745,26 +3736,19 @@ RegisterCommand({
         print("Error: Could not find LocalPlayer.")
         return
     end
-    
-    -- Check if PlaceId was provided
     if not args[1] then
         print("Error: Please provide a PlaceId. Usage: joingame <PlaceId>")
         return
     end
-    
-    -- Convert the argument to a number
     local placeId = tonumber(args[1])
     if not placeId then
         print("Error: Invalid PlaceId. Please provide a valid number.")
         return
     end
-    
     print("Joining game " .. placeId .. "... Please wait.")
-    
     local success, errorMessage = pcall(function()
         TeleportService:Teleport(placeId, localPlayer)
     end)
-    
     if not success then
         print("Join failed: " .. errorMessage)
     end
@@ -5655,7 +5639,6 @@ function Modules.AntiCFrameTeleport:Initialize()
         DoNotif("Anti-TP Debug: " .. (module.Config.DEBUG_MODE and "ON" or "OFF"), 2)
     end)
 end
-
 Modules.FireRemotes = {
 State = {
 Enabled = false,
@@ -6976,31 +6959,29 @@ function Modules.PathfinderFollow:Initialize()
 end
 Modules.GUICreator = {
     State = {
-        IsEnabled = false,
-        UI = nil,
-        Connections = {},
-        CreatedGUIs = {},
-        SelectedElement = nil,
-        PropertyPanel = nil,
+        IsEnabled      = false,
+        UI             = nil,
+        Connections    = {},
+        CreatedGUIs    = {},
+        SelectedElement= nil,
+        PropertyPanel  = nil,
         HierarchyPanel = nil,
-        UndoStack = {},
-        RedoStack = {},
-        CurrentProject = {
-            Name = "Untitled",
-            Elements = {}
-        }
+        GridFrame      = nil,
+        UndoStack      = {},
+        RedoStack      = {},
+        CurrentProject = { Name = "Untitled", Elements = {} }
     },
     Config = {
-        GridSize = 20,
-        SnapToGrid = false,
-        ShowGrid = true,
+        GridSize    = 20,
+        SnapToGrid  = false,
+        ShowGrid    = true,
         DefaultSize = UDim2.fromOffset(200, 100)
     }
 }
-local TweenService    = game:GetService("TweenService")
+local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local Players         = game:GetService("Players")
-local LocalPlayer     = Players.LocalPlayer
+local Players          = game:GetService("Players")
+local LocalPlayer      = Players.LocalPlayer
 function Modules.GUICreator:PushUndo(action)
     table.insert(self.State.UndoStack, action)
     self.State.RedoStack = {}
@@ -7010,14 +6991,14 @@ function Modules.GUICreator:PushUndo(action)
 end
 function Modules.GUICreator:Undo()
     local action = table.remove(self.State.UndoStack)
-    if not action then print("Nothing to undo") return end
+    if not action then print("[GUICreator] Nothing to undo") return end
     table.insert(self.State.RedoStack, action)
     action.Undo()
     self:RefreshHierarchy()
 end
 function Modules.GUICreator:Redo()
     local action = table.remove(self.State.RedoStack)
-    if not action then print("Nothing to redo") return end
+    if not action then print("[GUICreator] Nothing to redo") return end
     table.insert(self.State.UndoStack, action)
     action.Do()
     self:RefreshHierarchy()
@@ -7026,6 +7007,12 @@ function Modules.GUICreator:SnapValue(v)
     if not self.Config.SnapToGrid then return v end
     local g = self.Config.GridSize
     return math.floor((v + g / 2) / g) * g
+end
+function Modules.GUICreator:GetDataForElement(element)
+    for _, d in ipairs(self.State.CreatedGUIs) do
+        if d.Element == element then return d end
+    end
+    return nil
 end
 function Modules.GUICreator:CreateButton(text, color, parent)
     local btn = Instance.new("TextButton", parent)
@@ -7043,7 +7030,8 @@ function Modules.GUICreator:CreateButton(text, color, parent)
         btn.BackgroundColor3 = Color3.fromHSV(h, s, math.min(v + 0.12, 1))
     end)
     btn.MouseLeave:Connect(function()
-        btn.BackgroundColor3 = color end)
+        btn.BackgroundColor3 = color
+    end)
     return btn
 end
 function Modules.GUICreator:_createUI()
@@ -7071,14 +7059,38 @@ function Modules.GUICreator:_createUI()
     titleBar.BorderSizePixel = 0
     Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
     local title = Instance.new("TextLabel", titleBar)
-    title.Size = UDim2.new(1, -110, 1, 0)
+    title.Size = UDim2.new(0.5, 0, 1, 0)
     title.Position = UDim2.fromOffset(15, 0)
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.Code
-    title.Text = "▸ GUI CREATOR  —  Ctrl+Z Undo  |  Ctrl+Y Redo"
+    title.Text = "▸ GUI CREATOR  —  Ctrl+Z Undo  |  Ctrl+Y Redo  |  Ctrl+D Dup  |  Del Delete"
     title.TextColor3 = Color3.fromRGB(90, 140, 255)
-    title.TextSize = 14
+    title.TextSize = 13
     title.TextXAlignment = Enum.TextXAlignment.Left
+    local projLabel = Instance.new("TextLabel", titleBar)
+    projLabel.Size = UDim2.fromOffset(60, 20)
+    projLabel.Position = UDim2.new(0.5, 0, 0.5, -10)
+    projLabel.BackgroundTransparency = 1
+    projLabel.Font = Enum.Font.GothamBold
+    projLabel.Text = "Project:"
+    projLabel.TextColor3 = Color3.fromRGB(140, 140, 160)
+    projLabel.TextSize = 10
+    projLabel.TextXAlignment = Enum.TextXAlignment.Right
+    local projInput = Instance.new("TextBox", titleBar)
+    projInput.Size = UDim2.fromOffset(120, 22)
+    projInput.Position = UDim2.new(0.5, 64, 0.5, -11)
+    projInput.BackgroundColor3 = Color3.fromRGB(30, 30, 44)
+    projInput.BorderSizePixel = 0
+    projInput.Font = Enum.Font.Code
+    projInput.Text = self.State.CurrentProject.Name
+    projInput.TextColor3 = Color3.fromRGB(220, 220, 255)
+    projInput.TextSize = 11
+    projInput.ClearTextOnFocus = false
+    Instance.new("UICorner", projInput).CornerRadius = UDim.new(0, 4)
+    projInput.FocusLost:Connect(function()
+        self.State.CurrentProject.Name = projInput.Text ~= "" and projInput.Text or "Untitled"
+        projInput.Text = self.State.CurrentProject.Name
+    end)
     local closeBtn = Instance.new("TextButton", titleBar)
     closeBtn.Size = UDim2.fromOffset(30, 30)
     closeBtn.Position = UDim2.new(1, -35, 0, 5)
@@ -7164,7 +7176,7 @@ function Modules.GUICreator:_createUI()
     canvasPanel.BackgroundColor3 = Color3.fromRGB(36, 36, 48)
     canvasPanel.BorderSizePixel = 0
     Instance.new("UICorner", canvasPanel).CornerRadius = UDim.new(0, 8)
-    canvasPanel.ClipsDescendants = true
+    canvasPanel.ClipsDescendants = false
     local canvasLabel = Instance.new("TextLabel", canvasPanel)
     canvasLabel.Size = UDim2.new(1, 0, 0, 24)
     canvasLabel.BackgroundTransparency = 1
@@ -7252,7 +7264,7 @@ function Modules.GUICreator:_createUI()
     hierLayout.Padding = UDim.new(0, 3)
     hierLayout.SortOrder = Enum.SortOrder.LayoutOrder
     self.State.HierarchyPanel = hierScroll
-    screenGui.Parent = CoreGui
+    screenGui.Parent = game:GetService("CoreGui")
     self:PopulateToolbox(toolboxScroll)
     self:_bindKeyboard()
     return workspace
@@ -7302,9 +7314,9 @@ function Modules.GUICreator:MakeDraggable(handle, object)
     local dragging, dragStart, startPos = false, nil, nil
     handle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
+            dragging  = true
             dragStart = input.Position
-            startPos = object.Position
+            startPos  = object.Position
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -7353,21 +7365,21 @@ function Modules.GUICreator:CreateElement(elementType, snapshot)
     local workspace = self.State.UI.MainFrame.Canvas.Workspace
     local element = Instance.new(elementType)
     local idx = #self.State.CreatedGUIs + 1
-    element.Name = elementType .. "_" .. idx
-    element.Size = snapshot and snapshot.Size or self.Config.DefaultSize
-    element.Position = snapshot and snapshot.Position or UDim2.fromOffset(
+    element.Name             = elementType .. "_" .. idx
+    element.Size             = snapshot and snapshot.Size     or self.Config.DefaultSize
+    element.Position         = snapshot and snapshot.Position or UDim2.fromOffset(
         self:SnapValue(math.random(40, 260)),
         self:SnapValue(math.random(40, 180))
     )
     element.BackgroundColor3 = snapshot and snapshot.BackgroundColor3
-        or Color3.fromRGB(math.random(90, 200), math.random(90, 200), math.random(90, 200))
-    element.BorderSizePixel = 0
-    element.ZIndex = snapshot and snapshot.ZIndex or idx + 2
+        or Color3.fromRGB(math.random(90,200), math.random(90,200), math.random(90,200))
+    element.BorderSizePixel  = 0
+    element.ZIndex           = snapshot and snapshot.ZIndex or idx + 2
     if elementType == "TextLabel" or elementType == "TextButton" or elementType == "TextBox" then
-        element.Text        = snapshot and snapshot.Text or element.Name
-        element.TextColor3  = snapshot and snapshot.TextColor3 or Color3.new(1, 1, 1)
-        element.Font        = Enum.Font.Gotham
-        element.TextSize    = snapshot and snapshot.TextSize or 14
+        element.Text       = snapshot and snapshot.Text      or element.Name
+        element.TextColor3 = snapshot and snapshot.TextColor3 or Color3.new(1,1,1)
+        element.Font       = Enum.Font.Gotham
+        element.TextSize   = snapshot and snapshot.TextSize  or 14
     end
     if elementType == "TextBox" then
         element.PlaceholderText  = "Enter text…"
@@ -7378,14 +7390,22 @@ function Modules.GUICreator:CreateElement(elementType, snapshot)
             or "rbxasset://textures/ui/GuiImagePlaceholder.png"
     end
     if elementType == "ScrollingFrame" then
+        element.ScrollingEnabled   = false
         element.ScrollBarThickness = 6
-        element.CanvasSize         = UDim2.fromOffset(480, 720)
+        element.CanvasSize         = snapshot and snapshot.CanvasSize or UDim2.fromOffset(480, 720)
     end
-    Instance.new("UICorner", element).CornerRadius = UDim.new(0, 8)
+    local cornerRadius = (snapshot and snapshot.CornerRadius) or 8
+    local corner = Instance.new("UICorner", element)
+    corner.CornerRadius = UDim.new(0, cornerRadius)
     element.Parent = workspace
-    local data = {Element = element, Type = elementType}
+    local data = {
+        Element       = element,
+        Type          = elementType,
+        CornerRadius  = cornerRadius,
+        Connections   = {}
+    }
     table.insert(self.State.CreatedGUIs, data)
-    self:MakeElementInteractive(element)
+    self:MakeElementInteractive(element, data)
     self:RefreshHierarchy()
     self:SelectElement(element)
     if not snapshot then
@@ -7400,21 +7420,25 @@ function Modules.GUICreator:CreateElement(elementType, snapshot)
                 for i, d in ipairs(self.State.CreatedGUIs) do
                     if d.Element == element then table.remove(self.State.CreatedGUIs, i) break end
                 end
-                self.State.SelectedElement = nil
-                self:UpdatePropertiesPanel(nil)
+                if self.State.SelectedElement == element then
+                    self.State.SelectedElement = nil
+                    self:UpdatePropertiesPanel(nil)
+                end
                 self:RefreshHierarchy()
             end
         })
     end
-    print(string.format("✓ Created %s", element.Name))
+    print(string.format("[GUICreator] ✓ Created %s", element.Name))
     return element
 end
 function Modules.GUICreator:DuplicateElement(element)
+    local data = self:GetDataForElement(element)
     local snap = {
-        Size             = UDim2.fromOffset(element.Size.X.Offset, element.Size.Y.Offset),
+        Size             = UDim2.fromOffset(element.Size.X.Offset,         element.Size.Y.Offset),
         Position         = UDim2.fromOffset(element.Position.X.Offset + 15, element.Position.Y.Offset + 15),
         BackgroundColor3 = element.BackgroundColor3,
         ZIndex           = element.ZIndex,
+        CornerRadius     = data and data.CornerRadius or 8,
     }
     if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
         snap.Text       = element.Text
@@ -7424,18 +7448,17 @@ function Modules.GUICreator:DuplicateElement(element)
     if element:IsA("ImageLabel") then
         snap.Image = element.Image
     end
-    local elemType = "Frame"
-    for _, d in ipairs(self.State.CreatedGUIs) do
-        if d.Element == element then elemType = d.Type break end
+    if element:IsA("ScrollingFrame") then
+        snap.CanvasSize = UDim2.fromOffset(element.CanvasSize.X.Offset, element.CanvasSize.Y.Offset)
     end
+    local elemType = data and data.Type or "Frame"
     self:CreateElement(elemType, snap)
-    print("✓ Duplicated element (Ctrl+D)")
+    print("[GUICreator] ✓ Duplicated element (Ctrl+D)")
 end
-function Modules.GUICreator:MakeElementInteractive(element)
-    local selBox = Instance.new("Frame", element)
-    selBox.Name = "SelectionBox"
-    selBox.Size = UDim2.new(1, 6, 1, 6)
-    selBox.Position = UDim2.fromOffset(-3, -3)
+function Modules.GUICreator:MakeElementInteractive(element, data)
+    local canvasPanel = self.State.UI.MainFrame.Canvas
+    local selBox = Instance.new("Frame", canvasPanel)
+    selBox.Name = "SelectionBox_" .. element.Name
     selBox.BackgroundTransparency = 1
     selBox.BorderSizePixel = 0
     selBox.Visible = false
@@ -7443,6 +7466,18 @@ function Modules.GUICreator:MakeElementInteractive(element)
     local selStroke = Instance.new("UIStroke", selBox)
     selStroke.Color = Color3.fromRGB(0, 230, 255)
     selStroke.Thickness = 2
+    local function syncSelBox()
+        if not element or not element.Parent then return end
+        local ws     = self.State.UI.MainFrame.Canvas.Workspace
+        local wsAbs  = ws.AbsolutePosition
+        local cpAbs  = canvasPanel.AbsolutePosition
+        local eAbs   = element.AbsolutePosition
+        local eSize  = element.AbsoluteSize
+        local ox     = (wsAbs.X - cpAbs.X) + element.Position.X.Offset
+        local oy     = (wsAbs.Y - cpAbs.Y) + element.Position.Y.Offset
+        selBox.Size     = UDim2.fromOffset(eSize.X + 6, eSize.Y + 6)
+        selBox.Position = UDim2.fromOffset(ox - 3, oy - 3)
+    end
     local handles = {
         {name="NW", ax=0,   ay=0,   cx=true,  cy=true},
         {name="N",  ax=0.5, ay=0,   cx=false, cy=true},
@@ -7455,84 +7490,86 @@ function Modules.GUICreator:MakeElementInteractive(element)
     }
     local handleInstances = {}
     for _, hd in ipairs(handles) do
-        local h = Instance.new("Frame", selBox)
+        local h = Instance.new("TextButton", selBox)
         h.Name = "Handle_" .. hd.name
-        h.Size = UDim2.fromOffset(8, 8)
+        h.Size = UDim2.fromOffset(10, 10)
         h.AnchorPoint = Vector2.new(0.5, 0.5)
         h.Position = UDim2.new(hd.ax, 0, hd.ay, 0)
         h.BackgroundColor3 = Color3.fromRGB(0, 230, 255)
         h.BorderSizePixel = 0
         h.ZIndex = 201
+        h.Text = ""
+        h.AutoButtonColor = false
         Instance.new("UICorner", h).CornerRadius = UDim.new(0, 2)
         handleInstances[hd.name] = {frame = h, meta = hd}
     end
-    local dragging = false
-    local dragStart, startPos, startSize
-    local resizing = false
+    local resizing     = false
+    local dragging     = false
     local resizeHandle = nil
-    for name, hdata in pairs(handleInstances) do
-        hdata.frame.InputBegan:Connect(function(input)
-            if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+    local dragStart    = nil
+    local startPos     = nil
+    local startSize    = nil
+    for _, hdata in pairs(handleInstances) do
+        hdata.frame.MouseButton1Down:Connect(function()
             self:SelectElement(element)
-            resizing = true
+            resizing     = true
+            dragging     = false
             resizeHandle = hdata.meta
-            dragStart = input.Position
-            startPos  = {X = element.Position.X.Offset, Y = element.Position.Y.Offset}
-            startSize = {W = element.Size.X.Offset,     H = element.Size.Y.Offset}
+            dragStart    = UserInputService:GetMouseLocation()
+            startPos     = {X = element.Position.X.Offset, Y = element.Position.Y.Offset}
+            startSize    = {W = element.Size.X.Offset,     H = element.Size.Y.Offset}
         end)
     end
-    element.InputBegan:Connect(function(input)
+    local elemConn = element.InputBegan:Connect(function(input)
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-        self:SelectElement(element)
         if resizing then return end
+        self:SelectElement(element)
         dragging  = true
         dragStart = input.Position
         startPos  = {X = element.Position.X.Offset, Y = element.Position.Y.Offset}
         startSize = {W = element.Size.X.Offset,     H = element.Size.Y.Offset}
     end)
-    local prevPos, prevSize
     local moveConn = UserInputService.InputChanged:Connect(function(input)
         if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-        local delta = input.Position - dragStart
-        if dragging and not resizing then
-            local nx = self:SnapValue(startPos.X + delta.X)
-            local ny = self:SnapValue(startPos.Y + delta.Y)
-            element.Position = UDim2.fromOffset(nx, ny)
-        end
         if resizing and resizeHandle then
-            local h = resizeHandle
-            local dx = delta.X
-            local dy = delta.Y
-            local nx, ny = startPos.X, startPos.Y
-            local nw, nh = startSize.W, startSize.H
+            local mouseNow = UserInputService:GetMouseLocation()
+            local delta    = mouseNow - dragStart
+            local h        = resizeHandle
+            local nx, ny   = startPos.X, startPos.Y
+            local nw, nh   = startSize.W, startSize.H
             if h.cx then
                 if h.ax == 0 then
-                    nw = math.max(20, startSize.W - dx)
+                    nw = math.max(20, startSize.W - delta.X)
                     nx = startPos.X + (startSize.W - nw)
                 else
-                    nw = math.max(20, startSize.W + dx)
+                    nw = math.max(20, startSize.W + delta.X)
                 end
             end
             if h.cy then
                 if h.ay == 0 then
-                    nh = math.max(20, startSize.H - dy)
+                    nh = math.max(20, startSize.H - delta.Y)
                     ny = startPos.Y + (startSize.H - nh)
                 else
-                    nh = math.max(20, startSize.H + dy)
+                    nh = math.max(20, startSize.H + delta.Y)
                 end
             end
-            nx = self:SnapValue(nx)
-            ny = self:SnapValue(ny)
-            nw = self:SnapValue(nw)
-            nh = self:SnapValue(nh)
+            nx = self:SnapValue(nx) ; ny = self:SnapValue(ny)
+            nw = self:SnapValue(nw) ; nh = self:SnapValue(nh)
             element.Position = UDim2.fromOffset(nx, ny)
             element.Size     = UDim2.fromOffset(nw, nh)
+            syncSelBox()
             self:UpdatePropertiesPanel(element)
+        elseif dragging then
+            local delta = input.Position - dragStart
+            local nx = self:SnapValue(startPos.X + delta.X)
+            local ny = self:SnapValue(startPos.Y + delta.Y)
+            element.Position = UDim2.fromOffset(nx, ny)
+            syncSelBox()
         end
     end)
     local releaseConn = UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-        if (dragging or resizing) and startPos then
+        if (dragging or resizing) and startPos and startSize then
             local oldPos  = UDim2.fromOffset(startPos.X, startPos.Y)
             local oldSize = UDim2.fromOffset(startSize.W, startSize.H)
             local newPos  = element.Position
@@ -7540,34 +7577,42 @@ function Modules.GUICreator:MakeElementInteractive(element)
             if oldPos ~= newPos or oldSize ~= newSize then
                 self:PushUndo({
                     Do = function()
-                        element.Position = newPos
-                        element.Size     = newSize
+                        element.Position = newPos ; element.Size = newSize
+                        syncSelBox()
                         self:UpdatePropertiesPanel(element)
                     end,
                     Undo = function()
-                        element.Position = oldPos
-                        element.Size     = oldSize
+                        element.Position = oldPos ; element.Size = oldSize
+                        syncSelBox()
                         self:UpdatePropertiesPanel(element)
                     end
                 })
             end
         end
-        dragging = false
-        resizing = false
+        dragging     = false
+        resizing     = false
         resizeHandle = nil
     end)
-    table.insert(self.State.Connections, moveConn)
-    table.insert(self.State.Connections, releaseConn)
+    data.Connections = {elemConn, moveConn, releaseConn}
+    data.SelectionBox = selBox
+    data.SyncSelBox   = syncSelBox
 end
 function Modules.GUICreator:SelectElement(element)
     if self.State.SelectedElement == element then return end
     if self.State.SelectedElement then
-        local ob = self.State.SelectedElement:FindFirstChild("SelectionBox")
-        if ob then ob.Visible = false end
+        local oldData = self:GetDataForElement(self.State.SelectedElement)
+        if oldData and oldData.SelectionBox then
+            oldData.SelectionBox.Visible = false
+        end
     end
     self.State.SelectedElement = element
-    local box = element:FindFirstChild("SelectionBox")
-    if box then box.Visible = true end
+    local data = self:GetDataForElement(element)
+    if data then
+        if data.SelectionBox then
+            data.SyncSelBox()
+            data.SelectionBox.Visible = true
+        end
+    end
     self:UpdatePropertiesPanel(element)
     self:RefreshHierarchy()
 end
@@ -7587,44 +7632,27 @@ function Modules.GUICreator:RefreshHierarchy()
         row.TextSize = 11
         row.TextXAlignment = Enum.TextXAlignment.Left
         row.AutoButtonColor = false
-        local isSelected = (self.State.SelectedElement == elem)
-        row.BackgroundColor3 = isSelected
-            and Color3.fromRGB(50, 80, 160)
-            or  Color3.fromRGB(36, 36, 50)
-        row.TextColor3 = isSelected
-            and Color3.new(1, 1, 1)
-            or  Color3.fromRGB(180, 180, 200)
+        local isSel = (self.State.SelectedElement == elem)
+        row.BackgroundColor3 = isSel and Color3.fromRGB(50,80,160) or Color3.fromRGB(36,36,50)
+        row.TextColor3       = isSel and Color3.new(1,1,1)         or Color3.fromRGB(180,180,200)
         row.Text = "  [Z:" .. tostring(elem.ZIndex) .. "]  " .. elem.Name
         Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
-        row.MouseButton1Click:Connect(function()
-            self:SelectElement(elem)
-        end)
-        local upBtn = Instance.new("TextButton", row)
-        upBtn.Size = UDim2.fromOffset(18, 18)
-        upBtn.Position = UDim2.new(1, -42, 0.5, -9)
-        upBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 100)
-        upBtn.BorderSizePixel = 0
-        upBtn.Font = Enum.Font.GothamBold
-        upBtn.Text = "▲"
-        upBtn.TextSize = 9
-        upBtn.TextColor3 = Color3.new(1, 1, 1)
-        Instance.new("UICorner", upBtn).CornerRadius = UDim.new(0, 3)
-        upBtn.MouseButton1Click:Connect(function()
-            self:ChangeZIndex(elem, 1)
-        end)
-        local downBtn = Instance.new("TextButton", row)
-        downBtn.Size = UDim2.fromOffset(18, 18)
-        downBtn.Position = UDim2.new(1, -21, 0.5, -9)
-        downBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 100)
-        downBtn.BorderSizePixel = 0
-        downBtn.Font = Enum.Font.GothamBold
-        downBtn.Text = "▼"
-        downBtn.TextSize = 9
-        downBtn.TextColor3 = Color3.new(1, 1, 1)
-        Instance.new("UICorner", downBtn).CornerRadius = UDim.new(0, 3)
-        downBtn.MouseButton1Click:Connect(function()
-            self:ChangeZIndex(elem, -1)
-        end)
+        row.MouseButton1Click:Connect(function() self:SelectElement(elem) end)
+        local function makeZBtn(label, offset, delta)
+            local b = Instance.new("TextButton", row)
+            b.Size = UDim2.fromOffset(18, 18)
+            b.Position = UDim2.new(1, offset, 0.5, -9)
+            b.BackgroundColor3 = Color3.fromRGB(70,70,100)
+            b.BorderSizePixel = 0
+            b.Font = Enum.Font.GothamBold
+            b.Text = label
+            b.TextSize = 9
+            b.TextColor3 = Color3.new(1,1,1)
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0,3)
+            b.MouseButton1Click:Connect(function() self:ChangeZIndex(elem, delta) end)
+        end
+        makeZBtn("▲", -42, 1)
+        makeZBtn("▼", -21, -1)
     end
 end
 function Modules.GUICreator:ChangeZIndex(element, delta)
@@ -7637,7 +7665,6 @@ function Modules.GUICreator:ChangeZIndex(element, delta)
     })
     self:RefreshHierarchy()
     self:UpdatePropertiesPanel(element)
-    print(string.format("✓ ZIndex %s → %d", element.Name, newZ))
 end
 function Modules.GUICreator:UpdatePropertiesPanel(element)
     local panel = self.State.PropertyPanel
@@ -7645,9 +7672,13 @@ function Modules.GUICreator:UpdatePropertiesPanel(element)
         if not child:IsA("UIListLayout") then child:Destroy() end
     end
     if not element then return end
+    local data = self:GetDataForElement(element)
     self:CreateProperty(panel, "Name", element.Name, function(v)
         local old = element.Name
         element.Name = v
+        if data and data.SelectionBox then
+            data.SelectionBox.Name = "SelectionBox_" .. v
+        end
         self:PushUndo({
             Do   = function() element.Name = v   ; self:RefreshHierarchy() end,
             Undo = function() element.Name = old ; self:RefreshHierarchy() end
@@ -7656,19 +7687,23 @@ function Modules.GUICreator:UpdatePropertiesPanel(element)
     end)
     self:CreateProperty(panel, "Size X", tostring(element.Size.X.Offset), function(v)
         element.Size = UDim2.fromOffset(tonumber(v) or 200, element.Size.Y.Offset)
+        if data then data.SyncSelBox() end
     end)
     self:CreateProperty(panel, "Size Y", tostring(element.Size.Y.Offset), function(v)
         element.Size = UDim2.fromOffset(element.Size.X.Offset, tonumber(v) or 100)
+        if data then data.SyncSelBox() end
     end)
     self:CreateProperty(panel, "Pos X", tostring(element.Position.X.Offset), function(v)
         element.Position = UDim2.fromOffset(tonumber(v) or 0, element.Position.Y.Offset)
+        if data then data.SyncSelBox() end
     end)
     self:CreateProperty(panel, "Pos Y", tostring(element.Position.Y.Offset), function(v)
         element.Position = UDim2.fromOffset(element.Position.X.Offset, tonumber(v) or 0)
+        if data then data.SyncSelBox() end
     end)
     self:CreateProperty(panel, "ZIndex", tostring(element.ZIndex), function(v)
         local old = element.ZIndex
-        local nz = math.max(3, tonumber(v) or 3)
+        local nz  = math.max(3, tonumber(v) or 3)
         element.ZIndex = nz
         self:PushUndo({
             Do   = function() element.ZIndex = nz  ; self:RefreshHierarchy() end,
@@ -7676,17 +7711,28 @@ function Modules.GUICreator:UpdatePropertiesPanel(element)
         })
         self:RefreshHierarchy()
     end)
+    self:CreateProperty(panel, "CornerRadius", tostring(data and data.CornerRadius or 8), function(v)
+        local r = math.max(0, tonumber(v) or 8)
+        if data then data.CornerRadius = r end
+        local corner = element:FindFirstChildOfClass("UICorner")
+        if corner then corner.CornerRadius = UDim.new(0, r) end
+    end)
     self:CreateProperty(panel, "AnchorPoint X", tostring(element.AnchorPoint.X), function(v)
         element.AnchorPoint = Vector2.new(math.clamp(tonumber(v) or 0, 0, 1), element.AnchorPoint.Y)
+        if data then data.SyncSelBox() end
     end)
     self:CreateProperty(panel, "AnchorPoint Y", tostring(element.AnchorPoint.Y), function(v)
         element.AnchorPoint = Vector2.new(element.AnchorPoint.X, math.clamp(tonumber(v) or 0, 0, 1))
+        if data then data.SyncSelBox() end
     end)
     self:CreateColorProperty(panel, "BG Color", element.BackgroundColor3, function(c)
         element.BackgroundColor3 = c
     end)
     self:CreateProperty(panel, "Transparency", tostring(element.BackgroundTransparency), function(v)
         element.BackgroundTransparency = math.clamp(tonumber(v) or 0, 0, 1)
+    end)
+    self:CreateToggleProperty(panel, "Visible", element.Visible, function(v)
+        element.Visible = v
     end)
     if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
         self:CreateProperty(panel, "Text", element.Text, function(v) element.Text = v end)
@@ -7697,115 +7743,178 @@ function Modules.GUICreator:UpdatePropertiesPanel(element)
             element.TextColor3 = c
         end)
     end
+    if element:IsA("ImageLabel") or element:IsA("ImageButton") then
+        self:CreateProperty(panel, "Image ID", element.Image, function(v)
+            element.Image = v
+        end)
+    end
+    if element:IsA("ScrollingFrame") then
+        self:CreateProperty(panel, "Canvas W", tostring(element.CanvasSize.X.Offset), function(v)
+            element.CanvasSize = UDim2.fromOffset(tonumber(v) or 480, element.CanvasSize.Y.Offset)
+        end)
+        self:CreateProperty(panel, "Canvas H", tostring(element.CanvasSize.Y.Offset), function(v)
+            element.CanvasSize = UDim2.fromOffset(element.CanvasSize.X.Offset, tonumber(v) or 720)
+        end)
+        self:CreateProperty(panel, "ScrollBar Thickness", tostring(element.ScrollBarThickness), function(v)
+            element.ScrollBarThickness = tonumber(v) or 6
+        end)
+    end
     local deleteBtn = Instance.new("TextButton", panel)
-    deleteBtn.Size = UDim2.new(1, -6, 0, 32)
-    deleteBtn.BackgroundColor3 = Color3.fromRGB(220, 45, 90)
+    deleteBtn.Size = UDim2.new(1,-6,0,32)
+    deleteBtn.BackgroundColor3 = Color3.fromRGB(220,45,90)
     deleteBtn.BorderSizePixel = 0
     deleteBtn.Font = Enum.Font.GothamBold
     deleteBtn.Text = "🗑  DELETE ELEMENT"
-    deleteBtn.TextColor3 = Color3.new(1, 1, 1)
+    deleteBtn.TextColor3 = Color3.new(1,1,1)
     deleteBtn.TextSize = 11
-    Instance.new("UICorner", deleteBtn).CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", deleteBtn).CornerRadius = UDim.new(0,6)
     deleteBtn.MouseButton1Click:Connect(function() self:DeleteElement(element) end)
     local dupBtn = Instance.new("TextButton", panel)
-    dupBtn.Size = UDim2.new(1, -6, 0, 32)
-    dupBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 220)
+    dupBtn.Size = UDim2.new(1,-6,0,32)
+    dupBtn.BackgroundColor3 = Color3.fromRGB(70,130,220)
     dupBtn.BorderSizePixel = 0
     dupBtn.Font = Enum.Font.GothamBold
     dupBtn.Text = "⧉  DUPLICATE (Ctrl+D)"
-    dupBtn.TextColor3 = Color3.new(1, 1, 1)
+    dupBtn.TextColor3 = Color3.new(1,1,1)
     dupBtn.TextSize = 11
-    Instance.new("UICorner", dupBtn).CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", dupBtn).CornerRadius = UDim.new(0,6)
     dupBtn.MouseButton1Click:Connect(function() self:DuplicateElement(element) end)
 end
 function Modules.GUICreator:CreateProperty(panel, name, value, onChange)
     local container = Instance.new("Frame", panel)
-    container.Size = UDim2.new(1, -6, 0, 48)
-    container.BackgroundColor3 = Color3.fromRGB(36, 36, 50)
+    container.Size = UDim2.new(1,-6,0,48)
+    container.BackgroundColor3 = Color3.fromRGB(36,36,50)
     container.BorderSizePixel = 0
-    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 5)
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0,5)
     local label = Instance.new("TextLabel", container)
-    label.Size = UDim2.new(1, -10, 0, 18)
-    label.Position = UDim2.fromOffset(6, 4)
+    label.Size = UDim2.new(1,-10,0,18)
+    label.Position = UDim2.fromOffset(6,4)
     label.BackgroundTransparency = 1
     label.Font = Enum.Font.GothamBold
     label.Text = name
-    label.TextColor3 = Color3.fromRGB(180, 180, 200)
+    label.TextColor3 = Color3.fromRGB(180,180,200)
     label.TextSize = 10
     label.TextXAlignment = Enum.TextXAlignment.Left
     local input = Instance.new("TextBox", container)
-    input.Size = UDim2.new(1, -12, 0, 20)
-    input.Position = UDim2.fromOffset(6, 24)
-    input.BackgroundColor3 = Color3.fromRGB(26, 26, 38)
+    input.Size = UDim2.new(1,-12,0,20)
+    input.Position = UDim2.fromOffset(6,24)
+    input.BackgroundColor3 = Color3.fromRGB(26,26,38)
     input.BorderSizePixel = 0
     input.Font = Enum.Font.Code
     input.Text = tostring(value)
-    input.TextColor3 = Color3.new(1, 1, 1)
+    input.TextColor3 = Color3.new(1,1,1)
     input.TextSize = 10
     input.ClearTextOnFocus = false
-    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 4)
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0,4)
     input.FocusLost:Connect(function() onChange(input.Text) end)
 end
 function Modules.GUICreator:CreateColorProperty(panel, name, color, onChange)
     local container = Instance.new("Frame", panel)
-    container.Size = UDim2.new(1, -6, 0, 48)
-    container.BackgroundColor3 = Color3.fromRGB(36, 36, 50)
+    container.Size = UDim2.new(1,-6,0,48)
+    container.BackgroundColor3 = Color3.fromRGB(36,36,50)
     container.BorderSizePixel = 0
-    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 5)
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0,5)
     local label = Instance.new("TextLabel", container)
-    label.Size = UDim2.new(1, -46, 0, 18)
-    label.Position = UDim2.fromOffset(6, 4)
+    label.Size = UDim2.new(1,-46,0,18)
+    label.Position = UDim2.fromOffset(6,4)
     label.BackgroundTransparency = 1
     label.Font = Enum.Font.GothamBold
     label.Text = name
-    label.TextColor3 = Color3.fromRGB(180, 180, 200)
+    label.TextColor3 = Color3.fromRGB(180,180,200)
     label.TextSize = 10
     label.TextXAlignment = Enum.TextXAlignment.Left
     local preview = Instance.new("Frame", container)
-    preview.Size = UDim2.fromOffset(22, 22)
-    preview.Position = UDim2.new(1, -28, 0, 4)
+    preview.Size = UDim2.fromOffset(22,22)
+    preview.Position = UDim2.new(1,-28,0,4)
     preview.BackgroundColor3 = color
     preview.BorderSizePixel = 0
-    Instance.new("UICorner", preview).CornerRadius = UDim.new(0, 4)
+    Instance.new("UICorner", preview).CornerRadius = UDim.new(0,4)
     local input = Instance.new("TextBox", container)
-    input.Size = UDim2.new(1, -12, 0, 20)
-    input.Position = UDim2.fromOffset(6, 24)
-    input.BackgroundColor3 = Color3.fromRGB(26, 26, 38)
+    input.Size = UDim2.new(1,-12,0,20)
+    input.Position = UDim2.fromOffset(6,24)
+    input.BackgroundColor3 = Color3.fromRGB(26,26,38)
     input.BorderSizePixel = 0
     input.Font = Enum.Font.Code
     input.Text = string.format("%d,%d,%d", color.R*255, color.G*255, color.B*255)
-    input.TextColor3 = Color3.new(1, 1, 1)
+    input.TextColor3 = Color3.new(1,1,1)
     input.TextSize = 10
     input.PlaceholderText = "R,G,B"
     input.ClearTextOnFocus = false
-    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 4)
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0,4)
     input.FocusLost:Connect(function()
         local p = string.split(input.Text, ",")
         if #p == 3 then
-            local r, g, b = tonumber(p[1]), tonumber(p[2]), tonumber(p[3])
+            local r,g,b = tonumber(p[1]),tonumber(p[2]),tonumber(p[3])
             if r and g and b then
-                local nc = Color3.fromRGB(r, g, b)
+                local nc = Color3.fromRGB(r,g,b)
                 preview.BackgroundColor3 = nc
                 onChange(nc)
             end
         end
     end)
 end
+function Modules.GUICreator:CreateToggleProperty(panel, name, currentValue, onChange)
+    local container = Instance.new("Frame", panel)
+    container.Size = UDim2.new(1,-6,0,34)
+    container.BackgroundColor3 = Color3.fromRGB(36,36,50)
+    container.BorderSizePixel = 0
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0,5)
+    local label = Instance.new("TextLabel", container)
+    label.Size = UDim2.new(1,-50,1,0)
+    label.Position = UDim2.fromOffset(6,0)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.GothamBold
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(180,180,200)
+    label.TextSize = 10
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    local val = currentValue
+    local toggleBtn = Instance.new("TextButton", container)
+    toggleBtn.Size = UDim2.fromOffset(44, 22)
+    toggleBtn.Position = UDim2.new(1,-50,0.5,-11)
+    toggleBtn.BorderSizePixel = 0
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.TextSize = 10
+    toggleBtn.TextColor3 = Color3.new(1,1,1)
+    toggleBtn.AutoButtonColor = false
+    Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0,4)
+    local function refresh()
+        toggleBtn.Text = val and "ON" or "OFF"
+        toggleBtn.BackgroundColor3 = val and Color3.fromRGB(0,180,90) or Color3.fromRGB(140,40,60)
+    end
+    refresh()
+    toggleBtn.MouseButton1Click:Connect(function()
+        val = not val
+        refresh()
+        onChange(val)
+    end)
+end
 function Modules.GUICreator:DeleteElement(element)
     local savedType, savedData
+    local savedIdx
     for i, data in ipairs(self.State.CreatedGUIs) do
         if data.Element == element then
             savedType = data.Type
             savedData = data
+            savedIdx  = i
             table.remove(self.State.CreatedGUIs, i)
             break
         end
+    end
+    if savedData and savedData.Connections then
+        for _, c in ipairs(savedData.Connections) do
+            if c then c:Disconnect() end
+        end
+    end
+    if savedData and savedData.SelectionBox then
+        savedData.SelectionBox:Destroy()
     end
     local snap = {
         Size             = element.Size,
         Position         = element.Position,
         BackgroundColor3 = element.BackgroundColor3,
         ZIndex           = element.ZIndex,
+        CornerRadius     = savedData and savedData.CornerRadius or 8,
     }
     if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
         snap.Text       = element.Text
@@ -7813,6 +7922,9 @@ function Modules.GUICreator:DeleteElement(element)
         snap.TextSize   = element.TextSize
     end
     if element:IsA("ImageLabel") then snap.Image = element.Image end
+    if element:IsA("ScrollingFrame") then
+        snap.CanvasSize = UDim2.fromOffset(element.CanvasSize.X.Offset, element.CanvasSize.Y.Offset)
+    end
     element:Destroy()
     self.State.SelectedElement = nil
     self:UpdatePropertiesPanel(nil)
@@ -7822,95 +7934,100 @@ function Modules.GUICreator:DeleteElement(element)
             self:CreateElement(savedType, snap)
         end,
         Do = function()
+            local latest = self.State.CreatedGUIs[#self.State.CreatedGUIs]
+            if latest then self:DeleteElement(latest.Element) end
         end
     })
-    print("✓ Deleted element")
+    print("[GUICreator] ✓ Deleted element")
 end
 function Modules.GUICreator:ClearCanvas()
     for _, data in ipairs(self.State.CreatedGUIs) do
+        if data.Connections then
+            for _, c in ipairs(data.Connections) do if c then c:Disconnect() end end
+        end
+        if data.SelectionBox then data.SelectionBox:Destroy() end
         if data.Element then data.Element:Destroy() end
     end
-    self.State.CreatedGUIs = {}
-    self.State.UndoStack   = {}
-    self.State.RedoStack   = {}
+    self.State.CreatedGUIs     = {}
+    self.State.UndoStack       = {}
+    self.State.RedoStack       = {}
     self.State.SelectedElement = nil
     self:UpdatePropertiesPanel(nil)
     self:RefreshHierarchy()
-    print("✓ Cleared canvas")
+    print("[GUICreator] ✓ Cleared canvas")
 end
 function Modules.GUICreator:ExportCode()
     local lines = {}
     local function w(s) table.insert(lines, s) end
     w("-- ════════════════════════════════════════")
     w("-- Generated by GUI Creator (Zuka)")
+    w("-- Project: " .. self.State.CurrentProject.Name)
     w("-- ════════════════════════════════════════")
-    w("local Players    = game:GetService('Players')")
+    w("local Players     = game:GetService('Players')")
     w("local LocalPlayer = Players.LocalPlayer")
     w("")
     w("local ScreenGui = Instance.new('ScreenGui')")
-    w("ScreenGui.Name = '" .. self.State.CurrentProject.Name .. "'")
-    w("ScreenGui.ResetOnSpawn = false")
-    w("ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling")
-    w("ScreenGui.Parent = LocalPlayer:WaitForChild('PlayerGui')")
+    w("ScreenGui.Name            = '" .. self.State.CurrentProject.Name .. "'")
+    w("ScreenGui.ResetOnSpawn    = false")
+    w("ScreenGui.ZIndexBehavior  = Enum.ZIndexBehavior.Sibling")
+    w("ScreenGui.Parent          = LocalPlayer:WaitForChild('PlayerGui')")
     w("")
     for _, data in ipairs(self.State.CreatedGUIs) do
         local e = data.Element
         if not e or not e.Parent then continue end
-        w(string.format("-- %s", e.Name))
-        w(string.format("local %s = Instance.new('%s')", e.Name, data.Type))
-        w(string.format("%s.Name                 = '%s'",   e.Name, e.Name))
-        w(string.format("%s.Size                 = UDim2.fromOffset(%d, %d)", e.Name, e.Size.X.Offset, e.Size.Y.Offset))
-        w(string.format("%s.Position             = UDim2.fromOffset(%d, %d)", e.Name, e.Position.X.Offset, e.Position.Y.Offset))
-        w(string.format("%s.AnchorPoint          = Vector2.new(%g, %g)",      e.Name, e.AnchorPoint.X, e.AnchorPoint.Y))
-        w(string.format("%s.BackgroundColor3     = Color3.fromRGB(%d, %d, %d)",
-            e.Name,
-            math.round(e.BackgroundColor3.R * 255),
-            math.round(e.BackgroundColor3.G * 255),
-            math.round(e.BackgroundColor3.B * 255)))
-        w(string.format("%s.BackgroundTransparency = %g",   e.Name, e.BackgroundTransparency))
-        w(string.format("%s.BorderSizePixel       = 0",     e.Name))
-        w(string.format("%s.ZIndex                = %d",    e.Name, e.ZIndex))
+        local n = e.Name
+        w(string.format("-- %s", n))
+        w(string.format("local %s = Instance.new('%s')", n, data.Type))
+        w(string.format("%s.Name                   = '%s'",   n, n))
+        w(string.format("%s.Size                   = UDim2.fromOffset(%d, %d)", n, e.Size.X.Offset, e.Size.Y.Offset))
+        w(string.format("%s.Position               = UDim2.fromOffset(%d, %d)", n, e.Position.X.Offset, e.Position.Y.Offset))
+        w(string.format("%s.AnchorPoint            = Vector2.new(%g, %g)",      n, e.AnchorPoint.X, e.AnchorPoint.Y))
+        w(string.format("%s.BackgroundColor3       = Color3.fromRGB(%d, %d, %d)",
+            n, math.round(e.BackgroundColor3.R*255), math.round(e.BackgroundColor3.G*255), math.round(e.BackgroundColor3.B*255)))
+        w(string.format("%s.BackgroundTransparency = %g",  n, e.BackgroundTransparency))
+        w(string.format("%s.BorderSizePixel        = 0",   n))
+        w(string.format("%s.ZIndex                 = %d",  n, e.ZIndex))
+        w(string.format("%s.Visible                = %s",  n, tostring(e.Visible)))
         if e:IsA("TextLabel") or e:IsA("TextButton") or e:IsA("TextBox") then
-            local safeText = e.Text:gsub("'", "\\'")
-            w(string.format("%s.Text                 = '%s'",  e.Name, safeText))
-            w(string.format("%s.TextColor3           = Color3.fromRGB(%d, %d, %d)",
-                e.Name,
-                math.round(e.TextColor3.R * 255),
-                math.round(e.TextColor3.G * 255),
-                math.round(e.TextColor3.B * 255)))
-            w(string.format("%s.TextSize             = %d",    e.Name, e.TextSize))
-            w(string.format("%s.Font                 = Enum.Font.%s",
-                e.Name, tostring(e.Font):gsub("Enum%.Font%.", "")))
-            w(string.format("%s.TextXAlignment       = Enum.TextXAlignment.Left", e.Name))
+            local safe = e.Text:gsub("'", "\\'")
+            w(string.format("%s.Text                   = '%s'",  n, safe))
+            w(string.format("%s.TextColor3             = Color3.fromRGB(%d, %d, %d)",
+                n, math.round(e.TextColor3.R*255), math.round(e.TextColor3.G*255), math.round(e.TextColor3.B*255)))
+            w(string.format("%s.TextSize               = %d",    n, e.TextSize))
+            w(string.format("%s.Font                   = Enum.Font.%s",
+                n, tostring(e.Font):gsub("Enum%.Font%.", "")))
+            w(string.format("%s.TextXAlignment         = Enum.TextXAlignment.Left", n))
         end
         if e:IsA("ImageLabel") or e:IsA("ImageButton") then
-            w(string.format("%s.Image = '%s'", e.Name, e.Image))
-            w(string.format("%s.ScaleType = Enum.ScaleType.Fit", e.Name))
+            w(string.format("%s.Image     = '%s'",          n, e.Image))
+            w(string.format("%s.ScaleType = Enum.ScaleType.Fit", n))
         end
         if e:IsA("ScrollingFrame") then
-            w(string.format("%s.ScrollBarThickness = %d", e.Name, e.ScrollBarThickness))
-            w(string.format("%s.CanvasSize = UDim2.fromOffset(%d, %d)",
-                e.Name, e.CanvasSize.X.Offset, e.CanvasSize.Y.Offset))
+            w(string.format("%s.ScrollBarThickness = %d",           n, e.ScrollBarThickness))
+            w(string.format("%s.CanvasSize         = UDim2.fromOffset(%d, %d)",
+                n, e.CanvasSize.X.Offset, e.CanvasSize.Y.Offset))
+            w(string.format("%s.ScrollingEnabled   = true", n))
         end
-        w(string.format("do local c = Instance.new('UICorner', %s) ; c.CornerRadius = UDim.new(0, 8) end", e.Name))
-        w(string.format("%s.Parent = ScreenGui", e.Name))
+        local cr = data.CornerRadius or 8
+        w(string.format("do local c = Instance.new('UICorner', %s) ; c.CornerRadius = UDim.new(0, %d) end", n, cr))
+        w(string.format("%s.Parent = ScreenGui", n))
         w("")
     end
     local code = table.concat(lines, "\n")
     if setclipboard then
         setclipboard(code)
-        print("✓ Code copied to clipboard!")
+        print("[GUICreator] ✓ Code copied to clipboard!")
     else
         print(code)
-        print("✓ Code printed to console (F9)")
+        print("[GUICreator] ✓ Code printed to console (F9)")
     end
 end
 function Modules.GUICreator:Enable()
     if self.State.IsEnabled then return end
     self.State.IsEnabled = true
     self:_createUI()
-    print("✓ GUI Creator enabled")
-    print("  Drag elements freely  |  Resize via handles  |  Ctrl+Z/Y undo/redo  |  Ctrl+D duplicate  |  Del to delete")
+    print("[GUICreator] ✓ Enabled")
+    print("  Drag | Resize via handles | Ctrl+Z/Y | Ctrl+D dup | Del delete | ScrollingFrame fully resizable")
 end
 function Modules.GUICreator:Disable()
     if not self.State.IsEnabled then return end
@@ -7919,6 +8036,11 @@ function Modules.GUICreator:Disable()
         if conn then conn:Disconnect() end
     end
     table.clear(self.State.Connections)
+    for _, data in ipairs(self.State.CreatedGUIs) do
+        if data.Connections then
+            for _, c in ipairs(data.Connections) do if c then c:Disconnect() end end
+        end
+    end
     if self.State.UI then
         self.State.UI:Destroy()
         self.State.UI = nil
@@ -7927,15 +8049,16 @@ function Modules.GUICreator:Disable()
     self.State.UndoStack       = {}
     self.State.RedoStack       = {}
     self.State.SelectedElement = nil
-    print("✓ GUI Creator disabled")
+    self.State.GridFrame       = nil
+    print("[GUICreator] ✓ Disabled")
 end
 function Modules.GUICreator:Toggle()
     if self.State.IsEnabled then self:Disable() else self:Enable() end
 end
 RegisterCommand({
-    Name = "guicreator",
-    Aliases = {"guic", "guimaker", "guibuild"},
-    Description = "Opens a visual GUI creator with drag-and-drop elements and code export."
+    Name        = "guicreator",
+    Aliases     = {"guic", "guimaker", "guibuild"},
+    Description = "Opens a visual GUI creator with drag-and-drop, resize, undo/redo, and code export."
 }, function()
     Modules.GUICreator:Toggle()
 end)
@@ -8448,237 +8571,6 @@ RegisterCommand({
 }, function(args)
     Modules.InfoPanel:Toggle()
 end)
-Modules.StalkerBot = {
-    State = {
-        IsEnabled = false,
-        TargetPlayer = nil,
-        Path = nil,
-        CurrentWaypoints = {},
-        CurrentWaypointIndex = 1,
-        LastPathRecalculation = 0,
-        HasLineOfSight = false,
-        Connections = {},
-        LastTargetPosition = nil
-    },
-    Config = {
-        FollowDistance = 80,
-        StopDistance = 15,
-        RecalculationInterval = 0.5,
-        WaypointReachedDistance = 4,
-        DirectFollowDistance = 30,
-        PATH_PARAMS = {
-            AgentRadius = 2,
-            AgentHeight = 5,
-            AgentCanJump = true,
-            AgentCanClimb = false,
-            WaypointSpacing = 4,
-            Costs = {
-                Water = math.huge,
-                DangerZone = math.huge
-            }
-        }
-    },
-    Services = {}
-}
-function Modules.StalkerBot:_onRenderStepped()
-    if not (self.State.IsEnabled and self.State.TargetPlayer) then return end
-    local success, myChar, targetChar = pcall(function()
-        return self.Services.LocalPlayer.Character, self.State.TargetPlayer.Character
-    end)
-    if not (success and myChar and targetChar) then return end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-    if not (myRoot and targetRoot) then return end
-    local lookAtCFrame = CFrame.lookAt(myRoot.Position, targetRoot.Position)
-    myRoot.CFrame = CFrame.new(myRoot.Position, myRoot.Position + lookAtCFrame.LookVector)
-end
-function Modules.StalkerBot:_computePath()
-    local myChar = self.Services.LocalPlayer.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local targetChar = self.State.TargetPlayer and self.State.TargetPlayer.Character
-    local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    if not (myRoot and targetRoot) then return false end
-    if not self.State.Path then
-        self.State.Path = self.Services.PathfindingService:CreatePath(self.Config.PATH_PARAMS)
-    end
-    local success, errorMsg = pcall(function()
-        self.State.Path:ComputeAsync(myRoot.Position, targetRoot.Position)
-    end)
-    if success and self.State.Path.Status == Enum.PathStatus.Success then
-        self.State.CurrentWaypoints = self.State.Path:GetWaypoints()
-        self.State.CurrentWaypointIndex = 1
-        self.State.LastTargetPosition = targetRoot.Position
-        return true
-    else
-        return false
-    end
-end
-function Modules.StalkerBot:_hasLineOfSight(from, to)
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterDescendantsInstances = {
-        self.Services.LocalPlayer.Character,
-        self.State.TargetPlayer.Character
-    }
-    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-    local direction = (to - from)
-    local raycastResult = self.Services.Workspace:Raycast(from, direction, raycastParams)
-    return raycastResult == nil
-end
-function Modules.StalkerBot:_onHeartbeat()
-    if not self.State.IsEnabled then return end
-    if not (self.State.TargetPlayer and self.State.TargetPlayer.Parent) then
-        return self:Disable()
-    end
-    local myChar = self.Services.LocalPlayer.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local myHumanoid = myChar and myChar:FindFirstChildOfClass("Humanoid")
-    local targetChar = self.State.TargetPlayer.Character
-    local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    if not (myRoot and myHumanoid and targetRoot and myHumanoid.Health > 0) then
-        return
-    end
-    local distanceToTarget = (myRoot.Position - targetRoot.Position).Magnitude
-    if distanceToTarget < self.Config.StopDistance then
-        myHumanoid:MoveTo(myRoot.Position)
-        return
-    end
-    local now = tick()
-    local needsRecalculation = false
-    if (now - self.State.LastPathRecalculation) > self.Config.RecalculationInterval then
-        needsRecalculation = true
-        self.State.LastPathRecalculation = now
-    end
-    if self.State.LastTargetPosition then
-        local targetMovedDistance = (targetRoot.Position - self.State.LastTargetPosition).Magnitude
-        if targetMovedDistance > 10 then
-            needsRecalculation = true
-        end
-    end
-    self.State.HasLineOfSight = self:_hasLineOfSight(myRoot.Position, targetRoot.Position)
-    if distanceToTarget < self.Config.DirectFollowDistance and self.State.HasLineOfSight then
-        myHumanoid:MoveTo(targetRoot.Position)
-        return
-    end
-    if needsRecalculation or not self.State.CurrentWaypoints or #self.State.CurrentWaypoints == 0 then
-        local success = self:_computePath()
-        if not success then
-            myHumanoid:MoveTo(targetRoot.Position)
-            return
-        end
-    end
-    if self.State.CurrentWaypoints and #self.State.CurrentWaypoints > 0 then
-        if self.State.CurrentWaypointIndex > #self.State.CurrentWaypoints then
-            self:_computePath()
-            return
-        end
-        local currentWaypoint = self.State.CurrentWaypoints[self.State.CurrentWaypointIndex]
-        if not currentWaypoint then
-            self:_computePath()
-            return
-        end
-        if currentWaypoint.Action == Enum.PathWaypointAction.Jump then
-            myHumanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-        end
-        myHumanoid:MoveTo(currentWaypoint.Position)
-        local distanceToWaypoint = (myRoot.Position - currentWaypoint.Position).Magnitude
-        if distanceToWaypoint < self.Config.WaypointReachedDistance then
-            self.State.CurrentWaypointIndex = self.State.CurrentWaypointIndex + 1
-        end
-    else
-        myHumanoid:MoveTo(targetRoot.Position)
-    end
-end
-function Modules.StalkerBot:Enable(targetPlayer)
-    if not targetPlayer or targetPlayer == self.Services.LocalPlayer then
-        return DoNotif("Invalid target for StalkerBot.", 3)
-    end
-    if self.State.IsEnabled then 
-        self:Disable() 
-    end
-    pcall(function()
-        self.Services.LocalPlayer.Character.Humanoid.AutoRotate = false
-    end)
-    self.State.IsEnabled = true
-    self.State.TargetPlayer = targetPlayer
-    self.State.Path = self.Services.PathfindingService:CreatePath(self.Config.PATH_PARAMS)
-    self.State.CurrentWaypoints = {}
-    self.State.CurrentWaypointIndex = 1
-    self.State.LastPathRecalculation = 0
-    self:_computePath()
-    self.State.Connections.Heartbeat = self.Services.RunService.Heartbeat:Connect(function() 
-        self:_onHeartbeat() 
-    end)
-    self.State.Connections.RenderStepped = self.Services.RunService.RenderStepped:Connect(function() 
-        self:_onRenderStepped() 
-    end)
-    DoNotif("StalkerBot: Following " .. targetPlayer.Name, 3)
-end
-function Modules.StalkerBot:Disable()
-    if not self.State.IsEnabled then return end
-    for _, conn in pairs(self.State.Connections) do 
-        conn:Disconnect() 
-    end
-    table.clear(self.State.Connections)
-    pcall(function()
-        local humanoid = self.Services.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.AutoRotate = true
-            humanoid:MoveTo(humanoid.RootPart.Position)
-        end
-    end)
-    self.State.IsEnabled = false
-    self.State.TargetPlayer = nil
-    self.State.Path = nil
-    self.State.CurrentWaypoints = {}
-    self.State.CurrentWaypointIndex = 1
-    self.State.LastPathRecalculation = 0
-    self.State.HasLineOfSight = false
-    self.State.LastTargetPosition = nil
-    DoNotif("StalkerBot: DISABLED", 2)
-end
-function Modules.StalkerBot:Initialize()
-    local module = self
-    module.Services = {
-        LocalPlayer = game:GetService("Players").LocalPlayer,
-        PathfindingService = game:GetService("PathfindingService"),
-        RunService = game:GetService("RunService"),
-        Workspace = game:GetService("Workspace")
-    }
-    RegisterCommand({
-        Name = "stalkstare",
-        Aliases = {},
-        Description = "Follow and stare at a player."
-    }, function(args)
-        local argument = args[1]
-        if not argument or (argument:lower() == "stop" or argument:lower() == "off") then
-            module:Disable()
-            return
-        end
-        local target = Utilities.findPlayer(argument)
-        if target then
-            module:Enable(target)
-        else
-            DoNotif("Player '" .. argument .. "' not found.", 3)
-        end
-    end)
-    RegisterCommand({
-        Name = "stalkdebug",
-        Aliases = {},
-        Description = "Shows stalker debug info."
-    }, function()
-        if not module.State.IsEnabled then
-            DoNotif("StalkerBot is not active", 2)
-            return
-        end
-        print("=== StalkerBot Debug ===")
-        print("Target:", module.State.TargetPlayer and module.State.TargetPlayer.Name or "None")
-        print("Has LOS:", module.State.HasLineOfSight)
-        print("Waypoints:", #(module.State.CurrentWaypoints or {}))
-        print("Current Waypoint Index:", module.State.CurrentWaypointIndex)
-        print("Path Status:", module.State.Path and module.State.Path.Status or "No Path")
-        DoNotif("Debug info printed to console (F9)", 2)
-    end)
-end
 Modules.TimeStop = {
     State = {
         IsEnabled = false,
@@ -9703,323 +9595,6 @@ function Modules.AntiTrip:Initialize()
         module:Toggle()
     end)
 end
-Modules.AdBlock = {
-    State = {
-        IsEnabled = false,
-        Connections = {},
-        RemovedAds = 0,
-        Whitelist = {},
-        ProcessedInstances = setmetatable({}, {__mode = "k"})
-    },
-    Dependencies = {"Workspace", "Players", "CoreGui"},
-    Services = {},
-    Config = {
-        AggressiveMode = false,
-        RemoveBillboards = true,
-        RemoveSurfaceGuis = false,
-        ProtectCoreGuis = true,
-        DebugMode = false,
-        WhitelistPatterns = {
-            "^roblox",
-            "^core",
-            "^system",
-            "health", "hotbar", "backpack", "chat",
-            "leaderboard", "playerlist", "nametag",
-            "menu", "settings", "inventory", "hud"
-        },
-        BlacklistPatterns = {
-            "ad[sv]?$", "advert", "sponsor", "promo",
-            "donation", "robux", "gamepass", "purchase",
-            "vip", "premium", "buy", "shop"
-        }
-    }
-}
-local function debugLog(message)
-    if Modules.AdBlock.Config.DebugMode then
-        print("[AdBlock Debug]", message)
-    end
-end
-local function isWhitelisted(name)
-    name = name:lower()
-    for instance in pairs(Modules.AdBlock.State.Whitelist) do
-        if typeof(instance) == "Instance" and instance.Name:lower() == name then
-            return true
-        end
-    end
-    for _, pattern in ipairs(Modules.AdBlock.Config.WhitelistPatterns) do
-        if name:match(pattern) then
-            debugLog("Whitelisted by pattern: " .. name .. " (" .. pattern .. ")")
-            return true
-        end
-    end
-    return false
-end
-local function isBlacklisted(name)
-    name = name:lower()
-    for _, pattern in ipairs(Modules.AdBlock.Config.BlacklistPatterns) do
-        if name:match(pattern) then
-            debugLog("Blacklisted by pattern: " .. name .. " (" .. pattern .. ")")
-            return true
-        end
-    end
-    return false
-end
-local function hasAdCharacteristics(gui)
-    local suspicionScore = 0
-    local imageLabels = gui:GetDescendants()
-    local imageCount = 0
-    for _, obj in ipairs(imageLabels) do
-        if obj:IsA("ImageLabel") then
-            imageCount = imageCount + 1
-        end
-    end
-    if imageCount > 3 then
-        suspicionScore = suspicionScore + 2
-    end
-    for _, obj in ipairs(gui:GetDescendants()) do
-        if obj:IsA("TextButton") or obj:IsA("TextLabel") then
-            local text = obj.Text:lower()
-            if text:match("buy") or text:match("purchase") or text:match("robux") 
-                or text:match("vip") or text:match("premium") or text:match("gamepass") then
-                suspicionScore = suspicionScore + 3
-            end
-        end
-    end
-    for _, obj in ipairs(gui:GetDescendants()) do
-        if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-            local image = obj.Image
-            if image and (image:match("rbxhttp") or image:match("http")) then
-                suspicionScore = suspicionScore + 1
-            end
-        end
-    end
-    if gui:IsA("ScreenGui") then
-        for _, frame in ipairs(gui:GetChildren()) do
-            if frame:IsA("GuiObject") then
-                local size = frame.AbsoluteSize
-                local position = frame.AbsolutePosition
-                if size.Y < 100 and size.X > 200 then
-                    suspicionScore = suspicionScore + 1
-                end
-            end
-        end
-    end
-    return suspicionScore >= (Modules.AdBlock.Config.AggressiveMode and 2 or 4)
-end
-local function isCoreGui(gui)
-    if gui:IsDescendantOf(game:GetService("CoreGui")) then
-        return true
-    end
-    local name = gui.Name:lower()
-    if name:match("^roblox") or name:match("^core") then
-        return true
-    end
-    return false
-end
-function Modules.AdBlock:_destroy(instance, reason)
-    if not instance or not instance.Parent then return end
-    if isWhitelisted(instance.Name) then
-        debugLog("Skipped whitelisted: " .. instance.Name)
-        return
-    end
-    if self.Config.ProtectCoreGuis and isCoreGui(instance) then
-        debugLog("Protected core GUI: " .. instance.Name)
-        return
-    end
-    local success = pcall(function()
-        debugLog("Removing: " .. instance.Name .. " (" .. (reason or "unknown reason") .. ")")
-        instance:Destroy()
-        self.State.RemovedAds = self.State.RemovedAds + 1
-    end)
-    if not success then
-        debugLog("Failed to remove: " .. instance.Name)
-    end
-end
-function Modules.AdBlock:_processObject(obj)
-    if not obj or not obj.Parent then return end
-    if self.State.ProcessedInstances[obj] then
-        return
-    end
-    self.State.ProcessedInstances[obj] = true
-    if isWhitelisted(obj.Name) then
-        return
-    end
-    if self.Config.RemoveBillboards and obj:IsA("BillboardGui") then
-        local parent = obj.Parent
-        if parent and parent:IsA("BasePart") then
-            local humanoid = parent.Parent and parent.Parent:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                debugLog("Skipped character billboard: " .. obj.Name)
-                return
-            end
-        end
-        if isBlacklisted(obj.Name) then
-            self:_destroy(obj, "blacklisted billboard")
-            return
-        end
-    end
-    if self.Config.RemoveSurfaceGuis and obj:IsA("SurfaceGui") then
-        if isBlacklisted(obj.Name) or (self.Config.AggressiveMode and hasAdCharacteristics(obj)) then
-            self:_destroy(obj, "suspicious surface GUI")
-            return
-        end
-    end
-    if obj:IsA("ScreenGui") then
-        local shouldRemove = false
-        local reason = ""
-        if isBlacklisted(obj.Name) then
-            shouldRemove = true
-            reason = "blacklisted name"
-        end
-        if not shouldRemove and hasAdCharacteristics(obj) then
-            shouldRemove = true
-            reason = "ad characteristics detected"
-        end
-        if not shouldRemove and obj:FindFirstChild("AdGuiAdornee", true) then
-            shouldRemove = true
-            reason = "AdGuiAdornee marker"
-        end
-        if shouldRemove then
-            self:_destroy(obj, reason)
-            return
-        end
-    end
-    if obj:IsA("BasePart") and self.Config.RemoveBillboards then
-        local billboard = obj:FindFirstChildWhichIsA("BillboardGui")
-        if billboard and (isBlacklisted(obj.Name) or isBlacklisted(billboard.Name)) then
-            self:_destroy(obj, "part with ad billboard")
-            return
-        end
-    end
-    if self.Config.AggressiveMode and isBlacklisted(obj.Name) then
-        if obj:IsA("GuiObject") or obj:IsA("LayerCollector") then
-            self:_destroy(obj, "blacklisted name")
-        end
-    end
-end
-function Modules.AdBlock:Enable()
-    if self.State.IsEnabled then
-        DoNotif("AdBlock already enabled.", 2)
-        return
-    end
-    self.State.IsEnabled = true
-    self.State.RemovedAds = 0
-    local function scan(container, containerName)
-        debugLog("Scanning: " .. containerName)
-        local count = 0
-        for _, obj in ipairs(container:GetDescendants()) do
-            self:_processObject(obj)
-            count = count + 1
-        end
-        debugLog("Scanned " .. count .. " objects in " .. containerName)
-    end
-    scan(self.Services.Workspace, "Workspace")
-    local player = self.Services.Players.LocalPlayer
-    if player then
-        local gui = player:FindFirstChild("PlayerGui")
-        if not gui then
-            gui = player:WaitForChild("PlayerGui", 5)
-        end
-        if gui then
-            scan(gui, "PlayerGui")
-        end
-    end
-    if not self.Config.ProtectCoreGuis then
-        scan(self.Services.CoreGui, "CoreGui")
-    end
-    local function watch(container, containerName)
-        local conn = container.DescendantAdded:Connect(function(obj)
-            if self.State.IsEnabled then
-                task.defer(function()
-                    self:_processObject(obj)
-                end)
-            end
-        end)
-        table.insert(self.State.Connections, conn)
-        debugLog("Watching: " .. containerName)
-    end
-    watch(self.Services.Workspace, "Workspace")
-    if player and player:FindFirstChild("PlayerGui") then
-        watch(player.PlayerGui, "PlayerGui")
-    end
-    if not self.Config.ProtectCoreGuis then
-        watch(self.Services.CoreGui, "CoreGui")
-    end
-    DoNotif("AdBlock enabled. Removed " .. self.State.RemovedAds .. " ads.", 3)
-end
-function Modules.AdBlock:Disable()
-    if not self.State.IsEnabled then
-        DoNotif("AdBlock not active.", 2)
-        return
-    end
-    self.State.IsEnabled = false
-    for _, c in ipairs(self.State.Connections) do
-        pcall(function() c:Disconnect() end)
-    end
-    table.clear(self.State.Connections)
-    table.clear(self.State.ProcessedInstances)
-    DoNotif("AdBlock disabled. Total ads removed: " .. self.State.RemovedAds, 3)
-end
-function Modules.AdBlock:Toggle()
-    if self.State.IsEnabled then
-        self:Disable()
-    else
-        self:Enable()
-    end
-end
-function Modules.AdBlock:AddWhitelist(instance)
-    if typeof(instance) == "Instance" then
-        self.State.Whitelist[instance] = true
-        debugLog("Added to whitelist: " .. instance.Name)
-        return true
-    end
-    return false
-end
-function Modules.AdBlock:RemoveWhitelist(instance)
-    if self.State.Whitelist[instance] then
-        self.State.Whitelist[instance] = nil
-        debugLog("Removed from whitelist: " .. instance.Name)
-        return true
-    end
-    return false
-end
-function Modules.AdBlock:GetStats()
-    return {
-        Enabled = self.State.IsEnabled,
-        RemovedAds = self.State.RemovedAds,
-        WhitelistedCount = 0
-    }
-end
-function Modules.AdBlock:Initialize()
-    for _, serviceName in ipairs(self.Dependencies) do
-        self.Services[serviceName] = game:GetService(serviceName)
-    end
-    RegisterCommand({
-        Name = "adblock",
-        Aliases = {"removeads", "blockads"},
-        Description = "Toggles automatic ad removal."
-    }, function()
-        self:Toggle()
-    end)
-    RegisterCommand({
-        Name = "adblockstats",
-        Aliases = {"abstats"},
-        Description = "Shows AdBlock statistics."
-    }, function()
-        local stats = self:GetStats()
-        print("=== AdBlock Stats ===")
-        print("Enabled:", stats.Enabled)
-        print("Ads Removed:", stats.RemovedAds)
-    end)
-    RegisterCommand({
-        Name = "adblockmode",
-        Aliases = {"abmode"},
-        Description = "Toggle aggressive mode."
-    }, function(args)
-        self.Config.AggressiveMode = not self.Config.AggressiveMode
-        DoNotif("AdBlock Aggressive Mode: " .. tostring(self.Config.AggressiveMode), 2)
-    end)
-end
 Modules.Fakeout = {
     State = {
         IsExecuting = false
@@ -10558,1066 +10133,6 @@ function Modules.HumanoidIntegrity:Initialize()
     module:Toggle()
 end)
 end
-Modules.UniversalExploitDetector = {
-    State = {
-        Enabled = false,
-        TrackedPlayers = {},
-        SuspicionScores = {},
-        ConfirmedExploiters = {},
-        Connections = {},
-        HighlightCache = {},
-        ConfidenceThreshold = 75,
-        ScanInterval = 0.5,
-        HistoryDuration = 10,
-        EnableESP = true,
-        EnableNotifications = true,
-        AutoCounter = false,
-    },
-    Services = {
-        Players = game:GetService("Players"),
-        RunService = game:GetService("RunService"),
-        Workspace = game:GetService("Workspace"),
-    }
-}
-local DetectionPatterns = {
-    MovementAnomaly = {
-        weight = 20,
-        check = function(player, data)
-            if not player.Character then return 0 end
-            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-            if not hrp then return 0 end
-            local currentPos = hrp.Position
-            local lastPos = data.LastPosition
-            local lastTime = data.LastPosTime or tick()
-            local currentTime = tick()
-            if lastPos then
-                local distance = (currentPos - lastPos).Magnitude
-                local timeDelta = currentTime - lastTime
-                if timeDelta > 0 then
-                    local speed = distance / timeDelta
-                    if speed > 100 then
-                        return 95
-                    elseif speed > 70 then
-                        return 60
-                    elseif speed > 50 then
-                        return 30
-                    end
-                end
-            end
-            data.LastPosition = currentPos
-            data.LastPosTime = currentTime
-            return 0
-        end
-    },
-    VerticalAnomaly = {
-        weight = 15,
-        check = function(player, data)
-            if not player.Character then return 0 end
-            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-            if not hrp then return 0 end
-            local yPos = hrp.Position.Y
-            if yPos > 200 then
-                data.HighAltitudeTime = (data.HighAltitudeTime or 0) + 1
-                if data.HighAltitudeTime > 5 then
-                    return 80
-                elseif data.HighAltitudeTime > 3 then
-                    return 50
-                end
-            else
-                data.HighAltitudeTime = 0
-            end
-            return 0
-        end
-    },
-    SpawnAnomaly = {
-        weight = 25,
-        check = function(player, data)
-            if not player.Character then return 0 end
-            local currentChildCount = #player.Character:GetChildren()
-            local lastCount = data.LastChildCount or currentChildCount
-            local childDelta = currentChildCount - lastCount
-            data.LastChildCount = currentChildCount
-            if childDelta > 10 then
-                return 90
-            elseif childDelta > 5 then
-                return 60
-            end
-            return 0
-        end
-    },
-    HumanoidAnomaly = {
-        weight = 30,
-        check = function(player, data)
-            if not player.Character then return 0 end
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
-            if not hum then return 0 end
-            local suspicion = 0
-            if hum.WalkSpeed > 100 then
-                suspicion = suspicion + 70
-            elseif hum.WalkSpeed > 50 then
-                suspicion = suspicion + 30
-            end
-            if hum.JumpPower > 100 or hum.JumpHeight > 20 then
-                suspicion = suspicion + 50
-            end
-            if hum.Health > hum.MaxHealth then
-                suspicion = suspicion + 85
-            end
-            if hum.Health == hum.MaxHealth then
-                data.MaxHealthTime = (data.MaxHealthTime or 0) + 1
-                if data.MaxHealthTime > 20 then
-                    suspicion = suspicion + 20
-                end
-            else
-                data.MaxHealthTime = 0
-            end
-            return math.min(suspicion, 100)
-        end
-    },
-    AnimationAnomaly = {
-        weight = 15,
-        check = function(player, data)
-            if not player.Character then return 0 end
-            local animator = player.Character:FindFirstChild("Humanoid")
-                and player.Character.Humanoid:FindFirstChildOfClass("Animator")
-            if not animator then return 0 end
-            local suspicion = 0
-            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-                if track.Speed > 3 then
-                    suspicion = suspicion + 70
-                elseif track.Speed > 2 then
-                    suspicion = suspicion + 40
-                elseif track.Speed > 1.5 then
-                    suspicion = suspicion + 20
-                end
-            end
-            return math.min(suspicion, 100)
-        end
-    },
-    WorkspacePollution = {
-        weight = 25,
-        check = function(player, data)
-            local suspicion = 0
-            local suspiciousPatterns = {
-                "Acid",
-                "Landmine",
-                "Exploit",
-                "Spam",
-                "Clone"
-            }
-            local pollutionCount = 0
-            for _, obj in ipairs(game.Workspace:GetDescendants()) do
-                if obj:IsA("BasePart") then
-                    for _, pattern in ipairs(suspiciousPatterns) do
-                        if obj.Name:find(pattern) then
-                            if obj:FindFirstChild("Creator") and obj.Creator.Value == player then
-                                pollutionCount = pollutionCount + 1
-                            end
-                        end
-                    end
-                end
-            end
-            if pollutionCount > 50 then
-                suspicion = 95
-            elseif pollutionCount > 20 then
-                suspicion = 70
-            elseif pollutionCount > 10 then
-                suspicion = 40
-            end
-            return suspicion
-        end
-    },
-    RemoteSpam = {
-        weight = 35,
-        check = function(player, data)
-            local remoteCallCount = data.RemoteCallCount or 0
-            local timeSinceReset = (tick() - (data.RemoteResetTime or tick()))
-            if timeSinceReset >= 1 then
-                data.LastRemoteRate = remoteCallCount
-                data.RemoteCallCount = 0
-                data.RemoteResetTime = tick()
-                remoteCallCount = 0
-            end
-            local rate = data.LastRemoteRate or 0
-            if rate > 100 then
-                return 95
-            elseif rate > 50 then
-                return 75
-            elseif rate > 30 then
-                return 40
-            end
-            return 0
-        end
-    },
-    CharacterModification = {
-        weight = 10,
-        check = function(player, data)
-            if not player.Character then return 0 end
-            local suspicion = 0
-            local criticalParts = {"Head", "HumanoidRootPart"}
-            for _, partName in ipairs(criticalParts) do
-                if not player.Character:FindFirstChild(partName) then
-                    suspicion = suspicion + 40
-                end
-            end
-            local partCount = 0
-            for _, obj in ipairs(player.Character:GetDescendants()) do
-                if obj:IsA("BasePart") then
-                    partCount = partCount + 1
-                end
-            end
-            if partCount > 100 then
-                suspicion = suspicion + 30
-            end
-            return math.min(suspicion, 100)
-        end
-    },
-}
-function Modules.UniversalExploitDetector:InitializePlayerTracking(player)
-    if self.State.TrackedPlayers[player] then return end
-    self.State.TrackedPlayers[player] = {
-        JoinTime = tick(),
-        LastPosition = nil,
-        LastPosTime = nil,
-        LastChildCount = 0,
-        HighAltitudeTime = 0,
-        MaxHealthTime = 0,
-        RemoteCallCount = 0,
-        RemoteResetTime = tick(),
-        LastRemoteRate = 0,
-        DetectionHistory = {},
-    }
-    self.State.SuspicionScores[player] = 0
-end
-function Modules.UniversalExploitDetector:AnalyzePlayer(player)
-    if not player.Character then return end
-    local data = self.State.TrackedPlayers[player]
-    if not data then
-        self:InitializePlayerTracking(player)
-        data = self.State.TrackedPlayers[player]
-    end
-    local totalSuspicion = 0
-    local detections = {}
-    for patternName, pattern in pairs(DetectionPatterns) do
-        local score = pattern.check(player, data)
-        if score > 0 then
-            totalSuspicion = totalSuspicion + (score * pattern.weight / 100)
-            table.insert(detections, {
-                pattern = patternName,
-                score = score,
-                weight = pattern.weight
-            })
-        end
-    end
-    local currentScore = self.State.SuspicionScores[player] or 0
-    local decayRate = 2
-    if totalSuspicion > 0 then
-        self.State.SuspicionScores[player] = math.min(currentScore + totalSuspicion, 100)
-    else
-        self.State.SuspicionScores[player] = math.max(currentScore - decayRate, 0)
-    end
-    if #detections > 0 then
-        table.insert(data.DetectionHistory, {
-            time = tick(),
-            detections = detections,
-            totalScore = totalSuspicion
-        })
-        while #data.DetectionHistory > 20 do
-            table.remove(data.DetectionHistory, 1)
-        end
-    end
-    local finalScore = self.State.SuspicionScores[player]
-    local wasExploiter = self.State.ConfirmedExploiters[player]
-    local isExploiter = finalScore >= self.State.ConfidenceThreshold
-    if isExploiter and not wasExploiter then
-        self:MarkAsExploiter(player, detections)
-    elseif not isExploiter and wasExploiter then
-        self:ClearExploiter(player)
-    elseif isExploiter then
-        self:UpdateExploiterESP(player, finalScore)
-    end
-end
-function Modules.UniversalExploitDetector:MarkAsExploiter(player, detections)
-    self.State.ConfirmedExploiters[player] = true
-    if self.State.EnableESP then
-        self:CreateExploiterHighlight(player)
-    end
-    if self.State.EnableNotifications then
-        local patterns = {}
-        for _, det in ipairs(detections) do
-            table.insert(patterns, det.pattern)
-        end
-        local score = self.State.SuspicionScores[player]
-        DoNotif(string.format(
-            "🎯 EXPLOITER DETECTED: %s [%d%% confidence]",
-            player.Name,
-            math.floor(score)
-        ), 5)
-        if #patterns > 0 then
-            DoNotif("Detected: " .. table.concat(patterns, ", "), 4)
-        end
-    end
-    if self.State.AutoCounter then
-        self:EnableCounterMeasures(player, detections)
-    end
-end
-function Modules.UniversalExploitDetector:ClearExploiter(player)
-    self.State.ConfirmedExploiters[player] = nil
-    if self.State.HighlightCache[player] then
-        self.State.HighlightCache[player]:Destroy()
-        self.State.HighlightCache[player] = nil
-    end
-    if self.State.EnableNotifications then
-        DoNotif(string.format("✓ %s no longer flagged", player.Name), 2)
-    end
-end
-function Modules.UniversalExploitDetector:CreateExploiterHighlight(player)
-    if not player.Character then return end
-    if self.State.HighlightCache[player] then
-        self.State.HighlightCache[player]:Destroy()
-    end
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "ExploiterESP"
-    highlight.Adornee = player.Character
-    highlight.FillColor = Color3.fromRGB(255, 0, 0)
-    highlight.OutlineColor = Color3.fromRGB(255, 100, 100)
-    highlight.FillTransparency = 0.5
-    highlight.OutlineTransparency = 0
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = player.Character
-    self.State.HighlightCache[player] = highlight
-    player.CharacterAdded:Connect(function(char)
-        task.wait(0.5)
-        if self.State.ConfirmedExploiters[player] then
-            self:CreateExploiterHighlight(player)
-        end
-    end)
-end
-function Modules.UniversalExploitDetector:UpdateExploiterESP(player, score)
-    local highlight = self.State.HighlightCache[player]
-    if not highlight or not highlight.Parent then
-        self:CreateExploiterHighlight(player)
-        return
-    end
-    local intensity = score / 100
-    highlight.FillColor = Color3.fromRGB(255, 255 * (1 - intensity), 0)
-end
-function Modules.UniversalExploitDetector:EnableCounterMeasures(player, detections)
-    for _, det in ipairs(detections) do
-        if det.pattern == "RemoteSpam" and Modules.ApexCounter then
-            Modules.ApexCounter:NullifySkidRemotes()
-        elseif det.pattern == "SpawnAnomaly" and Modules.ApexCounter then
-            Modules.ApexCounter:ToggleLagShield(true)
-        end
-    end
-end
-function Modules.UniversalExploitDetector:HookRemoteTracking()
-    local mt = getrawmetatable(game)
-    local oldNamecall = mt.__namecall
-    setreadonly(mt, false)
-    mt.__namecall = newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        if (method == "FireServer" or method == "InvokeServer") and self:IsA("RemoteEvent") or self:IsA("RemoteFunction") then
-        end
-        return oldNamecall(self, ...)
-    end)
-    setreadonly(mt, true)
-end
-function Modules.UniversalExploitDetector:StartScanning()
-    if self.State.Connections.Scanner then return end
-    self.State.Connections.Scanner = self.Services.RunService.Heartbeat:Connect(function()
-        if not self.State.Enabled then return end
-        for _, player in ipairs(self.Services.Players:GetPlayers()) do
-            if player ~= self.Services.Players.LocalPlayer then
-                pcall(function()
-                    self:AnalyzePlayer(player)
-                end)
-            end
-        end
-        task.wait(self.State.ScanInterval)
-    end)
-end
-function Modules.UniversalExploitDetector:StopScanning()
-    if self.State.Connections.Scanner then
-        self.State.Connections.Scanner:Disconnect()
-        self.State.Connections.Scanner = nil
-    end
-end
-function Modules.UniversalExploitDetector:Initialize()
-    local module = self
-    RegisterCommand({
-        Name = "detectexploits",
-        Aliases = {"exdet", "ed"},
-        Description = "Toggle universal exploit detection"
-    }, function(args)
-        module.State.Enabled = not module.State.Enabled
-        if module.State.Enabled then
-            module:StartScanning()
-            DoNotif("🎯 Exploit Detector: ACTIVE (Universal Mode)", 3)
-            DoNotif("Confidence threshold: " .. module.State.ConfidenceThreshold .. "%", 2)
-        else
-            module:StopScanning()
-            for player, highlight in pairs(module.State.HighlightCache) do
-                highlight:Destroy()
-            end
-            module.State.HighlightCache = {}
-            module.State.ConfirmedExploiters = {}
-            DoNotif("Exploit Detector: DISABLED", 2)
-        end
-    end)
-    RegisterCommand({
-        Name = "detthreshold",
-        Aliases = {"dth"},
-        Description = "Set detection confidence threshold (0-100)"
-    }, function(args)
-        local threshold = tonumber(args[1])
-        if not threshold then
-            DoNotif("Current threshold: " .. module.State.ConfidenceThreshold .. "%", 2)
-            return
-        end
-        threshold = math.clamp(threshold, 0, 100)
-        module.State.ConfidenceThreshold = threshold
-        DoNotif("Detection threshold set to: " .. threshold .. "%", 2)
-    end)
-    RegisterCommand({
-        Name = "listexploiters",
-        Aliases = {"lex"},
-        Description = "Show all detected exploiters"
-    }, function(args)
-        local count = 0
-        for player, _ in pairs(module.State.ConfirmedExploiters) do
-            if player and player.Parent then
-                local score = module.State.SuspicionScores[player] or 0
-                DoNotif(string.format("%s - %d%% confidence", player.Name, math.floor(score)), 3)
-                count = count + 1
-            end
-        end
-        if count == 0 then
-            DoNotif("No exploiters detected", 2)
-        else
-            DoNotif(string.format("Total exploiters: %d", count), 2)
-        end
-    end)
-    RegisterCommand({
-        Name = "checkplayer",
-        Aliases = {"checkp"},
-        Description = "Check a specific player for exploits"
-    }, function(args)
-        local target = Utilities.findPlayer(args[1])
-        if not target then
-            DoNotif("Player not found", 2)
-            return
-        end
-        local score = module.State.SuspicionScores[target] or 0
-        local data = module.State.TrackedPlayers[target]
-        DoNotif(string.format("%s - Suspicion: %d%%", target.Name, math.floor(score)), 3)
-        if data and #data.DetectionHistory > 0 then
-            local recent = data.DetectionHistory[#data.DetectionHistory]
-            for _, det in ipairs(recent.detections) do
-                DoNotif(string.format("  • %s: %d%%", det.pattern, math.floor(det.score)), 2)
-            end
-        end
-    end)
-    RegisterCommand({
-        Name = "autocounter",
-        Aliases = {"acounter"},
-        Description = "Toggle automatic counter activation"
-    }, function(args)
-        module.State.AutoCounter = not module.State.AutoCounter
-        DoNotif("Auto-Counter: " .. (module.State.AutoCounter and "ENABLED" or "DISABLED"), 2)
-    end)
-    RegisterCommand({
-        Name = "markexploiter",
-        Aliases = {"mex"},
-        Description = "Manually mark a player as exploiter"
-    }, function(args)
-        local target = Utilities.findPlayer(args[1])
-        if not target then
-            DoNotif("Player not found", 2)
-            return
-        end
-        module.State.SuspicionScores[target] = 100
-        module:MarkAsExploiter(target, {})
-        DoNotif("Marked " .. target.Name .. " as exploiter", 2)
-    end)
-    RegisterCommand({
-        Name = "unmarkexploiter",
-        Aliases = {"uex"},
-        Description = "Remove exploiter mark from player"
-    }, function(args)
-        local target = Utilities.findPlayer(args[1])
-        if not target then
-            DoNotif("Player not found", 2)
-            return
-        end
-        module.State.SuspicionScores[target] = 0
-        module:ClearExploiter(target)
-        DoNotif("Unmarked " .. target.Name, 2)
-    end)
-    for _, player in ipairs(self.Services.Players:GetPlayers()) do
-        if player ~= self.Services.Players.LocalPlayer then
-            self:InitializePlayerTracking(player)
-        end
-    end
-    self.Services.Players.PlayerAdded:Connect(function(player)
-        self:InitializePlayerTracking(player)
-    end)
-    self.Services.Players.PlayerRemoving:Connect(function(player)
-        self.State.TrackedPlayers[player] = nil
-        self.State.SuspicionScores[player] = nil
-        self.State.ConfirmedExploiters[player] = nil
-        if self.State.HighlightCache[player] then
-            self.State.HighlightCache[player]:Destroy()
-            self.State.HighlightCache[player] = nil
-        end
-    end)
-end
-Modules.TeleporterScanner = {
-	State = {
-		UI = nil,
-		IsScanning = false,
-		Highlights = {},
-		ScanCache = {},
-		LastScan = 0,
-		Stats = {
-			TotalScanned = 0,
-			PotentalFound = 0,
-			LastScanTime = 0
-		}
-	},
-	Config = {
-		CacheExpiry = 60,
-		YieldInterval = 250,
-		MaxResults = 100,
-		AutoScanOnOpen = false,
-		HighlightDuration = 0,
-		DeepScan = false,
-		ScanHiddenObjects = true,
-		DebugMode = false
-	}
-}
-local function debugLog(message)
-	if Modules.TeleporterScanner.Config.DebugMode then
-		print("[TeleporterScanner Debug]", message)
-	end
-end
-function Modules.TeleporterScanner:ToggleGUI()
-	local self = Modules.TeleporterScanner
-	if self.State.UI and self.State.UI.Parent then
-		self:CleanupHighlights()
-		self.State.UI:Destroy()
-		self.State.UI = nil
-		DoNotif("Teleporter Scanner closed.", 2)
-		return
-	end
-	DoNotif("Forensic Teleporter Scanner opened.", 2)
-	local Workspace = game:GetService("Workspace")
-	local UserInputService = game:GetService("UserInputService")
-	local TweenService = game:GetService("TweenService")
-	local CoreGui = game:GetService("CoreGui")
-	local Players = game:GetService("Players")
-	local SCRIPT_KEYWORDS = {
-		{pattern = "TeleportService", confidence = 1.0},
-		{pattern = ":Teleport%(", confidence = 1.0},
-		{pattern = ":TeleportToPlaceInstance%(", confidence = 1.0},
-		{pattern = "TeleportAsync", confidence = 1.0},
-		{pattern = "fireproximityprompt", confidence = 0.9},
-		{pattern = "firetouchinterest", confidence = 0.85},
-		{pattern = "game:GetService%([\"']TeleportService", confidence = 0.95},
-		{pattern = "placeId%s*=%s*%d+", confidence = 0.7},
-		{pattern = "JobId", confidence = 0.6},
-		{pattern = "PrivateServerId", confidence = 0.6},
-		{pattern = "CFrame%.new%(", confidence = 0.3},
-		{pattern = "HumanoidRootPart%.CFrame", confidence = 0.4}
-	}
-	local NAME_KEYWORDS = {
-		{pattern = "teleport", confidence = 0.6},
-		{pattern = "portal", confidence = 0.6},
-		{pattern = "warp", confidence = 0.5},
-		{pattern = "transport", confidence = 0.5},
-		{pattern = "gateway", confidence = 0.5},
-		{pattern = "door", confidence = 0.3},
-		{pattern = "exit", confidence = 0.4}
-	}
-	local DATA_PAYLOAD_NAMES = {
-		{name = "placeid", confidence = 0.9},
-		{name = "gameid", confidence = 0.9},
-		{name = "targetplace", confidence = 0.9},
-		{name = "destination", confidence = 0.7},
-		{name = "teleportdata", confidence = 0.85},
-		{name = "tpid", confidence = 0.8}
-	}
-	local screenGui = Instance.new("ScreenGui")
-	self.State.UI = screenGui
-	screenGui.Name = "TeleporterScannerGui"
-	screenGui.ResetOnSpawn = false
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-	screenGui.IgnoreGuiInset = true
-	local mainFrame = Instance.new("Frame")
-	mainFrame.Name = "MainFrame"
-	mainFrame.Size = UDim2.new(0, 380, 0, 500)
-	mainFrame.Position = UDim2.new(0, 10, 0.5, -250)
-	mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-	mainFrame.BorderSizePixel = 2
-	mainFrame.BorderColor3 = Color3.fromRGB(85, 85, 125)
-	mainFrame.ClipsDescendants = true
-	mainFrame.Parent = screenGui
-	local uiCorner = Instance.new("UICorner")
-	uiCorner.CornerRadius = UDim.new(0, 8)
-	uiCorner.Parent = mainFrame
-	local titleLabel = Instance.new("TextLabel")
-	titleLabel.Name = "TitleLabel"
-	titleLabel.Size = UDim2.new(1, 0, 0, 35)
-	titleLabel.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-	titleLabel.Text = "🔍 Forensic Teleporter Scanner"
-	titleLabel.Font = Enum.Font.GothamBold
-	titleLabel.TextSize = 14
-	titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	titleLabel.Parent = mainFrame
-	local titleCorner = Instance.new("UICorner")
-	titleCorner.CornerRadius = UDim.new(0, 8)
-	titleCorner.Parent = titleLabel
-	local closeButton = Instance.new("TextButton")
-	closeButton.Name = "CloseButton"
-	closeButton.Size = UDim2.new(0, 30, 0, 30)
-	closeButton.Position = UDim2.new(1, -32, 0, 2.5)
-	closeButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-	closeButton.Text = "✕"
-	closeButton.Font = Enum.Font.GothamBold
-	closeButton.TextSize = 16
-	closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	closeButton.Parent = titleLabel
-	local closeCorner = Instance.new("UICorner")
-	closeCorner.CornerRadius = UDim.new(0, 4)
-	closeCorner.Parent = closeButton
-	local statsLabel = Instance.new("TextLabel")
-	statsLabel.Name = "StatsLabel"
-	statsLabel.Size = UDim2.new(1, -10, 0, 20)
-	statsLabel.Position = UDim2.new(0, 5, 0, 40)
-	statsLabel.BackgroundTransparency = 1
-	statsLabel.Text = "Ready to scan | 0 objects scanned"
-	statsLabel.Font = Enum.Font.Gotham
-	statsLabel.TextSize = 11
-	statsLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-	statsLabel.TextXAlignment = Enum.TextXAlignment.Left
-	statsLabel.Parent = mainFrame
-	local scanButton = Instance.new("TextButton")
-	scanButton.Name = "ScanButton"
-	scanButton.Size = UDim2.new(1, -10, 0, 32)
-	scanButton.Position = UDim2.new(0.5, 0, 0, 65)
-	scanButton.AnchorPoint = Vector2.new(0.5, 0)
-	scanButton.BackgroundColor3 = Color3.fromRGB(80, 60, 200)
-	scanButton.Font = Enum.Font.GothamBold
-	scanButton.TextSize = 13
-	scanButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	scanButton.Text = "🔍 Begin Workspace Scan"
-	scanButton.Parent = mainFrame
-	local scanCorner = Instance.new("UICorner")
-	scanCorner.CornerRadius = UDim.new(0, 6)
-	scanCorner.Parent = scanButton
-	local deepScanToggle = Instance.new("TextButton")
-	deepScanToggle.Name = "DeepScanToggle"
-	deepScanToggle.Size = UDim2.new(0.48, 0, 0, 24)
-	deepScanToggle.Position = UDim2.new(0, 5, 0, 102)
-	deepScanToggle.BackgroundColor3 = self.Config.DeepScan and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(80, 80, 90)
-	deepScanToggle.Font = Enum.Font.Gotham
-	deepScanToggle.TextSize = 11
-	deepScanToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-	deepScanToggle.Text = "Deep Scan: " .. (self.Config.DeepScan and "ON" or "OFF")
-	deepScanToggle.Parent = mainFrame
-	local deepCorner = Instance.new("UICorner")
-	deepCorner.CornerRadius = UDim.new(0, 4)
-	deepCorner.Parent = deepScanToggle
-	local clearButton = Instance.new("TextButton")
-	clearButton.Name = "ClearButton"
-	clearButton.Size = UDim2.new(0.48, 0, 0, 24)
-	clearButton.Position = UDim2.new(0.52, 0, 0, 102)
-	clearButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-	clearButton.Font = Enum.Font.Gotham
-	clearButton.TextSize = 11
-	clearButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	clearButton.Text = "🗑️ Clear Results"
-	clearButton.Parent = mainFrame
-	local clearCorner = Instance.new("UICorner")
-	clearCorner.CornerRadius = UDim.new(0, 4)
-	clearCorner.Parent = clearButton
-	local filterLabel = Instance.new("TextLabel")
-	filterLabel.Name = "FilterLabel"
-	filterLabel.Size = UDim2.new(1, -10, 0, 18)
-	filterLabel.Position = UDim2.new(0, 5, 0, 131)
-	filterLabel.BackgroundTransparency = 1
-	filterLabel.Text = "Min Confidence: 0%"
-	filterLabel.Font = Enum.Font.Gotham
-	filterLabel.TextSize = 10
-	filterLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-	filterLabel.TextXAlignment = Enum.TextXAlignment.Left
-	filterLabel.Parent = mainFrame
-	local filterSlider = Instance.new("Frame")
-	filterSlider.Name = "FilterSlider"
-	filterSlider.Size = UDim2.new(1, -10, 0, 6)
-	filterSlider.Position = UDim2.new(0, 5, 0, 150)
-	filterSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-	filterSlider.BorderSizePixel = 0
-	filterSlider.Parent = mainFrame
-	local sliderCorner = Instance.new("UICorner")
-	sliderCorner.CornerRadius = UDim.new(1, 0)
-	sliderCorner.Parent = filterSlider
-	local sliderFill = Instance.new("Frame")
-	sliderFill.Name = "Fill"
-	sliderFill.Size = UDim2.new(0, 0, 1, 0)
-	sliderFill.BackgroundColor3 = Color3.fromRGB(80, 60, 200)
-	sliderFill.BorderSizePixel = 0
-	sliderFill.Parent = filterSlider
-	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UDim.new(1, 0)
-	fillCorner.Parent = sliderFill
-	local resultsFrame = Instance.new("ScrollingFrame")
-	resultsFrame.Name = "ResultsFrame"
-	resultsFrame.Size = UDim2.new(1, -10, 1, -165)
-	resultsFrame.Position = UDim2.new(0, 5, 0, 160)
-	resultsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-	resultsFrame.BorderSizePixel = 0
-	resultsFrame.ScrollBarThickness = 6
-	resultsFrame.Parent = mainFrame
-	local resultsCorner = Instance.new("UICorner")
-	resultsCorner.CornerRadius = UDim.new(0, 6)
-	resultsCorner.Parent = resultsFrame
-	local listLayout = Instance.new("UIListLayout")
-	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	listLayout.Padding = UDim.new(0, 3)
-	listLayout.Parent = resultsFrame
-	local listPadding = Instance.new("UIPadding")
-	listPadding.PaddingLeft = UDim.new(0, 5)
-	listPadding.PaddingRight = UDim.new(0, 5)
-	listPadding.PaddingTop = UDim.new(0, 5)
-	listPadding.PaddingBottom = UDim.new(0, 5)
-	listPadding.Parent = resultsFrame
-	local minConfidence = 0
-	local function updateFilter()
-		for _, child in ipairs(resultsFrame:GetChildren()) do
-			if child:IsA("TextButton") then
-				local conf = tonumber(child:GetAttribute("Confidence"))
-				child.Visible = conf and (conf >= minConfidence)
-			end
-		end
-	end
-	filterSlider.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			local function updateSlider()
-				local mouse = UserInputService:GetMouseLocation()
-				local relativeX = math.clamp((mouse.X - filterSlider.AbsolutePosition.X) / filterSlider.AbsoluteSize.X, 0, 1)
-				minConfidence = relativeX
-				sliderFill.Size = UDim2.new(relativeX, 0, 1, 0)
-				filterLabel.Text = string.format("Min Confidence: %.0f%%", minConfidence * 100)
-				updateFilter()
-			end
-			local conn
-			conn = UserInputService.InputEnded:Connect(function(endInput)
-				if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
-					conn:Disconnect()
-				end
-			end)
-			local moveConn
-			moveConn = UserInputService.InputChanged:Connect(function(moveInput)
-				if moveInput.UserInputType == Enum.UserInputType.MouseMovement then
-					updateSlider()
-				end
-			end)
-			UserInputService.InputEnded:Connect(function(endInput)
-				if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
-					moveConn:Disconnect()
-				end
-			end)
-			updateSlider()
-		end
-	end)
-	local function highlightPart(part, confidence)
-		if self.State.Highlights[part] then return end
-		local highlight = Instance.new("Highlight")
-		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		local hue = confidence * 0.33
-		highlight.FillColor = Color3.fromHSV(hue, 0.8, 1)
-		highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-		highlight.FillTransparency = 0.4
-		highlight.OutlineTransparency = 0
-		highlight.Parent = part
-		self.State.Highlights[part] = highlight
-		if self.Config.HighlightDuration > 0 then
-			task.delay(self.Config.HighlightDuration, function()
-				if highlight and highlight.Parent then
-					highlight:Destroy()
-				end
-				self.State.Highlights[part] = nil
-			end)
-		end
-		debugLog("Highlighted: " .. part:GetFullName() .. " (Confidence: " .. string.format("%.0f%%", confidence * 100) .. ")")
-	end
-	local function addResultToList(part, confidence, reasons)
-		local resultButton = Instance.new("TextButton")
-		resultButton.Name = part.Name
-		local reasonText = table.concat(reasons, ", ")
-		resultButton.Text = string.format("[%.0f%%] %s\n%s", confidence * 100, part.Name, reasonText)
-		resultButton.Size = UDim2.new(1, -10, 0, 40)
-		resultButton.BackgroundColor3 = Color3.fromHSV(confidence * 0.33, 0.4, 0.3)
-		resultButton.Font = Enum.Font.Gotham
-		resultButton.TextSize = 11
-		resultButton.TextXAlignment = Enum.TextXAlignment.Left
-		resultButton.TextYAlignment = Enum.TextYAlignment.Top
-		resultButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-		resultButton.TextWrapped = true
-		resultButton.LayoutOrder = math.floor(-confidence * 1000)
-		resultButton:SetAttribute("Confidence", confidence)
-		resultButton.Parent = resultsFrame
-		local btnCorner = Instance.new("UICorner")
-		btnCorner.CornerRadius = UDim.new(0, 4)
-		btnCorner.Parent = resultButton
-		local btnPadding = Instance.new("UIPadding")
-		btnPadding.PaddingLeft = UDim.new(0, 8)
-		btnPadding.PaddingTop = UDim.new(0, 4)
-		btnPadding.Parent = resultButton
-		resultButton.MouseButton1Click:Connect(function()
-			if not part or not part.Parent then
-				DoNotif("Target no longer exists", 2)
-				return
-			end
-			local targetPart = part:IsA("Model") and part:FindFirstChildWhichIsA("BasePart", true) or part
-			if not targetPart or not targetPart:IsA("BasePart") then
-				DoNotif("Cannot teleport camera to this object", 2)
-				return
-			end
-			local camera = Workspace.CurrentCamera
-			local player = Players.LocalPlayer
-			local originalCameraType = camera.CameraType
-			camera.CameraType = Enum.CameraType.Scriptable
-			local distance = 15
-			local targetCFrame = CFrame.new(targetPart.Position + (targetPart.CFrame.LookVector * distance) + Vector3.new(0, 5, 0), targetPart.Position)
-			local tween = TweenService:Create(camera, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CFrame = targetCFrame})
-			tween:Play()
-			task.delay(3, function()
-				camera.CameraType = originalCameraType
-			end)
-		end)
-		resultButton.MouseButton2Click:Connect(function()
-			if setclipboard then
-				setclipboard(part:GetFullName())
-				DoNotif("Copied path to clipboard", 2)
-			end
-		end)
-	end
-	local function clearResults()
-		self:CleanupHighlights()
-		for _, child in ipairs(resultsFrame:GetChildren()) do
-			if child:IsA("TextButton") then
-				child:Destroy()
-			end
-		end
-		scanButton.Text = "🔍 Begin Workspace Scan"
-		scanButton.Active = true
-		statsLabel.Text = "Results cleared | 0 objects scanned"
-		debugLog("Results cleared")
-	end
-	local function analyzeScript(script)
-		local success, source = pcall(function()
-			return script.Source
-		end)
-		if not success or not source then
-			return 0, {}
-		end
-		local lowerSource = source:lower()
-		local maxConfidence = 0
-		local reasons = {}
-		for _, keyword in ipairs(SCRIPT_KEYWORDS) do
-			local pattern = keyword.pattern:lower()
-			if lowerSource:find(pattern, 1, true) or (self.Config.DeepScan and lowerSource:match(pattern)) then
-				if keyword.confidence > maxConfidence then
-					maxConfidence = keyword.confidence
-				end
-				table.insert(reasons, "Script: " .. keyword.pattern)
-				if not self.Config.DeepScan then
-					break
-				end
-			end
-		end
-		return maxConfidence, reasons
-	end
-	local function analyzeBasePart(part)
-		local confidence = 0
-		local reasons = {}
-		for _, child in ipairs(part:GetChildren()) do
-			if child:IsA("ValueBase") then
-				local childName = child.Name:lower()
-				for _, data in ipairs(DATA_PAYLOAD_NAMES) do
-					if childName == data.name or childName:find(data.name, 1, true) then
-						confidence = math.max(confidence, data.confidence)
-						table.insert(reasons, "Data: " .. child.Name)
-						break
-					end
-				end
-			end
-		end
-		local partName = part.Name:lower()
-		for _, keyword in ipairs(NAME_KEYWORDS) do
-			if partName:find(keyword.pattern, 1, true) then
-				confidence = math.max(confidence, keyword.confidence)
-				table.insert(reasons, "Name: " .. keyword.pattern)
-				if not self.Config.DeepScan then
-					break
-				end
-			end
-		end
-		if part:FindFirstChildOfClass("ProximityPrompt") then
-			confidence = math.max(confidence, 0.7)
-			table.insert(reasons, "ProximityPrompt")
-		end
-		if part:FindFirstChildOfClass("ClickDetector") then
-			confidence = math.max(confidence, 0.5)
-			table.insert(reasons, "ClickDetector")
-		end
-		return confidence, reasons
-	end
-	local function scanWorkspace()
-		self.State.IsScanning = true
-		scanButton.Text = "⏳ Scanning..."
-		scanButton.Active = false
-		local findings = {}
-		local scannedCount = 0
-		local startTime = tick()
-		task.spawn(function()
-			local descendants = Workspace:GetDescendants()
-			local totalCount = #descendants
-			debugLog("Starting scan of " .. totalCount .. " objects")
-			for i, descendant in ipairs(descendants) do
-				scannedCount = i
-				if i % self.Config.YieldInterval == 0 then
-					statsLabel.Text = string.format("Scanning... %d/%d (%.1f%%)", i, totalCount, (i / totalCount) * 100)
-					task.wait()
-				end
-				if not descendant.Parent then
-					continue
-				end
-				local part, confidence, reasons = nil, 0, {}
-				if descendant:IsA("LuaSourceContainer") then
-					local scriptConf, scriptReasons = analyzeScript(descendant)
-					if scriptConf > 0 then
-						part = descendant:FindFirstAncestorWhichIsA("Model") or descendant:FindFirstAncestorWhichIsA("BasePart") or descendant.Parent
-						if part and (part:IsA("BasePart") or part:IsA("Model")) then
-							confidence = scriptConf
-							reasons = scriptReasons
-						end
-					end
-				end
-				if descendant:IsA("BasePart") and not part then
-					local partConf, partReasons = analyzeBasePart(descendant)
-					if partConf > 0 then
-						part = descendant
-						confidence = partConf
-						reasons = partReasons
-					end
-				end
-				if part and (not findings[part] or confidence > findings[part].confidence) then
-					findings[part] = {
-						confidence = confidence,
-						reasons = reasons
-					}
-				end
-			end
-			local partsFound = 0
-			local sortedFindings = {}
-			for part, data in pairs(findings) do
-				table.insert(sortedFindings, {part = part, data = data})
-			end
-			table.sort(sortedFindings, function(a, b)
-				return a.data.confidence > b.data.confidence
-			end)
-			local maxResults = math.min(#sortedFindings, self.Config.MaxResults)
-			for i = 1, maxResults do
-				local finding = sortedFindings[i]
-				partsFound = partsFound + 1
-				highlightPart(finding.part, finding.data.confidence)
-				addResultToList(finding.part, finding.data.confidence, finding.data.reasons)
-			end
-			local scanTime = tick() - startTime
-			self.State.Stats.TotalScanned = scannedCount
-			self.State.Stats.PotentalFound = partsFound
-			self.State.Stats.LastScanTime = scanTime
-			self.State.LastScan = tick()
-			scanButton.Text = string.format("✓ Scan Complete! (%d found)", partsFound)
-			statsLabel.Text = string.format("Found %d teleporters | Scanned %d objects in %.1fs", partsFound, scannedCount, scanTime)
-			DoNotif(string.format("Scan complete: %d potential teleporters found", partsFound), 3)
-			self.State.IsScanning = false
-			debugLog(string.format("Scan complete: %d found in %.2fs", partsFound, scanTime))
-		end)
-	end
-	scanButton.MouseButton1Click:Connect(function()
-		if self.State.IsScanning then return end
-		clearResults()
-		scanWorkspace()
-	end)
-	clearButton.MouseButton1Click:Connect(clearResults)
-	closeButton.MouseButton1Click:Connect(function()
-		self:ToggleGUI()
-	end)
-	deepScanToggle.MouseButton1Click:Connect(function()
-		self.Config.DeepScan = not self.Config.DeepScan
-		deepScanToggle.Text = "Deep Scan: " .. (self.Config.DeepScan and "ON" or "OFF")
-		deepScanToggle.BackgroundColor3 = self.Config.DeepScan and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(80, 80, 90)
-		DoNotif("Deep scan " .. (self.Config.DeepScan and "enabled" or "disabled"), 2)
-	end)
-	local isDragging, dragStart, startPosition = false, nil, nil
-	titleLabel.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			isDragging = true
-			dragStart = input.Position
-			startPosition = mainFrame.Position
-		end
-	end)
-	titleLabel.InputChanged:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseMovement and isDragging then
-			local delta = input.Position - dragStart
-			mainFrame.Position = UDim2.new(
-				startPosition.X.Scale,
-				startPosition.X.Offset + delta.X,
-				startPosition.Y.Scale,
-				startPosition.Y.Offset + delta.Y
-			)
-		end
-	end)
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			isDragging = false
-		end
-	end)
-	screenGui.Parent = CoreGui
-	if self.Config.AutoScanOnOpen then
-		task.wait(0.1)
-		scanWorkspace()
-	end
-end
-function Modules.TeleporterScanner:CleanupHighlights()
-	for part, highlight in pairs(self.State.Highlights) do
-		if highlight and highlight.Parent then
-			pcall(function()
-				highlight:Destroy()
-			end)
-		end
-	end
-	table.clear(self.State.Highlights)
-end
-function Modules.TeleporterScanner:GetStats()
-	return {
-		TotalScanned = self.State.Stats.TotalScanned,
-		PotentialsFound = self.State.Stats.PotentalFound,
-		LastScanTime = self.State.Stats.LastScanTime,
-		IsScanning = self.State.IsScanning
-	}
-end
-RegisterCommand({
-	Name = "tpscan",
-	Aliases = {"teleporterscan", "findtp", "scanteleports"},
-	Description = "Opens a GUI that scans the workspace for potential teleporters."
-}, function(args)
-	Modules.TeleporterScanner:ToggleGUI()
-end)
 Modules.AuthorityHijacker = {
     State = {
         IsEnabled = false,
@@ -12801,27 +11316,21 @@ Modules.HeadCam = {
         OriginalCameraType = nil,
     },
     Config = {
-        -- Flip axes: -1 to flip, 1 to keep normal
         FlipX = 1,
         FlipY = 1,
-        FlipZ = -1, -- Flips forward/back by default (looks "through" head)
-        OffsetFromHead = CFrame.new(0, 0.5, 0), -- Slight upward offset on head
+        FlipZ = -1,
+        OffsetFromHead = CFrame.new(0, 0.5, 0),
     }
 }
-
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-
 function Modules.HeadCam:Enable()
     if self.State.IsEnabled then return end
-
     local char = LocalPlayer.Character
     if not char then DoNotif("No character", 2) return end
     local head = char:FindFirstChild("Head")
     if not head then DoNotif("No head found", 2) return end
-
-    -- Create the part
     local part = Instance.new("Part")
     part.Name = "HeadCamPart"
     part.Size = Vector3.new(0.1, 0.1, 0.1)
@@ -12831,76 +11340,54 @@ function Modules.HeadCam:Enable()
     part.CanQuery = false
     part.Anchored = false
     part.Parent = workspace
-
-    -- Weld to head
     local weld = Instance.new("WeldConstraint")
     weld.Part0 = head
     weld.Part1 = part
     weld.Parent = part
-
     part.CFrame = head.CFrame * self.Config.OffsetFromHead
-
     self.State.Part = part
     self.State.IsEnabled = true
-
-    -- Store and override camera
     local camera = workspace.CurrentCamera
     self.State.OriginalCameraType = camera.CameraType
     camera.CameraType = Enum.CameraType.Scriptable
-
-    -- RenderStepped: update camera to part's CFrame with flip applied
     self.State.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
         if not part or not part.Parent then return end
-
         local cf = part.CFrame
         local x, y, z = cf:ToEulerAnglesXYZ()
-
-        -- Apply flipped CFrame
         local flippedCF = CFrame.new(cf.Position) *
             CFrame.Angles(
                 x * self.Config.FlipX,
                 y * self.Config.FlipY,
                 z * self.Config.FlipZ
             )
-
         camera.CFrame = flippedCF
     end)
-
     DoNotif("HeadCam: ON", 2)
 end
-
 function Modules.HeadCam:Disable()
     if not self.State.IsEnabled then return end
     self.State.IsEnabled = false
-
     for _, conn in pairs(self.State.Connections) do
         conn:Disconnect()
     end
     table.clear(self.State.Connections)
-
     if self.State.Part then
         self.State.Part:Destroy()
         self.State.Part = nil
     end
-
-    -- Restore camera
     local camera = workspace.CurrentCamera
     camera.CameraType = self.State.OriginalCameraType or Enum.CameraType.Custom
-
     DoNotif("HeadCam: OFF", 2)
 end
-
 function Modules.HeadCam:Toggle()
     if self.State.IsEnabled then self:Disable() else self:Enable() end
 end
-
 function Modules.HeadCam:SetFlip(x, y, z)
     self.Config.FlipX = x ~= nil and x or self.Config.FlipX
     self.Config.FlipY = y ~= nil and y or self.Config.FlipY
     self.Config.FlipZ = z ~= nil and z or self.Config.FlipZ
     DoNotif(string.format("Flip: X=%d Y=%d Z=%d", self.Config.FlipX, self.Config.FlipY, self.Config.FlipZ), 2)
 end
-
 RegisterCommand({
     Name = "headcam",
     Aliases = {"hcam"},
@@ -12908,7 +11395,6 @@ RegisterCommand({
 }, function()
     Modules.HeadCam:Toggle()
 end)
-
 RegisterCommand({
     Name = "headcamflip",
     Aliases = {"hflip"},
@@ -12924,12 +11410,8 @@ Modules.CFrameDesync = {
     State = {
         IsEnabled = false,
         DesyncActive = false,
-        
-        -- Movement Data
         RealCFrame = CFrame.new(),
-        VisualOffset = CFrame.new(), -- Now using CFrame for rotation + position
-        
-        -- UI & Objects
+        VisualOffset = CFrame.new(),
         UI = nil,
         Mode = "position",
         Increment = 1,
@@ -12941,28 +11423,23 @@ Modules.CFrameDesync = {
         ShowFakeCharacter = true,
     }
 }
-
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
-
--- Helper: Get Character Validation
 local function getChar()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChild("Humanoid")
     return char, hrp, hum
 end
-
 function Modules.CFrameDesync:_createUI()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "CFrameDesync_Architect"
     screenGui.ResetOnSpawn = false
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
     self.State.UI = screenGui
-    
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
     mainFrame.Size = UDim2.fromOffset(340, 520)
@@ -12970,20 +11447,16 @@ function Modules.CFrameDesync:_createUI()
     mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
-    
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
-    
     local stroke = Instance.new("UIStroke", mainFrame)
     stroke.Color = self.Config.HighlightColor
     stroke.Thickness = 2
-    
     local titleBar = Instance.new("Frame", mainFrame)
     titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, 0, 0, 35)
     titleBar.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
     titleBar.BorderSizePixel = 0
     Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
-    
     local title = Instance.new("TextLabel", titleBar)
     title.Size = UDim2.new(1, -70, 1, 0)
     title.Position = UDim2.fromOffset(10, 0)
@@ -12993,7 +11466,6 @@ function Modules.CFrameDesync:_createUI()
     title.TextColor3 = self.Config.HighlightColor
     title.TextSize = 14
     title.TextXAlignment = Enum.TextXAlignment.Left
-    
     local statusIndicator = Instance.new("TextLabel", titleBar)
     statusIndicator.Name = "StatusIndicator"
     statusIndicator.Size = UDim2.fromOffset(60, 20)
@@ -13004,8 +11476,6 @@ function Modules.CFrameDesync:_createUI()
     statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
     statusIndicator.TextSize = 10
     Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
-    
-    -- Draggable Logic
     local dragging, dragInput, dragStart, startPos
     titleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -13014,27 +11484,22 @@ function Modules.CFrameDesync:_createUI()
             startPos = mainFrame.Position
         end
     end)
-    
     game:GetService("UserInputService").InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             local delta = input.Position - dragStart
             mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
-    
     titleBar.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
         end
     end)
-
     local content = Instance.new("Frame", mainFrame)
     content.Name = "Content"
     content.Size = UDim2.new(1, -20, 1, -45)
     content.Position = UDim2.fromOffset(10, 40)
     content.BackgroundTransparency = 1
-    
-    -- Toggle Button
     local desyncToggle = Instance.new("TextButton", content)
     desyncToggle.Name = "DesyncToggle"
     desyncToggle.Size = UDim2.new(1, 0, 0, 45)
@@ -13044,12 +11509,9 @@ function Modules.CFrameDesync:_createUI()
     desyncToggle.TextColor3 = Color3.new(1, 1, 1)
     desyncToggle.TextSize = 14
     Instance.new("UICorner", desyncToggle).CornerRadius = UDim.new(0, 6)
-    
     desyncToggle.MouseButton1Click:Connect(function()
         self:ToggleDesync()
     end)
-    
-    -- Mode Buttons
     local modeLabel = Instance.new("TextLabel", content)
     modeLabel.Size = UDim2.new(1, 0, 0, 20)
     modeLabel.Position = UDim2.fromOffset(0, 55)
@@ -13059,7 +11521,6 @@ function Modules.CFrameDesync:_createUI()
     modeLabel.Font = Enum.Font.Code
     modeLabel.TextSize = 12
     modeLabel.TextXAlignment = Enum.TextXAlignment.Left
-
     local modeButtons = {}
     for i, mode in ipairs({"position", "rotation"}) do
         local btn = Instance.new("TextButton", content)
@@ -13072,7 +11533,6 @@ function Modules.CFrameDesync:_createUI()
         btn.TextSize = 11
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
         modeButtons[mode] = btn
-        
         btn.MouseButton1Click:Connect(function()
             self.State.Mode = mode
             for m, b in pairs(modeButtons) do
@@ -13080,8 +11540,6 @@ function Modules.CFrameDesync:_createUI()
             end
         end)
     end
-
-    -- Increment Input
     local incBox = Instance.new("TextBox", content)
     incBox.Size = UDim2.new(1, 0, 0, 30)
     incBox.Position = UDim2.fromOffset(0, 120)
@@ -13091,7 +11549,6 @@ function Modules.CFrameDesync:_createUI()
     incBox.Font = Enum.Font.Code
     incBox.TextSize = 12
     Instance.new("UICorner", incBox).CornerRadius = UDim.new(0, 4)
-    
     incBox.FocusLost:Connect(function()
         local val = tonumber(incBox.Text:match("%d+%.?%d*"))
         if val then
@@ -13099,8 +11556,6 @@ function Modules.CFrameDesync:_createUI()
             incBox.Text = "Increment: " .. val
         end
     end)
-
-    -- Directional Controls
     local controls = {
         {t = "+X", o = Vector3.new(1, 0, 0), p = {0, 160}},
         {t = "-X", o = Vector3.new(-1, 0, 0), p = {110, 160}},
@@ -13109,7 +11564,6 @@ function Modules.CFrameDesync:_createUI()
         {t = "+Z", o = Vector3.new(0, 0, 1), p = {0, 230}},
         {t = "-Z", o = Vector3.new(0, 0, -1), p = {110, 230}},
     }
-
     for _, ctrl in ipairs(controls) do
         local btn = Instance.new("TextButton", content)
         btn.Size = UDim2.fromOffset(100, 30)
@@ -13119,13 +11573,10 @@ function Modules.CFrameDesync:_createUI()
         btn.TextColor3 = Color3.new(1, 1, 1)
         btn.Font = Enum.Font.GothamBold
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-        
         btn.MouseButton1Click:Connect(function()
             self:AdjustOffset(ctrl.o)
         end)
     end
-
-    -- Presets & Sync
     local resetBtn = Instance.new("TextButton", content)
     resetBtn.Size = UDim2.new(1, 0, 0, 35)
     resetBtn.Position = UDim2.fromOffset(0, 275)
@@ -13135,8 +11586,6 @@ function Modules.CFrameDesync:_createUI()
     resetBtn.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 4)
     resetBtn.MouseButton1Click:Connect(function() self.State.VisualOffset = CFrame.new() self:UpdateDisplay() end)
-
-    -- Info Box
     local infoBox = Instance.new("TextLabel", content)
     infoBox.Name = "InfoBox"
     infoBox.Size = UDim2.new(1, 0, 0, 100)
@@ -13150,11 +11599,9 @@ function Modules.CFrameDesync:_createUI()
     infoBox.TextYAlignment = Enum.TextYAlignment.Top
     Instance.new("UICorner", infoBox).CornerRadius = UDim.new(0, 4)
     Instance.new("UIPadding", infoBox).PaddingLeft = UDim.new(0, 8)
-
     screenGui.Parent = CoreGui
     return desyncToggle, statusIndicator, infoBox
 end
-
 function Modules.CFrameDesync:ToggleDesync()
     if self.State.DesyncActive then
         self:DeactivateDesync()
@@ -13162,18 +11609,13 @@ function Modules.CFrameDesync:ToggleDesync()
         self:ActivateDesync()
     end
 end
-
 function Modules.CFrameDesync:ActivateDesync()
     local _, hrp = getChar()
     if not hrp then return end
-
     self.State.DesyncActive = true
-
     if self.Config.ShowFakeCharacter then
         self:CreateFakeCharacter()
     end
-
-    -- ONLY update visuals, touch nothing else
     self.State.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
         local _, root = getChar()
         if root then
@@ -13181,24 +11623,16 @@ function Modules.CFrameDesync:ActivateDesync()
             self:UpdateVisuals()
         end
     end)
-
-    -- Update UI
     local ui = self.State.UI.MainFrame
     ui.Content.DesyncToggle.Text = "DEACTIVATE SYSTEM"
     ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(120, 30, 50)
     ui.TitleBar.StatusIndicator.Text = "ACTIVE"
     ui.TitleBar.StatusIndicator.BackgroundColor3 = self.Config.HighlightColor
-
     self:UpdateDisplay()
 end
-
 function Modules.CFrameDesync:StartFakeReplication()
     local _, hrp = getChar()
     if not hrp then return end
-
-    -- Create an invisible anchored part the server thinks is relevant
-    -- The actual desync signal is sent via CFrame manipulation of a 
-    -- network-owned part, not the HRP itself
     local fakePart = Instance.new("Part")
     fakePart.Name = "DesyncAnchor"
     fakePart.Size = Vector3.new(0.1, 0.1, 0.1)
@@ -13209,52 +11643,40 @@ function Modules.CFrameDesync:StartFakeReplication()
     fakePart.Anchored = false
     fakePart.CFrame = hrp.CFrame * self.State.VisualOffset
     fakePart.Parent = workspace
-
-    -- Give local player network ownership
     fakePart:SetNetworkOwner(LocalPlayer)
     self.State.FakePart = fakePart
-
     self.State.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
         if fakePart and fakePart.Parent then
             fakePart.CFrame = self.State.RealCFrame * self.State.VisualOffset
         end
     end)
 end
-
 function Modules.CFrameDesync:DeactivateDesync()
     self.State.DesyncActive = false
-
     for _, conn in pairs(self.State.Connections) do
         conn:Disconnect()
     end
     table.clear(self.State.Connections)
-
     if self.State.FakePart then
         self.State.FakePart:Destroy()
         self.State.FakePart = nil
     end
-
     if self.State.FakeCharacter then
         self.State.FakeCharacter:Destroy()
         self.State.FakeCharacter = nil
     end
-
     local ui = self.State.UI.MainFrame
     ui.Content.DesyncToggle.Text = "ACTIVATE SYSTEM"
     ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
     ui.TitleBar.StatusIndicator.Text = "OFF"
     ui.TitleBar.StatusIndicator.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-
     self:UpdateDisplay()
 end
-
 function Modules.CFrameDesync:CreateFakeCharacter()
     local char = LocalPlayer.Character
     if not char then return end
-
     local fake = Instance.new("Model")
     fake.Name = "Desync_Visualizer"
-    
     for _, part in pairs(char:GetChildren()) do
         if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
             local p = part:Clone()
@@ -13265,34 +11687,26 @@ function Modules.CFrameDesync:CreateFakeCharacter()
             p.Material = Enum.Material.ForceField
             p.Color = self.Config.HighlightColor
             p.Parent = fake
-            
-            -- Remove unnecessary scripts/decals from clone
             for _, child in pairs(p:GetChildren()) do
                 if not child:IsA("SpecialMesh") then child:Destroy() end
             end
         end
     end
-    
     fake.Parent = workspace
     self.State.FakeCharacter = fake
 end
-
 function Modules.CFrameDesync:UpdateVisuals()
     local char = LocalPlayer.Character
     if not char or not self.State.FakeCharacter then return end
-
     local targetCFrame = self.State.RealCFrame * self.State.VisualOffset
-    
     for _, part in pairs(self.State.FakeCharacter:GetChildren()) do
         local realPart = char:FindFirstChild(part.Name)
         if realPart then
-            -- Position the fake part relative to the desync center
             local relative = char.HumanoidRootPart.CFrame:Inverse() * realPart.CFrame
             part.CFrame = targetCFrame * relative
         end
     end
 end
-
 function Modules.CFrameDesync:AdjustOffset(vec)
     local inc = self.State.Increment
     if self.State.Mode == "position" then
@@ -13303,42 +11717,34 @@ function Modules.CFrameDesync:AdjustOffset(vec)
     end
     self:UpdateDisplay()
 end
-
 function Modules.CFrameDesync:UpdateDisplay()
     if not self.State.UI then return end
     local info = self.State.UI.MainFrame.Content.InfoBox
-    
     if not self.State.DesyncActive then
         info.Text = "STATUS: INACTIVE\nWAITING FOR PROTOCOL START..."
         return
     end
-
     local pos = self.State.VisualOffset.Position
     local x, y, z = self.State.VisualOffset:ToEulerAnglesXYZ()
-    
     info.Text = string.format(
         "NETWORK STATUS: DESYNCED\n\nOFFSET POS:\nX: %.2f | Y: %.2f | Z: %.2f\n\nOFFSET ROT:\nX: %.2f | Y: %.2f | Z: %.2f",
         pos.X, pos.Y, pos.Z,
         math.deg(x), math.deg(y), math.deg(z)
     )
 end
-
 function Modules.CFrameDesync:Enable()
     if self.State.IsEnabled then return end
     self.State.IsEnabled = true
     self:_createUI()
 end
-
 function Modules.CFrameDesync:Disable()
     self:DeactivateDesync()
     if self.State.UI then self.State.UI:Destroy() self.State.UI = nil end
     self.State.IsEnabled = false
 end
-
 function Modules.CFrameDesync:Toggle()
     if self.State.IsEnabled then self:Disable() else self:Enable() end
 end
-
 RegisterCommand({
     Name = "csync",
     Aliases = {"fakepos"},
@@ -18449,7 +16855,6 @@ function Modules.Overseer:Initialize()
         module:CreateUI()
     end)
 end
-
 Modules.OverseerCE = {
     State = {
         IsEnabled = false,
@@ -23245,7 +21650,6 @@ function Modules.OverseerCE:Initialize()
         end
     end)
     print("[Overseer CE] Initializing Enhanced Edition...")
-    -- UI will only open when command is called
     print("[Overseer CE] Ready! Module inspector and patcher active.")
 end
 function Modules.OverseerCE:PoisonReturnOverride(module, newValue)
@@ -23610,8 +22014,7 @@ RegisterCommand({
     Description = "Opens the ultimate Overseer module, Use at your own risk."
 }, function()
     Modules.OverseerCE:CreateUI()
-end) -- The local part of the overseer to fallback, i implore you to use the updated loadstring.
-
+end)
 Modules.ModelBring = {
     State = {
         IsEnabled = false,
@@ -24474,17 +22877,14 @@ Modules.ModuleExplorer = {
         GhostIndexes = {}
     }
 }
-
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
-
 local function CreateGUI()
     local gui = Instance.new("ScreenGui")
     gui.Name = "ModuleExplorer"
     gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     gui.ResetOnSpawn = false
     gui.Parent = CoreGui
-    
     local main = Instance.new("Frame")
     main.Name = "MainFrame"
     main.Size = UDim2.fromOffset(1100, 650)
@@ -24494,25 +22894,19 @@ local function CreateGUI()
     main.BorderSizePixel = 0
     main.ClipsDescendants = true
     main.Parent = gui
-    
     local mainCorner = Instance.new("UICorner", main)
     mainCorner.CornerRadius = UDim.new(0, 12)
-    
     local mainStroke = Instance.new("UIStroke", main)
     mainStroke.Color = Color3.fromRGB(0, 255, 150)
     mainStroke.Thickness = 2
-    
-    -- Title Bar
     local titleBar = Instance.new("Frame")
     titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, 0, 0, 40)
     titleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
     titleBar.BorderSizePixel = 0
     titleBar.Parent = main
-    
     local titleCorner = Instance.new("UICorner", titleBar)
     titleCorner.CornerRadius = UDim.new(0, 12)
-    
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -100, 1, 0)
     title.Position = UDim2.fromOffset(15, 0)
@@ -24523,7 +22917,6 @@ local function CreateGUI()
     title.TextSize = 16
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = titleBar
-    
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.fromOffset(30, 30)
     closeBtn.Position = UDim2.new(1, -35, 0, 5)
@@ -24534,11 +22927,8 @@ local function CreateGUI()
     closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     closeBtn.TextSize = 20
     closeBtn.Parent = titleBar
-    
     local closeBtnCorner = Instance.new("UICorner", closeBtn)
     closeBtnCorner.CornerRadius = UDim.new(0, 8)
-    
-    -- Left Panel (Module List)
     local leftPanel = Instance.new("Frame")
     leftPanel.Name = "ModuleList"
     leftPanel.Size = UDim2.new(0.25, -5, 1, -50)
@@ -24546,15 +22936,12 @@ local function CreateGUI()
     leftPanel.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
     leftPanel.BorderSizePixel = 0
     leftPanel.Parent = main
-    
     local leftCorner = Instance.new("UICorner", leftPanel)
     leftCorner.CornerRadius = UDim.new(0, 8)
-    
     local leftStroke = Instance.new("UIStroke", leftPanel)
     leftStroke.Color = Color3.fromRGB(0, 255, 150)
     leftStroke.Thickness = 1
     leftStroke.Transparency = 0.5
-    
     local moduleScroll = Instance.new("ScrollingFrame")
     moduleScroll.Name = "ModuleScroll"
     moduleScroll.Size = UDim2.new(1, -10, 1, -10)
@@ -24566,12 +22953,9 @@ local function CreateGUI()
     moduleScroll.CanvasSize = UDim2.fromOffset(0, 0)
     moduleScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     moduleScroll.Parent = leftPanel
-    
     local moduleLayout = Instance.new("UIListLayout", moduleScroll)
     moduleLayout.Padding = UDim.new(0, 5)
     moduleLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    
-    -- Middle Panel (Details)
     local middlePanel = Instance.new("Frame")
     middlePanel.Name = "DetailsPanel"
     middlePanel.Size = UDim2.new(0.45, -5, 1, -50)
@@ -24579,15 +22963,12 @@ local function CreateGUI()
     middlePanel.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
     middlePanel.BorderSizePixel = 0
     middlePanel.Parent = main
-    
     local middleCorner = Instance.new("UICorner", middlePanel)
     middleCorner.CornerRadius = UDim.new(0, 8)
-    
     local middleStroke = Instance.new("UIStroke", middlePanel)
     middleStroke.Color = Color3.fromRGB(0, 255, 150)
     middleStroke.Thickness = 1
     middleStroke.Transparency = 0.5
-    
     local detailsScroll = Instance.new("ScrollingFrame")
     detailsScroll.Name = "DetailsScroll"
     detailsScroll.Size = UDim2.new(1, -10, 1, -10)
@@ -24599,12 +22980,9 @@ local function CreateGUI()
     detailsScroll.CanvasSize = UDim2.fromOffset(0, 0)
     detailsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     detailsScroll.Parent = middlePanel
-    
     local detailsLayout = Instance.new("UIListLayout", detailsScroll)
     detailsLayout.Padding = UDim.new(0, 5)
     detailsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    
-    -- Right Panel (Actions)
     local rightPanel = Instance.new("Frame")
     rightPanel.Name = "ActionsPanel"
     rightPanel.Size = UDim2.new(0.3, -10, 1, -50)
@@ -24612,15 +22990,12 @@ local function CreateGUI()
     rightPanel.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
     rightPanel.BorderSizePixel = 0
     rightPanel.Parent = main
-    
     local rightCorner = Instance.new("UICorner", rightPanel)
     rightCorner.CornerRadius = UDim.new(0, 8)
-    
     local rightStroke = Instance.new("UIStroke", rightPanel)
     rightStroke.Color = Color3.fromRGB(0, 255, 150)
     rightStroke.Thickness = 1
     rightStroke.Transparency = 0.5
-    
     local actionsScroll = Instance.new("ScrollingFrame")
     actionsScroll.Name = "ActionsScroll"
     actionsScroll.Size = UDim2.new(1, -10, 1, -10)
@@ -24632,21 +23007,16 @@ local function CreateGUI()
     actionsScroll.CanvasSize = UDim2.fromOffset(0, 0)
     actionsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     actionsScroll.Parent = rightPanel
-    
     local actionsLayout = Instance.new("UIListLayout", actionsScroll)
     actionsLayout.Padding = UDim.new(0, 8)
     actionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    
-    -- Make draggable
     local dragging = false
     local dragInput, dragStart, startPos
-    
     titleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
             startPos = main.Position
-            
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -24654,13 +23024,11 @@ local function CreateGUI()
             end)
         end
     end)
-    
     titleBar.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement then
             dragInput = input
         end
     end)
-    
     game:GetService("UserInputService").InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
@@ -24672,7 +23040,6 @@ local function CreateGUI()
             )
         end
     end)
-    
     closeBtn.MouseButton1Click:Connect(function()
         local closeTween = TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
             Size = UDim2.fromOffset(0, 0)
@@ -24682,10 +23049,8 @@ local function CreateGUI()
         gui:Destroy()
         Modules.ModuleExplorer.State.IsOpen = false
     end)
-    
     return gui, main, moduleScroll, detailsScroll, actionsScroll
 end
-
 local function ScanModules()
     local modules = {}
     local locations = {
@@ -24693,7 +23058,6 @@ local function ScanModules()
         game:GetService("ReplicatedFirst"),
         game:GetService("StarterPlayer"):WaitForChild("StarterPlayerScripts", 5)
     }
-    
     for _, location in pairs(locations) do
         if location then
             for _, obj in pairs(location:GetDescendants()) do
@@ -24703,10 +23067,8 @@ local function ScanModules()
             end
         end
     end
-    
     return modules
 end
-
 local function CreateModuleButton(module, parent, onClick)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 35)
@@ -24719,15 +23081,12 @@ local function CreateModuleButton(module, parent, onClick)
     btn.TextXAlignment = Enum.TextXAlignment.Left
     btn.AutoButtonColor = false
     btn.Parent = parent
-    
     local btnCorner = Instance.new("UICorner", btn)
     btnCorner.CornerRadius = UDim.new(0, 6)
-    
     local btnStroke = Instance.new("UIStroke", btn)
     btnStroke.Color = Color3.fromRGB(0, 255, 150)
     btnStroke.Thickness = 1
     btnStroke.Transparency = 0.8
-    
     btn.MouseButton1Click:Connect(function()
         onClick(module)
         for _, child in pairs(parent:GetChildren()) do
@@ -24737,22 +23096,18 @@ local function CreateModuleButton(module, parent, onClick)
         end
         btn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
     end)
-    
     btn.MouseEnter:Connect(function()
         TweenService:Create(btnStroke, TweenInfo.new(0.2), {
             Transparency = 0.3
         }):Play()
     end)
-    
     btn.MouseLeave:Connect(function()
         TweenService:Create(btnStroke, TweenInfo.new(0.2), {
             Transparency = 0.8
         }):Play()
     end)
-    
     return btn
 end
-
 local function CreateLabel(text, color, parent, isBold)
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 0, 0)
@@ -24766,10 +23121,8 @@ local function CreateLabel(text, color, parent, isBold)
     label.TextWrapped = true
     label.RichText = true
     label.Parent = parent
-    
     return label
 end
-
 local function CreateActionButton(text, color, parent, onClick)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 35)
@@ -24781,39 +23134,30 @@ local function CreateActionButton(text, color, parent, onClick)
     btn.TextSize = 12
     btn.AutoButtonColor = false
     btn.Parent = parent
-    
     local btnCorner = Instance.new("UICorner", btn)
     btnCorner.CornerRadius = UDim.new(0, 6)
-    
     btn.MouseButton1Click:Connect(onClick)
-    
     btn.MouseEnter:Connect(function()
         local h, s, v = color:ToHSV()
         btn.BackgroundColor3 = Color3.fromHSV(h, s, math.min(v + 0.1, 1))
     end)
-    
     btn.MouseLeave:Connect(function()
         btn.BackgroundColor3 = color
     end)
-    
     return btn
 end
-
 local function CreateInputField(placeholder, parent)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, 0, 0, 35)
     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
     frame.BorderSizePixel = 0
     frame.Parent = parent
-    
     local frameCorner = Instance.new("UICorner", frame)
     frameCorner.CornerRadius = UDim.new(0, 6)
-    
     local frameStroke = Instance.new("UIStroke", frame)
     frameStroke.Color = Color3.fromRGB(0, 255, 150)
     frameStroke.Thickness = 1
     frameStroke.Transparency = 0.7
-    
     local input = Instance.new("TextBox")
     input.Size = UDim2.new(1, -10, 1, 0)
     input.Position = UDim2.fromOffset(5, 0)
@@ -24827,24 +23171,19 @@ local function CreateInputField(placeholder, parent)
     input.TextXAlignment = Enum.TextXAlignment.Left
     input.ClearTextOnFocus = false
     input.Parent = frame
-    
     input.Focused:Connect(function()
         TweenService:Create(frameStroke, TweenInfo.new(0.2), {
             Transparency = 0.3
         }):Play()
     end)
-    
     input.FocusLost:Connect(function()
         TweenService:Create(frameStroke, TweenInfo.new(0.2), {
             Transparency = 0.7
         }):Play()
     end)
-    
     return input
 end
-
 local function ParseValue(str)
-    -- Try to parse as different types
     if str == "true" then
         return true
     elseif str == "false" then
@@ -24857,7 +23196,6 @@ local function ParseValue(str)
         return str
     end
 end
-
 local function GetNestedValue(tbl, path)
     local current = tbl
     for _, key in ipairs(path) do
@@ -24869,7 +23207,6 @@ local function GetNestedValue(tbl, path)
     end
     return current
 end
-
 local function SetNestedValue(tbl, path, value)
     local current = tbl
     for i = 1, #path - 1 do
@@ -24885,7 +23222,6 @@ local function SetNestedValue(tbl, path, value)
     end
     return false
 end
-
 local function CreateClickableLabel(text, color, parent, isBold, onClick, path)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 0)
@@ -24902,46 +23238,36 @@ local function CreateClickableLabel(text, color, parent, isBold, onClick, path)
     btn.RichText = true
     btn.AutoButtonColor = false
     btn.Parent = parent
-    
     if onClick then
         btn.MouseButton1Click:Connect(function()
             onClick(path)
         end)
-        
         btn.MouseEnter:Connect(function()
             btn.BackgroundTransparency = 0.9
         end)
-        
         btn.MouseLeave:Connect(function()
             btn.BackgroundTransparency = 1
         end)
     end
-    
     return btn
 end
-
 local function InspectValue(value, depth, maxDepth, detailsScroll, path, onSelect)
     depth = depth or 0
     maxDepth = maxDepth or 3
     path = path or {}
-    
     if depth > maxDepth then
         return "..."
     end
-    
     local indent = string.rep("  ", depth)
     local valueType = typeof(value)
-    
     if valueType == "table" then
         CreateLabel(indent .. "{ -- Table", Color3.fromRGB(100, 200, 255), detailsScroll)
-        
         for k, v in pairs(value) do
             local keyStr = tostring(k)
             local valueStr = tostring(v)
             local vType = typeof(v)
             local currentPath = {table.unpack(path)}
             table.insert(currentPath, k)
-            
             if vType == "function" then
                 CreateClickableLabel(
                     indent .. "  " .. keyStr .. " = <function>",
@@ -24974,8 +23300,6 @@ local function InspectValue(value, depth, maxDepth, detailsScroll, path, onSelec
                 )
             end
         end
-        
-        -- Check metatable
         local mt = getmetatable(value)
         if mt then
             CreateLabel(indent .. "  __metatable = <table>", Color3.fromRGB(255, 0, 200), detailsScroll)
@@ -24985,7 +23309,6 @@ local function InspectValue(value, depth, maxDepth, detailsScroll, path, onSelec
                 InspectValue(mt, depth + 1, maxDepth, detailsScroll, mtPath, onSelect)
             end
         end
-        
         CreateLabel(indent .. "}", Color3.fromRGB(100, 200, 255), detailsScroll)
     elseif valueType == "function" then
         local info = debug.getinfo(value)
@@ -24995,38 +23318,28 @@ local function InspectValue(value, depth, maxDepth, detailsScroll, path, onSelec
         CreateLabel(indent .. tostring(value) .. " (" .. valueType .. ")", Color3.fromRGB(200, 200, 200), detailsScroll)
     end
 end
-
 local function DisplayActions(moduleResult, selectedPath, actionsScroll)
-    -- Clear previous actions
     for _, child in pairs(actionsScroll:GetChildren()) do
         if not child:IsA("UIListLayout") then
             child:Destroy()
         end
     end
-    
     CreateLabel("═══ ACTIONS ═══", Color3.fromRGB(0, 255, 150), actionsScroll, true)
     CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
-    
     if #selectedPath == 0 then
         CreateLabel("Select an item to modify", Color3.fromRGB(180, 180, 180), actionsScroll)
         return
     end
-    
     local pathStr = table.concat(selectedPath, ".")
     CreateLabel("Selected: " .. pathStr, Color3.fromRGB(100, 200, 255), actionsScroll, true)
     CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
-    
     local value = GetNestedValue(moduleResult, selectedPath)
     local valueType = typeof(value)
-    
     CreateLabel("Type: " .. valueType, Color3.fromRGB(180, 180, 180), actionsScroll)
     CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
-    
-    -- Modify Value
     if valueType ~= "function" then
         CreateLabel("▸ Modify Value:", Color3.fromRGB(255, 200, 0), actionsScroll, true)
         local valueInput = CreateInputField("New value...", actionsScroll)
-        
         CreateActionButton("Apply Change", Color3.fromRGB(0, 150, 255), actionsScroll, function()
             local newValue = ParseValue(valueInput.Text)
             if SetNestedValue(moduleResult, selectedPath, newValue) then
@@ -25036,23 +23349,17 @@ local function DisplayActions(moduleResult, selectedPath, actionsScroll)
                 print("✗ Failed to modify value")
             end
         end)
-        
         CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
     end
-    
-    -- Hook Function
     if valueType == "function" then
         CreateLabel("▸ Hook Function:", Color3.fromRGB(255, 150, 0), actionsScroll, true)
-        
         CreateActionButton("Hook - Log Calls", Color3.fromRGB(255, 100, 0), actionsScroll, function()
             local originalFunc = value
             local hookKey = pathStr
-            
             if Modules.ModuleExplorer.State.Hooks[hookKey] then
                 print("⚠ Function already hooked!")
                 return
             end
-            
             local hooked = function(...)
                 local args = {...}
                 print(string.format("🔗 Hook [%s] called with %d args:", pathStr, #args))
@@ -25063,141 +23370,107 @@ local function DisplayActions(moduleResult, selectedPath, actionsScroll)
                 print(string.format("  → Returned %d values", #results))
                 return table.unpack(results)
             end
-            
             Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
             SetNestedValue(moduleResult, selectedPath, hooked)
             print(string.format("✓ Hooked function: %s", pathStr))
         end)
-        
         CreateActionButton("Hook - Block Calls", Color3.fromRGB(255, 0, 100), actionsScroll, function()
             local originalFunc = value
             local hookKey = pathStr
-            
             if Modules.ModuleExplorer.State.Hooks[hookKey] then
                 print("⚠ Function already hooked!")
                 return
             end
-            
             local hooked = function(...)
                 print(string.format("🚫 Blocked call to: %s", pathStr))
                 return nil
             end
-            
             Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
             SetNestedValue(moduleResult, selectedPath, hooked)
             print(string.format("✓ Blocked function: %s", pathStr))
         end)
-        
-        -- Force True
         CreateActionButton("Hook - Force Return True", Color3.fromRGB(0, 200, 100), actionsScroll, function()
             local originalFunc = value
             local hookKey = pathStr
-            
             if Modules.ModuleExplorer.State.Hooks[hookKey] then
                 print("⚠ Function already hooked!")
                 return
             end
-            
             local hooked = function(...)
                 originalFunc(...)
                 print(string.format("✓ Forced true return: %s", pathStr))
                 return true
             end
-            
             Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
             SetNestedValue(moduleResult, selectedPath, hooked)
             print(string.format("✓ Hooked to force return true: %s", pathStr))
         end)
-        
-        -- Force False
         CreateActionButton("Hook - Force Return False", Color3.fromRGB(200, 50, 50), actionsScroll, function()
             local originalFunc = value
             local hookKey = pathStr
-            
             if Modules.ModuleExplorer.State.Hooks[hookKey] then
                 print("⚠ Function already hooked!")
                 return
             end
-            
             local hooked = function(...)
                 originalFunc(...)
                 print(string.format("✓ Forced false return: %s", pathStr))
                 return false
             end
-            
             Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
             SetNestedValue(moduleResult, selectedPath, hooked)
             print(string.format("✓ Hooked to force return false: %s", pathStr))
         end)
-        
-        -- Force Nil
         CreateActionButton("Hook - Force Return Nil", Color3.fromRGB(100, 100, 100), actionsScroll, function()
             local originalFunc = value
             local hookKey = pathStr
-            
             if Modules.ModuleExplorer.State.Hooks[hookKey] then
                 print("⚠ Function already hooked!")
                 return
             end
-            
             local hooked = function(...)
                 originalFunc(...)
                 print(string.format("✓ Forced nil return: %s", pathStr))
                 return nil
             end
-            
             Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
             SetNestedValue(moduleResult, selectedPath, hooked)
             print(string.format("✓ Hooked to force return nil: %s", pathStr))
         end)
-        
-        -- Custom Return Value
         CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
         CreateLabel("Custom Return:", Color3.fromRGB(150, 150, 255), actionsScroll, true)
         local customReturnInput = CreateInputField("Return value...", actionsScroll)
-        
         CreateActionButton("Hook - Custom Return", Color3.fromRGB(150, 0, 255), actionsScroll, function()
             local originalFunc = value
             local hookKey = pathStr
-            
             if Modules.ModuleExplorer.State.Hooks[hookKey] then
                 print("⚠ Function already hooked!")
                 return
             end
-            
             local customValue = ParseValue(customReturnInput.Text)
-            
             local hooked = function(...)
                 originalFunc(...)
                 print(string.format("✓ Forced custom return: %s -> %s", pathStr, tostring(customValue)))
                 return customValue
             end
-            
             Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
             SetNestedValue(moduleResult, selectedPath, hooked)
             print(string.format("✓ Hooked to force return: %s = %s", pathStr, tostring(customValue)))
             customReturnInput.Text = ""
         end)
-        
-        -- Multiply Numbers
         CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
         CreateLabel("Numeric Multiplier:", Color3.fromRGB(255, 200, 100), actionsScroll, true)
         local multiplierInput = CreateInputField("Multiplier (e.g., 999)...", actionsScroll)
-        
         CreateActionButton("Hook - Multiply Numbers", Color3.fromRGB(255, 150, 0), actionsScroll, function()
             local originalFunc = value
             local hookKey = pathStr
-            
             if Modules.ModuleExplorer.State.Hooks[hookKey] then
                 print("⚠ Function already hooked!")
                 return
             end
-            
             local multiplier = tonumber(multiplierInput.Text) or 1
-            
             local hooked = function(...)
                 local results = {originalFunc(...)}
-                -- Modify numeric returns
                 for i, result in ipairs(results) do
                     if type(result) == "number" then
                         results[i] = result * multiplier
@@ -25206,13 +23479,11 @@ local function DisplayActions(moduleResult, selectedPath, actionsScroll)
                 print(string.format("✓ Multiplied numeric returns by %d: %s", multiplier, pathStr))
                 return table.unpack(results)
             end
-            
             Modules.ModuleExplorer.State.Hooks[hookKey] = originalFunc
             SetNestedValue(moduleResult, selectedPath, hooked)
             print(string.format("✓ Hooked with %dx multiplier: %s", multiplier, pathStr))
             multiplierInput.Text = ""
         end)
-        
         if Modules.ModuleExplorer.State.Hooks[pathStr] then
             CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
             CreateActionButton("Unhook Function", Color3.fromRGB(0, 200, 100), actionsScroll, function()
@@ -25222,36 +23493,26 @@ local function DisplayActions(moduleResult, selectedPath, actionsScroll)
                 print(string.format("✓ Unhooked function: %s", pathStr))
             end)
         end
-        
         CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
     end
-    
-    -- Ghost Index (for tables)
     if valueType == "table" then
         CreateLabel("▸ Ghost Index:", Color3.fromRGB(200, 0, 255), actionsScroll, true)
         CreateLabel("Add fake properties that appear to exist", Color3.fromRGB(150, 150, 150), actionsScroll)
-        
         local ghostKeyInput = CreateInputField("Key name...", actionsScroll)
         local ghostValueInput = CreateInputField("Value...", actionsScroll)
-        
         CreateActionButton("Add Ghost Index", Color3.fromRGB(200, 0, 255), actionsScroll, function()
             local key = ghostKeyInput.Text
             local val = ParseValue(ghostValueInput.Text)
-            
             if key == "" then
                 print("✗ Please enter a key name")
                 return
             end
-            
             local ghostKey = pathStr .. ".__ghost__"
             if not Modules.ModuleExplorer.State.GhostIndexes[ghostKey] then
                 Modules.ModuleExplorer.State.GhostIndexes[ghostKey] = {}
             end
-            
-            -- Set up __index metamethod
             local mt = getmetatable(value) or {}
             local oldIndex = mt.__index
-            
             mt.__index = function(tbl, k)
                 if Modules.ModuleExplorer.State.GhostIndexes[ghostKey][k] then
                     print(string.format("👻 Ghost index accessed: %s.%s", pathStr, k))
@@ -25264,72 +23525,53 @@ local function DisplayActions(moduleResult, selectedPath, actionsScroll)
                 end
                 return rawget(tbl, k)
             end
-            
             setmetatable(value, mt)
             Modules.ModuleExplorer.State.GhostIndexes[ghostKey][key] = val
-            
             print(string.format("✓ Added ghost index: %s.%s = %s", pathStr, key, tostring(val)))
             ghostKeyInput.Text = ""
             ghostValueInput.Text = ""
         end)
-        
         CreateLabel("", Color3.fromRGB(255, 255, 255), actionsScroll)
     end
-    
-    -- Copy Path
     CreateActionButton("Copy Path to Clipboard", Color3.fromRGB(100, 100, 100), actionsScroll, function()
         setclipboard(pathStr)
         print(string.format("✓ Copied to clipboard: %s", pathStr))
     end)
 end
-
 local function DisplayModuleDetails(module, detailsScroll, actionsScroll)
-    -- Clear previous details
     for _, child in pairs(detailsScroll:GetChildren()) do
         if not child:IsA("UIListLayout") then
             child:Destroy()
         end
     end
-    
     CreateLabel("═══ MODULE: " .. module.Name .. " ═══", Color3.fromRGB(0, 255, 150), detailsScroll, true)
     CreateLabel("Path: " .. module:GetFullName(), Color3.fromRGB(180, 180, 180), detailsScroll)
     CreateLabel("", Color3.fromRGB(255, 255, 255), detailsScroll)
-    
-    -- Try to require the module
     local success, result = pcall(require, module)
-    
     if not success then
         CreateLabel("✗ Failed to require module:", Color3.fromRGB(255, 50, 100), detailsScroll, true)
         CreateLabel(tostring(result), Color3.fromRGB(255, 100, 100), detailsScroll)
         return
     end
-    
     CreateLabel("✓ Module loaded successfully", Color3.fromRGB(0, 255, 100), detailsScroll, true)
     CreateLabel("", Color3.fromRGB(255, 255, 255), detailsScroll)
-    
     local resultType = typeof(result)
     CreateLabel("Type: " .. resultType, Color3.fromRGB(100, 200, 255), detailsScroll, true)
     CreateLabel("", Color3.fromRGB(255, 255, 255), detailsScroll)
-    
     if resultType == "table" then
         CreateLabel("═══ CONTENTS ═══", Color3.fromRGB(0, 255, 150), detailsScroll, true)
         CreateLabel("Click any item to modify it", Color3.fromRGB(150, 150, 150), detailsScroll)
         CreateLabel("", Color3.fromRGB(255, 255, 255), detailsScroll)
-        
-        -- Store module result for modifications
         Modules.ModuleExplorer.State.ModuleResult = result
-        
         local function onSelect(path)
             Modules.ModuleExplorer.State.SelectedPath = path
             DisplayActions(result, path, actionsScroll)
         end
-        
         InspectValue(result, 0, 2, detailsScroll, {}, onSelect)
     else
         CreateLabel("Value: " .. tostring(result), Color3.fromRGB(200, 200, 200), detailsScroll)
     end
 end
-
 RegisterCommand({
     Name = "Nodex",
     Aliases = {},
@@ -25339,24 +23581,17 @@ RegisterCommand({
         print("Module Explorer is already open.")
         return
     end
-    
     print("Opening Module Explorer...")
-    
     local gui, main, moduleScroll, detailsScroll, actionsScroll = CreateGUI()
     Modules.ModuleExplorer.State.GUI = gui
     Modules.ModuleExplorer.State.IsOpen = true
-    
-    -- Animate opening
     main.Size = UDim2.fromOffset(0, 0)
     local openTween = TweenService:Create(main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
         Size = UDim2.fromOffset(1100, 650)
     })
     openTween:Play()
-    
-    -- Scan and populate modules
     local modules = ScanModules()
     print(string.format("Found %d modules", #modules))
-    
     for i, module in pairs(modules) do
         CreateModuleButton(module, moduleScroll, function(selectedModule)
             Modules.ModuleExplorer.State.SelectedModule = selectedModule
@@ -25364,524 +23599,8 @@ RegisterCommand({
             DisplayModuleDetails(selectedModule, detailsScroll, actionsScroll)
         end)
     end
-    
-    -- Initial actions display
     DisplayActions(nil, {}, actionsScroll)
 end)
-
-Modules.ModuleEditor = {
-    State = {
-        IsEnabled = false,
-        UI = nil,
-        CurrentTable = nil,
-        TableStack = {},
-        Connections = {},
-        IsMinimized = false,
-        IsMaximized = false,
-        PreMaximizeSize = nil,
-        PreMaximizePosition = nil
-    },
-    Theme = {
-        Background = Color3.fromRGB(0, 0, 0),
-        WindowGray = Color3.fromRGB(192, 192, 192),
-        DarkGray = Color3.fromRGB(128, 128, 128),
-        LightGray = Color3.fromRGB(223, 223, 223),
-        White = Color3.fromRGB(255, 255, 255),
-        Blue = Color3.fromRGB(0, 0, 128),
-        Accent = Color3.fromRGB(0, 255, 0),
-        Text = Color3.fromRGB(0, 0, 0),
-        Font = Enum.Font.Code
-    },
-    Services = {
-        Workspace = game:GetService("Workspace"),
-        Players = game:GetService("Players"),
-        ReplicatedStorage = game:GetService("ReplicatedStorage"),
-        CoreGui = game:GetService("CoreGui"),
-        TweenService = game:GetService("TweenService"),
-        UserInputService = game:GetService("UserInputService")
-    }
-}
-function Modules.ModuleEditor:Minimize()
-    if self.State.IsMinimized then return end
-    self.State.IsMinimized = true
-    local mainFrame = self.State.UI:FindFirstChild("WindowFrame")
-    if not mainFrame then return end
-    local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local tween = self.Services.TweenService:Create(mainFrame, tweenInfo, {
-        Position = UDim2.new(0.5, -mainFrame.Size.X.Offset/2, 1, 50),
-        Size = UDim2.new(0, mainFrame.Size.X.Offset, 0, 30)
-    })
-    tween:Play()
-end
-function Modules.ModuleEditor:Restore()
-    if not self.State.IsMinimized then return end
-    self.State.IsMinimized = false
-    local mainFrame = self.State.UI:FindFirstChild("WindowFrame")
-    if not mainFrame then return end
-    local targetSize = self.State.PreMaximizeSize or UDim2.new(0, 600, 0, 450)
-    local targetPos = self.State.PreMaximizePosition or UDim2.new(0.5, -300, 0.5, -225)
-    local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local tween = self.Services.TweenService:Create(mainFrame, tweenInfo, {
-        Position = targetPos,
-        Size = targetSize
-    })
-    tween:Play()
-end
-function Modules.ModuleEditor:Maximize()
-    local mainFrame = self.State.UI:FindFirstChild("WindowFrame")
-    if not mainFrame then return end
-    if self.State.IsMaximized then
-        self.State.IsMaximized = false
-        local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local tween = self.Services.TweenService:Create(mainFrame, tweenInfo, {
-            Position = self.State.PreMaximizePosition,
-            Size = self.State.PreMaximizeSize
-        })
-        tween:Play()
-    else
-        self.State.PreMaximizeSize = mainFrame.Size
-        self.State.PreMaximizePosition = mainFrame.Position
-        self.State.IsMaximized = true
-        local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local tween = self.Services.TweenService:Create(mainFrame, tweenInfo, {
-            Position = UDim2.new(0, 0, 0, 0),
-            Size = UDim2.new(1, 0, 1, 0)
-        })
-        tween:Play()
-    end
-end
-function Modules.ModuleEditor:DestroyUI()
-    if self.State.UI then
-        self.State.UI:Destroy()
-        self.State.UI = nil
-    end
-    self.State.TableStack = {}
-    self.State.CurrentTable = nil
-    self.State.IsMinimized = false
-    self.State.IsMaximized = false
-end
-function Modules.ModuleEditor:ShowTable(tbl, tableScroll, backBtn)
-    tableScroll:ClearAllChildren()
-    self.State.CurrentTable = tbl
-    backBtn.Visible = #self.State.TableStack > 0
-    local count = 0
-    for key, value in pairs(tbl) do
-        if typeof(value) == "function" then
-            continue
-        end
-        count += 1
-        local isTable = typeof(value) == "table"
-        local displayValue
-        if isTable then
-            displayValue = "[table]"
-        elseif typeof(value) == "string" then
-            displayValue = '"' .. value .. '"'
-        else
-            displayValue = tostring(value)
-        end
-        local keyContainer = Instance.new("Frame", tableScroll)
-        keyContainer.Size = UDim2.new(0.35, -5, 0, 22)
-        keyContainer.Position = UDim2.new(0, 3, 0, (count - 1) * 27)
-        keyContainer.BackgroundColor3 = self.Theme.White
-        keyContainer.BorderSizePixel = 0
-        local function CreateWin95Border(parent, isInset)
-            local topColor = isInset and self.Theme.DarkGray or self.Theme.White
-            local bottomColor = isInset and self.Theme.White or self.Theme.DarkGray
-            local topBorder = Instance.new("Frame", parent)
-            topBorder.Size = UDim2.new(1, 0, 0, 1)
-            topBorder.Position = UDim2.new(0, 0, 0, 0)
-            topBorder.BackgroundColor3 = topColor
-            topBorder.BorderSizePixel = 0
-            topBorder.ZIndex = parent.ZIndex + 1
-            local leftBorder = Instance.new("Frame", parent)
-            leftBorder.Size = UDim2.new(0, 1, 1, 0)
-            leftBorder.Position = UDim2.new(0, 0, 0, 0)
-            leftBorder.BackgroundColor3 = topColor
-            leftBorder.BorderSizePixel = 0
-            leftBorder.ZIndex = parent.ZIndex + 1
-            local bottomBorder = Instance.new("Frame", parent)
-            bottomBorder.Size = UDim2.new(1, 0, 0, 1)
-            bottomBorder.Position = UDim2.new(0, 0, 1, -1)
-            bottomBorder.BackgroundColor3 = bottomColor
-            bottomBorder.BorderSizePixel = 0
-            bottomBorder.ZIndex = parent.ZIndex + 1
-            local rightBorder = Instance.new("Frame", parent)
-            rightBorder.Size = UDim2.new(0, 1, 1, 0)
-            rightBorder.Position = UDim2.new(1, -1, 0, 0)
-            rightBorder.BackgroundColor3 = bottomColor
-            rightBorder.BorderSizePixel = 0
-            rightBorder.ZIndex = parent.ZIndex + 1
-        end
-        CreateWin95Border(keyContainer, true)
-        local keyLabel = Instance.new("TextLabel", keyContainer)
-        keyLabel.Size = UDim2.new(1, -4, 1, 0)
-        keyLabel.Position = UDim2.new(0, 2, 0, 0)
-        keyLabel.BackgroundTransparency = 1
-        keyLabel.TextColor3 = self.Theme.Text
-        keyLabel.Font = self.Theme.Font
-        keyLabel.TextSize = 12
-        keyLabel.TextXAlignment = Enum.TextXAlignment.Left
-        keyLabel.Text = tostring(key)
-        if isTable then
-            local hasEditable = false
-            for _, v in pairs(value) do
-                if typeof(v) ~= "table" and typeof(v) ~= "function" then
-                    hasEditable = true
-                    break
-                end
-            end
-            local icon = hasEditable and "✔" or "✖"
-            local openBtn = Instance.new("TextButton", tableScroll)
-            openBtn.Size = UDim2.new(0.65, -8, 0, 22)
-            openBtn.Position = UDim2.new(0.35, 5, 0, (count - 1) * 27)
-            openBtn.BackgroundColor3 = self.Theme.WindowGray
-            openBtn.BorderSizePixel = 0
-            openBtn.TextColor3 = self.Theme.Text
-            openBtn.Font = self.Theme.Font
-            openBtn.TextSize = 12
-            openBtn.Text = icon .. " » [table]"
-            CreateWin95Border(openBtn, false)
-            openBtn.MouseButton1Click:Connect(function()
-                table.insert(self.State.TableStack, tbl)
-                self:ShowTable(value, tableScroll, backBtn)
-            end)
-        else
-            local valueBox = Instance.new("TextBox", tableScroll)
-            valueBox.Size = UDim2.new(0.65, -8, 0, 22)
-            valueBox.Position = UDim2.new(0.35, 5, 0, (count - 1) * 27)
-            valueBox.BackgroundColor3 = self.Theme.White
-            valueBox.BorderSizePixel = 0
-            valueBox.TextColor3 = self.Theme.Text
-            valueBox.Font = self.Theme.Font
-            valueBox.TextSize = 12
-            valueBox.ClearTextOnFocus = false
-            valueBox.TextWrapped = false
-            valueBox.TextTruncate = Enum.TextTruncate.AtEnd
-            valueBox.Text = displayValue
-            CreateWin95Border(valueBox, true)
-            valueBox.FocusLost:Connect(function()
-                local input = valueBox.Text
-                local newValue
-                if input:match('^".*"$') then
-                    newValue = input:sub(2, -2)
-                elseif input == "true" then
-                    newValue = true
-                elseif input == "false" then
-                    newValue = false
-                elseif input == "nil" then
-                    newValue = nil
-                else
-                    newValue = tonumber(input) or input
-                end
-                tbl[key] = newValue
-                print("[ModuleEditor] Patch Applied:", key, "=", newValue)
-                DoNotif("Patched: " .. tostring(key), 2)
-            end)
-        end
-    end
-    tableScroll.CanvasSize = UDim2.new(0, 0, 0, count * 27 + 10)
-end
-function Modules.ModuleEditor:CreateUI()
-    if self.State.UI then self.State.UI.Enabled = true return end
-    local module = self
-    local function CreateWin95Border(parent, isInset)
-        local topColor = isInset and module.Theme.DarkGray or module.Theme.White
-        local bottomColor = isInset and module.Theme.White or module.Theme.DarkGray
-        local topBorder = Instance.new("Frame", parent)
-        topBorder.Name = "TopBorder"
-        topBorder.Size = UDim2.new(1, 0, 0, 2)
-        topBorder.Position = UDim2.new(0, 0, 0, 0)
-        topBorder.BackgroundColor3 = topColor
-        topBorder.BorderSizePixel = 0
-        topBorder.ZIndex = parent.ZIndex + 1
-        local leftBorder = Instance.new("Frame", parent)
-        leftBorder.Name = "LeftBorder"
-        leftBorder.Size = UDim2.new(0, 2, 1, 0)
-        leftBorder.Position = UDim2.new(0, 0, 0, 0)
-        leftBorder.BackgroundColor3 = topColor
-        leftBorder.BorderSizePixel = 0
-        leftBorder.ZIndex = parent.ZIndex + 1
-        local bottomBorder = Instance.new("Frame", parent)
-        bottomBorder.Name = "BottomBorder"
-        bottomBorder.Size = UDim2.new(1, 0, 0, 2)
-        bottomBorder.Position = UDim2.new(0, 0, 1, -2)
-        bottomBorder.BackgroundColor3 = bottomColor
-        bottomBorder.BorderSizePixel = 0
-        bottomBorder.ZIndex = parent.ZIndex + 1
-        local rightBorder = Instance.new("Frame", parent)
-        rightBorder.Name = "RightBorder"
-        rightBorder.Size = UDim2.new(0, 2, 1, 0)
-        rightBorder.Position = UDim2.new(1, -2, 0, 0)
-        rightBorder.BackgroundColor3 = bottomColor
-        rightBorder.BorderSizePixel = 0
-        rightBorder.ZIndex = parent.ZIndex + 1
-    end
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "ModuleTableEditor_Win95"
-    screenGui.ResetOnSpawn = false
-    screenGui.IgnoreGuiInset = true
-    screenGui.Parent = self.Services.CoreGui
-    self.State.UI = screenGui
-    local mainFrame = Instance.new("Frame", screenGui)
-    mainFrame.Name = "WindowFrame"
-    mainFrame.Size = UDim2.new(0, 600, 0, 450)
-    mainFrame.Position = UDim2.new(0.5, -300, 0.5, -225)
-    mainFrame.BackgroundColor3 = self.Theme.WindowGray
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Active = true
-    mainFrame.ClipsDescendants = false
-    CreateWin95Border(mainFrame, false)
-    local titleBar = Instance.new("Frame", mainFrame)
-    titleBar.Name = "TitleBar"
-    titleBar.Position = UDim2.new(0, 3, 0, 3)
-    titleBar.Size = UDim2.new(1, -6, 0, 22)
-    titleBar.BackgroundColor3 = self.Theme.Blue
-    titleBar.BorderSizePixel = 0
-    titleBar.ZIndex = 2
-    local titleGradient = Instance.new("UIGradient", titleBar)
-    titleGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 168)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(16, 132, 208))
-    }
-    titleGradient.Rotation = 90
-    local titleLabel = Instance.new("TextLabel", titleBar)
-    titleLabel.Name = "Title"
-    titleLabel.Position = UDim2.new(0, 4, 0, 0)
-    titleLabel.Size = UDim2.new(1, -70, 1, 0)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Font = Enum.Font.SourceSansBold
-    titleLabel.Text = "Module Table Editor - Overseer Mini"
-    titleLabel.TextColor3 = self.Theme.White
-    titleLabel.TextSize = 13
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.TextYAlignment = Enum.TextYAlignment.Center
-    titleLabel.ZIndex = 3
-    local minimizeButton = Instance.new("TextButton", titleBar)
-    minimizeButton.Name = "MinimizeButton"
-    minimizeButton.Position = UDim2.new(1, -54, 0, 2)
-    minimizeButton.Size = UDim2.new(0, 16, 0, 16)
-    minimizeButton.BackgroundColor3 = self.Theme.WindowGray
-    minimizeButton.BorderSizePixel = 0
-    minimizeButton.Font = Enum.Font.SourceSansBold
-    minimizeButton.Text = "_"
-    minimizeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-    minimizeButton.TextSize = 14
-    minimizeButton.TextYAlignment = Enum.TextYAlignment.Top
-    minimizeButton.ZIndex = 4
-    CreateWin95Border(minimizeButton, false)
-    minimizeButton.MouseButton1Click:Connect(function()
-        if module.State.IsMinimized then
-            module:Restore()
-        else
-            module:Minimize()
-        end
-    end)
-    local maximizeButton = Instance.new("TextButton", titleBar)
-    maximizeButton.Name = "MaximizeButton"
-    maximizeButton.Position = UDim2.new(1, -36, 0, 2)
-    maximizeButton.Size = UDim2.new(0, 16, 0, 16)
-    maximizeButton.BackgroundColor3 = self.Theme.WindowGray
-    maximizeButton.BorderSizePixel = 0
-    maximizeButton.Font = Enum.Font.SourceSansBold
-    maximizeButton.Text = "□"
-    maximizeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-    maximizeButton.TextSize = 14
-    maximizeButton.ZIndex = 4
-    CreateWin95Border(maximizeButton, false)
-    maximizeButton.MouseButton1Click:Connect(function()
-        module:Maximize()
-    end)
-    local closeButton = Instance.new("TextButton", titleBar)
-    closeButton.Name = "CloseButton"
-    closeButton.Position = UDim2.new(1, -18, 0, 2)
-    closeButton.Size = UDim2.new(0, 16, 0, 16)
-    closeButton.BackgroundColor3 = self.Theme.WindowGray
-    closeButton.BorderSizePixel = 0
-    closeButton.Font = Enum.Font.SourceSansBold
-    closeButton.Text = "×"
-    closeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-    closeButton.TextSize = 16
-    closeButton.ZIndex = 4
-    CreateWin95Border(closeButton, false)
-    closeButton.MouseButton1Click:Connect(function()
-        module:DestroyUI()
-    end)
-    local sidebarContainer = Instance.new("Frame", mainFrame)
-    sidebarContainer.Name = "SidebarContainer"
-    sidebarContainer.Size = UDim2.new(0, 180, 1, -34)
-    sidebarContainer.Position = UDim2.new(0, 6, 0, 28)
-    sidebarContainer.BackgroundColor3 = self.Theme.WindowGray
-    sidebarContainer.BorderSizePixel = 0
-    sidebarContainer.ZIndex = 1
-    CreateWin95Border(sidebarContainer, true)
-    local scroll = Instance.new("ScrollingFrame", sidebarContainer)
-    scroll.Size = UDim2.new(1, -8, 1, -8)
-    scroll.Position = UDim2.new(0, 4, 0, 4)
-    scroll.CanvasSize = UDim2.new(0, 0, 5, 0)
-    scroll.BackgroundTransparency = 1
-    scroll.BorderSizePixel = 0
-    scroll.ScrollBarThickness = 16
-    scroll.ScrollBarImageColor3 = self.Theme.WindowGray
-    local tableFrame = Instance.new("Frame", mainFrame)
-    tableFrame.Name = "TableContainer"
-    tableFrame.Position = UDim2.new(0, 192, 0, 28)
-    tableFrame.Size = UDim2.new(1, -198, 1, -34)
-    tableFrame.BackgroundColor3 = self.Theme.WindowGray
-    tableFrame.BorderSizePixel = 0
-    tableFrame.Visible = false
-    tableFrame.ZIndex = 1
-    CreateWin95Border(tableFrame, true)
-    local backBtn = Instance.new("TextButton", tableFrame)
-    backBtn.Size = UDim2.new(0, 70, 0, 22)
-    backBtn.Position = UDim2.new(0, 6, 0, 6)
-    backBtn.Text = "« Back"
-    backBtn.BackgroundColor3 = self.Theme.WindowGray
-    backBtn.BorderSizePixel = 0
-    backBtn.TextColor3 = self.Theme.Text
-    backBtn.Font = self.Theme.Font
-    backBtn.TextSize = 12
-    backBtn.Visible = false
-    backBtn.ZIndex = 2
-    CreateWin95Border(backBtn, false)
-    backBtn.MouseButton1Click:Connect(function()
-        if #module.State.TableStack > 0 then
-            local prev = table.remove(module.State.TableStack)
-            module:ShowTable(prev, tableScroll, backBtn)
-        end
-    end)
-    local tableScroll = Instance.new("ScrollingFrame", tableFrame)
-    tableScroll.Size = UDim2.new(1, -12, 1, -40)
-    tableScroll.Position = UDim2.new(0, 6, 0, 32)
-    tableScroll.ScrollBarThickness = 16
-    tableScroll.ScrollBarImageColor3 = self.Theme.WindowGray
-    tableScroll.BackgroundTransparency = 1
-    tableScroll.BorderSizePixel = 0
-    tableScroll.ZIndex = 2
-    local yOffset = 0
-    local containers = {
-        ["Workspace"] = self.Services.Workspace,
-        ["Players"] = self.Services.Players,
-        ["ReplicatedStorage"] = self.Services.ReplicatedStorage
-    }
-    for serviceName, service in pairs(containers) do
-        local serviceBtn = Instance.new("TextButton", scroll)
-        serviceBtn.Size = UDim2.new(1, -4, 0, 24)
-        serviceBtn.Position = UDim2.new(0, 2, 0, yOffset)
-        serviceBtn.BackgroundColor3 = self.Theme.WindowGray
-        serviceBtn.BorderSizePixel = 0
-        serviceBtn.TextColor3 = self.Theme.Text
-        serviceBtn.Text = "📁 " .. serviceName
-        serviceBtn.Font = self.Theme.Font
-        serviceBtn.TextSize = 12
-        CreateWin95Border(serviceBtn, false)
-        yOffset += 27
-        serviceBtn.MouseButton1Click:Connect(function()
-            for _, btn in ipairs(scroll:GetChildren()) do
-                if btn:IsA("TextButton") and not btn.Text:find("📁") then
-                    btn:Destroy()
-                end
-            end
-            local modOffset = yOffset
-            for _, obj in ipairs(service:GetDescendants()) do
-                if obj:IsA("ModuleScript") then
-                    local success, moduleTable = pcall(function() return require(obj) end)
-                    local icon = (success and typeof(moduleTable) == "table") and "✔" or "✖"
-                    local modBtn = Instance.new("TextButton", scroll)
-                    modBtn.Size = UDim2.new(1, -4, 0, 24)
-                    modBtn.Position = UDim2.new(0, 2, 0, modOffset)
-                    modBtn.BackgroundColor3 = self.Theme.WindowGray
-                    modBtn.BorderSizePixel = 0
-                    modBtn.TextColor3 = self.Theme.Text
-                    modBtn.Text = "  " .. icon .. " " .. obj.Name
-                    modBtn.Font = self.Theme.Font
-                    modBtn.TextSize = 11
-                    modBtn.TextXAlignment = Enum.TextXAlignment.Left
-                    CreateWin95Border(modBtn, false)
-                    modOffset += 27
-                    modBtn.MouseButton1Click:Connect(function()
-                        if success and typeof(moduleTable) == "table" then
-                            module.State.TableStack = {}
-                            tableFrame.Visible = true
-                            module:ShowTable(moduleTable, tableScroll, backBtn)
-                        else
-                            tableFrame.Visible = false
-                            DoNotif("Failed to require: " .. obj.Name, 3)
-                        end
-                    end)
-                end
-            end
-            scroll.CanvasSize = UDim2.fromOffset(0, modOffset + 50)
-        end)
-    end
-    local resizeHandle = Instance.new("Frame")
-    resizeHandle.Name = "ResizeHandle"
-    resizeHandle.Size = UDim2.fromOffset(16, 16)
-    resizeHandle.Position = UDim2.new(1, -16, 1, -16)
-    resizeHandle.BackgroundColor3 = self.Theme.WindowGray
-    resizeHandle.BorderSizePixel = 0
-    resizeHandle.ZIndex = 10
-    resizeHandle.Parent = mainFrame
-    for i = 0, 2 do
-        local line = Instance.new("Frame", resizeHandle)
-        line.Size = UDim2.new(0, 2, 1, -4 * i)
-        line.Position = UDim2.new(0, 4 + (4 * i), 0, 4 * i)
-        line.BackgroundColor3 = self.Theme.DarkGray
-        line.BorderSizePixel = 0
-        line.Rotation = 45
-    end
-    local dragging, resizing = false, false
-    local dragStart, resizeStart, startPos, startSize
-    titleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = mainFrame.Position
-            local conn; conn = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                    conn:Disconnect()
-                end
-            end)
-        end
-    end)
-    resizeHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            resizing = true
-            resizeStart = input.Position
-            startSize = mainFrame.Size
-            local conn; conn = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    resizing = false
-                    conn:Disconnect()
-                end
-            end)
-        end
-    end)
-    self.Services.UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            if dragging then
-                local delta = input.Position - dragStart
-                mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            elseif resizing then
-                local delta = Vector2.new(input.Position.X - resizeStart.X, input.Position.Y - resizeStart.Y)
-                local newX = math.max(400, startSize.X.Offset + delta.X)
-                local newY = math.max(300, startSize.Y.Offset + delta.Y)
-                mainFrame.Size = UDim2.new(0, newX, 0, newY)
-            end
-        end
-    end)
-    DoNotif("Module Table Editor: INITIALIZED", 2)
-end
-function Modules.ModuleEditor:Initialize()
-    local module = self
-    RegisterCommand({
-        Name = "modui",
-        Aliases = {},
-        Description = "Opens the Module Table Editor to live-patch constants."
-    }, function()
-        module:CreateUI()
-    end)
-end
 Modules.ScriptExecutor2 = {
     State = {
         IsEnabled = false,
@@ -27696,7 +25415,6 @@ Modules.NPCShield = {
         VERTICAL_OFFSET = 0,
     },
 }
-
 function Modules.NPCShield:Stop()
     self.State.IsEnabled = false
     for _, connection in pairs(self.State.Connections) do
@@ -27707,7 +25425,6 @@ function Modules.NPCShield:Stop()
     self.State.Connections = {}
     self.State.TrackedNPCs = {}
 end
-
 function Modules.NPCShield:_isValidNPC(model)
     if not model or not model.Parent then return false end
     for _, plr in ipairs(Players:GetPlayers()) do
@@ -27715,21 +25432,16 @@ function Modules.NPCShield:_isValidNPC(model)
     end
     return model:FindFirstChild("HumanoidRootPart") ~= nil
 end
-
 function Modules.NPCShield:_setupNPCBring(model)
     local tRoot = model:FindFirstChild("HumanoidRootPart")
     if not tRoot then return end
-
     local connectionId = "Bring_NPC_" .. model:GetDebugId()
-
     if self.State.Connections[connectionId] then
         self.State.Connections[connectionId]:Disconnect()
     end
-
     local connection = RunService.Heartbeat:Connect(function()
         local myChar = Players.LocalPlayer.Character
         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-
         if not self.State.TrackedNPCs[model] then
             if self.State.Connections[connectionId] then
                 self.State.Connections[connectionId]:Disconnect()
@@ -27737,52 +25449,37 @@ function Modules.NPCShield:_setupNPCBring(model)
             end
             return
         end
-
-        -- NPC was removed from workspace
         if not tRoot.Parent then
             self:_watchForRespawn(model, connectionId)
             return
         end
-
         if not myRoot then return end
-
         tRoot.Velocity = Vector3.new(0, 30.01, 0)
         tRoot.CFrame = myRoot.CFrame * CFrame.new(0, self.Config.VERTICAL_OFFSET, -self.Config.DISTANCE)
     end)
-
     self.State.Connections[connectionId] = connection
 end
-
--- Watches for the NPC model to repopulate its HumanoidRootPart after death/respawn
 function Modules.NPCShield:_watchForRespawn(model, connectionId)
-    -- Disconnect the old bring loop first
     if self.State.Connections[connectionId] then
         self.State.Connections[connectionId]:Disconnect()
         self.State.Connections[connectionId] = nil
     end
-
     local watchId = "Watch_" .. connectionId
     local elapsed = 0
-
     self.State.Connections[watchId] = RunService.Heartbeat:Connect(function(dt)
         elapsed = elapsed + dt
-
         if not self.State.TrackedNPCs[model] then
             self.State.Connections[watchId]:Disconnect()
             self.State.Connections[watchId] = nil
             return
         end
-
-        -- Give up after 30s
         if elapsed > 30 then
             self.State.Connections[watchId]:Disconnect()
             self.State.Connections[watchId] = nil
             return
         end
-
         local hrp = model:FindFirstChild("HumanoidRootPart")
         local humanoid = model:FindFirstChildOfClass("Humanoid")
-
         if hrp and humanoid and humanoid.Health > 0 then
             self.State.Connections[watchId]:Disconnect()
             self.State.Connections[watchId] = nil
@@ -27794,13 +25491,11 @@ function Modules.NPCShield:_watchForRespawn(model, connectionId)
         end
     end)
 end
-
 function Modules.NPCShield:_trackNPC(model)
     if self.State.TrackedNPCs[model] then return end
     self.State.TrackedNPCs[model] = true
     self:_setupNPCBring(model)
 end
-
 function Modules.NPCShield:_untrackNPC(model)
     self.State.TrackedNPCs[model] = nil
     local connectionId = "Bring_NPC_" .. model:GetDebugId()
@@ -27814,7 +25509,6 @@ function Modules.NPCShield:_untrackNPC(model)
         self.State.Connections[watchId] = nil
     end
 end
-
 function Modules.NPCShield:_gatherNPCs()
     local found = {}
     for _, descendant in ipairs(Workspace:GetDescendants()) do
@@ -27827,28 +25521,20 @@ function Modules.NPCShield:_gatherNPCs()
     end
     return found
 end
-
 function Modules.NPCShield:PossessAll()
     if self.State.IsEnabled then self:Stop() end
-
     local myChar = Players.LocalPlayer.Character
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
         return DoNotif("Your character not found.", 2)
     end
-
     local npcs = self:_gatherNPCs()
-
     if #npcs == 0 then
         return DoNotif("No valid NPCs found in workspace.", 2)
     end
-
     self.State.IsEnabled = true
-
     for _, model in ipairs(npcs) do
         self:_trackNPC(model)
     end
-
-    -- Watch for new NPCs that spawn in mid-session
     self.State.Connections.DescendantAdded = Workspace.DescendantAdded:Connect(function(descendant)
         if not self.State.IsEnabled then return end
         task.defer(function()
@@ -27858,14 +25544,11 @@ function Modules.NPCShield:PossessAll()
             end
         end)
     end)
-
     DoNotif("NPC Shield Active: " .. #npcs .. " NPC(s)", 2)
 end
-
 function Modules.NPCShield:Possess(targetName)
     local found = nil
     local lower = targetName:lower()
-
     for _, descendant in ipairs(Workspace:GetDescendants()) do
         if descendant:IsA("Model") and self:_isValidNPC(descendant) then
             if descendant.Name:lower():find(lower) then
@@ -27874,21 +25557,16 @@ function Modules.NPCShield:Possess(targetName)
             end
         end
     end
-
     if not found then
         return DoNotif("NPC '" .. targetName .. "' not found.", 2)
     end
-
     if self.State.IsEnabled then self:Stop() end
-
     self.State.IsEnabled = true
     self:_trackNPC(found)
     DoNotif("NPC Shield Active: " .. found.Name .. " (persistent)", 2)
 end
-
 function Modules.NPCShield:Initialize()
     local module = self
-
     RegisterCommand({
         Name = "npcbring",
         Aliases = {"nb", "npcshield"},
@@ -27909,7 +25587,6 @@ function Modules.NPCShield:Initialize()
             end
         end
     end)
-
     RegisterCommand({
         Name = "npcrelease",
         Aliases = {"nr"},
@@ -27921,25 +25598,20 @@ function Modules.NPCShield:Initialize()
         if not args[1] then
             return DoNotif("Usage: ;npcrelease [npcname]", 3)
         end
-
         local lower = args[1]:lower()
         local target = nil
-
         for model in pairs(module.State.TrackedNPCs) do
             if model and model.Parent and model.Name:lower():find(lower) then
                 target = model
                 break
             end
         end
-
         if not target then
             return DoNotif("NPC not found in shield list.", 2)
         end
-
         module:_untrackNPC(target)
         DoNotif("Released: " .. target.Name, 2)
     end)
-
     RegisterCommand({
         Name = "npclist",
         Aliases = {"nl"},
@@ -27948,7 +25620,6 @@ function Modules.NPCShield:Initialize()
         if not module.State.IsEnabled then
             return DoNotif("NPC Shield is not active.", 2)
         end
-
         local count = 0
         print("=== Brought NPCs ===")
         for model in pairs(module.State.TrackedNPCs) do
@@ -28330,11 +26001,7 @@ function Modules.HRPDesync:Detach()
     if not char or not rigType then return DoNotif("No character found.", 2) end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-
-    -- Store frozen position for HRP
     self.State.BodyRoot = hrp.CFrame
-
-    -- Save and break motors
     self.State.SavedMotors = {}
     for _, motor in ipairs(self:_getMotors(char)) do
         table.insert(self.State.SavedMotors, {
@@ -28344,64 +26011,45 @@ function Modules.HRPDesync:Detach()
         })
         pcall(function() motor.Part0 = nil end)
     end
-
     self.State.BodyParts = self:_getBodyParts(char)
-
-    -- Lock HRP in place, body parts roam free
     local bp = Instance.new("BodyPosition")
     bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
     bp.D = 10000
     bp.P = 100000
     bp.Position = hrp.Position
     bp.Parent = hrp
-
     local bg = Instance.new("BodyGyro")
     bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
     bg.D = 10000
     bg.P = 100000
     bg.CFrame = hrp.CFrame
     bg.Parent = hrp
-
     self.State.HRPLock = {bp = bp, bg = bg}
-
     local hum = char:FindFirstChildOfClass("Humanoid")
     if hum then
         hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
         hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
         hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
     end
-
     self.State.IsDetached = true
-
-    -- Track where the player is actually walking to drive body parts
     self.State.WalkRoot = hrp.CFrame
-
     self.State.Connections.Render = RunService.RenderStepped:Connect(function(dt)
         if not self.State.IsDetached then return end
-        -- WalkRoot follows camera/movement so body parts know where to go
         self:_updateWalkRoot(dt)
         self:_driveBodyParts()
     end)
-
     DoNotif("HRP Desync: DETACHED | Mode: " .. self.State.DriveMode, 2)
 end
-
--- Replaces _updateBodyRoot — now tracks where the player is walking
 function Modules.HRPDesync:_updateWalkRoot(dt)
     local char = LocalPlayer.Character
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-
-    -- WalkRoot just mirrors the camera position so body follows the player
     local yaw = math.atan2(-CurrentCamera.CFrame.LookVector.X, -CurrentCamera.CFrame.LookVector.Z)
     self.State.WalkRoot = CFrame.new(CurrentCamera.CFrame.Position) * CFrame.Angles(0, yaw, 0)
 end
-
--- Body parts follow WalkRoot, not the frozen HRP
 function Modules.HRPDesync:_driveBodyParts()
     if not self.State.WalkRoot then return end
-
     for _, part in ipairs(self.State.BodyParts) do
         if part and part.Parent then
             local offset = NPC_PART_OFFSETS[part.Name] or CFrame.new()
@@ -28411,12 +26059,10 @@ function Modules.HRPDesync:_driveBodyParts()
         end
     end
 end
-
 function Modules.HRPDesync:Reattach()
     local _, char = self:_getRig()
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
-
     for _, saved in ipairs(self.State.SavedMotors) do
         pcall(function()
             saved.motor.Part0 = saved.p0
@@ -28426,25 +26072,21 @@ function Modules.HRPDesync:Reattach()
     end
     self.State.SavedMotors = {}
     self.State.BodyParts   = {}
-
     if self.State.HRPLock then
         if self.State.HRPLock.bp then self.State.HRPLock.bp:Destroy() end
         if self.State.HRPLock.bg then self.State.HRPLock.bg:Destroy() end
         self.State.HRPLock = nil
     end
-
     local hum = char:FindFirstChildOfClass("Humanoid")
     if hum then
         hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
         hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
         hum:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
     end
-
     if self.State.Connections.Render then
         self.State.Connections.Render:Disconnect()
         self.State.Connections.Render = nil
     end
-
     self.State.IsDetached = false
     self.State.BodyRoot   = nil
     self.State.WalkRoot   = nil
@@ -28688,7 +26330,6 @@ Modules.GuiRemover = {
         DisabledGuis = {}
     }
 }
-
 function Modules.GuiRemover:_scanAndRemove(container, mode)
     local count = 0
     for _, gui in ipairs(container:GetDescendants()) do
@@ -28715,41 +26356,30 @@ function Modules.GuiRemover:_scanAndRemove(container, mode)
     end
     return count
 end
-
 function Modules.GuiRemover:RemoveAll()
     local total = 0
-    
-    -- Check CoreGui (where fake disconnect screens usually are)
     local coreGui = game:GetService("CoreGui")
     if coreGui then
         total = total + self:_scanAndRemove(coreGui, "remove")
     end
-    
-    -- Check PlayerGui
     local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
     if playerGui then
         total = total + self:_scanAndRemove(playerGui, "remove")
     end
-    
     DoNotif(string.format("Removed %d GUI(s)", total), 2)
 end
-
 function Modules.GuiRemover:DisableAll()
     local total = 0
-    
     local coreGui = game:GetService("CoreGui")
     if coreGui then
         total = total + self:_scanAndRemove(coreGui, "disable")
     end
-    
     local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
     if playerGui then
         total = total + self:_scanAndRemove(playerGui, "disable")
     end
-    
     DoNotif(string.format("Disabled %d GUI(s)", total), 2)
 end
-
 function Modules.GuiRemover:RestoreRemoved()
     local count = 0
     for _, data in ipairs(self.State.RemovedGuis) do
@@ -28763,7 +26393,6 @@ function Modules.GuiRemover:RestoreRemoved()
     self.State.RemovedGuis = {}
     DoNotif(string.format("Restored %d GUI(s)", count), 2)
 end
-
 function Modules.GuiRemover:RestoreDisabled()
     local count = 0
     for _, gui in ipairs(self.State.DisabledGuis) do
@@ -28777,10 +26406,8 @@ function Modules.GuiRemover:RestoreDisabled()
     self.State.DisabledGuis = {}
     DoNotif(string.format("Re-enabled %d GUI(s)", count), 2)
 end
-
 function Modules.GuiRemover:FindByName(name)
     local found = {}
-    
     local function search(container)
         for _, gui in ipairs(container:GetDescendants()) do
             if (gui:IsA("ScreenGui") or gui:IsA("BillboardGui") or gui:IsA("SurfaceGui")) 
@@ -28789,20 +26416,15 @@ function Modules.GuiRemover:FindByName(name)
             end
         end
     end
-    
     local coreGui = game:GetService("CoreGui")
     if coreGui then search(coreGui) end
-    
     local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
     if playerGui then search(playerGui) end
-    
     return found
 end
-
 function Modules.GuiRemover:RemoveByName(name)
     local guis = self:FindByName(name)
     local count = 0
-    
     for _, gui in ipairs(guis) do
         pcall(function()
             table.insert(self.State.RemovedGuis, {
@@ -28813,14 +26435,12 @@ function Modules.GuiRemover:RemoveByName(name)
             count = count + 1
         end)
     end
-    
     if count > 0 then
         DoNotif(string.format("Removed %d GUI(s) matching '%s'", count, name), 2)
     else
         DoNotif("No GUIs found with that name", 3)
     end
 end
-
 RegisterCommand({
     Name = "removegui",
     Aliases = {"rg", "killgui"},
@@ -29200,7 +26820,6 @@ function Modules.vFly:_getMovementVector()
     local UserInputService = game:GetService("UserInputService")
     local camera = workspace.CurrentCamera
     local moveVector = Vector3.zero
-
     if UserInputService:IsKeyDown(Enum.KeyCode.W) then
         moveVector = moveVector + camera.CFrame.LookVector
     end
@@ -29220,14 +26839,11 @@ function Modules.vFly:_getMovementVector()
        UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
         moveVector = moveVector - Vector3.new(0, 1, 0)
     end
-
-    -- Fix: guard against zero vector before calling .Unit
     if moveVector.Magnitude > 0 then
         return moveVector.Unit
     end
     return Vector3.zero
 end
-
 function Modules.vFly:_spoofVelocity(hrp)
     if not self.Config.UseVelocitySpoof then return end
     if not hrp then return end
@@ -29255,18 +26871,14 @@ function Modules.vFly:Enable()
     if not character then return end
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-
     local camera = workspace.CurrentCamera
     local moveVector = self:_getMovementVector()
-
     if self.State.BodyVelocity then
         self.State.BodyVelocity.Velocity = moveVector * self.Config.Speed
     end
     if self.State.BodyGyro then
         self.State.BodyGyro.CFrame = camera.CFrame
     end
-
-    -- Pass hrp directly, no more Wait() desync
     self:_spoofVelocity(hrp)
 end)
     DoNotif(string.format("vFly: ON (Speed: %d)", self.Config.Speed), 2)
@@ -29355,19 +26967,6 @@ RegisterCommand({
     end
     Modules.vFly:SetSpoofVector(args[1], args[2], args[3])
 end)
-
---[[
-;leech player123 - start leeching them
-;unleech - stop
-;leechoffset 0 2 -5 - position yourself (default: slightly behind and above)
-;leechrotation 0 180 0 - face direction relative to them
-;leechspoof - toggle velocity spoofing (makes you harder to hit)
-;leechspoofvector 0 -5000 0 - what velocity the server sees
-;leechmode - switch between "attach" (smooth) and "teleport" (snapier)
-;leechstrafe - circle around them while following
-;strafeconfig 3 5 - adjust strafe speed/radius
-]]
-
 Modules.PlayerLeech = {
     State = {
         IsLeeching = false,
@@ -30461,7 +28060,6 @@ RegisterCommand({
     Modules.NetworkFling.Config.OrbitMode = not Modules.NetworkFling.Config.OrbitMode
     DoNotif("Orbit mode: " .. (Modules.NetworkFling.Config.OrbitMode and "ON" or "OFF"), 2)
 end)
-
 Modules.AdonisPanel = {
     State = {
         Visible = false,
@@ -31250,10 +28848,10 @@ Modules.AdminOrb = {
     },
     Config = {
         OrbitRadius = 3.2,
-        OrbitSpeed = 1.1,       -- radians per second
-        BobHeight = 1.55,       -- how much it bobs up and down
-        BobSpeed = 2.2,         -- bob frequency
-        HoverHeight = 3.0,      -- height above HRP
+        OrbitSpeed = 1.1,
+        BobHeight = 1.55,
+        BobSpeed = 2.2,
+        HoverHeight = 3.0,
         Color = Color3.fromRGB(128, 0, 0),
         GlowColor = Color3.fromRGB(128, 0, 0),
         Size = 0.55,
@@ -31262,14 +28860,10 @@ Modules.AdminOrb = {
         TrailEnabled = true
     }
 }
-
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
-
 function Modules.AdminOrb:_buildOrb()
-    -- Clean up any existing orb first
     self:_destroyOrb()
-
     local orb = Instance.new("Part")
     orb.Name = "ZukaAdminOrb"
     orb.Size = Vector3.new(self.Config.Size, self.Config.Size, self.Config.Size)
@@ -31282,8 +28876,6 @@ function Modules.AdminOrb:_buildOrb()
     orb.Anchored = true
     orb.CFrame = CFrame.new(0, -9999, 0)
     orb.Parent = Workspace
-
-    -- Real 2011 "Orb of Power" mesh + texture
     local mesh = Instance.new("SpecialMesh")
     mesh.MeshType = Enum.MeshType.FileMesh
     mesh.MeshId = "rbxassetid://34795798"
@@ -31295,20 +28887,14 @@ function Modules.AdminOrb:_buildOrb()
         self.Config.Color.B
     )
     mesh.Parent = orb
-
-    -- Point light for glow
     local light = Instance.new("PointLight")
     light.Color = self.Config.GlowColor
     light.Range = self.Config.LightRange
     light.Brightness = self.Config.LightBrightness
     light.Parent = orb
-
-    -- Sparkle particle
     local sparkles = Instance.new("Sparkles")
     sparkles.SparkleColor = self.Config.Color
     sparkles.Parent = orb
-
-    -- Trail
     if self.Config.TrailEnabled then
         local a0 = Instance.new("Attachment", orb)
         a0.Position = Vector3.new(0, self.Config.Size / 2, 0)
@@ -31330,14 +28916,11 @@ function Modules.AdminOrb:_buildOrb()
         })
         trail.Parent = orb
     end
-
-    -- Billboard label above orb
     local billboard = Instance.new("BillboardGui")
     billboard.Size = UDim2.fromOffset(100, 20)
     billboard.StudsOffset = Vector3.new(0, self.Config.Size + 0.5, 0)
     billboard.AlwaysOnTop = false
     billboard.Parent = orb
-
     local label = Instance.new("TextLabel")
     label.Size = UDim2.fromScale(1, 1)
     label.BackgroundTransparency = 1
@@ -31347,11 +28930,8 @@ function Modules.AdminOrb:_buildOrb()
     label.TextColor3 = self.Config.Color
     label.TextStrokeTransparency = 0.4
     label.Parent = billboard
-
     self.State.Orb = orb
     self.State.Light = light
-
-    -- Pulse the light brightness
     task.spawn(function()
         while orb and orb.Parent do
             TweenService:Create(light, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
@@ -31365,10 +28945,8 @@ function Modules.AdminOrb:_buildOrb()
             task.wait(0.9)
         end
     end)
-
     return orb
 end
-
 function Modules.AdminOrb:_destroyOrb()
     if self.State.RenderConnection then
         self.State.RenderConnection:Disconnect()
@@ -31381,80 +28959,64 @@ function Modules.AdminOrb:_destroyOrb()
     self.State.Light = nil
     self.State.Angle = 0
 end
-
 function Modules.AdminOrb:_startOrbit()
     local orb = self.State.Orb
     if not orb then return end
-
     self.State.RenderConnection = RunService.RenderStepped:Connect(function(dt)
         local character = LocalPlayer.Character
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
         if not hrp or not orb.Parent then return end
-
         self.State.Angle = self.State.Angle + self.Config.OrbitSpeed * dt
         local t = os.clock()
-
         local x = math.cos(self.State.Angle) * self.Config.OrbitRadius
         local z = math.sin(self.State.Angle) * self.Config.OrbitRadius
         local y = self.Config.HoverHeight + math.sin(t * self.Config.BobSpeed) * self.Config.BobHeight
-
         local base = hrp.Position
         orb.CFrame = CFrame.new(base + Vector3.new(x, y, z))
     end)
 end
-
 function Modules.AdminOrb:_watchCharacter()
-    -- Re-spawn orb after respawn
     if self.State.CharacterConnection then
         self.State.CharacterConnection:Disconnect()
         self.State.CharacterConnection = nil
     end
-
     self.State.CharacterConnection = LocalPlayer.CharacterAdded:Connect(function()
         if not self.State.Active then return end
-        task.wait(1) -- let character load
+        task.wait(1)
         self:_buildOrb()
         self:_startOrbit()
         DoNotif("orb restored", 1.5)
     end)
 end
-
 function Modules.AdminOrb:Spawn()
     if self.State.Active then
         DoNotif("orb already active", 2)
         return
     end
-
     local character = LocalPlayer.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then
         DoNotif("Character not ready", 3)
         return
     end
-
     self.State.Active = true
     self:_buildOrb()
     self:_startOrbit()
     self:_watchCharacter()
     DoNotif("Orb of Zuka Spawned", 2)
 end
-
 function Modules.AdminOrb:Despawn()
     if not self.State.Active then
         DoNotif("No orb active", 2)
         return
     end
-
     self.State.Active = false
     self:_destroyOrb()
-
     if self.State.CharacterConnection then
         self.State.CharacterConnection:Disconnect()
         self.State.CharacterConnection = nil
     end
-
     DoNotif("Admin orb deactivated", 2)
 end
-
 function Modules.AdminOrb:Toggle()
     if self.State.Active then
         self:Despawn()
@@ -31462,7 +29024,6 @@ function Modules.AdminOrb:Toggle()
         self:Spawn()
     end
 end
-
 function Modules.AdminOrb:SetColor(r, g, b)
     self.Config.Color = Color3.fromRGB(r, g, b)
     self.Config.GlowColor = Color3.fromRGB(r, g, b)
@@ -31484,7 +29045,6 @@ function Modules.AdminOrb:SetColor(r, g, b)
     end
     DoNotif(string.format("Orb color set to %d, %d, %d", r, g, b), 2)
 end
-
 RegisterCommand({
     Name = "orb",
     Aliases = {"adminorb"},
@@ -31492,7 +29052,6 @@ RegisterCommand({
 }, function()
     Modules.AdminOrb:Toggle()
 end)
-
 RegisterCommand({
     Name = "orbcolor",
     Aliases = {},
@@ -31531,7 +29090,6 @@ local REPLY_DELAY_MAX       = 3.8
 local GEMINI_TIMEOUT        = 8
 local SYSTEM_PROMPT = [[You are a real Roblox player in a game called ]] .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name .. [[.
 Your job is to blend in with real players naturally.
-
 Strict rules:
 - Replies must be 1-6 words ONLY, no exceptions
 - Read the last few messages for context and reply relevantly
@@ -31545,8 +29103,6 @@ Strict rules:
 - NEVER say things like "as an AI" or break character
 - NEVER repeat a reply you recently made
 - Output ONLY the reply text, nothing else, no quotes, no labels]]
-
-
 local NAME_PREFIXES = {
     "Cool", "Dark", "Epic", "Fire", "Gamer", "Happy", "Ice", "Jade", "King", "Lava",
     "Mega", "MasterX", "Nova", "Omega", "Pro", "Quick", "Red", "Shadow", "Super", "Tiger",
@@ -31683,19 +29239,16 @@ local function injectFakeMessage(text, scrollView)
     if not template then return end
     local clone = template:Clone()
 clone.Name = "FakeReply_" .. math.random(100000, 999999)
-
--- set ZukaFake on the BodyText BEFORE parenting
 local tm = clone:FindFirstChild("TextMessage")
 if tm then
     local body = tm:FindFirstChild("BodyText")
     if body then
         body.Text = text
-        body:SetAttribute("ZukaFake", true)  -- must be BEFORE clone.Parent
+        body:SetAttribute("ZukaFake", true)
     end
     local nameLabel = tm:FindFirstChild("NameText") or tm:FindFirstChild("Username")
     if nameLabel then nameLabel.Text = "" end
 end
-
 local maxOrder = 0
 for _, child in ipairs(scrollView:GetChildren()) do
     if child:IsA("Frame") or child:IsA("GuiObject") then
@@ -31704,9 +29257,7 @@ for _, child in ipairs(scrollView:GetChildren()) do
     end
 end
 clone.LayoutOrder = maxOrder + 1
-
-clone.Parent = scrollView  -- parent LAST, after attribute is already set
-
+clone.Parent = scrollView
     local tm = clone:FindFirstChild("TextMessage")
     if tm then
         local body = tm:FindFirstChild("BodyText")
@@ -31717,11 +29268,7 @@ clone.Parent = scrollView  -- parent LAST, after attribute is already set
         local nameLabel = tm:FindFirstChild("NameText") or tm:FindFirstChild("Username")
         if nameLabel then nameLabel.Text = "" end
     end
-
-    -- Parent AFTER setting LayoutOrder so it renders in the right spot
     clone.Parent = scrollView
-
-    -- Auto scroll to bottom so the message is visible
     pcall(function()
         local scrollFrame = scrollView.Parent
         while scrollFrame and not scrollFrame:IsA("ScrollingFrame") do
@@ -31862,7 +29409,7 @@ function Modules.ChatFix:_hookContainer(cont)
     dConn = cont.DescendantAdded:Connect(function(inst)
     if inst:IsA("TextLabel") and inst.Name == "BodyText" then
         task.wait()
-        if inst:GetAttribute("ZukaFake") then return end  -- re-check after wait
+        if inst:GetAttribute("ZukaFake") then return end
         self:_handleIncomingMessage(inst, cont)
     end
 end)
@@ -33558,995 +31105,1557 @@ RegisterCommand({
 }, function()
     Modules.PropertyEditor:Toggle()
 end)
-Modules.HDPoison = {
+Modules.GUICreator = {
     State = {
-        IsActive    = false,
-        KeepAlive   = false,
-        Connections = {},
-        Attempts    = 0,
+        IsEnabled      = false,
+        UI             = nil,
+        Connections    = {},
+        CreatedGUIs    = {},
+        SelectedElement= nil,
+        PropertyPanel  = nil,
+        HierarchyPanel = nil,
+        GridFrame      = nil,
+        UndoStack      = {},
+        RedoStack      = {},
+        CurrentProject = { Name = "Untitled", Elements = {} }
     },
     Config = {
-        MaxAttempts    = 6,
-        AttemptDelay   = 3,
-        InitialDelay   = 1.5,
-        KeepAliveDelay = 8,
-        Verbose        = true,
+        GridSize    = 20,
+        SnapToGrid  = false,
+        ShowGrid    = true,
+        DefaultSize = UDim2.fromOffset(200, 100)
     }
 }
-local function log(...)
-    if Modules.HDPoison.Config.Verbose then
-        print("[HDPoison]", ...)
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Players          = game:GetService("Players")
+local LocalPlayer      = Players.LocalPlayer
+function Modules.GUICreator:PushUndo(action)
+    table.insert(self.State.UndoStack, action)
+    self.State.RedoStack = {}
+    if #self.State.UndoStack > 50 then
+        table.remove(self.State.UndoStack, 1)
     end
 end
-local function getSig()
-    local RS  = game:GetService("ReplicatedStorage")
-    local hdc = RS:FindFirstChild("HDAdminHDClient")
-    if not hdc then return nil end
-    return hdc:FindFirstChild("Signals")
+function Modules.GUICreator:Undo()
+    local action = table.remove(self.State.UndoStack)
+    if not action then print("[GUICreator] Nothing to undo") return end
+    table.insert(self.State.RedoStack, action)
+    action.Undo()
+    self:RefreshHierarchy()
 end
-local function getHD(timeout)
-    timeout = timeout or 20
-    local start = os.clock()
-    local RS    = game:GetService("ReplicatedStorage")
-    local hdClient
-    repeat
-        hdClient = RS:FindFirstChild("HDAdminHDClient")
-        if not hdClient then task.wait(0.3) end
-    until hdClient or (os.clock() - start > timeout)
-    if not hdClient then return nil end
-    local sm  = hdClient:WaitForChild("SharedModules", timeout - (os.clock() - start))
-    if not sm then return nil end
-    local mfw = sm:WaitForChild("MainFramework", timeout - (os.clock() - start))
-    if not mfw then return nil end
-    local ok, hd = pcall(require, mfw)
-    if not ok or type(hd) ~= "table" then return nil end
-    pcall(function() hd:CheckInitialized() end)
-    return hd
+function Modules.GUICreator:Redo()
+    local action = table.remove(self.State.RedoStack)
+    if not action then print("[GUICreator] Nothing to redo") return end
+    table.insert(self.State.UndoStack, action)
+    action.Do()
+    self:RefreshHierarchy()
 end
-local lp = game:GetService("Players").LocalPlayer
-local function fireRankChanged(sig, rank, rankName)
-    rank     = rank     or 4
-    rankName = rankName or "Owner"
-    local ok = pcall(function()
-        firesignal(sig.RankChanged.OnClientEvent, rank, rankName)
-    end)
-    log("RankChanged →", rank, rankName, ok and "OK" or "FAIL")
-    return ok
+function Modules.GUICreator:SnapValue(v)
+    if not self.Config.SnapToGrid then return v end
+    local g = self.Config.GridSize
+    return math.floor((v + g / 2) / g) * g
 end
-local function dumpRanks(sig)
-    pcall(function()
-        local r = sig.RetrieveRanksInfo:InvokeServer()
-        if r then log("RetrieveRanksInfo →", game:GetService("HttpService"):JSONEncode(r)) end
-    end)
-    pcall(function()
-        local r = sig.RetrieveServerRanks:InvokeServer()
-        if r then log("RetrieveServerRanks →", game:GetService("HttpService"):JSONEncode(r)) end
-    end)
-    pcall(function()
-        local r = sig.RetrieveData:InvokeServer(lp)
-        if r then log("RetrieveData →", game:GetService("HttpService"):JSONEncode(r)) end
-    end)
-    pcall(function()
-        local r = sig.RetrieveGamepasses:InvokeServer()
-        if r then log("RetrieveGamepasses →", game:GetService("HttpService"):JSONEncode(r)) end
-    end)
-end
-local function changeMainVars(sig)
-    local vars = {"Rank", "PlayerRank", "AdminLevel", "OwnerRank", "Permission"}
-    for _, v in ipairs(vars) do
-        pcall(function() sig.ChangeMainVariable:FireServer(v, 4)            end)
-        pcall(function() sig.ChangeMainVariable:FireServer(lp, v, 4)        end)
-        pcall(function() sig.ChangeMainVariable:FireServer(lp.UserId, v, 4) end)
+function Modules.GUICreator:GetDataForElement(element)
+    for _, d in ipairs(self.State.CreatedGUIs) do
+        if d.Element == element then return d end
     end
-    log("ChangeMainVariable → fired", #vars * 3, "payloads")
+    return nil
 end
-local function executeClientCmds(sig)
-    local cmds = {
-        {"fly",    {lp}},
-        {"noclip", {lp}},
-        {"speed",  {lp, 100}},
-        {"jump",   {lp, 100}},
-        {"god",    {lp}},
-        {"invis",  {lp}},
-    }
-    for _, c in ipairs(cmds) do
-        pcall(function() firesignal(sig.ExecuteClientCommand.OnClientEvent,           c[1], c[2]) end)
-        pcall(function() firesignal(sig.ActivateClientCommand.OnClientEvent,          c[1], c[2]) end)
-        pcall(function() firesignal(sig.ReplicationEffectClientCommand.OnClientEvent, c[1], c[2]) end)
-    end
-    log("ExecuteClientCommand + ActivateClientCommand → fired")
-end
-local function requestCmds(sig, hd)
-    local prefix   = (hd and hd.pdata and hd.pdata.Prefix)  or ";"
-    local splitKey = (hd and hd.pdata and hd.pdata.SplitKey) or " "
-    local cmds = {
-        prefix .. "rank"      .. splitKey .. lp.Name .. splitKey .. "owner",
-        prefix .. "rank"      .. splitKey .. lp.Name .. splitKey .. "4",
-        prefix .. "rank"      .. splitKey .. "me"    .. splitKey .. "owner",
-        prefix .. "rank"      .. splitKey .. "me"    .. splitKey .. "4",
-        prefix .. "god"       .. splitKey .. lp.Name,
-        prefix .. "god"       .. splitKey .. "me",
-        prefix .. "fly"       .. splitKey .. lp.Name,
-        prefix .. "noclip"    .. splitKey .. lp.Name,
-        prefix .. "unsuspend" .. splitKey .. lp.Name,
-        prefix .. "unban"     .. splitKey .. lp.Name,
-    }
-    for _, cmd in ipairs(cmds) do
-        pcall(function() sig.RequestCommand:FireServer(cmd)               end)
-        pcall(function() sig.RequestCommandSilent:FireServer(cmd)         end)
-        pcall(function() sig.RequestCommandModification:InvokeServer(cmd) end)
-    end
-    log("RequestCommand(s) → fired", #cmds, "cmds via 3 pipes")
-end
-local function changeSettings(sig)
-    local settings = {{"Rank", 4}, {"AdminRank", 4}, {"OwnerRank", 4}}
-    for _, s in ipairs(settings) do
-        pcall(function() sig.ChangeSetting:FireServer(s[1], s[2])   end)
-        pcall(function() sig.ChangeSetting:InvokeServer(s[1], s[2]) end)
-    end
-    log("ChangeSetting → fired")
-end
-local function removeOtherRanks(sig)
-    pcall(function()
-        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
-            if p ~= lp then
-                sig.RemovePermRank:FireServer(p)
-                sig.RemovePermRank:InvokeServer(p)
-            end
-        end
+function Modules.GUICreator:CreateButton(text, color, parent)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.fromOffset(110, 26)
+    btn.BackgroundColor3 = color
+    btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.TextSize = 10
+    btn.AutoButtonColor = false
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    btn.MouseEnter:Connect(function()
+        local h, s, v = color:ToHSV()
+        btn.BackgroundColor3 = Color3.fromHSV(h, s, math.min(v + 0.12, 1))
     end)
-    log("RemovePermRank → fired at other players")
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = color
+    end)
+    return btn
 end
-local function mutateHD(hd)
-    if not hd then return end
-    pcall(function()
-        hd.pdata.Rank     = 4
-        hd.pdata.Level    = 4
-        hd.pdata.RankName = "Owner"
-    end)
-    local refreshes = {
-        {"ClientCoreFunctions", "RankChangedUpdater"},
-        {"ClientCoreFunctions", "UpdateIconVisiblity"},
-        {"PageCommands",        "CreateCommands"},
-        {"PageAbout",           "UpdateRankName"},
-    }
-    task.spawn(function()
-        for _, r in ipairs(refreshes) do
-            pcall(function()
-                local mod = hd:GetModule(r[1])
-                if mod and mod[r[2]] then mod[r[2]](mod, r[3]) end
-            end)
-            task.wait()
-        end
-    end)
-    log("pdata mutated + client refresh fired")
-end
-function Modules.HDPoison:_pass(sig, hd)
-    fireRankChanged(sig)
-    dumpRanks(sig)
-    changeMainVars(sig)
-    executeClientCmds(sig)
-    requestCmds(sig, hd)
-    changeSettings(sig)
-    removeOtherRanks(sig)
-    mutateHD(hd)
-end
-function Modules.HDPoison:_startKeepAlive(sig)
-    self.State.KeepAlive = true
-    task.spawn(function()
-        while self.State.KeepAlive do
-            task.wait(self.Config.KeepAliveDelay)
-            if not self.State.KeepAlive then break end
-            pcall(function()
-                firesignal(sig.RankChanged.OnClientEvent, 4, "Owner")
-            end)
-            pcall(function()
-                local RS = game:GetService("ReplicatedStorage")
-                local hd = require(RS.HDAdminHDClient.SharedModules.MainFramework)
-                if hd and hd.pdata then
-                    hd.pdata.Rank     = 4
-                    hd.pdata.RankName = "Owner"
-                end
-            end)
-            log("KeepAlive ping: RankChanged(4)")
-        end
-    end)
-end
-function Modules.HDPoison:Enable()
-    if self.State.IsActive then DoNotif("HDPoison already running", 1.5) return end
-    self.State.IsActive = true
-    self.State.Attempts = 0
-    task.spawn(function()
-        DoNotif("HDPoison: waiting for signals...", 2)
-        local sig
-        local deadline = os.clock() + 20
-        repeat
-            sig = getSig()
-            if not sig then task.wait(0.5) end
-        until sig or os.clock() > deadline
-        if not sig then
-            DoNotif("HDPoison: Signals not found (timeout)", 3)
-            self.State.IsActive = false
-            return
-        end
-        local hd = getHD(10)
-        DoNotif("HDPoison: ready — starting " .. self.Config.MaxAttempts .. " passes", 2)
-        task.wait(self.Config.InitialDelay)
-        for i = 1, self.Config.MaxAttempts do
-            if not self.State.IsActive then break end
-            self.State.Attempts = i
-            self:_pass(sig, hd)
-            DoNotif(string.format("HDPoison pass %d/%d complete", i, self.Config.MaxAttempts), 1.5)
-            if i < self.Config.MaxAttempts then task.wait(self.Config.AttemptDelay) end
-        end
-        if self.State.IsActive then
-            DoNotif("HDPoison: passes done — keepalive active", 2)
-            self:_startKeepAlive(sig)
-        end
-    end)
-end
-function Modules.HDPoison:Disable()
-    if not self.State.IsActive then DoNotif("HDPoison not running", 1.5) return end
-    self.State.IsActive  = false
-    self.State.KeepAlive = false
-    for _, c in ipairs(self.State.Connections) do pcall(function() c:Disconnect() end) end
-    self.State.Connections = {}
-    DoNotif("HDPoison stopped after " .. self.State.Attempts .. " pass(es)", 2)
-    self.State.Attempts = 0
-end
-function Modules.HDPoison:Toggle()
-    if self.State.IsActive then self:Disable() else self:Enable() end
-end
-function Modules.HDPoison:RunOnce()
-    task.spawn(function()
-        DoNotif("HDPoison: one-shot...", 2)
-        local sig = getSig()
-        if not sig then DoNotif("HDPoison: Signals not found", 3) return end
-        local hd = getHD(10)
-        self:_pass(sig, hd)
-        DoNotif("HDPoison one-shot done", 2)
-    end)
-end
-function Modules.HDPoison:Initialize()
-    RegisterCommand({
-        Name        = "hdadmin",
-        Aliases     = {},
-        Description = "Toggle HDAdmin signal poison"
-    }, function() Modules.HDPoison:Toggle() end)
-    RegisterCommand({
-        Name        = "hdonce",
-        Aliases     = {},
-        Description = "Single HDAdmin poison pass"
-    }, function() Modules.HDPoison:RunOnce() end)
-    RegisterCommand({
-        Name        = "hdoff",
-        Aliases     = {},
-        Description = "Stop HDAdmin poison"
-    }, function() Modules.HDPoison:Disable() end)
-end
-task.defer(function()
-    Modules.HDPoison:Initialize()
-end)
-local function reportStatus(id, state, info)
-    pcall(function()
-        if _G.ZukaTerminal then
-            _G.ZukaTerminal:SetHDStatus(id, state, info)
-        end
-    end)
-end
-local _origPass = Modules.HDPoison._pass
-function Modules.HDPoison:_pass(sig, hd)
-    local rkOk = pcall(function() firesignal(sig.RankChanged.OnClientEvent, 4, "Owner") end)
-    reportStatus("RankChanged", rkOk and "ok" or "fail")
-    local dumpOk = false
-    pcall(function()
-        local r = sig.RetrieveRanksInfo:InvokeServer()
-        if r then dumpOk = true end
-    end)
-    reportStatus("RetrieveRanksInfo", dumpOk and "ok" or "warn")
-    local srOk = false
-    pcall(function()
-        local r = sig.RetrieveServerRanks:InvokeServer()
-        if r then srOk = true end
-    end)
-    reportStatus("RetrieveServerRanks", srOk and "ok" or "warn")
-    local rdOk = false
-    pcall(function()
-        local r = sig.RetrieveData:InvokeServer(lp)
-        if r then rdOk = true end
-    end)
-    reportStatus("RetrieveData", rdOk and "ok" or "warn")
-    local cmvFired = 0
-    local vars = {"Rank","PlayerRank","AdminLevel","OwnerRank","Permission"}
-    for _, v in ipairs(vars) do
-        pcall(function() sig.ChangeMainVariable:FireServer(v, 4) cmvFired=cmvFired+1 end)
-        pcall(function() sig.ChangeMainVariable:FireServer(lp, v, 4) end)
-        pcall(function() sig.ChangeMainVariable:FireServer(lp.UserId, v, 4) end)
-    end
-    reportStatus("ChangeMainVariable", cmvFired > 0 and "ok" or "fail", "×"..cmvFired)
-    local eccOk = pcall(function()
-        local cmds = {{"fly",{lp}},{"noclip",{lp}},{"god",{lp}},{"speed",{lp,100}},{"invis",{lp}}}
-        for _,c in ipairs(cmds) do
-            firesignal(sig.ExecuteClientCommand.OnClientEvent, c[1], c[2])
-        end
-    end)
-    reportStatus("ExecuteClientCommand", eccOk and "ok" or "fail")
-    local accOk = pcall(function()
-        local cmds = {{"fly",{lp}},{"noclip",{lp}},{"god",{lp}}}
-        for _,c in ipairs(cmds) do
-            firesignal(sig.ActivateClientCommand.OnClientEvent, c[1], c[2])
-        end
-    end)
-    reportStatus("ActivateClientCommand", accOk and "ok" or "fail")
-    local prefix   = (hd and hd.pdata and hd.pdata.Prefix)  or ";"
-    local splitKey = (hd and hd.pdata and hd.pdata.SplitKey) or " "
-    local cmds = {
-        prefix.."rank"..splitKey..lp.Name..splitKey.."owner",
-        prefix.."rank"..splitKey..lp.Name..splitKey.."4",
-        prefix.."rank"..splitKey.."me"..splitKey.."owner",
-        prefix.."god"..splitKey..lp.Name,
-        prefix.."fly"..splitKey..lp.Name,
-        prefix.."unsuspend"..splitKey..lp.Name,
-    }
-    local rcOk = pcall(function() for _,c in ipairs(cmds) do sig.RequestCommand:FireServer(c) end end)
-    reportStatus("RequestCommand", rcOk and "ok" or "fail")
-    local rsOk = pcall(function() for _,c in ipairs(cmds) do sig.RequestCommandSilent:FireServer(c) end end)
-    reportStatus("RequestCommandSilent", rsOk and "ok" or "fail")
-    local rmOk = pcall(function() for _,c in ipairs(cmds) do sig.RequestCommandModification:InvokeServer(c) end end)
-    reportStatus("RequestCommandMod", rmOk and "ok" or "fail")
-    local csOk = pcall(function()
-        for _,s in ipairs({{"Rank",4},{"AdminRank",4},{"OwnerRank",4}}) do
-            sig.ChangeSetting:FireServer(s[1],s[2])
-        end
-    end)
-    reportStatus("ChangeSetting", csOk and "ok" or "fail")
-    local rprOk = pcall(function()
-        for _,p in ipairs(game:GetService("Players"):GetPlayers()) do
-            if p ~= lp then sig.RemovePermRank:FireServer(p) end
-        end
-    end)
-    reportStatus("RemovePermRank", rprOk and "ok" or "warn")
-    local pdOk = pcall(function()
-        if not hd then error("no hd") end
-        hd.pdata.Rank=4 hd.pdata.Level=4 hd.pdata.RankName="Owner"
-    end)
-    task.spawn(function()
-        if not hd then return end
-        local refreshes={{"ClientCoreFunctions","RankChangedUpdater"},{"ClientCoreFunctions","UpdateIconVisiblity"},{"PageCommands","CreateCommands"},{"PageAbout","UpdateRankName"}}
-        for _,r in ipairs(refreshes) do
-            pcall(function() local m=hd:GetModule(r[1]) if m and m[r[2]] then m[r[2]](m,r[3]) end end)
-            task.wait()
-        end
-    end)
-    reportStatus("pdataMutation", pdOk and "ok" or "fail")
-end
-local _origKeepAlive = Modules.HDPoison._startKeepAlive
-function Modules.HDPoison:_startKeepAlive(sig)
-    self.State.KeepAlive = true
-    reportStatus("KeepAlive", "active")
-    task.spawn(function()
-        while self.State.KeepAlive do
-            task.wait(self.Config.KeepAliveDelay)
-            if not self.State.KeepAlive then break end
-            pcall(function() firesignal(sig.RankChanged.OnClientEvent, 4, "Owner") end)
-            pcall(function()
-                local RS = game:GetService("ReplicatedStorage")
-                local hd = require(RS.HDAdminHDClient.SharedModules.MainFramework)
-                if hd and hd.pdata then hd.pdata.Rank=4 hd.pdata.RankName="Owner" end
-            end)
-        end
-        reportStatus("KeepAlive", "fail")
-    end)
-end
-Modules.RemoteSpy = {
-    State = {
-        Gui          = nil,
-        MainFrame    = nil,
-        SpyLogs      = nil,
-        RemotesList  = nil,
-        InputPopup   = nil,
-        ArgTextBox   = nil,
-        TabFrames    = {},
-        TabButtons   = {},
-        RemoteBlocks = {},
-        Connections  = {},
-        LogCount     = 0,
-        IsOpen       = false,
-        Hooked       = false,
-        OldNamecall  = nil,
-        CurrentRemote = nil,
-        CurrentMethod = nil,
-    },
-    Config = {
-        Theme = {
-            Bg         = Color3.fromRGB(25, 25, 35),
-            TitleBar   = Color3.fromRGB(45, 45, 60),
-            Row        = Color3.fromRGB(40, 40, 50),
-            RowAlt     = Color3.fromRGB(35, 35, 45),
-            TabIdle    = Color3.fromRGB(60, 60, 75),
-            TabActive  = Color3.fromRGB(0, 150, 255),
-            Green      = Color3.fromRGB(50, 200, 50),
-            Red        = Color3.fromRGB(200, 50, 50),
-            Blue       = Color3.fromRGB(50, 150, 255),
-            Orange     = Color3.fromRGB(255, 150, 0),
-            Text       = Color3.new(1, 1, 1),
-            SubText    = Color3.fromRGB(150, 150, 180),
-            FireColor  = Color3.fromRGB(0, 255, 150),
-            InvokeColor = Color3.fromRGB(255, 150, 0),
-        },
-        LogLifetime  = 30,
-        AutoScan     = true,
-    }
-}
-local function mkCorner(r, p)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, r or 8)
-    c.Parent = p
-    return c
-end
-local function mkStroke(t, c, p)
-    local s = Instance.new("UIStroke")
-    s.Thickness = t
-    s.Color = c
-    s.Parent = p
-    return s
-end
-function Modules.RemoteSpy:_parseArgs(input)
-    if input == "" or input:match("^%s*$") then return {} end
-    if input:match("^%-%-") then return {} end
-    local func, err = loadstring("return " .. input)
-    if func then
-        local ok, result = pcall(func)
-        if ok then
-            if type(result) == "table" then return result end
-            if type(result) == "string" or type(result) == "number" or type(result) == "boolean" then
-                return {result}
-            end
-        end
-    end
-    return {input}
-end
-function Modules.RemoteSpy:_hook()
-    if self.State.Hooked then return end
-    local T  = self.Config.Theme
-    local ok, mt = pcall(getrawmetatable, game)
-    if not ok or not mt then
-        DoNotif("RemoteSpy: getrawmetatable failed", 3)
-        return
-    end
-    local oldNamecall = mt.__namecall
-    self.State.OldNamecall = oldNamecall
-    pcall(setreadonly, mt, false)
-    mt.__namecall = newcclosure(function(self_, ...)
-        local method = getnamecallmethod()
-        local args   = {...}
-        if (method == "FireServer" or method == "InvokeServer")
-        and (self_:IsA("RemoteEvent") or self_:IsA("RemoteFunction")) then
-            if Modules.RemoteSpy.State.RemoteBlocks[self_.Name] then
-                return
-            end
-            Modules.RemoteSpy:_logRemote(self_, method, args)
-        end
-        return oldNamecall(self_, ...)
-    end)
-    pcall(setreadonly, mt, true)
-    self.State.Hooked = true
-end
-function Modules.RemoteSpy:_unhook()
-    if not self.State.Hooked then return end
-    local ok, mt = pcall(getrawmetatable, game)
-    if ok and mt and self.State.OldNamecall then
-        pcall(setreadonly, mt, false)
-        mt.__namecall = self.State.OldNamecall
-        pcall(setreadonly, mt, true)
-    end
-    self.State.Hooked      = false
-    self.State.OldNamecall = nil
-end
-function Modules.RemoteSpy:_logRemote(remote, method, args)
-    local spyLogs = self.State.SpyLogs
-    if not spyLogs or not spyLogs.Parent then return end
-    local T = self.Config.Theme
-    self.State.LogCount = self.State.LogCount + 1
-    local n = self.State.LogCount
-    local log = Instance.new("TextButton")
-    log.Name               = "Log" .. n
-    log.Size               = UDim2.new(1, -10, 0, 28)
-    log.BackgroundColor3   = n % 2 == 0 and T.Row or T.RowAlt
-    log.TextColor3         = method == "FireServer" and T.FireColor or T.InvokeColor
-    log.TextSize           = 12
-    log.Font               = Enum.Font.Code
-    log.TextXAlignment     = Enum.TextXAlignment.Left
-    log.AutomaticSize      = Enum.AutomaticSize.Y
-    log.TextWrapped        = true
-    log.Text               = string.format(
-        "  [%s] %s  ›  %s(%s)",
-        os.date("%H:%M:%S"),
-        remote.Name,
-        method,
-        type(args[1]) == "string" and '"'..args[1]..'"' or tostring(args[1] or "")
-    )
-    log.Parent = spyLogs
-    mkCorner(4, log)
-    log.MouseButton1Click:Connect(function()
-        pcall(setclipboard, remote:GetFullName())
-        DoNotif("Copied: " .. remote:GetFullName(), 1.5)
-    end)
-    game:GetService("Debris"):AddItem(log, self.Config.LogLifetime)
-    task.defer(function()
-        if spyLogs and spyLogs.Parent then
-            spyLogs.CanvasSize = UDim2.new(0, 0, 0, n * 30 + 10)
-            spyLogs.CanvasPosition = Vector2.new(0, math.huge)
-        end
-    end)
-end
-function Modules.RemoteSpy:_scanRemotes()
-    local remotesList = self.State.RemotesList
-    if not remotesList then return end
-    local T = self.Config.Theme
-    remotesList:ClearAllChildren()
-    local yPos = 0
-    for _, obj in pairs(game:GetDescendants()) do
-        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-            local isFunc = obj:IsA("RemoteFunction")
-            local rowH   = isFunc and 55 or 45
-            local remoteFrame = Instance.new("Frame")
-            remoteFrame.Size             = UDim2.new(1, -10, 0, rowH)
-            remoteFrame.Position         = UDim2.fromOffset(5, yPos)
-            remoteFrame.BackgroundColor3 = T.RowAlt
-            remoteFrame.BorderSizePixel  = 0
-            remoteFrame.Parent           = remotesList
-            mkCorner(6, remoteFrame)
-            local nameLabel = Instance.new("TextLabel")
-            nameLabel.Size              = UDim2.new(0.55, 0, 0, 20)
-            nameLabel.Position          = UDim2.fromOffset(10, 5)
-            nameLabel.BackgroundTransparency = 1
-            nameLabel.Text              = obj.Name .. "  (" .. obj.ClassName .. ")"
-            nameLabel.TextColor3        = T.Text
-            nameLabel.TextSize          = 13
-            nameLabel.TextXAlignment    = Enum.TextXAlignment.Left
-            nameLabel.Font              = Enum.Font.GothamSemibold
-            nameLabel.Parent            = remoteFrame
-            local pathLabel = Instance.new("TextLabel")
-            pathLabel.Size              = UDim2.new(1, -120, 0, 14)
-            pathLabel.Position          = UDim2.fromOffset(10, 26)
-            pathLabel.BackgroundTransparency = 1
-            pathLabel.Text              = obj:GetFullName()
-            pathLabel.TextColor3        = T.SubText
-            pathLabel.TextSize          = 10
-            pathLabel.TextXAlignment    = Enum.TextXAlignment.Left
-            pathLabel.Font              = Enum.Font.Code
-            pathLabel.TextTruncate      = Enum.TextTruncate.AtEnd
-            pathLabel.Parent            = remoteFrame
-            local isBlocked = self.State.RemoteBlocks[obj.Name] or false
-            local blockBtn = Instance.new("TextButton")
-            blockBtn.Size            = UDim2.fromOffset(52, 22)
-            blockBtn.Position        = UDim2.new(1, -165, 0, 10)
-            blockBtn.BackgroundColor3 = isBlocked and Color3.fromRGB(255,100,100) or T.Red
-            blockBtn.Text            = isBlocked and "BLOCKED" or "BLOCK"
-            blockBtn.TextColor3      = T.Text
-            blockBtn.Font            = Enum.Font.GothamBold
-            blockBtn.TextSize        = 10
-            blockBtn.Parent          = remoteFrame
-            mkCorner(4, blockBtn)
-            blockBtn.MouseButton1Click:Connect(function()
-                self.State.RemoteBlocks[obj.Name] = not self.State.RemoteBlocks[obj.Name]
-                local blocked = self.State.RemoteBlocks[obj.Name]
-                blockBtn.BackgroundColor3 = blocked and Color3.fromRGB(255,100,100) or T.Red
-                blockBtn.Text             = blocked and "BLOCKED" or "BLOCK"
-            end)
-            local fireBtn = Instance.new("TextButton")
-            fireBtn.Size            = UDim2.fromOffset(42, 22)
-            fireBtn.Position        = UDim2.new(1, -108, 0, 10)
-            fireBtn.BackgroundColor3 = T.Green
-            fireBtn.Text            = "FIRE"
-            fireBtn.TextColor3      = T.Text
-            fireBtn.Font            = Enum.Font.GothamBold
-            fireBtn.TextSize        = 10
-            fireBtn.Parent          = remoteFrame
-            mkCorner(4, fireBtn)
-            fireBtn.MouseButton1Click:Connect(function()
-                self.State.CurrentRemote = obj
-                self.State.CurrentMethod = "FireServer"
-                self.State.ArgTextBox.Text = '-- Example: "hello", LocalPlayer, {speed = 100}'
-                self.State.InputPopup.Visible = true
-                self.State.ArgTextBox:CaptureFocus()
-            end)
-            local copyBtn = Instance.new("TextButton")
-            copyBtn.Size            = UDim2.fromOffset(42, 22)
-            copyBtn.Position        = UDim2.new(1, -61, 0, 10)
-            copyBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 110)
-            copyBtn.Text            = "COPY"
-            copyBtn.TextColor3      = T.Text
-            copyBtn.Font            = Enum.Font.GothamBold
-            copyBtn.TextSize        = 10
-            copyBtn.Parent          = remoteFrame
-            mkCorner(4, copyBtn)
-            copyBtn.MouseButton1Click:Connect(function()
-                pcall(setclipboard, obj:GetFullName())
-                DoNotif("Copied path: " .. obj.Name, 1.5)
-            end)
-            if isFunc then
-                local invokeBtn = Instance.new("TextButton")
-                invokeBtn.Size            = UDim2.fromOffset(52, 18)
-                invokeBtn.Position        = UDim2.new(1, -165, 0, 34)
-                invokeBtn.BackgroundColor3 = T.Blue
-                invokeBtn.Text            = "INVOKE"
-                invokeBtn.TextColor3      = T.Text
-                invokeBtn.Font            = Enum.Font.GothamBold
-                invokeBtn.TextSize        = 10
-                invokeBtn.Parent          = remoteFrame
-                mkCorner(4, invokeBtn)
-                invokeBtn.MouseButton1Click:Connect(function()
-                    self.State.CurrentRemote = obj
-                    self.State.CurrentMethod = "InvokeServer"
-                    self.State.ArgTextBox.Text = '-- Example: "getData", 1'
-                    self.State.InputPopup.Visible = true
-                    self.State.ArgTextBox:CaptureFocus()
-                end)
-            end
-            yPos = yPos + rowH + 5
-        end
-    end
-    remotesList.CanvasSize = UDim2.new(0, 0, 0, yPos)
-    DoNotif("RemoteSpy: found " .. math.floor(yPos / 50) .. " remotes", 1.5)
-end
-function Modules.RemoteSpy:_build()
-    local T  = self.Config.Theme
-    local UIS = game:GetService("UserInputService")
-    if self.State.Gui then
-        pcall(function() self.State.Gui:Destroy() end)
-    end
-    local gui = Instance.new("ScreenGui")
-    gui.Name           = "ZukaRemoteSpy"
-    gui.ResetOnSpawn   = false
-    gui.IgnoreGuiInset = true
-    gui.DisplayOrder   = 999
-    gui.Parent         = game:GetService("CoreGui")
-    self.State.Gui     = gui
-    local inputPopup = Instance.new("Frame")
-    inputPopup.Name             = "ArgInputPopup"
-    inputPopup.Size             = UDim2.fromOffset(360, 210)
-    inputPopup.Position         = UDim2.new(0.5, -180, 0.5, -105)
-    inputPopup.BackgroundColor3 = T.Bg
-    inputPopup.BorderSizePixel  = 0
-    inputPopup.Visible          = false
-    inputPopup.ZIndex           = 10
-    inputPopup.Parent           = gui
-    mkCorner(10, inputPopup)
-    mkStroke(1, Color3.fromRGB(80,80,110), inputPopup)
-    self.State.InputPopup = inputPopup
-    local popupTitle = Instance.new("TextLabel")
-    popupTitle.Size             = UDim2.new(1, 0, 0, 36)
-    popupTitle.BackgroundColor3 = T.TitleBar
-    popupTitle.BorderSizePixel  = 0
-    popupTitle.Text             = "  📝  Enter Arguments"
-    popupTitle.TextColor3       = T.Text
-    popupTitle.TextSize         = 14
-    popupTitle.Font             = Enum.Font.GothamBold
-    popupTitle.TextXAlignment   = Enum.TextXAlignment.Left
-    popupTitle.ZIndex           = 11
-    popupTitle.Parent           = inputPopup
-    mkCorner(10, popupTitle)
-    local argTextBox = Instance.new("TextBox")
-    argTextBox.Size               = UDim2.new(1, -20, 0, 90)
-    argTextBox.Position           = UDim2.fromOffset(10, 46)
-    argTextBox.BackgroundColor3   = T.RowAlt
-    argTextBox.BorderSizePixel    = 0
-    argTextBox.Text               = ""
-    argTextBox.PlaceholderText    = 'lua args: "hello", 123, true, {key="val"}'
-    argTextBox.PlaceholderColor3  = Color3.fromRGB(100,100,120)
-    argTextBox.TextColor3         = T.Text
-    argTextBox.TextSize           = 12
-    argTextBox.Font               = Enum.Font.Code
-    argTextBox.MultiLine          = true
-    argTextBox.TextYAlignment     = Enum.TextYAlignment.Top
-    argTextBox.ClearTextOnFocus   = false
-    argTextBox.ZIndex             = 11
-    argTextBox.Parent             = inputPopup
-    mkCorner(6, argTextBox)
-    self.State.ArgTextBox = argTextBox
-    local sendBtn = Instance.new("TextButton")
-    sendBtn.Size            = UDim2.new(0.48, -10, 0, 32)
-    sendBtn.Position        = UDim2.new(0, 10, 1, -38)
-    sendBtn.BackgroundColor3 = T.Green
-    sendBtn.Text            = "SEND"
-    sendBtn.TextColor3      = T.Text
-    sendBtn.Font            = Enum.Font.GothamBold
-    sendBtn.TextSize        = 13
-    sendBtn.ZIndex          = 11
-    sendBtn.Parent          = inputPopup
-    mkCorner(6, sendBtn)
-    local cancelBtn = Instance.new("TextButton")
-    cancelBtn.Size            = UDim2.new(0.48, 0, 0, 32)
-    cancelBtn.Position        = UDim2.new(0.52, 0, 1, -38)
-    cancelBtn.BackgroundColor3 = T.Red
-    cancelBtn.Text            = "CANCEL"
-    cancelBtn.TextColor3      = T.Text
-    cancelBtn.Font            = Enum.Font.GothamBold
-    cancelBtn.TextSize        = 13
-    cancelBtn.ZIndex          = 11
-    cancelBtn.Parent          = inputPopup
-    mkCorner(6, cancelBtn)
-    sendBtn.MouseButton1Click:Connect(function()
-        local remote = self.State.CurrentRemote
-        local method = self.State.CurrentMethod
-        if remote and method then
-            local args = self:_parseArgs(argTextBox.Text)
-            if method == "FireServer" then
-                pcall(function() remote:FireServer(unpack(args)) end)
-            elseif method == "InvokeServer" then
-                local ok, result = pcall(function() return remote:InvokeServer(unpack(args)) end)
-                self:Print("Invoke result: " .. tostring(ok and result or "Error"), ok and T.FireColor or T.Red)
-            end
-            DoNotif(method .. " → " .. remote.Name .. " [" .. #args .. " arg(s)]", 2)
-        end
-        inputPopup.Visible = false
-    end)
-    cancelBtn.MouseButton1Click:Connect(function()
-        inputPopup.Visible = false
-    end)
+function Modules.GUICreator:_createUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "GUICreator_Zuka"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    self.State.UI = screenGui
     local mainFrame = Instance.new("Frame")
-    mainFrame.Name             = "MainWindow"
-    mainFrame.Size             = UDim2.fromOffset(520, 420)
-    mainFrame.Position         = UDim2.fromOffset(10, 10)
-    mainFrame.BackgroundColor3 = T.Bg
-    mainFrame.BorderSizePixel  = 0
-    mainFrame.Parent           = gui
-    self.State.MainFrame        = mainFrame
-    mkCorner(8, mainFrame)
-    mkStroke(1, Color3.fromRGB(60,60,80), mainFrame)
-    local titleBar = Instance.new("Frame")
-    titleBar.Name             = "TitleBar"
-    titleBar.Size             = UDim2.new(1, 0, 0, 36)
-    titleBar.BackgroundColor3 = T.TitleBar
-    titleBar.BorderSizePixel  = 0
-    titleBar.Parent           = mainFrame
-    mkCorner(8, titleBar)
-    local titleFix = Instance.new("Frame")
-    titleFix.Size             = UDim2.new(1, 0, 0, 10)
-    titleFix.Position         = UDim2.new(0, 0, 1, -10)
-    titleFix.BackgroundColor3 = T.TitleBar
-    titleFix.BorderSizePixel  = 0
-    titleFix.Parent           = titleBar
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size               = UDim2.new(1, -80, 1, 0)
-    titleLabel.Position           = UDim2.fromOffset(12, 0)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text               = "🔍  I spy with my little eye"
-    titleLabel.TextColor3         = T.Text
-    titleLabel.TextSize           = 14
-    titleLabel.Font               = Enum.Font.GothamBold
-    titleLabel.TextXAlignment     = Enum.TextXAlignment.Left
-    titleLabel.Parent             = titleBar
-    local minBtn = Instance.new("TextButton")
-    minBtn.Size            = UDim2.fromOffset(28, 28)
-    minBtn.Position        = UDim2.new(1, -64, 0, 4)
-    minBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-    minBtn.Text            = "–"
-    minBtn.TextColor3      = T.Text
-    minBtn.Font            = Enum.Font.GothamBold
-    minBtn.TextSize        = 18
-    minBtn.Parent          = titleBar
-    mkCorner(6, minBtn)
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size            = UDim2.fromOffset(28, 28)
-    closeBtn.Position        = UDim2.new(1, -32, 0, 4)
-    closeBtn.BackgroundColor3 = T.Red
-    closeBtn.Text            = "✕"
-    closeBtn.TextColor3      = T.Text
-    closeBtn.Font            = Enum.Font.GothamBold
-    closeBtn.TextSize        = 14
-    closeBtn.Parent          = titleBar
-    mkCorner(6, closeBtn)
-    local scanBtn = Instance.new("TextButton")
-    scanBtn.Size            = UDim2.fromOffset(70, 24)
-    scanBtn.Position        = UDim2.new(1, -80, 0, 44)
-    scanBtn.BackgroundColor3 = T.Green
-    scanBtn.Text            = "⟳ SCAN"
-    scanBtn.TextColor3      = T.Text
-    scanBtn.Font            = Enum.Font.GothamBold
-    scanBtn.TextSize        = 12
-    scanBtn.Parent          = mainFrame
-    mkCorner(6, scanBtn)
-    local tabDefs = {"Spy", "Remotes"}
-    self.State.TabFrames  = {}
-    self.State.TabButtons = {}
-    for i, tabName in ipairs(tabDefs) do
-        local tabBtn = Instance.new("TextButton")
-        tabBtn.Size            = UDim2.fromOffset(90, 24)
-        tabBtn.Position        = UDim2.fromOffset((i-1)*95 + 10, 44)
-        tabBtn.BackgroundColor3 = i==1 and T.TabActive or T.TabIdle
-        tabBtn.Text            = tabName
-        tabBtn.TextColor3      = T.Text
-        tabBtn.Font            = Enum.Font.Gotham
-        tabBtn.TextSize        = 12
-        tabBtn.Parent          = mainFrame
-        mkCorner(5, tabBtn)
-        self.State.TabButtons[tabName] = tabBtn
-        local tabFrame = Instance.new("ScrollingFrame")
-        tabFrame.Size               = UDim2.new(1, -20, 1, -80)
-        tabFrame.Position           = UDim2.fromOffset(10, 76)
-        tabFrame.BackgroundTransparency = 1
-        tabFrame.ScrollBarThickness = 5
-        tabFrame.ScrollBarImageColor3 = Color3.fromRGB(80,80,110)
-        tabFrame.CanvasSize         = UDim2.new(0, 0, 0, 0)
-        tabFrame.BorderSizePixel    = 0
-        tabFrame.Visible            = (i == 1)
-        tabFrame.Parent             = mainFrame
-        self.State.TabFrames[tabName] = tabFrame
-        tabBtn.MouseButton1Click:Connect(function()
-            for t, b in pairs(self.State.TabButtons) do
-                b.BackgroundColor3         = T.TabIdle
-                self.State.TabFrames[t].Visible = false
-            end
-            tabBtn.BackgroundColor3        = T.TabActive
-            self.State.TabFrames[tabName].Visible = true
-        end)
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.fromOffset(1200, 700)
+    mainFrame.Position = UDim2.fromScale(0.5, 0.5)
+    mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
+    local stroke = Instance.new("UIStroke", mainFrame)
+    stroke.Color = Color3.fromRGB(90, 140, 255)
+    stroke.Thickness = 2
+    local titleBar = Instance.new("Frame", mainFrame)
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 40)
+    titleBar.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
+    titleBar.BorderSizePixel = 0
+    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
+    local title = Instance.new("TextLabel", titleBar)
+    title.Size = UDim2.new(0.5, 0, 1, 0)
+    title.Position = UDim2.fromOffset(15, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.Code
+    title.Text = "▸ GUI CREATOR  —  Ctrl+Z Undo  |  Ctrl+Y Redo  |  Ctrl+D Dup  |  Del Delete"
+    title.TextColor3 = Color3.fromRGB(90, 140, 255)
+    title.TextSize = 13
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    local projLabel = Instance.new("TextLabel", titleBar)
+    projLabel.Size = UDim2.fromOffset(60, 20)
+    projLabel.Position = UDim2.new(0.5, 0, 0.5, -10)
+    projLabel.BackgroundTransparency = 1
+    projLabel.Font = Enum.Font.GothamBold
+    projLabel.Text = "Project:"
+    projLabel.TextColor3 = Color3.fromRGB(140, 140, 160)
+    projLabel.TextSize = 10
+    projLabel.TextXAlignment = Enum.TextXAlignment.Right
+    local projInput = Instance.new("TextBox", titleBar)
+    projInput.Size = UDim2.fromOffset(120, 22)
+    projInput.Position = UDim2.new(0.5, 64, 0.5, -11)
+    projInput.BackgroundColor3 = Color3.fromRGB(30, 30, 44)
+    projInput.BorderSizePixel = 0
+    projInput.Font = Enum.Font.Code
+    projInput.Text = self.State.CurrentProject.Name
+    projInput.TextColor3 = Color3.fromRGB(220, 220, 255)
+    projInput.TextSize = 11
+    projInput.ClearTextOnFocus = false
+    Instance.new("UICorner", projInput).CornerRadius = UDim.new(0, 4)
+    projInput.FocusLost:Connect(function()
+        self.State.CurrentProject.Name = projInput.Text ~= "" and projInput.Text or "Untitled"
+        projInput.Text = self.State.CurrentProject.Name
+    end)
+    local closeBtn = Instance.new("TextButton", titleBar)
+    closeBtn.Size = UDim2.fromOffset(30, 30)
+    closeBtn.Position = UDim2.new(1, -35, 0, 5)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 20
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+    closeBtn.MouseButton1Click:Connect(function() self:Disable() end)
+    self:MakeDraggable(titleBar, mainFrame)
+    local topBar = Instance.new("Frame", mainFrame)
+    topBar.Name = "TopBar"
+    topBar.Size = UDim2.new(1, -20, 0, 36)
+    topBar.Position = UDim2.fromOffset(10, 44)
+    topBar.BackgroundColor3 = Color3.fromRGB(32, 32, 44)
+    topBar.BorderSizePixel = 0
+    topBar.ZIndex = 10
+    Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 6)
+    local topLayout = Instance.new("UIListLayout", topBar)
+    topLayout.FillDirection = Enum.FillDirection.Horizontal
+    topLayout.Padding = UDim.new(0, 6)
+    topLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    Instance.new("UIPadding", topBar).PaddingLeft = UDim.new(0, 10)
+    local exportBtn = self:CreateButton("⬆ EXPORT CODE", Color3.fromRGB(0, 190, 95), topBar)
+    exportBtn.MouseButton1Click:Connect(function() self:ExportCode() end)
+    local undoBtn = self:CreateButton("↩ UNDO", Color3.fromRGB(90, 140, 255), topBar)
+    undoBtn.Size = UDim2.fromOffset(80, 26)
+    undoBtn.MouseButton1Click:Connect(function() self:Undo() end)
+    local redoBtn = self:CreateButton("↪ REDO", Color3.fromRGB(90, 140, 255), topBar)
+    redoBtn.Size = UDim2.fromOffset(80, 26)
+    redoBtn.MouseButton1Click:Connect(function() self:Redo() end)
+    local clearBtn = self:CreateButton("🗑 CLEAR", Color3.fromRGB(230, 80, 50), topBar)
+    clearBtn.Size = UDim2.fromOffset(80, 26)
+    clearBtn.MouseButton1Click:Connect(function() self:ClearCanvas() end)
+    local gridBtn = self:CreateButton("GRID: ON", Color3.fromRGB(80, 80, 180), topBar)
+    gridBtn.Size = UDim2.fromOffset(90, 26)
+    gridBtn.MouseButton1Click:Connect(function()
+        self.Config.ShowGrid = not self.Config.ShowGrid
+        gridBtn.Text = "GRID: " .. (self.Config.ShowGrid and "ON" or "OFF")
+        self:DrawGrid()
+    end)
+    local snapBtn = self:CreateButton("SNAP: OFF", Color3.fromRGB(120, 80, 200), topBar)
+    snapBtn.Size = UDim2.fromOffset(90, 26)
+    snapBtn.MouseButton1Click:Connect(function()
+        self.Config.SnapToGrid = not self.Config.SnapToGrid
+        snapBtn.Text = "SNAP: " .. (self.Config.SnapToGrid and "ON" or "OFF")
+        snapBtn.BackgroundColor3 = self.Config.SnapToGrid
+            and Color3.fromRGB(180, 80, 255)
+            or  Color3.fromRGB(120, 80, 200)
+    end)
+    local leftPanel = Instance.new("Frame", mainFrame)
+    leftPanel.Name = "Toolbox"
+    leftPanel.Size = UDim2.new(0, 165, 1, -90)
+    leftPanel.Position = UDim2.fromOffset(10, 86)
+    leftPanel.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    leftPanel.BorderSizePixel = 0
+    Instance.new("UICorner", leftPanel).CornerRadius = UDim.new(0, 8)
+    local toolboxLabel = Instance.new("TextLabel", leftPanel)
+    toolboxLabel.Size = UDim2.new(1, 0, 0, 28)
+    toolboxLabel.BackgroundTransparency = 1
+    toolboxLabel.Font = Enum.Font.GothamBold
+    toolboxLabel.Text = "ELEMENTS"
+    toolboxLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
+    toolboxLabel.TextSize = 12
+    local toolboxScroll = Instance.new("ScrollingFrame", leftPanel)
+    toolboxScroll.Size = UDim2.new(1, -8, 1, -34)
+    toolboxScroll.Position = UDim2.fromOffset(4, 30)
+    toolboxScroll.BackgroundTransparency = 1
+    toolboxScroll.BorderSizePixel = 0
+    toolboxScroll.ScrollBarThickness = 3
+    toolboxScroll.ScrollBarImageColor3 = Color3.fromRGB(90, 140, 255)
+    toolboxScroll.CanvasSize = UDim2.fromOffset(0, 0)
+    toolboxScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    local toolboxLayout = Instance.new("UIListLayout", toolboxScroll)
+    toolboxLayout.Padding = UDim.new(0, 4)
+    toolboxLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    local canvasPanel = Instance.new("Frame", mainFrame)
+    canvasPanel.Name = "Canvas"
+    canvasPanel.Size = UDim2.new(1, -560, 1, -90)
+    canvasPanel.Position = UDim2.fromOffset(183, 86)
+    canvasPanel.BackgroundColor3 = Color3.fromRGB(36, 36, 48)
+    canvasPanel.BorderSizePixel = 0
+    Instance.new("UICorner", canvasPanel).CornerRadius = UDim.new(0, 8)
+    canvasPanel.ClipsDescendants = false
+    local canvasLabel = Instance.new("TextLabel", canvasPanel)
+    canvasLabel.Size = UDim2.new(1, 0, 0, 24)
+    canvasLabel.BackgroundTransparency = 1
+    canvasLabel.Font = Enum.Font.GothamBold
+    canvasLabel.Text = "CANVAS  (480 × 360)"
+    canvasLabel.TextColor3 = Color3.fromRGB(120, 120, 140)
+    canvasLabel.TextSize = 11
+    local workspace = Instance.new("Frame", canvasPanel)
+    workspace.Name = "Workspace"
+    workspace.Size = UDim2.fromOffset(480, 360)
+    workspace.Position = UDim2.new(0.5, 0, 0.5, 0)
+    workspace.AnchorPoint = Vector2.new(0.5, 0.5)
+    workspace.BackgroundColor3 = Color3.fromRGB(46, 46, 58)
+    workspace.BorderSizePixel = 0
+    workspace.ClipsDescendants = true
+    local wsStroke = Instance.new("UIStroke", workspace)
+    wsStroke.Color = Color3.fromRGB(80, 80, 110)
+    wsStroke.Thickness = 2
+    local gridFrame = Instance.new("Frame", workspace)
+    gridFrame.Name = "GridOverlay"
+    gridFrame.Size = UDim2.new(1, 0, 1, 0)
+    gridFrame.BackgroundTransparency = 1
+    gridFrame.BorderSizePixel = 0
+    gridFrame.ZIndex = 1
+    self.State.GridFrame = gridFrame
+    self:DrawGrid()
+    local rightCol = Instance.new("Frame", mainFrame)
+    rightCol.Name = "RightCol"
+    rightCol.Size = UDim2.new(0, 240, 1, -90)
+    rightCol.Position = UDim2.new(1, -250, 0, 86)
+    rightCol.BackgroundTransparency = 1
+    rightCol.BorderSizePixel = 0
+    local rightPanel = Instance.new("Frame", rightCol)
+    rightPanel.Name = "Properties"
+    rightPanel.Size = UDim2.new(1, 0, 0.52, -4)
+    rightPanel.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    rightPanel.BorderSizePixel = 0
+    Instance.new("UICorner", rightPanel).CornerRadius = UDim.new(0, 8)
+    local propertiesLabel = Instance.new("TextLabel", rightPanel)
+    propertiesLabel.Size = UDim2.new(1, 0, 0, 28)
+    propertiesLabel.BackgroundTransparency = 1
+    propertiesLabel.Font = Enum.Font.GothamBold
+    propertiesLabel.Text = "PROPERTIES"
+    propertiesLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
+    propertiesLabel.TextSize = 12
+    local propertiesScroll = Instance.new("ScrollingFrame", rightPanel)
+    propertiesScroll.Name = "PropertiesScroll"
+    propertiesScroll.Size = UDim2.new(1, -8, 1, -32)
+    propertiesScroll.Position = UDim2.fromOffset(4, 30)
+    propertiesScroll.BackgroundTransparency = 1
+    propertiesScroll.BorderSizePixel = 0
+    propertiesScroll.ScrollBarThickness = 3
+    propertiesScroll.ScrollBarImageColor3 = Color3.fromRGB(90, 140, 255)
+    propertiesScroll.CanvasSize = UDim2.fromOffset(0, 0)
+    propertiesScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    local propLayout = Instance.new("UIListLayout", propertiesScroll)
+    propLayout.Padding = UDim.new(0, 6)
+    propLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    self.State.PropertyPanel = propertiesScroll
+    local hierPanel = Instance.new("Frame", rightCol)
+    hierPanel.Name = "Hierarchy"
+    hierPanel.Size = UDim2.new(1, 0, 0.48, -4)
+    hierPanel.Position = UDim2.new(0, 0, 0.52, 4)
+    hierPanel.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    hierPanel.BorderSizePixel = 0
+    Instance.new("UICorner", hierPanel).CornerRadius = UDim.new(0, 8)
+    local hierLabel = Instance.new("TextLabel", hierPanel)
+    hierLabel.Size = UDim2.new(1, 0, 0, 28)
+    hierLabel.BackgroundTransparency = 1
+    hierLabel.Font = Enum.Font.GothamBold
+    hierLabel.Text = "HIERARCHY"
+    hierLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
+    hierLabel.TextSize = 12
+    local hierScroll = Instance.new("ScrollingFrame", hierPanel)
+    hierScroll.Name = "HierarchyScroll"
+    hierScroll.Size = UDim2.new(1, -8, 1, -32)
+    hierScroll.Position = UDim2.fromOffset(4, 30)
+    hierScroll.BackgroundTransparency = 1
+    hierScroll.BorderSizePixel = 0
+    hierScroll.ScrollBarThickness = 3
+    hierScroll.ScrollBarImageColor3 = Color3.fromRGB(90, 140, 255)
+    hierScroll.CanvasSize = UDim2.fromOffset(0, 0)
+    hierScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    local hierLayout = Instance.new("UIListLayout", hierScroll)
+    hierLayout.Padding = UDim.new(0, 3)
+    hierLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    self.State.HierarchyPanel = hierScroll
+    screenGui.Parent = game:GetService("CoreGui")
+    self:PopulateToolbox(toolboxScroll)
+    self:_bindKeyboard()
+    return workspace
+end
+function Modules.GUICreator:DrawGrid()
+    local gf = self.State.GridFrame
+    if not gf then return end
+    for _, c in ipairs(gf:GetChildren()) do c:Destroy() end
+    if not self.Config.ShowGrid then return end
+    local W, H = 480, 360
+    local g = self.Config.GridSize
+    local lineColor = Color3.fromRGB(65, 65, 85)
+    local function makeLine(x, y, w, h)
+        local f = Instance.new("Frame", gf)
+        f.BorderSizePixel = 0
+        f.BackgroundColor3 = lineColor
+        f.Size = UDim2.fromOffset(w, h)
+        f.Position = UDim2.fromOffset(x, y)
+        f.ZIndex = 1
     end
-    self.State.SpyLogs     = self.State.TabFrames["Spy"]
-    self.State.RemotesList = self.State.TabFrames["Remotes"]
-    scanBtn.MouseButton1Click:Connect(function()
-        scanBtn.Text            = "SCANNING..."
-        scanBtn.BackgroundColor3 = T.Orange
-        self:_scanRemotes()
-        task.delay(0.5, function()
-            scanBtn.Text            = "⟳ SCAN"
-            scanBtn.BackgroundColor3 = T.Green
-        end)
+    local x = g
+    while x < W do makeLine(x, 0, 1, H) ; x = x + g end
+    local y = g
+    while y < H do makeLine(0, y, W, 1) ; y = y + g end
+end
+function Modules.GUICreator:_bindKeyboard()
+    local conn = UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        local ctrl = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
+            or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)
+        if ctrl and input.KeyCode == Enum.KeyCode.Z then self:Undo() end
+        if ctrl and input.KeyCode == Enum.KeyCode.Y then self:Redo() end
+        if ctrl and input.KeyCode == Enum.KeyCode.D then
+            if self.State.SelectedElement then
+                self:DuplicateElement(self.State.SelectedElement)
+            end
+        end
+        if input.KeyCode == Enum.KeyCode.Delete then
+            if self.State.SelectedElement then
+                self:DeleteElement(self.State.SelectedElement)
+            end
+        end
     end)
-    local minimized = false
-    minBtn.MouseButton1Click:Connect(function()
-        minimized = not minimized
-        mainFrame.Size = minimized and UDim2.fromOffset(520, 36) or UDim2.fromOffset(520, 420)
-        minBtn.Text    = minimized and "+" or "–"
-    end)
-    closeBtn.MouseButton1Click:Connect(function()
-        self:Close()
-    end)
-    local dragging, dragStart, startPos
-    titleBar.InputBegan:Connect(function(input)
+    table.insert(self.State.Connections, conn)
+end
+function Modules.GUICreator:MakeDraggable(handle, object)
+    local dragging, dragStart, startPos = false, nil, nil
+    handle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging  = true
             dragStart = input.Position
-            startPos  = mainFrame.Position
+            startPos  = object.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
         end
     end)
-    titleBar.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-    local dragConn = UIS.InputChanged:Connect(function(input)
+    UserInputService.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             local d = input.Position - dragStart
-            mainFrame.Position = UDim2.new(
+            object.Position = UDim2.new(
                 startPos.X.Scale, startPos.X.Offset + d.X,
                 startPos.Y.Scale, startPos.Y.Offset + d.Y
             )
         end
     end)
-    table.insert(self.State.Connections, dragConn)
-    local keyConn = UIS.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        if input.KeyCode == Enum.KeyCode.Insert then
-            mainFrame.Visible = not mainFrame.Visible
+end
+Modules.GUICreator.ELEMENT_DEFS = {
+    { Group="CONTAINERS", Name="Frame",                   Color=Color3.fromRGB(100,150,220), Icon="▭" },
+    { Group="CONTAINERS", Name="ScrollingFrame",          Color=Color3.fromRGB( 80,200,150), Icon="⇅" },
+    { Group="CONTAINERS", Name="CanvasGroup",             Color=Color3.fromRGB(120,180,255), Icon="⬚" },
+    { Group="CONTAINERS", Name="ViewportFrame",           Color=Color3.fromRGB(180,120,255), Icon="⬛" },
+    { Group="TEXT",       Name="TextLabel",               Color=Color3.fromRGB(140,210, 90), Icon="T" },
+    { Group="TEXT",       Name="TextButton",              Color=Color3.fromRGB(220,150, 80), Icon="B" },
+    { Group="TEXT",       Name="TextBox",                 Color=Color3.fromRGB(210, 90,150), Icon="I" },
+    { Group="IMAGE",      Name="ImageLabel",              Color=Color3.fromRGB(150, 90,220), Icon="🖼" },
+    { Group="IMAGE",      Name="ImageButton",             Color=Color3.fromRGB(200, 80,180), Icon="🖱" },
+    { Group="VIDEO",      Name="VideoFrame",              Color=Color3.fromRGB(255,180, 50), Icon="▶" },
+    { Group="MODIFIERS",  Name="UICorner",                Color=Color3.fromRGB(100,220,180), Icon="◜", IsModifier=true },
+    { Group="MODIFIERS",  Name="UIStroke",                Color=Color3.fromRGB(100,180,255), Icon="⊡", IsModifier=true },
+    { Group="MODIFIERS",  Name="UIGradient",              Color=Color3.fromRGB(255,160,100), Icon="≋", IsModifier=true },
+    { Group="MODIFIERS",  Name="UIPadding",               Color=Color3.fromRGB(160,255,160), Icon="⊞", IsModifier=true },
+    { Group="MODIFIERS",  Name="UIScale",                 Color=Color3.fromRGB(255,220,100), Icon="⤡", IsModifier=true },
+    { Group="MODIFIERS",  Name="UIAspectRatioConstraint", Color=Color3.fromRGB(220,180,255), Icon="⊠", IsModifier=true },
+    { Group="MODIFIERS",  Name="UISizeConstraint",        Color=Color3.fromRGB(180,255,220), Icon="⊟", IsModifier=true },
+    { Group="LAYOUTS",    Name="UIListLayout",            Color=Color3.fromRGB(255,130,130), Icon="☰", IsModifier=true },
+    { Group="LAYOUTS",    Name="UIGridLayout",            Color=Color3.fromRGB(255,160,160), Icon="⊞", IsModifier=true },
+    { Group="LAYOUTS",    Name="UITableLayout",           Color=Color3.fromRGB(255,190,190), Icon="⊟", IsModifier=true },
+    { Group="LAYOUTS",    Name="UIPageLayout",            Color=Color3.fromRGB(255,210,210), Icon="⊳", IsModifier=true },
+}
+function Modules.GUICreator:PopulateToolbox(parent)
+    local lastGroup = nil
+    for _, elem in ipairs(self.ELEMENT_DEFS) do
+        if elem.Group ~= lastGroup then
+            lastGroup = elem.Group
+            local header = Instance.new("TextLabel", parent)
+            header.Size = UDim2.new(1, 0, 0, 20)
+            header.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+            header.BorderSizePixel = 0
+            header.Font = Enum.Font.GothamBold
+            header.Text = "  " .. elem.Group
+            header.TextColor3 = Color3.fromRGB(110, 110, 140)
+            header.TextSize = 9
+            header.TextXAlignment = Enum.TextXAlignment.Left
+            Instance.new("UICorner", header).CornerRadius = UDim.new(0, 4)
         end
-    end)
-    table.insert(self.State.Connections, keyConn)
-    self.State.IsOpen = true
-    if self.Config.AutoScan then
-        task.delay(0.5, function()
-            self:_scanRemotes()
+        local btn = Instance.new("TextButton", parent)
+        btn.Size = UDim2.new(1, 0, 0, 32)
+        btn.BackgroundColor3 = Color3.fromRGB(36, 36, 48)
+        btn.BorderSizePixel = 0
+        btn.Font = Enum.Font.GothamBold
+        btn.Text = elem.Icon .. "  " .. elem.Name
+        btn.TextColor3 = elem.Color
+        btn.TextSize = 10
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        btn.AutoButtonColor = false
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        Instance.new("UIPadding", btn).PaddingLeft = UDim.new(0, 12)
+        btn.MouseButton1Click:Connect(function()
+            if elem.IsModifier then
+                self:AddModifier(elem.Name)
+            else
+                self:CreateElement(elem.Name)
+            end
         end)
+        btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(50, 50, 66) end)
+        btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(36, 36, 48) end)
     end
 end
-function Modules.RemoteSpy:Print(text, color)
-    local spyLogs = self.State.SpyLogs
-    if not spyLogs then return end
-    local T = self.Config.Theme
-    self.State.LogCount = self.State.LogCount + 1
-    local n = self.State.LogCount
-    local log = Instance.new("TextLabel")
-    log.Size               = UDim2.new(1, -10, 0, 22)
-    log.BackgroundColor3   = n%2==0 and T.Row or T.RowAlt
-    log.TextColor3         = color or T.Text
-    log.TextSize           = 12
-    log.Font               = Enum.Font.Code
-    log.TextXAlignment     = Enum.TextXAlignment.Left
-    log.Text               = "  " .. text
-    log.Parent             = spyLogs
-    mkCorner(4, log)
-    task.defer(function()
-        if spyLogs and spyLogs.Parent then
-            spyLogs.CanvasSize    = UDim2.new(0, 0, 0, n * 24 + 10)
-            spyLogs.CanvasPosition = Vector2.new(0, math.huge)
+function Modules.GUICreator:CreateElement(elementType, snapshot)
+    local workspace = self.State.UI.MainFrame.Canvas.Workspace
+    local element = Instance.new(elementType)
+    local idx = #self.State.CreatedGUIs + 1
+    element.Name             = elementType .. "_" .. idx
+    element.Size             = snapshot and snapshot.Size     or self.Config.DefaultSize
+    element.Position         = snapshot and snapshot.Position or UDim2.fromOffset(
+        self:SnapValue(math.random(40, 260)),
+        self:SnapValue(math.random(40, 180))
+    )
+    element.BackgroundColor3 = snapshot and snapshot.BackgroundColor3
+        or Color3.fromRGB(math.random(90,200), math.random(90,200), math.random(90,200))
+    element.BorderSizePixel  = 0
+    element.ZIndex           = snapshot and snapshot.ZIndex or idx + 2
+    if elementType == "TextLabel" or elementType == "TextButton" or elementType == "TextBox" then
+        element.Text       = snapshot and snapshot.Text      or element.Name
+        element.TextColor3 = snapshot and snapshot.TextColor3 or Color3.new(1,1,1)
+        element.Font       = Enum.Font.Gotham
+        element.TextSize   = snapshot and snapshot.TextSize  or 14
+    end
+    if elementType == "TextBox" then
+        element.PlaceholderText  = snapshot and snapshot.PlaceholderText or "Enter text…"
+        element.ClearTextOnFocus = false
+    end
+    if elementType == "ImageLabel" or elementType == "ImageButton" then
+        element.Image = snapshot and snapshot.Image
+            or "rbxasset://textures/ui/GuiImagePlaceholder.png"
+        element.ScaleType = Enum.ScaleType.Fit
+        if elementType == "ImageButton" then
+            element.Text = ""
         end
-    end)
+    end
+    if elementType == "ScrollingFrame" then
+        element.ScrollingEnabled      = false
+        element.ScrollBarThickness    = snapshot and snapshot.ScrollBarThickness or 6
+        element.ScrollBarImageColor3  = snapshot and snapshot.ScrollBarImageColor3 or Color3.fromRGB(90,140,255)
+        element.CanvasSize            = snapshot and snapshot.CanvasSize or UDim2.fromOffset(480, 720)
+        element.HorizontalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+    end
+    if elementType == "CanvasGroup" then
+        element.GroupTransparency = snapshot and snapshot.GroupTransparency or 0
+        element.GroupColor3       = snapshot and snapshot.GroupColor3 or Color3.new(1,1,1)
+    end
+    if elementType == "ViewportFrame" then
+        element.Ambient          = snapshot and snapshot.Ambient or Color3.fromRGB(200,200,200)
+        element.LightColor       = snapshot and snapshot.LightColor or Color3.fromRGB(255,255,255)
+        element.LightDirection   = snapshot and snapshot.LightDirection or Vector3.new(-1,-1,-1)
+        element.ImageTransparency = 0
+    end
+    if elementType == "VideoFrame" then
+        element.Video  = snapshot and snapshot.Video or ""
+        element.Looped = true
+        element.Volume = 0.5
+    end
+    local cornerRadius = (snapshot and snapshot.CornerRadius) or 8
+    local corner = Instance.new("UICorner", element)
+    corner.CornerRadius = UDim.new(0, cornerRadius)
+    element.Parent = workspace
+    local data = {
+        Element       = element,
+        Type          = elementType,
+        CornerRadius  = cornerRadius,
+        Connections   = {}
+    }
+    table.insert(self.State.CreatedGUIs, data)
+    self:MakeElementInteractive(element, data)
+    self:RefreshHierarchy()
+    self:SelectElement(element)
+    if not snapshot then
+        self:PushUndo({
+            Do = function()
+                element.Parent = workspace
+                table.insert(self.State.CreatedGUIs, data)
+                self:RefreshHierarchy()
+            end,
+            Undo = function()
+                element.Parent = nil
+                for i, d in ipairs(self.State.CreatedGUIs) do
+                    if d.Element == element then table.remove(self.State.CreatedGUIs, i) break end
+                end
+                if self.State.SelectedElement == element then
+                    self.State.SelectedElement = nil
+                    self:UpdatePropertiesPanel(nil)
+                end
+                self:RefreshHierarchy()
+            end
+        })
+    end
+    print(string.format("[GUICreator] ✓ Created %s", element.Name))
+    return element
 end
-function Modules.RemoteSpy:Open()
-    if self.State.IsOpen and self.State.Gui and self.State.Gui.Parent then
-        if self.State.MainFrame then
-            self.State.MainFrame.Visible = true
+function Modules.GUICreator:DuplicateElement(element)
+    local data = self:GetDataForElement(element)
+    local snap = {
+        Size             = UDim2.fromOffset(element.Size.X.Offset,          element.Size.Y.Offset),
+        Position         = UDim2.fromOffset(element.Position.X.Offset + 15,  element.Position.Y.Offset + 15),
+        BackgroundColor3 = element.BackgroundColor3,
+        ZIndex           = element.ZIndex,
+        CornerRadius     = data and data.CornerRadius or 8,
+    }
+    if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
+        snap.Text       = element.Text
+        snap.TextColor3 = element.TextColor3
+        snap.TextSize   = element.TextSize
+        if element:IsA("TextBox") then
+            snap.PlaceholderText = element.PlaceholderText
         end
+    end
+    if element:IsA("ImageLabel") or element:IsA("ImageButton") then
+        snap.Image = element.Image
+    end
+    if element:IsA("ScrollingFrame") then
+        snap.CanvasSize            = UDim2.fromOffset(element.CanvasSize.X.Offset, element.CanvasSize.Y.Offset)
+        snap.ScrollBarThickness    = element.ScrollBarThickness
+        snap.ScrollBarImageColor3  = element.ScrollBarImageColor3
+    end
+    if element:IsA("CanvasGroup") then
+        snap.GroupTransparency = element.GroupTransparency
+        snap.GroupColor3       = element.GroupColor3
+    end
+    if element:IsA("ViewportFrame") then
+        snap.Ambient        = element.Ambient
+        snap.LightColor     = element.LightColor
+        snap.LightDirection = element.LightDirection
+    end
+    if element:IsA("VideoFrame") then
+        snap.Video  = element.Video
+    end
+    local elemType = data and data.Type or "Frame"
+    self:CreateElement(elemType, snap)
+    print("[GUICreator] ✓ Duplicated element (Ctrl+D)")
+end
+function Modules.GUICreator:AddModifier(modType)
+    local element = self.State.SelectedElement
+    if not element then
+        print("[GUICreator] ✗ Select an element first before adding a modifier.")
         return
     end
-    self:_build()
-    self:_hook()
-    DoNotif("RemoteSpy opened — INSERT to hide", 2)
-end
-function Modules.RemoteSpy:Close()
-    for _, conn in pairs(self.State.Connections) do
-        pcall(function() conn:Disconnect() end)
+    local existing = element:FindFirstChildOfClass(modType)
+    if existing then existing:Destroy() end
+    local mod = Instance.new(modType)
+    if modType == "UICorner" then
+        mod.CornerRadius = UDim.new(0, 8)
+    elseif modType == "UIStroke" then
+        mod.Color     = Color3.fromRGB(90, 140, 255)
+        mod.Thickness = 2
+        mod.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    elseif modType == "UIGradient" then
+        mod.Color    = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(90,140,255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(200,80,255))
+        })
+        mod.Rotation = 45
+    elseif modType == "UIPadding" then
+        mod.PaddingLeft   = UDim.new(0, 8)
+        mod.PaddingRight  = UDim.new(0, 8)
+        mod.PaddingTop    = UDim.new(0, 8)
+        mod.PaddingBottom = UDim.new(0, 8)
+    elseif modType == "UIScale" then
+        mod.Scale = 1
+    elseif modType == "UIAspectRatioConstraint" then
+        mod.AspectRatio = 1
+        mod.AspectType  = Enum.AspectType.FitWithinMaxSize
+    elseif modType == "UISizeConstraint" then
+        mod.MinSize = Vector2.new(50, 50)
+        mod.MaxSize = Vector2.new(math.huge, math.huge)
+    elseif modType == "UIListLayout" then
+        mod.FillDirection      = Enum.FillDirection.Vertical
+        mod.HorizontalAlignment= Enum.HorizontalAlignment.Center
+        mod.VerticalAlignment  = Enum.VerticalAlignment.Top
+        mod.Padding            = UDim.new(0, 6)
+        mod.SortOrder          = Enum.SortOrder.LayoutOrder
+    elseif modType == "UIGridLayout" then
+        mod.CellSize              = UDim2.fromOffset(80, 80)
+        mod.CellPaddingHorizontal = UDim.new(0, 6)
+        mod.CellPaddingVertical   = UDim.new(0, 6)
+        mod.SortOrder             = Enum.SortOrder.LayoutOrder
+    elseif modType == "UITableLayout" then
+        mod.FillDirection      = Enum.FillDirection.Vertical
+        mod.Padding            = UDim.new(0, 4)
+    elseif modType == "UIPageLayout" then
+        mod.Animated           = true
+        mod.EasingStyle        = Enum.EasingStyle.Quad
+        mod.Padding            = UDim.new(0, 0)
     end
-    self.State.Connections = {}
-    self.State.IsOpen      = false
-    self.State.LogCount    = 0
-    if self.State.Gui then
-        pcall(function() self.State.Gui:Destroy() end)
-        self.State.Gui         = nil
-        self.State.MainFrame   = nil
-        self.State.SpyLogs     = nil
-        self.State.RemotesList = nil
-        self.State.InputPopup  = nil
-        self.State.ArgTextBox  = nil
+    mod.Parent = element
+    local data = self:GetDataForElement(element)
+    if data then
+        if not data.Modifiers then data.Modifiers = {} end
+        data.Modifiers[modType] = mod
     end
-    DoNotif("RemoteSpy closed", 1.5)
+    self:UpdatePropertiesPanel(element)
+    self:PushUndo({
+        Do   = function() mod.Parent = element end,
+        Undo = function() mod.Parent = nil end,
+    })
+    print(string.format("[GUICreator] ✓ Added %s to %s", modType, element.Name))
 end
-function Modules.RemoteSpy:Toggle()
-    if self.State.IsOpen then
-        self:Close()
+function Modules.GUICreator:MakeElementInteractive(element, data)
+    local canvasPanel = self.State.UI.MainFrame.Canvas
+    local selBox = Instance.new("Frame", canvasPanel)
+    selBox.Name = "SelectionBox_" .. element.Name
+    selBox.BackgroundTransparency = 1
+    selBox.BorderSizePixel = 0
+    selBox.Visible = false
+    selBox.ZIndex = 200
+    local selStroke = Instance.new("UIStroke", selBox)
+    selStroke.Color = Color3.fromRGB(0, 230, 255)
+    selStroke.Thickness = 2
+    local function syncSelBox()
+        if not element or not element.Parent then return end
+        local ws     = self.State.UI.MainFrame.Canvas.Workspace
+        local wsAbs  = ws.AbsolutePosition
+        local cpAbs  = canvasPanel.AbsolutePosition
+        local eAbs   = element.AbsolutePosition
+        local eSize  = element.AbsoluteSize
+        local ox     = (wsAbs.X - cpAbs.X) + element.Position.X.Offset
+        local oy     = (wsAbs.Y - cpAbs.Y) + element.Position.Y.Offset
+        selBox.Size     = UDim2.fromOffset(eSize.X + 6, eSize.Y + 6)
+        selBox.Position = UDim2.fromOffset(ox - 3, oy - 3)
+    end
+    local handles = {
+        {name="NW", ax=0,   ay=0,   cx=true,  cy=true},
+        {name="N",  ax=0.5, ay=0,   cx=false, cy=true},
+        {name="NE", ax=1,   ay=0,   cx=true,  cy=true},
+        {name="W",  ax=0,   ay=0.5, cx=true,  cy=false},
+        {name="E",  ax=1,   ay=0.5, cx=true,  cy=false},
+        {name="SW", ax=0,   ay=1,   cx=true,  cy=true},
+        {name="S",  ax=0.5, ay=1,   cx=false, cy=true},
+        {name="SE", ax=1,   ay=1,   cx=true,  cy=true},
+    }
+    local handleInstances = {}
+    for _, hd in ipairs(handles) do
+        local h = Instance.new("TextButton", selBox)
+        h.Name = "Handle_" .. hd.name
+        h.Size = UDim2.fromOffset(10, 10)
+        h.AnchorPoint = Vector2.new(0.5, 0.5)
+        h.Position = UDim2.new(hd.ax, 0, hd.ay, 0)
+        h.BackgroundColor3 = Color3.fromRGB(0, 230, 255)
+        h.BorderSizePixel = 0
+        h.ZIndex = 201
+        h.Text = ""
+        h.AutoButtonColor = false
+        Instance.new("UICorner", h).CornerRadius = UDim.new(0, 2)
+        handleInstances[hd.name] = {frame = h, meta = hd}
+    end
+    local resizing     = false
+    local dragging     = false
+    local resizeHandle = nil
+    local dragStart    = nil
+    local startPos     = nil
+    local startSize    = nil
+    for _, hdata in pairs(handleInstances) do
+        hdata.frame.MouseButton1Down:Connect(function()
+            self:SelectElement(element)
+            resizing     = true
+            dragging     = false
+            resizeHandle = hdata.meta
+            dragStart    = UserInputService:GetMouseLocation()
+            startPos     = {X = element.Position.X.Offset, Y = element.Position.Y.Offset}
+            startSize    = {W = element.Size.X.Offset,     H = element.Size.Y.Offset}
+        end)
+    end
+    local elemConn = element.InputBegan:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if resizing then return end
+        self:SelectElement(element)
+        dragging  = true
+        dragStart = input.Position
+        startPos  = {X = element.Position.X.Offset, Y = element.Position.Y.Offset}
+        startSize = {W = element.Size.X.Offset,     H = element.Size.Y.Offset}
+    end)
+    local moveConn = UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+        if resizing and resizeHandle then
+            local mouseNow = UserInputService:GetMouseLocation()
+            local delta    = mouseNow - dragStart
+            local h        = resizeHandle
+            local nx, ny   = startPos.X, startPos.Y
+            local nw, nh   = startSize.W, startSize.H
+            if h.cx then
+                if h.ax == 0 then
+                    nw = math.max(20, startSize.W - delta.X)
+                    nx = startPos.X + (startSize.W - nw)
+                else
+                    nw = math.max(20, startSize.W + delta.X)
+                end
+            end
+            if h.cy then
+                if h.ay == 0 then
+                    nh = math.max(20, startSize.H - delta.Y)
+                    ny = startPos.Y + (startSize.H - nh)
+                else
+                    nh = math.max(20, startSize.H + delta.Y)
+                end
+            end
+            nx = self:SnapValue(nx) ; ny = self:SnapValue(ny)
+            nw = self:SnapValue(nw) ; nh = self:SnapValue(nh)
+            element.Position = UDim2.fromOffset(nx, ny)
+            element.Size     = UDim2.fromOffset(nw, nh)
+            syncSelBox()
+            self:UpdatePropertiesPanel(element)
+        elseif dragging then
+            local delta = input.Position - dragStart
+            local nx = self:SnapValue(startPos.X + delta.X)
+            local ny = self:SnapValue(startPos.Y + delta.Y)
+            element.Position = UDim2.fromOffset(nx, ny)
+            syncSelBox()
+        end
+    end)
+    local releaseConn = UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if (dragging or resizing) and startPos and startSize then
+            local oldPos  = UDim2.fromOffset(startPos.X, startPos.Y)
+            local oldSize = UDim2.fromOffset(startSize.W, startSize.H)
+            local newPos  = element.Position
+            local newSize = element.Size
+            if oldPos ~= newPos or oldSize ~= newSize then
+                self:PushUndo({
+                    Do = function()
+                        element.Position = newPos ; element.Size = newSize
+                        syncSelBox()
+                        self:UpdatePropertiesPanel(element)
+                    end,
+                    Undo = function()
+                        element.Position = oldPos ; element.Size = oldSize
+                        syncSelBox()
+                        self:UpdatePropertiesPanel(element)
+                    end
+                })
+            end
+        end
+        dragging     = false
+        resizing     = false
+        resizeHandle = nil
+    end)
+    data.Connections = {elemConn, moveConn, releaseConn}
+    data.SelectionBox = selBox
+    data.SyncSelBox   = syncSelBox
+end
+function Modules.GUICreator:SelectElement(element)
+    if self.State.SelectedElement == element then return end
+    if self.State.SelectedElement then
+        local oldData = self:GetDataForElement(self.State.SelectedElement)
+        if oldData and oldData.SelectionBox then
+            oldData.SelectionBox.Visible = false
+        end
+    end
+    self.State.SelectedElement = element
+    local data = self:GetDataForElement(element)
+    if data then
+        if data.SelectionBox then
+            data.SyncSelBox()
+            data.SelectionBox.Visible = true
+        end
+    end
+    self:UpdatePropertiesPanel(element)
+    self:RefreshHierarchy()
+end
+function Modules.GUICreator:RefreshHierarchy()
+    local panel = self.State.HierarchyPanel
+    if not panel then return end
+    for _, c in ipairs(panel:GetChildren()) do
+        if not c:IsA("UIListLayout") then c:Destroy() end
+    end
+    for _, data in ipairs(self.State.CreatedGUIs) do
+        local elem = data.Element
+        if not elem or not elem.Parent then continue end
+        local row = Instance.new("TextButton", panel)
+        row.Size = UDim2.new(1, -6, 0, 26)
+        row.BorderSizePixel = 0
+        row.Font = Enum.Font.Code
+        row.TextSize = 11
+        row.TextXAlignment = Enum.TextXAlignment.Left
+        row.AutoButtonColor = false
+        local isSel = (self.State.SelectedElement == elem)
+        row.BackgroundColor3 = isSel and Color3.fromRGB(50,80,160) or Color3.fromRGB(36,36,50)
+        row.TextColor3       = isSel and Color3.new(1,1,1)         or Color3.fromRGB(180,180,200)
+        row.Text = "  [Z:" .. tostring(elem.ZIndex) .. "]  " .. elem.Name
+        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
+        row.MouseButton1Click:Connect(function() self:SelectElement(elem) end)
+        local function makeZBtn(label, offset, delta)
+            local b = Instance.new("TextButton", row)
+            b.Size = UDim2.fromOffset(18, 18)
+            b.Position = UDim2.new(1, offset, 0.5, -9)
+            b.BackgroundColor3 = Color3.fromRGB(70,70,100)
+            b.BorderSizePixel = 0
+            b.Font = Enum.Font.GothamBold
+            b.Text = label
+            b.TextSize = 9
+            b.TextColor3 = Color3.new(1,1,1)
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0,3)
+            b.MouseButton1Click:Connect(function() self:ChangeZIndex(elem, delta) end)
+        end
+        makeZBtn("▲", -42, 1)
+        makeZBtn("▼", -21, -1)
+    end
+end
+function Modules.GUICreator:ChangeZIndex(element, delta)
+    local oldZ = element.ZIndex
+    local newZ = math.max(3, oldZ + delta)
+    element.ZIndex = newZ
+    self:PushUndo({
+        Do   = function() element.ZIndex = newZ ; self:RefreshHierarchy() end,
+        Undo = function() element.ZIndex = oldZ ; self:RefreshHierarchy() end
+    })
+    self:RefreshHierarchy()
+    self:UpdatePropertiesPanel(element)
+end
+function Modules.GUICreator:UpdatePropertiesPanel(element)
+    local panel = self.State.PropertyPanel
+    for _, child in ipairs(panel:GetChildren()) do
+        if not child:IsA("UIListLayout") then child:Destroy() end
+    end
+    if not element then return end
+    local data = self:GetDataForElement(element)
+    self:CreateProperty(panel, "Name", element.Name, function(v)
+        local old = element.Name
+        element.Name = v
+        if data and data.SelectionBox then
+            data.SelectionBox.Name = "SelectionBox_" .. v
+        end
+        self:PushUndo({
+            Do   = function() element.Name = v   ; self:RefreshHierarchy() end,
+            Undo = function() element.Name = old ; self:RefreshHierarchy() end
+        })
+        self:RefreshHierarchy()
+    end)
+    self:CreateProperty(panel, "Size X", tostring(element.Size.X.Offset), function(v)
+        element.Size = UDim2.fromOffset(tonumber(v) or 200, element.Size.Y.Offset)
+        if data then data.SyncSelBox() end
+    end)
+    self:CreateProperty(panel, "Size Y", tostring(element.Size.Y.Offset), function(v)
+        element.Size = UDim2.fromOffset(element.Size.X.Offset, tonumber(v) or 100)
+        if data then data.SyncSelBox() end
+    end)
+    self:CreateProperty(panel, "Pos X", tostring(element.Position.X.Offset), function(v)
+        element.Position = UDim2.fromOffset(tonumber(v) or 0, element.Position.Y.Offset)
+        if data then data.SyncSelBox() end
+    end)
+    self:CreateProperty(panel, "Pos Y", tostring(element.Position.Y.Offset), function(v)
+        element.Position = UDim2.fromOffset(element.Position.X.Offset, tonumber(v) or 0)
+        if data then data.SyncSelBox() end
+    end)
+    self:CreateProperty(panel, "ZIndex", tostring(element.ZIndex), function(v)
+        local old = element.ZIndex
+        local nz  = math.max(3, tonumber(v) or 3)
+        element.ZIndex = nz
+        self:PushUndo({
+            Do   = function() element.ZIndex = nz  ; self:RefreshHierarchy() end,
+            Undo = function() element.ZIndex = old ; self:RefreshHierarchy() end
+        })
+        self:RefreshHierarchy()
+    end)
+    self:CreateProperty(panel, "CornerRadius", tostring(data and data.CornerRadius or 8), function(v)
+        local r = math.max(0, tonumber(v) or 8)
+        if data then data.CornerRadius = r end
+        local corner = element:FindFirstChildOfClass("UICorner")
+        if corner then corner.CornerRadius = UDim.new(0, r) end
+    end)
+    self:CreateProperty(panel, "AnchorPoint X", tostring(element.AnchorPoint.X), function(v)
+        element.AnchorPoint = Vector2.new(math.clamp(tonumber(v) or 0, 0, 1), element.AnchorPoint.Y)
+        if data then data.SyncSelBox() end
+    end)
+    self:CreateProperty(panel, "AnchorPoint Y", tostring(element.AnchorPoint.Y), function(v)
+        element.AnchorPoint = Vector2.new(element.AnchorPoint.X, math.clamp(tonumber(v) or 0, 0, 1))
+        if data then data.SyncSelBox() end
+    end)
+    self:CreateColorProperty(panel, "BG Color", element.BackgroundColor3, function(c)
+        element.BackgroundColor3 = c
+    end)
+    self:CreateProperty(panel, "Transparency", tostring(element.BackgroundTransparency), function(v)
+        element.BackgroundTransparency = math.clamp(tonumber(v) or 0, 0, 1)
+    end)
+    self:CreateToggleProperty(panel, "Visible", element.Visible, function(v)
+        element.Visible = v
+    end)
+    if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
+        self:CreateProperty(panel, "Text", element.Text, function(v) element.Text = v end)
+        self:CreateProperty(panel, "TextSize", tostring(element.TextSize), function(v)
+            element.TextSize = tonumber(v) or 14
+        end)
+        self:CreateColorProperty(panel, "Text Color", element.TextColor3, function(c)
+            element.TextColor3 = c
+        end)
+    end
+    if element:IsA("ImageLabel") or element:IsA("ImageButton") then
+        self:CreateProperty(panel, "Image ID", element.Image, function(v)
+            element.Image = v
+        end)
+        self:CreateProperty(panel, "ImageTransparency", tostring(element.ImageTransparency), function(v)
+            element.ImageTransparency = math.clamp(tonumber(v) or 0, 0, 1)
+        end)
+        self:CreateColorProperty(panel, "ImageColor3", element.ImageColor3, function(c)
+            element.ImageColor3 = c
+        end)
+        self:CreateProperty(panel, "ScaleType (Fit/Crop/Stretch/Tile/Slice)", tostring(element.ScaleType):gsub("Enum%.ScaleType%.",""), function(v)
+            local map = {Fit=Enum.ScaleType.Fit,Crop=Enum.ScaleType.Crop,Stretch=Enum.ScaleType.Stretch,Tile=Enum.ScaleType.Tile,Slice=Enum.ScaleType.Slice}
+            if map[v] then element.ScaleType = map[v] end
+        end)
+    end
+    if element:IsA("ScrollingFrame") then
+        self:CreateProperty(panel, "Canvas W", tostring(element.CanvasSize.X.Offset), function(v)
+            element.CanvasSize = UDim2.fromOffset(tonumber(v) or 480, element.CanvasSize.Y.Offset)
+        end)
+        self:CreateProperty(panel, "Canvas H", tostring(element.CanvasSize.Y.Offset), function(v)
+            element.CanvasSize = UDim2.fromOffset(element.CanvasSize.X.Offset, tonumber(v) or 720)
+        end)
+        self:CreateProperty(panel, "ScrollBarThickness", tostring(element.ScrollBarThickness), function(v)
+            element.ScrollBarThickness = tonumber(v) or 6
+        end)
+        self:CreateColorProperty(panel, "ScrollBar Color", element.ScrollBarImageColor3, function(c)
+            element.ScrollBarImageColor3 = c
+        end)
+        self:CreateToggleProperty(panel, "ScrollingEnabled (export)", false, function(v)
+            local data2 = self:GetDataForElement(element)
+            if data2 then data2.ExportScrollingEnabled = v end
+        end)
+        self:CreateToggleProperty(panel, "AutomaticCanvasSize", element.AutomaticCanvasSize ~= Enum.AutomaticSize.None, function(v)
+            element.AutomaticCanvasSize = v and Enum.AutomaticSize.XY or Enum.AutomaticSize.None
+        end)
+    end
+    if element:IsA("CanvasGroup") then
+        self:CreateProperty(panel, "GroupTransparency", tostring(element.GroupTransparency), function(v)
+            element.GroupTransparency = math.clamp(tonumber(v) or 0, 0, 1)
+        end)
+        self:CreateColorProperty(panel, "GroupColor3", element.GroupColor3, function(c)
+            element.GroupColor3 = c
+        end)
+    end
+    if element:IsA("ViewportFrame") then
+        self:CreateColorProperty(panel, "Ambient", element.Ambient, function(c)
+            element.Ambient = c
+        end)
+        self:CreateColorProperty(panel, "LightColor", element.LightColor, function(c)
+            element.LightColor = c
+        end)
+        self:CreateProperty(panel, "LightDir X", tostring(element.LightDirection.X), function(v)
+            element.LightDirection = Vector3.new(tonumber(v) or -1, element.LightDirection.Y, element.LightDirection.Z)
+        end)
+        self:CreateProperty(panel, "LightDir Y", tostring(element.LightDirection.Y), function(v)
+            element.LightDirection = Vector3.new(element.LightDirection.X, tonumber(v) or -1, element.LightDirection.Z)
+        end)
+        self:CreateProperty(panel, "LightDir Z", tostring(element.LightDirection.Z), function(v)
+            element.LightDirection = Vector3.new(element.LightDirection.X, element.LightDirection.Y, tonumber(v) or -1)
+        end)
+        self:CreateProperty(panel, "ImageTransparency", tostring(element.ImageTransparency), function(v)
+            element.ImageTransparency = math.clamp(tonumber(v) or 0, 0, 1)
+        end)
+    end
+    if element:IsA("VideoFrame") then
+        self:CreateProperty(panel, "Video (rbxassetid://)", element.Video, function(v)
+            element.Video = v
+        end)
+        self:CreateProperty(panel, "Volume (0-1)", tostring(element.Volume), function(v)
+            element.Volume = math.clamp(tonumber(v) or 0.5, 0, 1)
+        end)
+        self:CreateToggleProperty(panel, "Looped", element.Looped, function(v)
+            element.Looped = v
+        end)
+        self:CreateToggleProperty(panel, "Playing", element.IsPlaying, function(v)
+            if v then element:Play() else element:Pause() end
+        end)
+    end
+    self:_buildModifierSubPanel(panel, element)
+    local deleteBtn = Instance.new("TextButton", panel)
+    deleteBtn.Size = UDim2.new(1,-6,0,32)
+    deleteBtn.BackgroundColor3 = Color3.fromRGB(220,45,90)
+    deleteBtn.BorderSizePixel = 0
+    deleteBtn.Font = Enum.Font.GothamBold
+    deleteBtn.Text = "🗑  DELETE ELEMENT"
+    deleteBtn.TextColor3 = Color3.new(1,1,1)
+    deleteBtn.TextSize = 11
+    Instance.new("UICorner", deleteBtn).CornerRadius = UDim.new(0,6)
+    deleteBtn.MouseButton1Click:Connect(function() self:DeleteElement(element) end)
+    local dupBtn = Instance.new("TextButton", panel)
+    dupBtn.Size = UDim2.new(1,-6,0,32)
+    dupBtn.BackgroundColor3 = Color3.fromRGB(70,130,220)
+    dupBtn.BorderSizePixel = 0
+    dupBtn.Font = Enum.Font.GothamBold
+    dupBtn.Text = "⧉  DUPLICATE (Ctrl+D)"
+    dupBtn.TextColor3 = Color3.new(1,1,1)
+    dupBtn.TextSize = 11
+    Instance.new("UICorner", dupBtn).CornerRadius = UDim.new(0,6)
+    dupBtn.MouseButton1Click:Connect(function() self:DuplicateElement(element) end)
+end
+function Modules.GUICreator:_buildModifierSubPanel(panel, element)
+    local modifierTypes = {
+        "UICorner","UIStroke","UIGradient","UIPadding","UIScale",
+        "UIAspectRatioConstraint","UISizeConstraint",
+        "UIListLayout","UIGridLayout","UITableLayout","UIPageLayout"
+    }
+    for _, modType in ipairs(modifierTypes) do
+        local mod = element:FindFirstChildOfClass(modType)
+        if not mod then continue end
+        local sectionLabel = Instance.new("TextLabel", panel)
+        sectionLabel.Size = UDim2.new(1,-6,0,22)
+        sectionLabel.BackgroundColor3 = Color3.fromRGB(20,20,30)
+        sectionLabel.BorderSizePixel = 0
+        sectionLabel.Font = Enum.Font.GothamBold
+        sectionLabel.Text = "  ⬡ " .. modType
+        sectionLabel.TextColor3 = Color3.fromRGB(90,140,255)
+        sectionLabel.TextSize = 10
+        sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+        Instance.new("UICorner", sectionLabel).CornerRadius = UDim.new(0,4)
+        local removeBtn = Instance.new("TextButton", panel)
+        removeBtn.Size = UDim2.new(1,-6,0,22)
+        removeBtn.BackgroundColor3 = Color3.fromRGB(130,30,50)
+        removeBtn.BorderSizePixel = 0
+        removeBtn.Font = Enum.Font.GothamBold
+        removeBtn.Text = "✕  Remove " .. modType
+        removeBtn.TextColor3 = Color3.new(1,1,1)
+        removeBtn.TextSize = 9
+        Instance.new("UICorner", removeBtn).CornerRadius = UDim.new(0,4)
+        removeBtn.MouseButton1Click:Connect(function()
+            local data = self:GetDataForElement(element)
+            self:PushUndo({
+                Do   = function() if mod and mod.Parent then mod:Destroy() end end,
+                Undo = function() mod.Parent = element end,
+            })
+            mod:Destroy()
+            if data and data.Modifiers then data.Modifiers[modType] = nil end
+            self:UpdatePropertiesPanel(element)
+        end)
+        if modType == "UICorner" then
+            self:CreateProperty(panel, "CornerRadius", tostring(mod.CornerRadius.Offset), function(v)
+                mod.CornerRadius = UDim.new(0, math.max(0, tonumber(v) or 8))
+                local data = self:GetDataForElement(element)
+                if data then data.CornerRadius = mod.CornerRadius.Offset end
+            end)
+        elseif modType == "UIStroke" then
+            self:CreateColorProperty(panel, "Stroke Color", mod.Color, function(c) mod.Color = c end)
+            self:CreateProperty(panel, "Stroke Thickness", tostring(mod.Thickness), function(v)
+                mod.Thickness = tonumber(v) or 2
+            end)
+            self:CreateProperty(panel, "Transparency", tostring(mod.Transparency), function(v)
+                mod.Transparency = math.clamp(tonumber(v) or 0, 0, 1)
+            end)
+            self:CreateToggleProperty(panel, "ApplyStrokeMode=Border", mod.ApplyStrokeMode == Enum.ApplyStrokeMode.Border, function(v)
+                mod.ApplyStrokeMode = v and Enum.ApplyStrokeMode.Border or Enum.ApplyStrokeMode.Contextual
+            end)
+        elseif modType == "UIGradient" then
+            self:CreateProperty(panel, "Rotation (deg)", tostring(mod.Rotation), function(v)
+                mod.Rotation = tonumber(v) or 0
+            end)
+            self:CreateProperty(panel, "Offset X", tostring(mod.Offset.X), function(v)
+                mod.Offset = Vector2.new(tonumber(v) or 0, mod.Offset.Y)
+            end)
+            self:CreateProperty(panel, "Offset Y", tostring(mod.Offset.Y), function(v)
+                mod.Offset = Vector2.new(mod.Offset.X, tonumber(v) or 0)
+            end)
+            self:CreateToggleProperty(panel, "Enabled", mod.Enabled, function(v) mod.Enabled = v end)
+        elseif modType == "UIPadding" then
+            self:CreateProperty(panel, "Pad Left",   tostring(mod.PaddingLeft.Offset),   function(v) mod.PaddingLeft   = UDim.new(0, tonumber(v) or 0) end)
+            self:CreateProperty(panel, "Pad Right",  tostring(mod.PaddingRight.Offset),  function(v) mod.PaddingRight  = UDim.new(0, tonumber(v) or 0) end)
+            self:CreateProperty(panel, "Pad Top",    tostring(mod.PaddingTop.Offset),    function(v) mod.PaddingTop    = UDim.new(0, tonumber(v) or 0) end)
+            self:CreateProperty(panel, "Pad Bottom", tostring(mod.PaddingBottom.Offset), function(v) mod.PaddingBottom = UDim.new(0, tonumber(v) or 0) end)
+        elseif modType == "UIScale" then
+            self:CreateProperty(panel, "Scale", tostring(mod.Scale), function(v)
+                mod.Scale = tonumber(v) or 1
+            end)
+        elseif modType == "UIAspectRatioConstraint" then
+            self:CreateProperty(panel, "AspectRatio", tostring(mod.AspectRatio), function(v)
+                mod.AspectRatio = tonumber(v) or 1
+            end)
+        elseif modType == "UISizeConstraint" then
+            self:CreateProperty(panel, "MinSize X", tostring(mod.MinSize.X), function(v)
+                mod.MinSize = Vector2.new(tonumber(v) or 0, mod.MinSize.Y)
+            end)
+            self:CreateProperty(panel, "MinSize Y", tostring(mod.MinSize.Y), function(v)
+                mod.MinSize = Vector2.new(mod.MinSize.X, tonumber(v) or 0)
+            end)
+            self:CreateProperty(panel, "MaxSize X (0=inf)", tostring(mod.MaxSize.X == math.huge and 0 or mod.MaxSize.X), function(v)
+                local n = tonumber(v) or 0
+                mod.MaxSize = Vector2.new(n == 0 and math.huge or n, mod.MaxSize.Y)
+            end)
+            self:CreateProperty(panel, "MaxSize Y (0=inf)", tostring(mod.MaxSize.Y == math.huge and 0 or mod.MaxSize.Y), function(v)
+                local n = tonumber(v) or 0
+                mod.MaxSize = Vector2.new(mod.MaxSize.X, n == 0 and math.huge or n)
+            end)
+        elseif modType == "UIListLayout" then
+            self:CreateProperty(panel, "Padding", tostring(mod.Padding.Offset), function(v)
+                mod.Padding = UDim.new(0, tonumber(v) or 6)
+            end)
+            self:CreateToggleProperty(panel, "Horizontal (else Vertical)", mod.FillDirection == Enum.FillDirection.Horizontal, function(v)
+                mod.FillDirection = v and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical
+            end)
+            self:CreateToggleProperty(panel, "Reverse FillDir", mod.VerticalAlignment == Enum.VerticalAlignment.Bottom, function(v)
+                if mod.FillDirection == Enum.FillDirection.Vertical then
+                    mod.VerticalAlignment = v and Enum.VerticalAlignment.Bottom or Enum.VerticalAlignment.Top
+                else
+                    mod.HorizontalAlignment = v and Enum.HorizontalAlignment.Right or Enum.HorizontalAlignment.Left
+                end
+            end)
+            self:CreateToggleProperty(panel, "SortOrder=Name (else LayoutOrder)", mod.SortOrder == Enum.SortOrder.Name, function(v)
+                mod.SortOrder = v and Enum.SortOrder.Name or Enum.SortOrder.LayoutOrder
+            end)
+        elseif modType == "UIGridLayout" then
+            self:CreateProperty(panel, "Cell W", tostring(mod.CellSize.X.Offset), function(v)
+                mod.CellSize = UDim2.fromOffset(tonumber(v) or 80, mod.CellSize.Y.Offset)
+            end)
+            self:CreateProperty(panel, "Cell H", tostring(mod.CellSize.Y.Offset), function(v)
+                mod.CellSize = UDim2.fromOffset(mod.CellSize.X.Offset, tonumber(v) or 80)
+            end)
+            self:CreateProperty(panel, "Cell Pad H", tostring(mod.CellPaddingHorizontal.Offset), function(v)
+                mod.CellPaddingHorizontal = UDim.new(0, tonumber(v) or 6)
+            end)
+            self:CreateProperty(panel, "Cell Pad V", tostring(mod.CellPaddingVertical.Offset), function(v)
+                mod.CellPaddingVertical = UDim.new(0, tonumber(v) or 6)
+            end)
+        elseif modType == "UIPageLayout" then
+            self:CreateToggleProperty(panel, "Animated", mod.Animated, function(v) mod.Animated = v end)
+            self:CreateProperty(panel, "TweenTime", tostring(mod.TweenTime), function(v)
+                mod.TweenTime = tonumber(v) or 0.2
+            end)
+            self:CreateToggleProperty(panel, "Horizontal (else Vertical)", mod.FillDirection == Enum.FillDirection.Horizontal, function(v)
+                mod.FillDirection = v and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical
+            end)
+        end
+    end
+end
+function Modules.GUICreator:CreateProperty(panel, name, value, onChange)
+    local container = Instance.new("Frame", panel)
+    container.Size = UDim2.new(1,-6,0,48)
+    container.BackgroundColor3 = Color3.fromRGB(36,36,50)
+    container.BorderSizePixel = 0
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0,5)
+    local label = Instance.new("TextLabel", container)
+    label.Size = UDim2.new(1,-10,0,18)
+    label.Position = UDim2.fromOffset(6,4)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.GothamBold
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(180,180,200)
+    label.TextSize = 10
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    local input = Instance.new("TextBox", container)
+    input.Size = UDim2.new(1,-12,0,20)
+    input.Position = UDim2.fromOffset(6,24)
+    input.BackgroundColor3 = Color3.fromRGB(26,26,38)
+    input.BorderSizePixel = 0
+    input.Font = Enum.Font.Code
+    input.Text = tostring(value)
+    input.TextColor3 = Color3.new(1,1,1)
+    input.TextSize = 10
+    input.ClearTextOnFocus = false
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0,4)
+    input.FocusLost:Connect(function() onChange(input.Text) end)
+end
+function Modules.GUICreator:CreateColorProperty(panel, name, color, onChange)
+    local container = Instance.new("Frame", panel)
+    container.Size = UDim2.new(1,-6,0,48)
+    container.BackgroundColor3 = Color3.fromRGB(36,36,50)
+    container.BorderSizePixel = 0
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0,5)
+    local label = Instance.new("TextLabel", container)
+    label.Size = UDim2.new(1,-46,0,18)
+    label.Position = UDim2.fromOffset(6,4)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.GothamBold
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(180,180,200)
+    label.TextSize = 10
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    local preview = Instance.new("Frame", container)
+    preview.Size = UDim2.fromOffset(22,22)
+    preview.Position = UDim2.new(1,-28,0,4)
+    preview.BackgroundColor3 = color
+    preview.BorderSizePixel = 0
+    Instance.new("UICorner", preview).CornerRadius = UDim.new(0,4)
+    local input = Instance.new("TextBox", container)
+    input.Size = UDim2.new(1,-12,0,20)
+    input.Position = UDim2.fromOffset(6,24)
+    input.BackgroundColor3 = Color3.fromRGB(26,26,38)
+    input.BorderSizePixel = 0
+    input.Font = Enum.Font.Code
+    input.Text = string.format("%d,%d,%d", color.R*255, color.G*255, color.B*255)
+    input.TextColor3 = Color3.new(1,1,1)
+    input.TextSize = 10
+    input.PlaceholderText = "R,G,B"
+    input.ClearTextOnFocus = false
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0,4)
+    input.FocusLost:Connect(function()
+        local p = string.split(input.Text, ",")
+        if #p == 3 then
+            local r,g,b = tonumber(p[1]),tonumber(p[2]),tonumber(p[3])
+            if r and g and b then
+                local nc = Color3.fromRGB(r,g,b)
+                preview.BackgroundColor3 = nc
+                onChange(nc)
+            end
+        end
+    end)
+end
+function Modules.GUICreator:CreateToggleProperty(panel, name, currentValue, onChange)
+    local container = Instance.new("Frame", panel)
+    container.Size = UDim2.new(1,-6,0,34)
+    container.BackgroundColor3 = Color3.fromRGB(36,36,50)
+    container.BorderSizePixel = 0
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0,5)
+    local label = Instance.new("TextLabel", container)
+    label.Size = UDim2.new(1,-50,1,0)
+    label.Position = UDim2.fromOffset(6,0)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.GothamBold
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(180,180,200)
+    label.TextSize = 10
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    local val = currentValue
+    local toggleBtn = Instance.new("TextButton", container)
+    toggleBtn.Size = UDim2.fromOffset(44, 22)
+    toggleBtn.Position = UDim2.new(1,-50,0.5,-11)
+    toggleBtn.BorderSizePixel = 0
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.TextSize = 10
+    toggleBtn.TextColor3 = Color3.new(1,1,1)
+    toggleBtn.AutoButtonColor = false
+    Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0,4)
+    local function refresh()
+        toggleBtn.Text = val and "ON" or "OFF"
+        toggleBtn.BackgroundColor3 = val and Color3.fromRGB(0,180,90) or Color3.fromRGB(140,40,60)
+    end
+    refresh()
+    toggleBtn.MouseButton1Click:Connect(function()
+        val = not val
+        refresh()
+        onChange(val)
+    end)
+end
+function Modules.GUICreator:DeleteElement(element)
+    local savedType, savedData
+    local savedIdx
+    for i, data in ipairs(self.State.CreatedGUIs) do
+        if data.Element == element then
+            savedType = data.Type
+            savedData = data
+            savedIdx  = i
+            table.remove(self.State.CreatedGUIs, i)
+            break
+        end
+    end
+    if savedData and savedData.Connections then
+        for _, c in ipairs(savedData.Connections) do
+            if c then c:Disconnect() end
+        end
+    end
+    if savedData and savedData.SelectionBox then
+        savedData.SelectionBox:Destroy()
+    end
+    local snap = {
+        Size             = element.Size,
+        Position         = element.Position,
+        BackgroundColor3 = element.BackgroundColor3,
+        ZIndex           = element.ZIndex,
+        CornerRadius     = savedData and savedData.CornerRadius or 8,
+    }
+    if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
+        snap.Text       = element.Text
+        snap.TextColor3 = element.TextColor3
+        snap.TextSize   = element.TextSize
+    end
+    if element:IsA("ImageLabel") or element:IsA("ImageButton") then
+        snap.Image             = element.Image
+        snap.ImageTransparency = element.ImageTransparency
+        snap.ImageColor3       = element.ImageColor3
+    end
+    if element:IsA("ScrollingFrame") then
+        snap.CanvasSize           = UDim2.fromOffset(element.CanvasSize.X.Offset, element.CanvasSize.Y.Offset)
+        snap.ScrollBarThickness   = element.ScrollBarThickness
+        snap.ScrollBarImageColor3 = element.ScrollBarImageColor3
+    end
+    if element:IsA("CanvasGroup") then
+        snap.GroupTransparency = element.GroupTransparency
+        snap.GroupColor3       = element.GroupColor3
+    end
+    if element:IsA("ViewportFrame") then
+        snap.Ambient        = element.Ambient
+        snap.LightColor     = element.LightColor
+        snap.LightDirection = element.LightDirection
+    end
+    if element:IsA("VideoFrame") then
+        snap.Video  = element.Video
+    end
+    element:Destroy()
+    self.State.SelectedElement = nil
+    self:UpdatePropertiesPanel(nil)
+    self:RefreshHierarchy()
+    self:PushUndo({
+        Undo = function()
+            self:CreateElement(savedType, snap)
+        end,
+        Do = function()
+            local latest = self.State.CreatedGUIs[#self.State.CreatedGUIs]
+            if latest then self:DeleteElement(latest.Element) end
+        end
+    })
+    print("[GUICreator] ✓ Deleted element")
+end
+function Modules.GUICreator:ClearCanvas()
+    for _, data in ipairs(self.State.CreatedGUIs) do
+        if data.Connections then
+            for _, c in ipairs(data.Connections) do if c then c:Disconnect() end end
+        end
+        if data.SelectionBox then data.SelectionBox:Destroy() end
+        if data.Element then data.Element:Destroy() end
+    end
+    self.State.CreatedGUIs     = {}
+    self.State.UndoStack       = {}
+    self.State.RedoStack       = {}
+    self.State.SelectedElement = nil
+    self:UpdatePropertiesPanel(nil)
+    self:RefreshHierarchy()
+    print("[GUICreator] ✓ Cleared canvas")
+end
+function Modules.GUICreator:ExportCode()
+    local lines = {}
+    local function w(s) table.insert(lines, s) end
+    w("-- ════════════════════════════════════════")
+    w("-- Generated by GUI Creator (Zuka)")
+    w("-- Project: " .. self.State.CurrentProject.Name)
+    w("-- ════════════════════════════════════════")
+    w("local Players     = game:GetService('Players')")
+    w("local LocalPlayer = Players.LocalPlayer")
+    w("")
+    w("local ScreenGui = Instance.new('ScreenGui')")
+    w("ScreenGui.Name            = '" .. self.State.CurrentProject.Name .. "'")
+    w("ScreenGui.ResetOnSpawn    = false")
+    w("ScreenGui.ZIndexBehavior  = Enum.ZIndexBehavior.Sibling")
+    w("ScreenGui.Parent          = LocalPlayer:WaitForChild('PlayerGui')")
+    w("")
+    for _, data in ipairs(self.State.CreatedGUIs) do
+        local e = data.Element
+        if not e or not e.Parent then continue end
+        local n = e.Name
+        w(string.format("-- %s", n))
+        w(string.format("local %s = Instance.new('%s')", n, data.Type))
+        w(string.format("%s.Name                   = '%s'",   n, n))
+        w(string.format("%s.Size                   = UDim2.fromOffset(%d, %d)", n, e.Size.X.Offset, e.Size.Y.Offset))
+        w(string.format("%s.Position               = UDim2.fromOffset(%d, %d)", n, e.Position.X.Offset, e.Position.Y.Offset))
+        w(string.format("%s.AnchorPoint            = Vector2.new(%g, %g)",      n, e.AnchorPoint.X, e.AnchorPoint.Y))
+        w(string.format("%s.BackgroundColor3       = Color3.fromRGB(%d, %d, %d)",
+            n, math.round(e.BackgroundColor3.R*255), math.round(e.BackgroundColor3.G*255), math.round(e.BackgroundColor3.B*255)))
+        w(string.format("%s.BackgroundTransparency = %g",  n, e.BackgroundTransparency))
+        w(string.format("%s.BorderSizePixel        = 0",   n))
+        w(string.format("%s.ZIndex                 = %d",  n, e.ZIndex))
+        w(string.format("%s.Visible                = %s",  n, tostring(e.Visible)))
+        if e:IsA("TextLabel") or e:IsA("TextButton") or e:IsA("TextBox") then
+            local safe = e.Text:gsub("'", "\\'")
+            w(string.format("%s.Text                   = '%s'",  n, safe))
+            w(string.format("%s.TextColor3             = Color3.fromRGB(%d, %d, %d)",
+                n, math.round(e.TextColor3.R*255), math.round(e.TextColor3.G*255), math.round(e.TextColor3.B*255)))
+            w(string.format("%s.TextSize               = %d",    n, e.TextSize))
+            w(string.format("%s.Font                   = Enum.Font.%s",
+                n, tostring(e.Font):gsub("Enum%.Font%.", "")))
+            w(string.format("%s.TextXAlignment         = Enum.TextXAlignment.Left", n))
+        end
+        if e:IsA("ImageLabel") or e:IsA("ImageButton") then
+            w(string.format("%s.Image              = '%s'",   n, e.Image))
+            w(string.format("%s.ImageTransparency  = %g",    n, e.ImageTransparency))
+            w(string.format("%s.ImageColor3        = Color3.fromRGB(%d,%d,%d)",
+                n, math.round(e.ImageColor3.R*255), math.round(e.ImageColor3.G*255), math.round(e.ImageColor3.B*255)))
+            w(string.format("%s.ScaleType          = Enum.ScaleType.%s",
+                n, tostring(e.ScaleType):gsub("Enum%.ScaleType%.","")))
+            if e:IsA("ImageButton") then
+                w(string.format("%s.Text = ''", n))
+            end
+        end
+        if e:IsA("ScrollingFrame") then
+            local scrollEnabled = true
+            if data.ExportScrollingEnabled ~= nil then scrollEnabled = data.ExportScrollingEnabled end
+            w(string.format("%s.ScrollBarThickness   = %d",           n, e.ScrollBarThickness))
+            w(string.format("%s.ScrollBarImageColor3 = Color3.fromRGB(%d,%d,%d)",
+                n, math.round(e.ScrollBarImageColor3.R*255), math.round(e.ScrollBarImageColor3.G*255), math.round(e.ScrollBarImageColor3.B*255)))
+            w(string.format("%s.CanvasSize           = UDim2.fromOffset(%d, %d)",
+                n, e.CanvasSize.X.Offset, e.CanvasSize.Y.Offset))
+            w(string.format("%s.ScrollingEnabled     = %s",           n, tostring(scrollEnabled)))
+            w(string.format("%s.AutomaticCanvasSize  = Enum.AutomaticSize.%s",
+                n, tostring(e.AutomaticCanvasSize):gsub("Enum%.AutomaticSize%.","")))
+        end
+        if e:IsA("CanvasGroup") then
+            w(string.format("%s.GroupTransparency = %g",   n, e.GroupTransparency))
+            w(string.format("%s.GroupColor3       = Color3.fromRGB(%d,%d,%d)",
+                n, math.round(e.GroupColor3.R*255), math.round(e.GroupColor3.G*255), math.round(e.GroupColor3.B*255)))
+        end
+        if e:IsA("ViewportFrame") then
+            w(string.format("%s.Ambient          = Color3.fromRGB(%d,%d,%d)",
+                n, math.round(e.Ambient.R*255), math.round(e.Ambient.G*255), math.round(e.Ambient.B*255)))
+            w(string.format("%s.LightColor       = Color3.fromRGB(%d,%d,%d)",
+                n, math.round(e.LightColor.R*255), math.round(e.LightColor.G*255), math.round(e.LightColor.B*255)))
+            w(string.format("%s.LightDirection   = Vector3.new(%g,%g,%g)",
+                n, e.LightDirection.X, e.LightDirection.Y, e.LightDirection.Z))
+            w(string.format("%s.ImageTransparency = %g", n, e.ImageTransparency))
+        end
+        if e:IsA("VideoFrame") then
+            w(string.format("%s.Video   = '%s'",   n, e.Video))
+            w(string.format("%s.Looped  = %s",     n, tostring(e.Looped)))
+            w(string.format("%s.Volume  = %g",     n, e.Volume))
+        end
+        local modifierTypes = {
+            "UICorner","UIStroke","UIGradient","UIPadding","UIScale",
+            "UIAspectRatioConstraint","UISizeConstraint",
+            "UIListLayout","UIGridLayout","UITableLayout","UIPageLayout"
+        }
+        for _, modType in ipairs(modifierTypes) do
+            local mod = e:FindFirstChildOfClass(modType)
+            if not mod then continue end
+            local mn = n .. "_" .. modType
+            w(string.format("do -- %s on %s", modType, n))
+            w(string.format("  local %s = Instance.new('%s', %s)", mn, modType, n))
+            if modType == "UICorner" then
+                w(string.format("  %s.CornerRadius = UDim.new(0,%d)", mn, mod.CornerRadius.Offset))
+            elseif modType == "UIStroke" then
+                w(string.format("  %s.Color         = Color3.fromRGB(%d,%d,%d)",
+                    mn, math.round(mod.Color.R*255), math.round(mod.Color.G*255), math.round(mod.Color.B*255)))
+                w(string.format("  %s.Thickness     = %g",     mn, mod.Thickness))
+                w(string.format("  %s.Transparency  = %g",     mn, mod.Transparency))
+                w(string.format("  %s.ApplyStrokeMode = Enum.ApplyStrokeMode.%s",
+                    mn, tostring(mod.ApplyStrokeMode):gsub("Enum%.ApplyStrokeMode%.","")))
+            elseif modType == "UIGradient" then
+                w(string.format("  %s.Rotation = %g", mn, mod.Rotation))
+                w(string.format("  %s.Offset   = Vector2.new(%g,%g)", mn, mod.Offset.X, mod.Offset.Y))
+                w(string.format("  %s.Enabled  = %s", mn, tostring(mod.Enabled)))
+            elseif modType == "UIPadding" then
+                w(string.format("  %s.PaddingLeft   = UDim.new(0,%d)", mn, mod.PaddingLeft.Offset))
+                w(string.format("  %s.PaddingRight  = UDim.new(0,%d)", mn, mod.PaddingRight.Offset))
+                w(string.format("  %s.PaddingTop    = UDim.new(0,%d)", mn, mod.PaddingTop.Offset))
+                w(string.format("  %s.PaddingBottom = UDim.new(0,%d)", mn, mod.PaddingBottom.Offset))
+            elseif modType == "UIScale" then
+                w(string.format("  %s.Scale = %g", mn, mod.Scale))
+            elseif modType == "UIAspectRatioConstraint" then
+                w(string.format("  %s.AspectRatio = %g", mn, mod.AspectRatio))
+                w(string.format("  %s.AspectType  = Enum.AspectType.%s",
+                    mn, tostring(mod.AspectType):gsub("Enum%.AspectType%.","")))
+            elseif modType == "UISizeConstraint" then
+                local minX, minY = mod.MinSize.X, mod.MinSize.Y
+                local maxX = mod.MaxSize.X == math.huge and "math.huge" or tostring(mod.MaxSize.X)
+                local maxY = mod.MaxSize.Y == math.huge and "math.huge" or tostring(mod.MaxSize.Y)
+                w(string.format("  %s.MinSize = Vector2.new(%g,%g)", mn, minX, minY))
+                w(string.format("  %s.MaxSize = Vector2.new(%s,%s)", mn, maxX, maxY))
+            elseif modType == "UIListLayout" then
+                w(string.format("  %s.Padding             = UDim.new(0,%d)", mn, mod.Padding.Offset))
+                w(string.format("  %s.FillDirection       = Enum.FillDirection.%s",
+                    mn, tostring(mod.FillDirection):gsub("Enum%.FillDirection%.","")))
+                w(string.format("  %s.HorizontalAlignment = Enum.HorizontalAlignment.%s",
+                    mn, tostring(mod.HorizontalAlignment):gsub("Enum%.HorizontalAlignment%.","")))
+                w(string.format("  %s.VerticalAlignment   = Enum.VerticalAlignment.%s",
+                    mn, tostring(mod.VerticalAlignment):gsub("Enum%.VerticalAlignment%.","")))
+                w(string.format("  %s.SortOrder           = Enum.SortOrder.%s",
+                    mn, tostring(mod.SortOrder):gsub("Enum%.SortOrder%.","")))
+            elseif modType == "UIGridLayout" then
+                w(string.format("  %s.CellSize               = UDim2.fromOffset(%d,%d)", mn, mod.CellSize.X.Offset, mod.CellSize.Y.Offset))
+                w(string.format("  %s.CellPaddingHorizontal  = UDim.new(0,%d)", mn, mod.CellPaddingHorizontal.Offset))
+                w(string.format("  %s.CellPaddingVertical    = UDim.new(0,%d)", mn, mod.CellPaddingVertical.Offset))
+                w(string.format("  %s.SortOrder              = Enum.SortOrder.%s",
+                    mn, tostring(mod.SortOrder):gsub("Enum%.SortOrder%.","")))
+            elseif modType == "UITableLayout" then
+                w(string.format("  %s.FillDirection = Enum.FillDirection.%s",
+                    mn, tostring(mod.FillDirection):gsub("Enum%.FillDirection%.","")))
+                w(string.format("  %s.Padding       = UDim.new(0,%d)", mn, mod.Padding.Offset))
+            elseif modType == "UIPageLayout" then
+                w(string.format("  %s.Animated     = %s", mn, tostring(mod.Animated)))
+                w(string.format("  %s.TweenTime    = %g", mn, mod.TweenTime))
+                w(string.format("  %s.FillDirection = Enum.FillDirection.%s",
+                    mn, tostring(mod.FillDirection):gsub("Enum%.FillDirection%.","")))
+            end
+            w("end")
+        end
+        w(string.format("%s.Parent = ScreenGui", n))
+        w("")
+    end
+    local code = table.concat(lines, "\n")
+    if setclipboard then
+        setclipboard(code)
+        print("[GUICreator] ✓ Code copied to clipboard!")
     else
-        self:Open()
+        print(code)
+        print("[GUICreator] ✓ Code printed to console (F9)")
     end
 end
-function Modules.RemoteSpy:StopHook()
-    self:_unhook()
-    DoNotif("RemoteSpy hook removed", 1.5)
+function Modules.GUICreator:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    self:_createUI()
+    print("[GUICreator] ✓ Enabled")
+    print("  Drag | Resize via handles | Ctrl+Z/Y | Ctrl+D dup | Del delete | ScrollingFrame fully resizable")
 end
-function Modules.RemoteSpy:Initialize()
-    RegisterCommand({
-        Name        = "remotespy",
-        Aliases     = {"respy", "sspy"},
-        Description = "Toggle the Remote Spy / Explorer panel"
-    }, function()
-        Modules.RemoteSpy:Toggle()
-    end)
-    RegisterCommand({
-        Name        = "spyhook",
-        Aliases     = {"hookspy"},
-        Description = "Toggle the namecall hook (intercepts FireServer/InvokeServer)"
-    }, function()
-        if Modules.RemoteSpy.State.Hooked then
-            Modules.RemoteSpy:StopHook()
-        else
-            Modules.RemoteSpy:_hook()
-            DoNotif("RemoteSpy hook active", 1.5)
+function Modules.GUICreator:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    for _, conn in pairs(self.State.Connections) do
+        if conn then conn:Disconnect() end
+    end
+    table.clear(self.State.Connections)
+    for _, data in ipairs(self.State.CreatedGUIs) do
+        if data.Connections then
+            for _, c in ipairs(data.Connections) do if c then c:Disconnect() end end
         end
-    end)
-    RegisterCommand({
-        Name        = "spyscan",
-        Aliases     = {"rscan"},
-        Description = "Re-scan all remotes in the game"
-    }, function()
-        if not Modules.RemoteSpy.State.IsOpen then
-            DoNotif("Open RemoteSpy first: ;remotespy", 2)
-            return
-        end
-        Modules.RemoteSpy:_scanRemotes()
-    end)
-    RegisterCommand({
-        Name        = "spyclear",
-        Aliases     = {"rspyclear"},
-        Description = "Clear all spy log entries"
-    }, function()
-        local logs = Modules.RemoteSpy.State.SpyLogs
-        if logs then
-            logs:ClearAllChildren()
-            Modules.RemoteSpy.State.LogCount = 0
-            DoNotif("Spy logs cleared", 1.5)
-        end
-    end)
+    end
+    if self.State.UI then
+        self.State.UI:Destroy()
+        self.State.UI = nil
+    end
+    self.State.CreatedGUIs     = {}
+    self.State.UndoStack       = {}
+    self.State.RedoStack       = {}
+    self.State.SelectedElement = nil
+    self.State.GridFrame       = nil
+    print("[GUICreator] ✓ Disabled")
+end
+function Modules.GUICreator:Toggle()
+    if self.State.IsEnabled then self:Disable() else self:Enable() end
 end
 Modules.RemoteForcer = {
     State = {
@@ -34558,7 +32667,8 @@ Modules.RemoteForcer = {
         CommonWeaponRemotes = {
             "EquipTool", "Equip", "EquipWeapon", "SelectWeapon", 
             "GiveTool", "GiveWeapon", "UnlockWeapon", "PurchaseWeapon",
-            "ToolEquip", "LoadoutEquip", "SelectLoadout", "SwapWeapon"
+            "ToolEquip", "LoadoutEquip", "SelectLoadout", "SwapWeapon",
+             "Shop", "Function"
         },
         CommonWeaponServices = {
             "ReplicatedStorage", "ReplicatedFirst"
@@ -34856,7 +32966,7 @@ RegisterCommand({
 end)
 RegisterCommand({
     Name = "forceequip",
-    Aliases = {},
+    Aliases = {"force"},
     Description = "Try to force equip a weapon. Usage: ;forceequip <weaponName>"
 }, function(args)
     if not args[1] then
@@ -34871,7 +32981,7 @@ RegisterCommand({
 end)
 RegisterCommand({
     Name = "bruteequip",
-    Aliases = {"beq"},
+    Aliases = {},
     Description = "Brute force weapon equip (tries every remote). Usage: ;bruteequip <weaponName>"
 }, function(args)
     if not args[1] then
@@ -35685,7 +33795,6 @@ function Modules.PlayerLookup:Initialize()
         module:LookupUserId(userId)
     end)
 end
-
 Modules.NetworkClaim = {
     State = {
         IsEnabled = false,
@@ -36283,7 +34392,6 @@ RegisterCommand({
 }, function()
     Modules.NetworkClaim:Toggle()
 end)
-
 Modules.MapStripper = {
     State = { IsEnabled = false, Connection = nil },
     Dependencies = {"Players", "UserInputService"}
@@ -36370,9 +34478,7 @@ function Modules.HandleKill:_process()
             end
             local character = target.Character
             local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if not humanoid or humanoid.Health <= 0 then
-                return
-            end
+            if not humanoid or humanoid.Health <= 0 then return end
             for _, part in ipairs(character:GetChildren()) do
                 if part:IsA("BasePart") then
                     firetouchinterest(handle, part, 0)
@@ -36382,6 +34488,17 @@ function Modules.HandleKill:_process()
         end)
     end
 end
+function Modules.HandleKill:_startHeartbeat()
+    if self.State.HeartbeatConnection then return end
+    self.State.HeartbeatConnection = RunService.Heartbeat:Connect(function()
+        if next(self.State.ActiveTargets) == nil then
+            self.State.HeartbeatConnection:Disconnect()
+            self.State.HeartbeatConnection = nil
+            return
+        end
+        self:_process()
+    end)
+end
 function Modules.HandleKill:ToggleTarget(player: Player)
     if self.State.ActiveTargets[player] then
         self.State.ActiveTargets[player] = nil
@@ -36389,37 +34506,82 @@ function Modules.HandleKill:ToggleTarget(player: Player)
     else
         self.State.ActiveTargets[player] = true
         DoNotif("HandleKill: Targeting " .. player.Name, 2)
-        if not self.State.HeartbeatConnection then
-            self.State.HeartbeatConnection = RunService.Heartbeat:Connect(function()
-                if next(self.State.ActiveTargets) == nil then
-                    self.State.HeartbeatConnection:Disconnect()
-                    self.State.HeartbeatConnection = nil
-                    return
-                end
-                self:_process()
-            end)
+        self:_startHeartbeat()
+    end
+end
+function Modules.HandleKill:ToggleAll()
+    local allTargeted = true
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer and not self.State.ActiveTargets[player] then
+            allTargeted = false
+            break
         end
     end
+    if allTargeted then
+        self.State.ActiveTargets = {}
+        DoNotif("HandleKill: Stopped for all players.", 2)
+    else
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= Players.LocalPlayer then
+                self.State.ActiveTargets[player] = true
+            end
+        end
+        DoNotif("HandleKill: Targeting all players.", 2)
+        self:_startHeartbeat()
+    end
+    if not self._allJoinConn then
+        self._allJoinConn = Players.PlayerAdded:Connect(function(p)
+            if self.State.ActiveTargets ~= nil and next(self.State.ActiveTargets) ~= nil then
+                self.State.ActiveTargets[p] = true
+            end
+        end)
+        self._allLeaveConn = Players.PlayerRemoving:Connect(function(p)
+            self.State.ActiveTargets[p] = nil
+        end)
+    end
+end
+function Modules.HandleKill:ToggleOthers()
+    self:ToggleAll()
+end
+function Modules.HandleKill:ClearAll()
+    self.State.ActiveTargets = {}
+    if self._allJoinConn then
+        self._allJoinConn:Disconnect()
+        self._allJoinConn = nil
+    end
+    if self._allLeaveConn then
+        self._allLeaveConn:Disconnect()
+        self._allLeaveConn = nil
+    end
+    DoNotif("HandleKill: Cleared all targets.", 2)
 end
 function Modules.HandleKill:Initialize()
     local module = self
     RegisterCommand({
         Name = "handlekill",
-        Aliases = {"hkill", "touchkill"},
-        Description = "Toggles a continuous touch-kill loop on a target using your equipped tool."
+        Aliases = {"hkill"},
+        Description = "Toggles touch-kill on a target. Use 'all' or 'others' to target everyone."
     }, function(args)
         if not firetouchinterest then
             return DoNotif("Error: Your executor does not support 'firetouchinterest'.", 4)
         end
-        local targetName = table.concat(args, " ")
+        local targetName = table.concat(args, " "):lower()
         if #targetName == 0 then
-            return DoNotif("Usage: ;hkill <PlayerName>", 3)
+            return DoNotif("Usage: ;hkill <PlayerName | all | others | clear>", 3)
         end
-        local targetPlayer = Utilities.findPlayer(targetName)
-        if targetPlayer then
-            module:ToggleTarget(targetPlayer)
+        if targetName == "all" then
+            module:ToggleAll()
+        elseif targetName == "others" then
+            module:ToggleOthers()
+        elseif targetName == "clear" then
+            module:ClearAll()
         else
-            DoNotif("Player '" .. targetName .. "' not found.", 3)
+            local targetPlayer = Utilities.findPlayer(targetName)
+            if targetPlayer then
+                module:ToggleTarget(targetPlayer)
+            else
+                DoNotif("Player '" .. targetName .. "' not found.", 3)
+            end
         end
     end)
 end
@@ -36819,19 +34981,16 @@ Modules.PlayerAttach = {
         HighlightColor = Color3.fromRGB(100, 255, 255)
     }
 }
-
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-
 function Modules.PlayerAttach:_createUI()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "PlayerAttach_Zuka"
     screenGui.ResetOnSpawn = false
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
     self.State.UI = screenGui
-    
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
     mainFrame.Size = UDim2.fromOffset(380, 580)
@@ -36839,26 +34998,20 @@ function Modules.PlayerAttach:_createUI()
     mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
-    
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
-    
     local stroke = Instance.new("UIStroke", mainFrame)
     stroke.Color = Color3.fromRGB(100, 255, 255)
     stroke.Thickness = 2
-    
     local glowTween = TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
         Thickness = 3
     })
     glowTween:Play()
-    
-    -- Title Bar
     local titleBar = Instance.new("Frame", mainFrame)
     titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, 0, 0, 35)
     titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
     titleBar.BorderSizePixel = 0
     Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
-    
     local title = Instance.new("TextLabel", titleBar)
     title.Size = UDim2.new(1, -90, 1, 0)
     title.Position = UDim2.fromOffset(10, 0)
@@ -36868,7 +35021,6 @@ function Modules.PlayerAttach:_createUI()
     title.TextColor3 = Color3.fromRGB(100, 255, 255)
     title.TextSize = 16
     title.TextXAlignment = Enum.TextXAlignment.Left
-    
     local statusIndicator = Instance.new("TextLabel", titleBar)
     statusIndicator.Name = "StatusIndicator"
     statusIndicator.Size = UDim2.fromOffset(90, 20)
@@ -36880,7 +35032,6 @@ function Modules.PlayerAttach:_createUI()
     statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
     statusIndicator.TextSize = 10
     Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
-    
     local closeBtn = Instance.new("TextButton", titleBar)
     closeBtn.Size = UDim2.fromOffset(30, 30)
     closeBtn.Position = UDim2.new(1, -32, 0, 2)
@@ -36891,18 +35042,14 @@ function Modules.PlayerAttach:_createUI()
     closeBtn.Font = Enum.Font.GothamBold
     closeBtn.TextSize = 20
     Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
-    
     closeBtn.MouseButton1Click:Connect(function()
         self:Disable()
     end)
-    
-    -- Make draggable
     local dragStart, startPos
     titleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragStart = input.Position
             startPos = mainFrame.Position
-            
             local moveConn, endConn
             moveConn = game:GetService("UserInputService").InputChanged:Connect(function(moveInput)
                 if moveInput.UserInputType == Enum.UserInputType.MouseMovement then
@@ -36913,7 +35060,6 @@ function Modules.PlayerAttach:_createUI()
                     )
                 end
             end)
-            
             endConn = game:GetService("UserInputService").InputEnded:Connect(function(endInput)
                 if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
                     moveConn:Disconnect()
@@ -36922,14 +35068,11 @@ function Modules.PlayerAttach:_createUI()
             end)
         end
     end)
-    
     local content = Instance.new("Frame", mainFrame)
     content.Name = "Content"
     content.Size = UDim2.new(1, -20, 1, -45)
     content.Position = UDim2.fromOffset(10, 40)
     content.BackgroundTransparency = 1
-    
-    -- Target Selection
     local targetLabel = Instance.new("TextLabel", content)
     targetLabel.Name = "TargetLabel"
     targetLabel.Size = UDim2.new(1, 0, 0, 35)
@@ -36940,8 +35083,6 @@ function Modules.PlayerAttach:_createUI()
     targetLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     targetLabel.TextSize = 12
     Instance.new("UICorner", targetLabel).CornerRadius = UDim.new(0, 6)
-    
-    -- Player List
     local playersLabel = Instance.new("TextLabel", content)
     playersLabel.Size = UDim2.new(1, 0, 0, 20)
     playersLabel.Position = UDim2.fromOffset(0, 45)
@@ -36951,7 +35092,6 @@ function Modules.PlayerAttach:_createUI()
     playersLabel.TextColor3 = Color3.new(1, 1, 1)
     playersLabel.TextSize = 13
     playersLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
     local playerList = Instance.new("ScrollingFrame", content)
     playerList.Name = "PlayerList"
     playerList.Size = UDim2.new(1, 0, 0, 100)
@@ -36963,12 +35103,9 @@ function Modules.PlayerAttach:_createUI()
     playerList.CanvasSize = UDim2.fromOffset(0, 0)
     playerList.AutomaticCanvasSize = Enum.AutomaticSize.Y
     Instance.new("UICorner", playerList).CornerRadius = UDim.new(0, 6)
-    
     local listLayout = Instance.new("UIListLayout", playerList)
     listLayout.Padding = UDim.new(0, 3)
     listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    
-    -- Position Settings
     local settingsLabel = Instance.new("TextLabel", content)
     settingsLabel.Size = UDim2.new(1, 0, 0, 20)
     settingsLabel.Position = UDim2.fromOffset(0, 180)
@@ -36978,8 +35115,6 @@ function Modules.PlayerAttach:_createUI()
     settingsLabel.TextColor3 = Color3.new(1, 1, 1)
     settingsLabel.TextSize = 13
     settingsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Distance
     local distanceLabel = Instance.new("TextLabel", content)
     distanceLabel.Size = UDim2.new(1, 0, 0, 18)
     distanceLabel.Position = UDim2.fromOffset(0, 205)
@@ -36989,7 +35124,6 @@ function Modules.PlayerAttach:_createUI()
     distanceLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     distanceLabel.TextSize = 11
     distanceLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
     local distanceInput = Instance.new("TextBox", content)
     distanceInput.Size = UDim2.new(1, 0, 0, 30)
     distanceInput.Position = UDim2.fromOffset(0, 227)
@@ -37001,7 +35135,6 @@ function Modules.PlayerAttach:_createUI()
     distanceInput.TextSize = 12
     distanceInput.PlaceholderText = "Distance behind target..."
     Instance.new("UICorner", distanceInput).CornerRadius = UDim.new(0, 6)
-    
     distanceInput.FocusLost:Connect(function()
         local value = tonumber(distanceInput.Text)
         if value then
@@ -37011,8 +35144,6 @@ function Modules.PlayerAttach:_createUI()
             distanceInput.Text = tostring(self.Config.Distance)
         end
     end)
-    
-    -- Vertical Offset
     local verticalLabel = Instance.new("TextLabel", content)
     verticalLabel.Size = UDim2.new(1, 0, 0, 18)
     verticalLabel.Position = UDim2.fromOffset(0, 265)
@@ -37022,7 +35153,6 @@ function Modules.PlayerAttach:_createUI()
     verticalLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     verticalLabel.TextSize = 11
     verticalLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
     local verticalInput = Instance.new("TextBox", content)
     verticalInput.Size = UDim2.new(1, 0, 0, 30)
     verticalInput.Position = UDim2.fromOffset(0, 287)
@@ -37034,7 +35164,6 @@ function Modules.PlayerAttach:_createUI()
     verticalInput.TextSize = 12
     verticalInput.PlaceholderText = "Height offset..."
     Instance.new("UICorner", verticalInput).CornerRadius = UDim.new(0, 6)
-    
     verticalInput.FocusLost:Connect(function()
         local value = tonumber(verticalInput.Text)
         if value then
@@ -37044,8 +35173,6 @@ function Modules.PlayerAttach:_createUI()
             verticalInput.Text = tostring(self.Config.VerticalOffset)
         end
     end)
-    
-    -- Horizontal Offset
     local horizontalLabel = Instance.new("TextLabel", content)
     horizontalLabel.Size = UDim2.new(1, 0, 0, 18)
     horizontalLabel.Position = UDim2.fromOffset(0, 325)
@@ -37055,7 +35182,6 @@ function Modules.PlayerAttach:_createUI()
     horizontalLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     horizontalLabel.TextSize = 11
     horizontalLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
     local horizontalInput = Instance.new("TextBox", content)
     horizontalInput.Size = UDim2.new(1, 0, 0, 30)
     horizontalInput.Position = UDim2.fromOffset(0, 347)
@@ -37067,7 +35193,6 @@ function Modules.PlayerAttach:_createUI()
     horizontalInput.TextSize = 12
     horizontalInput.PlaceholderText = "Side offset..."
     Instance.new("UICorner", horizontalInput).CornerRadius = UDim.new(0, 6)
-    
     horizontalInput.FocusLost:Connect(function()
         local value = tonumber(horizontalInput.Text)
         if value then
@@ -37077,8 +35202,6 @@ function Modules.PlayerAttach:_createUI()
             horizontalInput.Text = tostring(self.Config.HorizontalOffset)
         end
     end)
-    
-    -- Follow Settings
     local followLabel = Instance.new("TextLabel", content)
     followLabel.Size = UDim2.new(1, 0, 0, 20)
     followLabel.Position = UDim2.fromOffset(0, 387)
@@ -37088,7 +35211,6 @@ function Modules.PlayerAttach:_createUI()
     followLabel.TextColor3 = Color3.new(1, 1, 1)
     followLabel.TextSize = 13
     followLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
     local followRotationToggle = Instance.new("TextButton", content)
     followRotationToggle.Name = "FollowRotationToggle"
     followRotationToggle.Size = UDim2.new(0.48, 0, 0, 30)
@@ -37100,13 +35222,11 @@ function Modules.PlayerAttach:_createUI()
     followRotationToggle.TextColor3 = Color3.new(1, 1, 1)
     followRotationToggle.TextSize = 10
     Instance.new("UICorner", followRotationToggle).CornerRadius = UDim.new(0, 6)
-    
     followRotationToggle.MouseButton1Click:Connect(function()
         self.Config.FollowRotation = not self.Config.FollowRotation
         followRotationToggle.Text = "ROTATION: " .. (self.Config.FollowRotation and "ON" or "OFF")
         followRotationToggle.BackgroundColor3 = self.Config.FollowRotation and Color3.fromRGB(0, 200, 150) or Color3.fromRGB(50, 50, 65)
     end)
-    
     local smoothToggle = Instance.new("TextButton", content)
     smoothToggle.Name = "SmoothToggle"
     smoothToggle.Size = UDim2.new(0.48, 0, 0, 30)
@@ -37118,14 +35238,11 @@ function Modules.PlayerAttach:_createUI()
     smoothToggle.TextColor3 = Color3.new(1, 1, 1)
     smoothToggle.TextSize = 10
     Instance.new("UICorner", smoothToggle).CornerRadius = UDim.new(0, 6)
-    
     smoothToggle.MouseButton1Click:Connect(function()
         self.Config.SmoothFollow = not self.Config.SmoothFollow
         smoothToggle.Text = "SMOOTH: " .. (self.Config.SmoothFollow and "ON" or "OFF")
         smoothToggle.BackgroundColor3 = self.Config.SmoothFollow and Color3.fromRGB(0, 200, 150) or Color3.fromRGB(50, 50, 65)
     end)
-    
-    -- Actions
     local actionsLabel = Instance.new("TextLabel", content)
     actionsLabel.Size = UDim2.new(1, 0, 0, 20)
     actionsLabel.Position = UDim2.fromOffset(0, 452)
@@ -37135,7 +35252,6 @@ function Modules.PlayerAttach:_createUI()
     actionsLabel.TextColor3 = Color3.new(1, 1, 1)
     actionsLabel.TextSize = 13
     actionsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
     local attachBtn = Instance.new("TextButton", content)
     attachBtn.Name = "AttachButton"
     attachBtn.Size = UDim2.new(1, 0, 0, 40)
@@ -37147,7 +35263,6 @@ function Modules.PlayerAttach:_createUI()
     attachBtn.TextColor3 = Color3.new(1, 1, 1)
     attachBtn.TextSize = 14
     Instance.new("UICorner", attachBtn).CornerRadius = UDim.new(0, 6)
-    
     attachBtn.MouseButton1Click:Connect(function()
         if self.State.IsAttached then
             self:DetachFromPlayer()
@@ -37155,7 +35270,6 @@ function Modules.PlayerAttach:_createUI()
             self:AttachToPlayer()
         end
     end)
-    
     local detachBtn = Instance.new("TextButton", content)
     detachBtn.Size = UDim2.new(1, 0, 0, 35)
     detachBtn.Position = UDim2.fromOffset(0, 527)
@@ -37166,29 +35280,20 @@ function Modules.PlayerAttach:_createUI()
     detachBtn.TextColor3 = Color3.new(1, 1, 1)
     detachBtn.TextSize = 12
     Instance.new("UICorner", detachBtn).CornerRadius = UDim.new(0, 6)
-    
     detachBtn.MouseButton1Click:Connect(function()
         self:DetachFromPlayer()
     end)
-    
     screenGui.Parent = CoreGui
-    
     return targetLabel, statusIndicator, playerList, attachBtn
 end
-
 function Modules.PlayerAttach:PopulatePlayerList()
     if not self.State.UI then return end
-    
     local playerList = self.State.UI.MainFrame.Content.PlayerList
-    
-    -- Clear existing entries
     for _, child in pairs(playerList:GetChildren()) do
         if not child:IsA("UIListLayout") then
             child:Destroy()
         end
     end
-    
-    -- Add players
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local entry = Instance.new("TextButton")
@@ -37202,13 +35307,9 @@ function Modules.PlayerAttach:PopulatePlayerList()
             entry.TextXAlignment = Enum.TextXAlignment.Left
             entry.AutoButtonColor = false
             entry.Parent = playerList
-            
             Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 4)
-            
             entry.MouseButton1Click:Connect(function()
                 self:SelectPlayer(player)
-                
-                -- Highlight selected
                 for _, child in pairs(playerList:GetChildren()) do
                     if child:IsA("TextButton") then
                         child.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
@@ -37216,13 +35317,11 @@ function Modules.PlayerAttach:PopulatePlayerList()
                 end
                 entry.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
             end)
-            
             entry.MouseEnter:Connect(function()
                 if entry.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
                     entry.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
                 end
             end)
-            
             entry.MouseLeave:Connect(function()
                 if entry.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
                     entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
@@ -37231,42 +35330,33 @@ function Modules.PlayerAttach:PopulatePlayerList()
         end
     end
 end
-
 function Modules.PlayerAttach:SelectPlayer(player)
     if not player or not player.Character then
         print("⚠ Invalid player selected")
         return
     end
-    
     self.State.AttachedTo = player
     print(string.format("✓ Selected: %s", player.Name))
     self:UpdateDisplay()
 end
-
 function Modules.PlayerAttach:AttachToPlayer()
     if not self.State.AttachedTo then
         print("⚠ No player selected")
         return
     end
-    
     local targetPlayer = self.State.AttachedTo
     local targetChar = targetPlayer.Character
     local myChar = LocalPlayer.Character
-    
     if not targetChar or not targetChar:FindFirstChild("HumanoidRootPart") then
         print("✗ Target character not found")
         return
     end
-    
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
         print("✗ Your character not found")
         return
     end
-    
     self.State.IsAttached = true
     self.State.OriginalCFrame = myChar.HumanoidRootPart.CFrame
-    
-    -- Create highlight on target
     local highlight = Instance.new("Highlight")
     highlight.Name = "PlayerAttach_Highlight"
     highlight.FillColor = self.Config.HighlightColor
@@ -37275,82 +35365,60 @@ function Modules.PlayerAttach:AttachToPlayer()
     highlight.OutlineTransparency = 0
     highlight.Adornee = targetChar
     highlight.Parent = targetChar
-    
-    -- Attach loop
     self.State.Connections.AttachLoop = RunService.Heartbeat:Connect(function()
         local tChar = targetPlayer.Character
         local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        
         if not (tRoot and myRoot and tRoot.Parent) then
             self:DetachFromPlayer()
             return
         end
-        
-        -- Calculate position behind target
         local offset = CFrame.new(
             self.Config.HorizontalOffset,
             self.Config.VerticalOffset,
             self.Config.Distance
         )
-        
         local targetCFrame
         if self.Config.FollowRotation then
             targetCFrame = tRoot.CFrame * offset
         else
             targetCFrame = CFrame.new(tRoot.Position) * offset
         end
-        
-        -- Apply position
         if self.Config.SmoothFollow then
             myRoot.CFrame = myRoot.CFrame:Lerp(targetCFrame, self.Config.SmoothSpeed)
         else
             myRoot.CFrame = targetCFrame
         end
-        
-        -- Reset velocity to prevent falling
         myRoot.Velocity = Vector3.new(0, 0, 0)
         myRoot.RotVelocity = Vector3.new(0, 0, 0)
     end)
-    
     print(string.format("✓ Attached to: %s", targetPlayer.Name))
     self:UpdateDisplay()
 end
-
 function Modules.PlayerAttach:DetachFromPlayer()
     if not self.State.IsAttached then
         print("⚠ Not currently attached")
         return
     end
-    
     self.State.IsAttached = false
-    
-    -- Disconnect attach loop
     if self.State.Connections.AttachLoop then
         self.State.Connections.AttachLoop:Disconnect()
         self.State.Connections.AttachLoop = nil
     end
-    
-    -- Remove highlight
     if self.State.AttachedTo and self.State.AttachedTo.Character then
         local highlight = self.State.AttachedTo.Character:FindFirstChild("PlayerAttach_Highlight")
         if highlight then
             highlight:Destroy()
         end
     end
-    
     print("✓ Detached from player")
     self:UpdateDisplay()
 end
-
 function Modules.PlayerAttach:UpdateDisplay()
     if not self.State.UI then return end
-    
     local targetLabel = self.State.UI.MainFrame.Content.TargetLabel
     local statusIndicator = self.State.UI.MainFrame.TitleBar.StatusIndicator
     local attachBtn = self.State.UI.MainFrame.Content.AttachButton
-    
-    -- Update target label
     if self.State.AttachedTo then
         targetLabel.Text = "Target: " .. self.State.AttachedTo.Name
         targetLabel.TextColor3 = Color3.fromRGB(100, 255, 255)
@@ -37358,8 +35426,6 @@ function Modules.PlayerAttach:UpdateDisplay()
         targetLabel.Text = "No target selected"
         targetLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     end
-    
-    -- Update status
     if self.State.IsAttached then
         statusIndicator.Text = "ATTACHED"
         statusIndicator.BackgroundColor3 = Color3.fromRGB(0, 200, 150)
@@ -37374,20 +35440,15 @@ function Modules.PlayerAttach:UpdateDisplay()
         attachBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
     end
 end
-
 function Modules.PlayerAttach:Enable()
     if self.State.IsEnabled then return end
     self.State.IsEnabled = true
-    
     self:_createUI()
     self:PopulatePlayerList()
-    
-    -- Refresh player list when players join/leave
     self.State.Connections.PlayerAdded = Players.PlayerAdded:Connect(function()
         task.wait(0.1)
         self:PopulatePlayerList()
     end)
-    
     self.State.Connections.PlayerRemoving = Players.PlayerRemoving:Connect(function(player)
         if self.State.AttachedTo == player then
             self:DetachFromPlayer()
@@ -37395,39 +35456,27 @@ function Modules.PlayerAttach:Enable()
         task.wait(0.1)
         self:PopulatePlayerList()
     end)
-    
     print("✓ Player Attach enabled")
 end
-
 function Modules.PlayerAttach:Disable()
     if not self.State.IsEnabled then return end
-    
-    -- Detach if attached
     if self.State.IsAttached then
         self:DetachFromPlayer()
     end
-    
     self.State.IsEnabled = false
-    
-    -- Disconnect all connections
     for _, conn in pairs(self.State.Connections) do
         if conn then
             conn:Disconnect()
         end
     end
     table.clear(self.State.Connections)
-    
-    -- Destroy UI
     if self.State.UI then
         self.State.UI:Destroy()
         self.State.UI = nil
     end
-    
     self.State.AttachedTo = nil
-    
     print("✓ Player Attach disabled")
 end
-
 function Modules.PlayerAttach:Toggle()
     if self.State.IsEnabled then
         self:Disable()
@@ -37435,7 +35484,6 @@ function Modules.PlayerAttach:Toggle()
         self:Enable()
     end
 end
-
 RegisterCommand({
     Name = "attach",
     Aliases = {"playerattach", "follow", "stick"},
@@ -37985,15 +36033,12 @@ Modules.CharacterMorph = {
         IsMorphed = false,
         OriginalDescription = nil,
         ActiveDescription = nil,
-        PersistConnection = nil, -- re-applies morph on respawn
+        PersistConnection = nil,
         CurrentTarget = nil
     }
 }
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-
--- Cache original description once on load
 local function cacheOriginal(state)
     if state.OriginalDescription then return end
     local ok, desc = pcall(function()
@@ -38005,7 +36050,6 @@ local function cacheOriginal(state)
         warn("[CharacterMorph] Could not cache original description")
     end
 end
-
 function Modules.CharacterMorph:_resolveDescription(target)
     local targetId = tonumber(target)
     if not targetId then
@@ -38019,7 +36063,6 @@ function Modules.CharacterMorph:_resolveDescription(target)
         end
         targetId = id
     end
-
     DoNotif("Loading avatar...", 1.5)
     local ok, desc = pcall(function()
         return Players:GetHumanoidDescriptionFromUserId(targetId)
@@ -38030,8 +36073,6 @@ function Modules.CharacterMorph:_resolveDescription(target)
     end
     return desc
 end
-
--- Try to apply without respawning first, fall back to LoadCharacter
 function Modules.CharacterMorph:_applyDescription(description)
     local char = LocalPlayer.Character
     if char then
@@ -38041,55 +36082,41 @@ function Modules.CharacterMorph:_applyDescription(description)
             if ok then return true end
         end
     end
-    return false -- caller should LoadCharacter
+    return false
 end
-
 function Modules.CharacterMorph:_setPersist(description)
-    -- Disconnect any existing persist connection
     if self.State.PersistConnection then
         self.State.PersistConnection:Disconnect()
         self.State.PersistConnection = nil
     end
     if not description then return end
-
     self.State.PersistConnection = LocalPlayer.CharacterAdded:Connect(function(char)
         local humanoid = char:WaitForChild("Humanoid", 5)
         if humanoid then
-            task.wait() -- let character fully load
+            task.wait()
             pcall(humanoid.ApplyDescription, humanoid, description)
         end
     end)
 end
-
 function Modules.CharacterMorph:Morph(target)
     if not target then
         DoNotif("Usage: ;swapinto <username or userid>", 3)
         return
     end
-
-    -- Don't re-morph to the same target
     if self.State.CurrentTarget == target and self.State.IsMorphed then
         DoNotif("Already morphed as " .. tostring(target), 2)
         return
     end
-
     cacheOriginal(self.State)
-
     task.spawn(function()
         local desc = self:_resolveDescription(target)
         if not desc then return end
-
         self.State.ActiveDescription = desc
         self.State.CurrentTarget = target
         self.State.IsMorphed = true
-
-        -- Set up persistence first so respawn catches it
         self:_setPersist(desc)
-
-        -- Try applying without respawn
         local applied = self:_applyDescription(desc)
         if not applied then
-            -- Fall back to forced respawn
             DoNotif("Applying morph (respawning)...", 1.5)
             LocalPlayer:LoadCharacter()
         else
@@ -38097,7 +36124,6 @@ function Modules.CharacterMorph:Morph(target)
         end
     end)
 end
-
 function Modules.CharacterMorph:Revert()
     if not self.State.IsMorphed then
         DoNotif("Not currently morphed", 2)
@@ -38107,17 +36133,12 @@ function Modules.CharacterMorph:Revert()
         DoNotif("Original description missing — try rejoining", 3)
         return
     end
-
-    -- Stop persisting the morph
     self:_setPersist(nil)
-
     self.State.IsMorphed = false
     self.State.ActiveDescription = nil
     self.State.CurrentTarget = nil
-
     local applied = self:_applyDescription(self.State.OriginalDescription)
     if not applied then
-        -- Set up a one-time connection for the respawn
         LocalPlayer.CharacterAdded:Once(function(char)
             local humanoid = char:WaitForChild("Humanoid", 5)
             if humanoid then
@@ -38127,10 +36148,8 @@ function Modules.CharacterMorph:Revert()
         end)
         LocalPlayer:LoadCharacter()
     end
-
     DoNotif("Reverted to original avatar", 2)
 end
-
 function Modules.CharacterMorph:Status()
     if self.State.IsMorphed then
         DoNotif("Morphed as: " .. tostring(self.State.CurrentTarget), 2)
@@ -38138,10 +36157,7 @@ function Modules.CharacterMorph:Status()
         DoNotif("Not morphed", 2)
     end
 end
-
--- Cache original description immediately on script load
 cacheOriginal(Modules.CharacterMorph.State)
-
 RegisterCommand({
     Name = "swapinto",
     Aliases = {"morph", "avatar"},
@@ -38149,7 +36165,6 @@ RegisterCommand({
 }, function(args)
     Modules.CharacterMorph:Morph(args[1])
 end)
-
 RegisterCommand({
     Name = "unmorph",
     Aliases = {"default"},
@@ -38157,7 +36172,6 @@ RegisterCommand({
 }, function()
     Modules.CharacterMorph:Revert()
 end)
-
 RegisterCommand({
     Name = "morphstatus",
     Aliases = {"mstatus"},
@@ -40188,105 +38202,6 @@ RegisterCommand({
 }, function(args)
     Modules.SafeTeleport:Execute(args[1])
 end)
-Modules.HitboxExtender = {
-    State = {
-        IsEnabled = false,
-        TrackedCharacters = setmetatable({}, {__mode = "k"}),
-        OriginalSizes = setmetatable({}, {__mode = "k"}),
-        Connections = {}
-    },
-    Config = {
-        TargetPartName = "HumanoidRootPart",
-        SizeMultiplier = 3
-    },
-    Services = {
-        Players = game:GetService("Players")
-    }
-}
-function Modules.HitboxExtender:_apply(character)
-    if not character or self.State.TrackedCharacters[character] then return end
-    local targetPart = character:FindFirstChild(self.Config.TargetPartName)
-    if not targetPart then return end
-    if not self.State.OriginalSizes[targetPart] then
-        self.State.OriginalSizes[targetPart] = targetPart.Size
-    end
-    targetPart.Size = self.State.OriginalSizes[targetPart] * self.Config.SizeMultiplier
-    targetPart.Transparency = 1
-    targetPart.CanCollide = false
-    self.State.TrackedCharacters[character] = true
-end
-function Modules.HitboxExtender:_revert(character)
-    if not character or not self.State.TrackedCharacters[character] then return end
-    local targetPart = character:FindFirstChild(self.Config.TargetPartName)
-    if targetPart and self.State.OriginalSizes[targetPart] then
-        targetPart.Size = self.State.OriginalSizes[targetPart]
-        targetPart.Transparency = self.State.OriginalSizes[targetPart].Transparency or 0
-        targetPart.CanCollide = self.State.OriginalSizes[targetPart].CanCollide or true
-        self.State.OriginalSizes[targetPart] = nil
-    end
-    self.State.TrackedCharacters[character] = nil
-end
-function Modules.HitboxExtender:Enable()
-    if self.State.IsEnabled then return end
-    self.State.IsEnabled = true
-    local function setupPlayer(player)
-        if player == self.Services.Players.LocalPlayer then return end
-        if player.Character then
-            self:_apply(player.Character)
-        end
-        self.State.Connections[player] = {}
-        self.State.Connections[player].CharacterAdded = player.CharacterAdded:Connect(function(char) self:_apply(char) end)
-        self.State.Connections[player].CharacterRemoving = player.CharacterRemoving:Connect(function(char) self:_revert(char) end)
-    end
-    for _, player in ipairs(self.Services.Players:GetPlayers()) do
-        setupPlayer(player)
-    end
-    self.State.Connections.PlayerAdded = self.Services.Players.PlayerAdded:Connect(setupPlayer)
-    self.State.Connections.PlayerRemoving = self.Services.Players.PlayerRemoving:Connect(function(player)
-        if self.State.Connections[player] then
-            for _, conn in pairs(self.State.Connections[player]) do
-                conn:Disconnect()
-            end
-            self.State.Connections[player] = nil
-        end
-    end)
-    DoNotif("Hitbox Extender: ENABLED", 2)
-end
-function Modules.HitboxExtender:Disable()
-    if not self.State.IsEnabled then return end
-    self.State.IsEnabled = false
-    for player, conns in pairs(self.State.Connections) do
-        if type(conns) == "table" then
-            for _, conn in pairs(conns) do conn:Disconnect() end
-        else
-            conns:Disconnect()
-        end
-    end
-    table.clear(self.State.Connections)
-    for character in pairs(self.State.TrackedCharacters) do
-        self:_revert(character)
-    end
-    table.clear(self.State.OriginalSizes)
-    DoNotif("Hitbox Extender: DISABLED", 2)
-end
-RegisterCommand({
-    Name = "hitbox",
-    Aliases = {},
-    Description = "Enlarges other players' hitboxes locally for easier melee hits."
-}, function(args)
-    local multiplier = tonumber(args[1])
-    if multiplier and multiplier > 0 then
-        Modules.HitboxExtender.Config.SizeMultiplier = multiplier
-        DoNotif("Hitbox multiplier set to " .. multiplier, 2)
-    end
-    if Modules.HitboxExtender.State.IsEnabled then
-        if not multiplier then
-            Modules.HitboxExtender:Disable()
-        end
-    else
-        Modules.HitboxExtender:Enable()
-    end
-end)
 Modules.NetworkSaturator = {
     State = {
         Active = false
@@ -41346,133 +39261,6 @@ RegisterCommand({
 }, function()
     Modules.PromptForensics:Expose()
 end)
-Modules.AnimSynth = {
-    State = {
-        GeneratedID = nil
-    }
-}
-function Modules.AnimSynth:GenerateCustomPose(poseType)
-    local sequence = Instance.new("KeyframeSequence")
-    local keyframe = Instance.new("Keyframe")
-    keyframe.Time = 0
-    keyframe.Parent = sequence
-    local hash = "rbxassetid://0"
-    local root = Instance.new("Pose")
-    root.Name = "HumanoidRootPart"
-    root.Weight = 1
-    local torso = Instance.new("Pose")
-    torso.Name = "Torso"
-    torso.CFrame = CFrame.Angles(math.rad(45), 0, 0)
-    torso.Parent = root
-    if poseType == "ghost" then
-        torso.CFrame = CFrame.new(0, 5, 0)
-    elseif poseType == "broken" then
-        torso.CFrame = CFrame.Angles(0, math.rad(180), 0)
-    end
-    root.Parent = keyframe
-    pcall(function()
-        local provider = game:GetService("KeyframeSequenceProvider")
-        hash = provider:RegisterActiveKeyframeSequence(sequence)
-    end)
-    self.State.GeneratedID = hash
-    print("  [!] Custom Animation Generated: " .. hash)
-    setclipboard(hash)
-    DoNotif("Custom Pose Ready! ID copied to clipboard.", 4)
-end
-RegisterCommand({
-    Name = "localanim",
-    Aliases = {},
-    Description = "Generates a custom local animation ID. Options: ghost, broken, normal"
-}, function(args)
-    Modules.AnimSynth:GenerateCustomPose(args[1] or "normal")
-end)
-Modules.ToolAnimForensics = {
-    State = {
-        IsEnabled = false,
-        ToolAnims = {},
-        SwappedIds = {},
-        OriginalNamecall = nil
-    }
-}
-function Modules.ToolAnimForensics:Scan()
-    local char = Players.LocalPlayer.Character
-    local tool = char and char:FindFirstChildOfClass("Tool")
-    if not tool then
-        return DoNotif("Tool Anim: No tool equipped to scan.", 3)
-    end
-    table.clear(self.State.ToolAnims)
-    local count = 0
-    for _, obj in ipairs(tool:GetDescendants()) do
-        if obj:IsA("Animation") then
-            count = count + 1
-            local animName = obj.Name:lower()
-            self.State.ToolAnims[animName] = obj
-            print(string.format("  [+] Found Animation: '%s' | ID: %s", obj.Name, obj.AnimationId))
-        end
-    end
-    DoNotif(string.format("Scan Complete: Found %d animations in %s. Check F9.", count, tool.Name), 4)
-end
-function Modules.ToolAnimForensics:Hook()
-    if self.State.OriginalNamecall then return end
-    local mt = getrawmetatable(game)
-    self.State.OriginalNamecall = mt.__namecall
-    setreadonly(mt, false)
-    mt.__namecall = newcclosure(function(selfArg, ...)
-        local method = getnamecallmethod()
-        local args = {...}
-        if (method == "LoadAnimation" or method == "loadAnimation") and args[1]:IsA("Animation") then
-            local animObj = args[1]
-            local replacement = Modules.ToolAnimForensics.State.SwappedIds[animObj.AnimationId]
-            if replacement then
-                animObj.AnimationId = replacement
-            end
-        end
-        return Modules.ToolAnimForensics.State.OriginalNamecall(selfArg, ...)
-    end)
-    setreadonly(mt, true)
-end
-function Modules.ToolAnimForensics:Set(name, newId)
-    local targetName = name:lower()
-    local animObj = self.State.ToolAnims[targetName]
-    if not animObj then
-        local tool = Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
-        animObj = tool and tool:FindFirstChild(name, true)
-    end
-    if animObj and animObj:IsA("Animation") then
-        local rawId = "rbxassetid://" .. newId:match("%d+")
-        self.State.SwappedIds[animObj.AnimationId] = rawId
-        animObj.AnimationId = rawId
-        self:Hook()
-        DoNotif("Swapped '" .. name .. "' with " .. rawId, 3)
-        local humanoid = Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
-                if track.Animation.AnimationId == animObj.AnimationId then
-                    track:Stop()
-                end
-            end
-        end
-    else
-        DoNotif("Animation '" .. name .. "' not found. Use ;scananim first.", 3)
-    end
-end
-RegisterCommand({
-    Name = "scananim",
-    Aliases = {"listanims", "toolanims"},
-    Description = "Scans the equipped tool for animations and lists them in the console."
-}, function()
-    Modules.ToolAnimForensics:Scan()
-end)
-RegisterCommand({
-    Name = "setanim",
-    Aliases = {"swapanim"},
-    Description = "Swaps a tool animation. Usage: ;setanim [name] [id]"
-}, function(args)
-    if #args < 2 then
-        return DoNotif("Usage: ;setanim [Idle/Attack/etc] [ID]", 3)
-    end
-    Modules.ToolAnimForensics:Set(args[1], args[2])
-end)
 Modules.Aggressor = {
     State = {
         IsEnabled = false,
@@ -41700,7 +39488,7 @@ function Modules.Hugger:Initialize()
     for _, s in ipairs(self.Dependencies) do self.Services[s] = game:GetService(s) end
     RegisterCommand({
         Name = "hug",
-        Aliases = {"huggies", "clickhug"},
+        Aliases = {"clickhug"},
         Description = "Toggles a UI for physical character interaction (R6 Only)."
     }, function()
         local lp = game:GetService("Players").LocalPlayer
@@ -42216,266 +40004,6 @@ function Modules.ScriptSearcher:Initialize()
         self:CreateUI()
     end)
 end
-if not getgenv().Modules then getgenv().Modules = {} end
-Modules.InternalExecutor = {
-    State = {
-        IsEnabled = false,
-        UI = {},
-        Connections = {},
-        IsLifting = false,
-        VFS_Cache = {},
-        VFS_Loading = {},
-        VFS_Base = "https://raw.githubusercontent.com/zukatech1/Lifter/main/src/"
-    },
-    Config = {
-        ACCENT = Color3.fromRGB(0, 255, 255),
-        BG = Color3.fromRGB(20, 20, 20),
-        LIFT_COLOR = Color3.fromRGB(170, 0, 255),
-        KEYWORDS = {"and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while", "execute", "syn", "HttpGet", "HttpPost"},
-        GLOBALS = {"getrawmetatable", "game", "Workspace", "script", "math", "string", "table", "print", "wait", "Instance", "Vector3", "CFrame", "Enum", "loadstring", "getgenv", "getrenv", "getreg", "getgc"},
-        REMOTES = {"FireServer", "InvokeServer"},
-        TOKENS = {["="]=true, ["."]=true, [","]=true, ["("]=true, [")"]=true, ["["]=true, ["]"]=true, ["{"]=true, ["}"]=true, [":"]=true, ["*"]=true, ["/"]=true, ["+"]=true, ["-"]=true, ["%"]=true, [";"]=true, ["~"]=true}
-    },
-    Dependencies = {"Players", "CoreGui", "UserInputService", "RunService", "TextService", "HttpService"},
-    Services = {}
-}
-function Modules.InternalExecutor:_vRequire(modulePath)
-    local state = self.State
-    if state.VFS_Cache[modulePath] then
-        return state.VFS_Cache[modulePath]
-    end
-    if state.VFS_Loading[modulePath] then
-        return state.VFS_Loading[modulePath]
-    end
-    local internalPath = modulePath:gsub("%.", "/") .. ".lua"
-    local url = state.VFS_Base .. internalPath
-    local success, content = pcall(game.HttpGet, game, url)
-    if not success or content:find("404: Not Found") then
-        local fallbackUrl = "https://raw.githubusercontent.com/zukatech1/Lifter/main/" .. internalPath
-        success, content = pcall(game.HttpGet, game, fallbackUrl)
-    end
-    if not success or content:find("404: Not Found") then
-        warn("--> [VFS] Resolution Failed: " .. modulePath)
-        return nil
-    end
-    local func, err = loadstring(content, "@VFS/" .. modulePath)
-    if not func then
-        warn("--> [VFS] Syntax Error in " .. modulePath .. ": " .. err)
-        return nil
-    end
-    local modulePlaceholder = {}
-    state.VFS_Loading[modulePath] = modulePlaceholder
-    local env = getfenv(func)
-    env.require = function(path) return self:_vRequire(path) end
-    env.arg = {}
-    env.print = function(...) print("[LIFTER]:", ...) end
-    setfenv(func, env)
-    local result = func()
-    local finalData = result or modulePlaceholder
-    state.VFS_Cache[modulePath] = finalData
-    state.VFS_Loading[modulePath] = nil
-    return finalData
-end
-function Modules.InternalExecutor:_initializeLifter()
-    self.State.VFS_Cache = {}
-    self.State.VFS_Loading = {}
-    local Parser = self:_vRequire("prometheus.parser")
-    local Ast = self:_vRequire("prometheus.ast")
-    local VisitAst = self:_vRequire("prometheus.visitast")
-    local Unparser = self:_vRequire("prometheus.unparser")
-    return {
-        Parser = Parser,
-        Ast = Ast,
-        VisitAst = VisitAst,
-        Unparser = Unparser
-    }
-end
-function Modules.InternalExecutor:_process(str, keywordList)
-    local K = {}
-    for _, v in pairs(keywordList) do K[v] = true end
-    local S = str:gsub(".", function(c) return self.Config.TOKENS[c] and " " or c end)
-    S = S:gsub("%S+", function(c) return K[c] and c or (" "):rep(#c) end)
-    return S
-end
-function Modules.InternalExecutor:_update()
-    local ui = self.State.UI
-    if not ui.Source then return end
-    local text = ui.Source.Text:gsub("\r", ""):gsub("\t", "    ")
-    local textHeight = self.Services.TextService:GetTextSize(text, 14, Enum.Font.Code, Vector2.new(ui.EditorScroll.AbsoluteSize.X - 40, math.huge)).Y
-    local finalHeight = math.max(textHeight + 50, ui.EditorScroll.AbsoluteSize.Y)
-    ui.EditorScroll.CanvasSize = UDim2.fromOffset(0, finalHeight)
-    ui.Source.Size = UDim2.new(1, -40, 0, finalHeight)
-    ui.Keywords.Text = self:_process(text, self.Config.KEYWORDS)
-    ui.Globals.Text = self:_process(text, self.Config.GLOBALS)
-    ui.Remotes.Text = self:_process(text, self.Config.REMOTES)
-    local _, lineCount = text:gsub("\n", "")
-    ui.Lines.Text = ""
-    for i = 1, lineCount + 1 do
-        ui.Lines.Text ..= i .. "\n"
-    end
-end
-function Modules.InternalExecutor:CreateUI()
-    if self.State.UI.Main then self.State.UI.Main.Visible = true return end
-    local sg = Instance.new("ScreenGui", self.Services.CoreGui)
-    sg.Name = "Zuka_RC7_Editor"
-    sg.ResetOnSpawn = false
-    local main = Instance.new("Frame", sg)
-    main.Size = UDim2.fromOffset(600, 420)
-    main.Position = UDim2.fromScale(0.5, 0.5)
-    main.AnchorPoint = Vector2.new(0.5, 0.5)
-    main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-    main.BackgroundTransparency = 0.2
-    main.BorderSizePixel = 1
-    main.BorderColor3 = self.Config.ACCENT
-    main.ClipsDescendants = true
-    main.Active = true
-    local header = Instance.new("Frame", main)
-    header.Size = UDim2.new(1, 0, 0, 30)
-    header.BackgroundColor3 = Color3.fromRGB(255, 85, 127)
-    header.BorderSizePixel = 0
-    local title = Instance.new("TextLabel", header)
-    title.Size = UDim2.new(1, -60, 1, 0)
-    title.Position = UDim2.fromOffset(10, 0)
-    title.Text = "Zukas Lifter."
-    title.TextColor3 = self.Config.ACCENT
-    title.Font = Enum.Font.Code
-    title.TextSize = 14
-    title.TextXAlignment = Enum.TextXAlignment.Left; title.BackgroundTransparency = 1
-    local close = Instance.new("TextButton", header)
-    close.Size = UDim2.fromOffset(30, 30)
-    close.Position = UDim2.new(1, -30, 0, 0)
-    close.Text = "X"; close.TextColor3 = Color3.new(1,0,0); close.BackgroundTransparency = 1
-    close.MouseButton1Click:Connect(function() sg:Destroy(); self.State.UI = {} end)
-    local scroll = Instance.new("ScrollingFrame", main)
-    scroll.Size = UDim2.new(1, -10, 1, -85)
-    scroll.Position = UDim2.fromOffset(5, 35)
-    scroll.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    scroll.BackgroundTransparency = 0.4
-    scroll.BorderSizePixel = 1
-    scroll.BorderColor3 = Color3.fromRGB(50, 50, 50)
-    scroll.ScrollBarThickness = 4
-    scroll.ScrollBarImageColor3 = self.Config.ACCENT
-    local lines = Instance.new("TextLabel", scroll)
-    lines.Size = UDim2.new(0, 30, 1, 0)
-    lines.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    lines.BorderSizePixel = 0
-    lines.Text = "1"; lines.TextColor3 = Color3.fromRGB(100, 100, 100)
-    lines.Font = Enum.Font.Code; lines.TextSize = 14; lines.TextYAlignment = "Top"
-    local source = Instance.new("TextBox", scroll)
-    source.Size = UDim2.new(1, -35, 1, 0)
-    source.Position = UDim2.fromOffset(35, 0)
-    source.BackgroundTransparency = 1
-    source.TextColor3 = Color3.fromRGB(220, 220, 220)
-    source.Font = Enum.Font.Code
-    source.TextSize = 14
-    source.TextXAlignment = Enum.TextXAlignment.Left; source.TextYAlignment = "Top"
-    source.MultiLine = true; source.ClearTextOnFocus = false
-    source.Text = ""
-    local function mkOverlay(name, color)
-        local l = Instance.new("TextLabel", source)
-        l.Name = name; l.Size = UDim2.fromScale(1, 1); l.BackgroundTransparency = 1
-        l.Font = Enum.Font.Code; l.TextSize = 14; l.TextXAlignment = "Left"; l.TextYAlignment = "Top"
-        l.TextColor3 = color; l.Text = ""; l.ZIndex = 3
-        return l
-    end
-    local kw = mkOverlay("Keywords", Color3.fromRGB(255, 80, 80))
-    local gb = mkOverlay("Globals", Color3.fromRGB(80, 180, 255))
-    local rm = mkOverlay("Remotes", Color3.fromRGB(0, 255, 150))
-    local footer = Instance.new("Frame", main)
-    footer.Size = UDim2.new(1, 0, 0, 45)
-    footer.Position = UDim2.new(0, 0, 1, -45)
-    footer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    footer.BorderSizePixel = 0
-    local function mkBtn(text, pos, color, cb)
-        local b = Instance.new("TextButton", footer)
-        b.Size = UDim2.fromOffset(110, 30)
-        b.Position = pos
-        b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        b.BorderSizePixel = 1; b.BorderColor3 = color
-        b.Text = text; b.TextColor3 = color; b.Font = Enum.Font.Code; b.TextSize = 13
-        b.MouseButton1Click:Connect(cb)
-        return b
-    end
-    mkBtn("EXECUTE", UDim2.fromOffset(10, 7), self.Config.ACCENT, function()
-        local f, e = loadstring(source.Text)
-        if f then task.spawn(f); DoNotif("Executed.", 1) else warn(e); DoNotif("Syntax Error", 2) end
-    end)
-    mkBtn("LIFT (PROM)", UDim2.fromOffset(130, 7), self.Config.LIFT_COLOR, function()
-        if self.State.IsLifting then return end
-        self.State.IsLifting = true
-        task.spawn(function()
-            local _old_info = debug.getinfo
-            getgenv().debug.getinfo = function(f, ...)
-                local res = _old_info(f, ...)
-                if res and res.source and res.source:find("VFS") then
-                    res.source = "=[C]"
-                end
-                return res
-            end
-            local components = self:_initializeLifter()
-            if not components.Parser then
-                self.State.IsLifting = false
-                return DoNotif("VFS Error. Check F9.", 3)
-            end
-            local inputCode = source.Text
-            if #inputCode == 0 then
-                self.State.IsLifting = false
-                return DoNotif("Source empty.", 2)
-            end
-            DoNotif("Lifting: Analyzing AST...", 2)
-            local success, ast = pcall(function()
-                local p = components.Parser:new({ LuaVersion = "LuaU" })
-                return p:parse(inputCode)
-            end)
-            if not success or not ast then
-                warn("--> [Lifter] Fatal Error: " .. tostring(ast))
-                self.State.IsLifting = false
-                return DoNotif("Deobfuscation Failed.", 3)
-            end
-            local u = components.Unparser:new({ LuaVersion = "LuaU", PrettyPrint = true, IndentSpaces = 4 })
-            local liftedCode = u:unparse(ast)
-            liftedCode = liftedCode:gsub('"([^"]*)"%s*%.%.%s*"([^"]*)"', '"%1%2"')
-            source.Text = liftedCode
-            self:_update()
-            self.State.IsLifting = false
-            DoNotif("Code Lifted.", 2)
-            getgenv().debug.getinfo = _old_info
-        end)
-    end)
-    mkBtn("CLEAR", UDim2.fromOffset(250, 7), Color3.fromRGB(255, 150, 0), function()
-        source.Text = ""
-    end)
-    source:GetPropertyChangedSignal("Text"):Connect(function()
-        self:_update()
-    end)
-    local dragging, dragStart, startPos
-    header.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging, dragStart, startPos = true, input.Position, main.Position
-        end
-    end)
-    self.Services.UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    self.Services.UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-    end)
-    self.State.UI = {Main = main, Source = source, EditorScroll = scroll, Lines = lines, Keywords = kw, Globals = gb, Remotes = rm}
-    DoNotif("Forensic IDE Ready.", 2)
-end
-function Modules.InternalExecutor:Initialize()
-    for _, s in ipairs(self.Dependencies) do self.Services[s] = game:GetService(s) end
-    RegisterCommand({
-        Name = "ide",
-        Aliases = {"lift", "exe", "internal"},
-        Description = "Stable Forensic IDE with circular-dependency protection."
-    }, function()
-        self:CreateUI()
-    end)
-end
 Modules.GoToPart = {
     State = {
         LastSearchResults = {},
@@ -42666,16 +40194,12 @@ function Modules.Disarmer:Initialize()
         end
     end)
 end
-
-
-
 local function loadstringCmd(url, notif)
     pcall(function()
         loadstring(game:HttpGet(url))()
     end)
     DoNotif(notif, 3)
 end
-
 RegisterCommand({Name = "zsniper", Aliases = {}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/sniperZG.lua", "Loading..") end)
 RegisterCommand({Name = "zshotgun", Aliases = {}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/ShotgunMinigunScriptWorking.lua", "Loading..") end)
 RegisterCommand({Name = "noanim", Aliases = {}, Description = "Pauses/Removes All animations for the player."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/animationremover.lua", " Loading.. ") end)
@@ -42720,2052 +40244,494 @@ RegisterCommand({Name = "worldofstands", Aliases = {"wos"}, Description = "For h
 RegisterCommand({Name = "zfucker", Aliases = {}, Description = "zfucker for the zl series."}, function() loadstringCmd("https://raw.githubusercontent.com/osukfcdays/zlfucker/refs/heads/main/main.luau", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "ConvertR6", Aliases = {}, Description = "Work In progress"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/r15tor6.lua", "Loading, Wait a sec.") end)
 RegisterCommand({Name = "flinggun", Aliases = {}, Description = "For backrooms"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/patchgunflingversion.lua", "Loading, Wait a sec.") end)
-
-Modules.UniversalSword = {
-    State = {
-        IsEnabled = false,
-        LungeDebounce = false,
-        Connections = {},
-        LoadedAnims = {},
-        Assets = {
-            SlashAnim = "rbxassetid://1294457",
-            LungeAnim = "rbxassetid://1294452",
-            SlashSound = "rbxassetid://12222216",
-            LungeSound = "rbxassetid://12222208"
-        }
-    }
+local coreGuiTypeNames = {
+	["inventory"] = Enum.CoreGuiType.Backpack,
+	["leaderboard"] = Enum.CoreGuiType.PlayerList,
+	["emotes"] = Enum.CoreGuiType.EmotesMenu
 }
-
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-
-function Modules.UniversalSword:RegisterHit(range)
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    local tool = char:FindFirstChildOfClass("Tool")
-    if not tool then return end
-    
-    local hitPart = tool:FindFirstChild("Handle") or char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
-    if not hitPart then return end
-    
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local targetHRP = p.Character.HumanoidRootPart
-            local dist = (char.HumanoidRootPart.Position - targetHRP.Position).Magnitude
-            
-            if dist <= range then
-                pcall(function()
-                    firetouchinterest(targetHRP, hitPart, 0)
-                    task.wait()
-                    firetouchinterest(targetHRP, hitPart, 1)
-                end)
-            end
+for _, enumItem in ipairs(Enum.CoreGuiType:GetEnumItems()) do
+	coreGuiTypeNames[enumItem.Name:lower()] = enumItem
+end
+addcmd('enable',{},function(args, speaker)
+	local input = args[1] and args[1]:lower()
+	if input then
+		if input == "reset" then
+			StarterGui:SetCore("ResetButtonCallback", true)
+		else
+			local coreGuiType = coreGuiTypeNames[input]
+			if coreGuiType then
+				StarterGui:SetCoreGuiEnabled(coreGuiType, true)
+			end
+		end
+	end
+end)
+addcmd('disable',{},function(args, speaker)
+	local input = args[1] and args[1]:lower()
+	if input then
+		if input == "reset" then
+			StarterGui:SetCore("ResetButtonCallback", false)
+		else
+			local coreGuiType = coreGuiTypeNames[input]
+			if coreGuiType then
+				StarterGui:SetCoreGuiEnabled(coreGuiType, false)
+			end
+		end
+	end
+end)
+local invisGUIS = {}
+addcmd('showguis',{},function(args, speaker)
+	for i,v in pairs(PlayerGui:GetDescendants()) do
+		if (v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("ScrollingFrame")) and not v.Visible then
+			v.Visible = true
+			if not FindInTable(invisGUIS,v) then
+				table.insert(invisGUIS,v)
+			end
+		end
+	end
+end)
+addcmd('unshowguis',{},function(args, speaker)
+	for i,v in pairs(invisGUIS) do
+		v.Visible = false
+	end
+	invisGUIS = {}
+end)
+local hiddenGUIS = {}
+addcmd('hideguis',{},function(args, speaker)
+	for i,v in pairs(PlayerGui:GetDescendants()) do
+		if (v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("ScrollingFrame")) and v.Visible then
+			v.Visible = false
+			if not FindInTable(hiddenGUIS,v) then
+				table.insert(hiddenGUIS,v)
+			end
+		end
+	end
+end)
+addcmd('unhideguis',{},function(args, speaker)
+	for i,v in pairs(hiddenGUIS) do
+		v.Visible = true
+	end
+	hiddenGUIS = {}
+end)
+function deleteGuisAtPos()
+	pcall(function()
+		local guisAtPosition = PlayerGui:GetGuiObjectsAtPosition(IYMouse.X, IYMouse.Y)
+		for _, gui in pairs(guisAtPosition) do
+			if gui.Visible == true then
+				gui:Destroy()
+			end
+		end
+	end)
+end
+local deleteGuiInput
+addcmd('guidelete',{},function(args, speaker)
+	deleteGuiInput = UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+		if not gameProcessedEvent then
+			if input.KeyCode == Enum.KeyCode.Backspace then
+				deleteGuisAtPos()
+			end
+		end
+	end)
+	DoNotif('GUI Delete Enabled','Hover over a GUI and press backspace to delete it')
+end)
+addcmd('unguidelete',{'noguidelete'},function(args, speaker)
+	if deleteGuiInput then deleteGuiInput:Disconnect() end
+	DoNotif('GUI Delete Disabled','GUI backspace delete has been disabled')
+end)
+addcmd("mutevc", {}, function(args, speaker)
+	for _, plr in getPlayer(args[1], speaker) do
+		if plr == speaker then continue end
+		Services.VoiceChatInternal:SubscribePause(plr.UserId, true)
+	end
+end)
+addcmd("unmutevc", {}, function(args, speaker)
+	for _, plr in getPlayer(args[1], speaker) do
+		if plr == speaker then continue end
+		Services.VoiceChatInternal:SubscribePause(plr.UserId, false)
+	end
+end)
+addcmd("ctrllock", {}, function(args, speaker)
+	local mouseLockController = speaker.PlayerScripts:WaitForChild("PlayerModule"):WaitForChild("CameraModule"):WaitForChild("MouseLockController")
+	local boundKeys = mouseLockController:FindFirstChild("BoundKeys")
+	if boundKeys then
+		boundKeys.Value = "LeftControl"
+	else
+		boundKeys = Instance.new("StringValue")
+		boundKeys.Name = "BoundKeys"
+		boundKeys.Value = "LeftControl"
+		boundKeys.Parent = mouseLockController
+	end
+end)
+addcmd("unctrllock", {}, function(args, speaker)
+	local mouseLockController = speaker.PlayerScripts:WaitForChild("PlayerModule"):WaitForChild("CameraModule"):WaitForChild("MouseLockController")
+	local boundKeys = mouseLockController:FindFirstChild("BoundKeys")
+	if boundKeys then
+		boundKeys.Value = "LeftShift"
+	else
+		boundKeys = Instance.new("StringValue")
+		boundKeys.Name = "BoundKeys"
+		boundKeys.Value = "LeftShift"
+		boundKeys.Parent = mouseLockController
+	end
+end)
+local AntiAdminState = {
+    Enabled = false,
+    Connections = {},
+    Watchdog = nil
+}
+local function log(msg: string)
+    if notify then
+        notify("AntiAdmin", msg, 3)
+    else
+        print("[AntiAdmin]", msg)
+    end
+end
+local function cleanConnections()
+    for i, v in pairs(AntiAdminState.Connections) do
+        if typeof(v) == "RBXScriptConnection" then
+            v:Disconnect()
         end
     end
-end
-
-function Modules.UniversalSword:LoadAnimation(animId)
-    local char = LocalPlayer.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not hum then return nil end
-    
-    -- Check if already loaded
-    if self.State.LoadedAnims[animId] then
-        return self.State.LoadedAnims[animId]
+    AntiAdminState.Connections = {}
+    if AntiAdminState.Watchdog then
+        AntiAdminState.Watchdog:Disconnect()
+        AntiAdminState.Watchdog = nil
     end
-    
-    -- Create and load new animation
-    local anim = Instance.new("Animation")
-    anim.AnimationId = animId
-    
-    local success, track = pcall(function()
-        return hum:LoadAnimation(anim)
-    end)
-    
-    if success and track then
-        self.State.LoadedAnims[animId] = track
-        return track
-    end
-    
-    return nil
 end
-
-function Modules.UniversalSword:PerformSlash()
-    if not self.State.IsEnabled then return end
-    
-    local char = LocalPlayer.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
+local function protectHumanoid(hum: Humanoid)
     if not hum then return end
-    
-    -- Load and play animation
-    local animTrack = self:LoadAnimation(self.State.Assets.SlashAnim)
-    if animTrack then
-        animTrack:Play()
-    end
-    
-    -- Play sound
-    local sfx = Instance.new("Sound")
-    sfx.SoundId = self.State.Assets.SlashSound
-    sfx.Volume = 0.6
-    sfx.Parent = char.PrimaryPart or char:FindFirstChild("HumanoidRootPart")
-    sfx:Play()
-    
-    -- Register hit
-    task.wait(0.2)
-    self:RegisterHit(7)
-    
-    -- Cleanup
-    task.delay(1, function()
-        if sfx then sfx:Destroy() end
-    end)
+    table.insert(AntiAdminState.Connections, hum:GetPropertyChangedSignal("Health"):Connect(function()
+        if hum.Health <= 0 and hum.MaxHealth > 0 then
+            pcall(function() hum.Health = hum.MaxHealth end)
+            log("Blocked kill attempt.")
+        end
+    end))
+    table.insert(AntiAdminState.Connections, hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+        if hum.WalkSpeed <= 0 then
+            task.defer(function() pcall(function() hum.WalkSpeed = 16 end) end)
+        end
+    end))
+    table.insert(AntiAdminState.Connections, hum:GetPropertyChangedSignal("JumpPower"):Connect(function()
+        if hum.JumpPower <= 0 then
+            task.defer(function() pcall(function() hum.JumpPower = 50 end) end)
+        end
+    end))
 end
-
-function Modules.UniversalSword:PerformLunge()
-    if not self.State.IsEnabled or self.State.LungeDebounce then return end
-    
-    local char = LocalPlayer.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hum or not hrp then return end
-    
-    self.State.LungeDebounce = true
-    
-    -- Load and play animation
-    local animTrack = self:LoadAnimation(self.State.Assets.LungeAnim)
-    if animTrack then
-        animTrack:Play()
-    end
-    
-    -- Play sound
-    local sfx = Instance.new("Sound")
-    sfx.SoundId = self.State.Assets.LungeSound
-    sfx.Volume = 0.7
-    sfx.Parent = hrp
-    sfx:Play()
-    
-    -- Create lunge velocity
-    local bv = Instance.new("BodyVelocity")
-    bv.MaxForce = Vector3.new(1, 0, 1) * 40000 
-    bv.Velocity = hrp.CFrame.LookVector * 65
-    bv.Parent = hrp
-    
-    -- Hit detection during lunge
-    task.spawn(function()
-        local start = tick()
-        while tick() - start < 0.45 do
-            self:RegisterHit(12)
-            task.wait(0.05)
-        end
-        
-        -- Cleanup
-        if bv then bv:Destroy() end
-        
-        task.wait(0.5)
-        self.State.LungeDebounce = false
-        
-        if sfx then sfx:Destroy() end
-    end)
-end
-
-function Modules.UniversalSword:CleanupAnimations()
-    for _, track in pairs(self.State.LoadedAnims) do
-        if track then
-            pcall(function()
-                track:Stop()
-                track:Destroy()
-            end)
-        end
-    end
-    self.State.LoadedAnims = {}
-end
-
-function Modules.UniversalSword:Initialize()
-    local function HookTool(tool)
-        if not tool:IsA("Tool") then return end
-        
-        -- Disconnect old connection if exists
-        if self.State.Connections[tool] then 
-            self.State.Connections[tool]:Disconnect() 
-        end
-        
-        -- Hook tool activation
-        self.State.Connections[tool] = tool.Activated:Connect(function()
-            if self.State.IsEnabled then
-                self:PerformSlash()
-            end
-        end)
-    end
-    
-    -- Hook character respawn
-    self.State.Connections["SwordChar"] = LocalPlayer.CharacterAdded:Connect(function(char)
-        -- Clear old animations
-        self:CleanupAnimations()
-        
-        -- Wait for character to load
-        task.wait(0.5)
-        
-        -- Hook new tools
-        char.ChildAdded:Connect(HookTool)
-        
-        -- Hook existing tool if any
-        local existing = char:FindFirstChildOfClass("Tool")
-        if existing then
-            HookTool(existing)
-        end
-    end)
-    
-    -- Hook current character if exists
-    if LocalPlayer.Character then
-        LocalPlayer.Character.ChildAdded:Connect(HookTool)
-        
-        local existing = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-        if existing then 
-            HookTool(existing) 
-        end
-    end
-    
-    -- Hook lunge input (right click)
-    self.State.Connections["LungeInput"] = UserInputService.InputBegan:Connect(function(input, gpe)
-        if gpe or not self.State.IsEnabled then return end
-        
-        if input.UserInputType == Enum.UserInputType.MouseButton2 then
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool") then
-                self:PerformLunge()
-            end
-        end
-    end)
-    
-    print("✓ Universal Sword initialized")
-end
-
-function Modules.UniversalSword:Disable()
-    self.State.IsEnabled = false
-    
-    for _, conn in pairs(self.State.Connections) do
-        if conn then
-            pcall(function()
-                conn:Disconnect()
-            end)
-        end
-    end
-    self.State.Connections = {}
-    
-    self:CleanupAnimations()
-    
-    print("✓ Universal Sword disabled")
-end
-
-function Modules.UniversalSword:Toggle()
-    self.State.IsEnabled = not self.State.IsEnabled
-    print("✓ Universal Sword: " .. (self.State.IsEnabled and "ENABLED" or "DISABLED"))
-end
-
-RegisterCommand({
-    Name = "universalsword",
-    Aliases = {"usword", "swordlogic"},
-    Description = "Classic sword animations and damage for all tools (LMB Slash / RMB Lunge)."
-}, function()
-    Modules.UniversalSword:Toggle()
-end)
-Modules.IYPluginManager = {
-    State = {
-        IsEnabled = false,
-        PluginsTable = {},
-        LoadedPlugins = {},
-        UI = nil,
-        ScreenGui = nil,
-    },
-    Config = {
-        SAVE_FILE = "workspace/iy_plugins.json",
-        SAVE_FOLDER = "workspace",
-        PLUGINS_FOLDER = "Infinite_Yield",
-        BG_COLOR = Color3.fromRGB(15, 15, 20),
-        HEADER_COLOR = Color3.fromRGB(25, 25, 35),
-        SECONDARY_COLOR = Color3.fromRGB(30, 30, 40),
-        ACCENT_COLOR = Color3.fromRGB(0, 255, 255),
-        TEXT_COLOR = Color3.fromRGB(220, 220, 220),
-        DANGER_COLOR = Color3.fromRGB(200, 60, 60),
-        SUCCESS_COLOR = Color3.fromRGB(60, 200, 100),
-        ROW_COLOR = Color3.fromRGB(35, 35, 48),
-        ROW_HOVER = Color3.fromRGB(45, 45, 60),
-    }
-}
-local function IYfindInTable(tbl, val)
-    for _, v in pairs(tbl) do
-        if v == val then return true end
-    end
-    return false
-end
-local function IYisNumber(val)
-    return tonumber(val) ~= nil
-end
-local function IYmakeCorner(parent, radius)
-    local corner = Instance.new("UICorner", parent)
-    corner.CornerRadius = UDim.new(0, radius or 6)
-    return corner
-end
-local function IYmakeStroke(parent, color, thickness)
-    local stroke = Instance.new("UIStroke", parent)
-    stroke.Color = color or Color3.fromRGB(60, 60, 80)
-    stroke.Thickness = thickness or 1
-    return stroke
-end
-function Modules.IYPluginManager:SavePluginList()
-    if not writefile or not makefolder then
-        DoNotif("IY Plugins: File system not available", 3)
-        return false
-    end
-    pcall(function()
-        if not isfolder or not isfolder(self.Config.SAVE_FOLDER) then
-            makefolder(self.Config.SAVE_FOLDER)
-        end
-    end)
-    local success = pcall(function()
-        local data = game:GetService("HttpService"):JSONEncode({
-            plugins = self.State.PluginsTable,
-            savedAt = os.time()
-        })
-        writefile(self.Config.SAVE_FILE, data)
-    end)
-    if success then
-        DoNotif("IY Plugins: List saved (" .. #self.State.PluginsTable .. " plugins)", 2)
-    else
-        DoNotif("IY Plugins: Failed to save list", 3)
-    end
-    return success
-end
-function Modules.IYPluginManager:LoadPluginList()
-    if not readfile or not isfile then return end
-    local success, result = pcall(function()
-        if isfile(self.Config.SAVE_FILE) then
-            return readfile(self.Config.SAVE_FILE)
-        end
-        return nil
-    end)
-    if success and result then
-        local decodeSuccess, data = pcall(function()
-            return game:GetService("HttpService"):JSONDecode(result)
-        end)
-        if decodeSuccess and data and data.plugins then
-            self.State.PluginsTable = data.plugins
-        end
-    end
-end
-function Modules.IYPluginManager:LoadPlugin(fileName, isStartup)
-    local plugin = nil
-    local filePath = fileName
-    local function tryLoad()
-        local iyPath = self.Config.PLUGINS_FOLDER .. "/" .. fileName
-        local ok, content = pcall(readfile, iyPath)
-        if ok and content then
-            filePath = iyPath
-            return content
-        end
-        ok, content = pcall(readfile, fileName)
-        if ok and content then
-            filePath = fileName
-            return content
-        end
-        if fileName:sub(-3) ~= ".iy" then
-            ok, content = pcall(readfile, fileName .. ".iy")
-            if ok and content then
-                filePath = fileName .. ".iy"
-                return content
-            end
-        end
-        return nil
-    end
-    local fileContent = tryLoad()
-    if not fileContent then
-        DoNotif("IY Plugin Error: Cannot find '" .. fileName .. "'", 4)
-        for i, v in pairs(self.State.PluginsTable) do
-            if v == fileName then
-                table.remove(self.State.PluginsTable, i)
-                break
-            end
-        end
-        self:RefreshPluginList()
-        return false
-    end
-    local loadSuccess, loadErr = pcall(function()
-        local func, err = loadstring(fileContent)
-        if not func then
-            error(err)
-        end
-        plugin = func()
-    end)
-    if not loadSuccess or plugin == nil then
-        DoNotif("IY Plugin Error: '" .. fileName .. "' failed to execute", 4)
-        warn("[IYPluginManager] Error loading " .. fileName .. ": " .. tostring(loadErr))
-        for i, v in pairs(self.State.PluginsTable) do
-            if v == fileName then
-                table.remove(self.State.PluginsTable, i)
-                break
-            end
-        end
-        self:RefreshPluginList()
-        self:SavePluginList()
-        return false
-    end
-    local cmdCount = 0
-    if plugin["Commands"] then
-        for cmdKey, cmdData in pairs(plugin["Commands"]) do
-            local cmdExt = ""
-            local cmdName = cmdKey
-            local function resolveCommandName()
-                cmdName = cmdKey
-                if Commands[cmdName .. cmdExt] then
-                    if IYisNumber(cmdExt) then
-                        cmdExt = cmdExt + 1
-                    else
-                        cmdExt = 1
+local function applyProtections(char: Model)
+    log("Applying character protections...")
+    local humanoid = char:WaitForChild("Humanoid", 10)
+    local root = char:WaitForChild("HumanoidRootPart", 10)
+    if humanoid then protectHumanoid(humanoid) end
+    table.insert(AntiAdminState.Connections, Workspace.DescendantAdded:Connect(function(obj)
+        if obj:IsA("Explosion") and root then
+            task.defer(function()
+                pcall(function()
+                    local dist = (obj.Position - root.Position).Magnitude
+                    if dist < obj.BlastRadius + 50 then
+                        obj.BlastRadius = 0
+                        obj.BlastPressure = 0
                     end
-                    resolveCommandName()
-                else
-                    cmdName = cmdName .. cmdExt
-                end
-            end
-            resolveCommandName()
-            local aliases = {}
-            if cmdData["Aliases"] then
-                for _, alias in ipairs(cmdData["Aliases"]) do
-                    table.insert(aliases, alias)
-                end
-            end
-            pcall(function()
-                RegisterCommand({
-                    Name = cmdName,
-                    Aliases = aliases,
-                    Description = cmdData["Description"] or "IY Plugin Command",
-                }, cmdData["Function"])
-            end)
-            cmdCount = cmdCount + 1
-        end
-    end
-    self.State.LoadedPlugins[fileName] = {
-        PluginName = plugin["PluginName"] or fileName,
-        PluginDescription = plugin["PluginDescription"] or "No description",
-        CommandCount = cmdCount,
-        FilePath = filePath,
-        LoadedAt = os.time()
-    }
-    if not isStartup then
-        DoNotif("IY Plugin Loaded: " .. (plugin["PluginName"] or fileName) .. " (" .. cmdCount .. " commands)", 3)
-    end
-    return true
-end
-function Modules.IYPluginManager:AddPlugin(name)
-    if not name or name == "" or name:lower() == "plugin file name" then
-        DoNotif("IY Plugins: Enter a valid plugin name", 3)
-        return
-    end
-    local fileName = name
-    if name:sub(-3) ~= ".iy" then
-        fileName = name .. ".iy"
-    end
-    if IYfindInTable(self.State.PluginsTable, fileName) then
-        DoNotif("IY Plugins: '" .. fileName .. "' is already loaded", 3)
-        return
-    end
-    local loaded = self:LoadPlugin(fileName, false)
-    if loaded then
-        table.insert(self.State.PluginsTable, fileName)
-        self:SavePluginList()
-        self:RefreshPluginList()
-    end
-end
-function Modules.IYPluginManager:RemovePlugin(fileName)
-    for i, v in pairs(self.State.PluginsTable) do
-        if v == fileName then
-            table.remove(self.State.PluginsTable, i)
-            break
-        end
-    end
-    self.State.LoadedPlugins[fileName] = nil
-    DoNotif("IY Plugin Removed: " .. fileName, 2)
-    self:SavePluginList()
-    self:RefreshPluginList()
-end
-function Modules.IYPluginManager:LoadAllSaved()
-    self:LoadPluginList()
-    local count = 0
-    local failed = 0
-    for _, fileName in ipairs(self.State.PluginsTable) do
-        local success = self:LoadPlugin(fileName, true)
-        if success then
-            count = count + 1
-        else
-            failed = failed + 1
-        end
-    end
-    if count > 0 then
-        DoNotif("IY Plugins: " .. count .. " plugin(s) loaded" .. (failed > 0 and (", " .. failed .. " failed") or ""), 3)
-    end
-    self:RefreshPluginList()
-end
-function Modules.IYPluginManager:ScanFolder()
-    if not listfiles or not isfolder then
-        DoNotif("IY Plugins: listfiles not available in this executor", 3)
-        return {}
-    end
-    local found = {}
-    local success, files = pcall(function()
-        if isfolder(self.Config.PLUGINS_FOLDER) then
-            return listfiles(self.Config.PLUGINS_FOLDER)
-        end
-        return {}
-    end)
-    if success and files then
-        for _, filePath in ipairs(files) do
-            if filePath:lower():match("%.iy$") then
-                local shortName = filePath:match("([^/\\]+)$") or filePath
-                table.insert(found, shortName)
-            end
-        end
-    end
-    return found
-end
-function Modules.IYPluginManager:CreateUI()
-    local cfg = self.Config
-    local CoreGui = game:GetService("CoreGui")
-    local UserInputService = game:GetService("UserInputService")
-    if self.State.ScreenGui and self.State.ScreenGui.Parent then
-        self.State.ScreenGui:Destroy()
-    end
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "IYPluginManager_Zuka"
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-    screenGui.ResetOnSpawn = false
-    screenGui.Parent = CoreGui
-    self.State.ScreenGui = screenGui
-    local window = Instance.new("Frame", screenGui)
-    window.Name = "Window"
-    window.Size = UDim2.new(0, 420, 0, 500)
-    window.Position = UDim2.new(0.5, -210, 0.5, -250)
-    window.BackgroundColor3 = cfg.BG_COLOR
-    window.BorderSizePixel = 0
-    window.Active = true
-    window.ClipsDescendants = true
-    IYmakeCorner(window, 10)
-    IYmakeStroke(window, Color3.fromRGB(0, 200, 200), 1)
-    self.State.UI = window
-    local isDragging = false
-    local dragStart, startPos
-    window.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isDragging = true
-            dragStart = input.Position
-            startPos = window.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    isDragging = false
-                end
-            end)
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            window.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    local topBar = Instance.new("Frame", window)
-    topBar.Name = "TopBar"
-    topBar.Size = UDim2.new(1, 0, 0, 36)
-    topBar.BackgroundColor3 = cfg.HEADER_COLOR
-    topBar.BorderSizePixel = 0
-    IYmakeCorner(topBar, 10)
-    local accentLine = Instance.new("Frame", topBar)
-    accentLine.Size = UDim2.new(1, 0, 0, 2)
-    accentLine.Position = UDim2.new(0, 0, 1, -2)
-    accentLine.BackgroundColor3 = cfg.ACCENT_COLOR
-    accentLine.BorderSizePixel = 0
-    local titleLabel = Instance.new("TextLabel", topBar)
-    titleLabel.Size = UDim2.new(1, -70, 1, 0)
-    titleLabel.Position = UDim2.new(0, 12, 0, 0)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.Text = "IY Plugin Manager"
-    titleLabel.TextColor3 = cfg.ACCENT_COLOR
-    titleLabel.TextSize = 14
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    local closeBtn = Instance.new("TextButton", topBar)
-    closeBtn.Size = UDim2.new(0, 26, 0, 26)
-    closeBtn.Position = UDim2.new(1, -32, 0.5, -13)
-    closeBtn.BackgroundColor3 = cfg.DANGER_COLOR
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.Text = "✕"
-    closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    closeBtn.TextSize = 12
-    closeBtn.BorderSizePixel = 0
-    IYmakeCorner(closeBtn, 6)
-    closeBtn.MouseButton1Click:Connect(function()
-        screenGui:Destroy()
-        self.State.ScreenGui = nil
-        self.State.UI = nil
-    end)
-    local addBar = Instance.new("Frame", window)
-    addBar.Name = "AddBar"
-    addBar.Size = UDim2.new(1, -20, 0, 36)
-    addBar.Position = UDim2.new(0, 10, 0, 44)
-    addBar.BackgroundColor3 = cfg.SECONDARY_COLOR
-    addBar.BorderSizePixel = 0
-    IYmakeCorner(addBar, 8)
-    IYmakeStroke(addBar, Color3.fromRGB(50, 50, 70))
-    local inputBox = Instance.new("TextBox", addBar)
-    inputBox.Name = "PluginInput"
-    inputBox.Size = UDim2.new(1, -100, 1, -8)
-    inputBox.Position = UDim2.new(0, 8, 0, 4)
-    inputBox.BackgroundTransparency = 1
-    inputBox.Font = Enum.Font.Code
-    inputBox.PlaceholderText = "plugin_name or plugin_name.iy"
-    inputBox.PlaceholderColor3 = Color3.fromRGB(80, 80, 100)
-    inputBox.Text = ""
-    inputBox.TextColor3 = cfg.TEXT_COLOR
-    inputBox.TextSize = 12
-    inputBox.TextXAlignment = Enum.TextXAlignment.Left
-    inputBox.ClearTextOnFocus = false
-    local addBtn = Instance.new("TextButton", addBar)
-    addBtn.Size = UDim2.new(0, 80, 1, -8)
-    addBtn.Position = UDim2.new(1, -86, 0, 4)
-    addBtn.BackgroundColor3 = cfg.ACCENT_COLOR
-    addBtn.Font = Enum.Font.GothamBold
-    addBtn.Text = "+ ADD"
-    addBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-    addBtn.TextSize = 11
-    addBtn.BorderSizePixel = 0
-    IYmakeCorner(addBtn, 6)
-    addBtn.MouseButton1Click:Connect(function()
-        local name = inputBox.Text
-        if name ~= "" then
-            self:AddPlugin(name)
-            inputBox.Text = ""
-        else
-            DoNotif("IY Plugins: Enter a plugin filename", 2)
-        end
-    end)
-    inputBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed and inputBox.Text ~= "" then
-            self:AddPlugin(inputBox.Text)
-            inputBox.Text = ""
-        end
-    end)
-    local toolbar = Instance.new("Frame", window)
-    toolbar.Name = "Toolbar"
-    toolbar.Size = UDim2.new(1, -20, 0, 28)
-    toolbar.Position = UDim2.new(0, 10, 0, 88)
-    toolbar.BackgroundTransparency = 1
-    local toolLayout = Instance.new("UIListLayout", toolbar)
-    toolLayout.FillDirection = Enum.FillDirection.Horizontal
-    toolLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    toolLayout.Padding = UDim.new(0, 6)
-    local function makeToolBtn(text, color, callback, order)
-        local btn = Instance.new("TextButton", toolbar)
-        btn.LayoutOrder = order
-        btn.Size = UDim2.new(0, 118, 1, 0)
-        btn.BackgroundColor3 = color
-        btn.Font = Enum.Font.GothamBold
-        btn.Text = text
-        btn.TextColor3 = Color3.new(1, 1, 1)
-        btn.TextSize = 10
-        btn.BorderSizePixel = 0
-        IYmakeCorner(btn, 6)
-        btn.MouseButton1Click:Connect(callback)
-        return btn
-    end
-    makeToolBtn("SCAN FOLDER", Color3.fromRGB(50, 80, 130), function()
-        self:ShowScanResults()
-    end, 1)
-    makeToolBtn("RELOAD ALL", Color3.fromRGB(50, 100, 60), function()
-        local count = 0
-        for _, fileName in ipairs(self.State.PluginsTable) do
-            if self:LoadPlugin(fileName, false) then
-                count = count + 1
-            end
-        end
-        DoNotif("IY Plugins: Reloaded " .. count .. " plugin(s)", 3)
-        self:RefreshPluginList()
-    end, 2)
-    makeToolBtn("CLEAR ALL", cfg.DANGER_COLOR, function()
-        self.State.PluginsTable = {}
-        self.State.LoadedPlugins = {}
-        self:SavePluginList()
-        self:RefreshPluginList()
-        DoNotif("IY Plugins: All plugins cleared", 2)
-    end, 3)
-    local statusBar = Instance.new("Frame", window)
-    statusBar.Name = "StatusBar"
-    statusBar.Size = UDim2.new(1, -20, 0, 22)
-    statusBar.Position = UDim2.new(0, 10, 0, 124)
-    statusBar.BackgroundColor3 = cfg.SECONDARY_COLOR
-    statusBar.BorderSizePixel = 0
-    IYmakeCorner(statusBar, 5)
-    local statusLabel = Instance.new("TextLabel", statusBar)
-    statusLabel.Name = "StatusLabel"
-    statusLabel.Size = UDim2.new(1, -8, 1, 0)
-    statusLabel.Position = UDim2.new(0, 8, 0, 0)
-    statusLabel.BackgroundTransparency = 1
-    statusLabel.Font = Enum.Font.Code
-    statusLabel.Text = " " .. #self.State.PluginsTable .. " plugin(s) loaded | IY Folder: " .. self.Config.PLUGINS_FOLDER
-    statusLabel.TextColor3 = Color3.fromRGB(150, 150, 180)
-    statusLabel.TextSize = 10
-    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-    self.State.StatusLabel = statusLabel
-    local listHeader = Instance.new("Frame", window)
-    listHeader.Size = UDim2.new(1, -20, 0, 22)
-    listHeader.Position = UDim2.new(0, 10, 0, 152)
-    listHeader.BackgroundColor3 = cfg.HEADER_COLOR
-    listHeader.BorderSizePixel = 0
-    IYmakeCorner(listHeader, 5)
-    local function makeHeaderLabel(text, xPos, width, align)
-        local lbl = Instance.new("TextLabel", listHeader)
-        lbl.Size = UDim2.new(0, width, 1, 0)
-        lbl.Position = UDim2.new(0, xPos, 0, 0)
-        lbl.BackgroundTransparency = 1
-        lbl.Font = Enum.Font.GothamBold
-        lbl.Text = text
-        lbl.TextColor3 = cfg.ACCENT_COLOR
-        lbl.TextSize = 9
-        lbl.TextXAlignment = align or Enum.TextXAlignment.Left
-    end
-    makeHeaderLabel("PLUGIN NAME", 8, 130)
-    makeHeaderLabel("DESCRIPTION", 142, 160)
-    makeHeaderLabel("CMDS", 306, 36, Enum.TextXAlignment.Center)
-    makeHeaderLabel("ACTION", 346, 60, Enum.TextXAlignment.Center)
-    local listContainer = Instance.new("ScrollingFrame", window)
-    listContainer.Name = "PluginList"
-    listContainer.Size = UDim2.new(1, -20, 1, -188)
-    listContainer.Position = UDim2.new(0, 10, 0, 178)
-    listContainer.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
-    listContainer.BorderSizePixel = 0
-    listContainer.ScrollBarThickness = 4
-    listContainer.ScrollBarImageColor3 = cfg.ACCENT_COLOR
-    listContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
-    IYmakeCorner(listContainer, 6)
-    IYmakeStroke(listContainer, Color3.fromRGB(40, 40, 60))
-    local listLayout = Instance.new("UIListLayout", listContainer)
-    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    listLayout.Padding = UDim.new(0, 2)
-    local listPadding = Instance.new("UIPadding", listContainer)
-    listPadding.PaddingTop = UDim.new(0, 4)
-    listPadding.PaddingLeft = UDim.new(0, 4)
-    listPadding.PaddingRight = UDim.new(0, 4)
-    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        listContainer.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 8)
-    end)
-    self.State.PluginList = listContainer
-    self.State.ListLayout = listLayout
-    self:RefreshPluginList()
-end
-function Modules.IYPluginManager:RefreshPluginList()
-    local listContainer = self.State.PluginList
-    if not listContainer then return end
-    for _, child in ipairs(listContainer:GetChildren()) do
-        if child:IsA("Frame") then
-            child:Destroy()
-        end
-    end
-    local cfg = self.Config
-    if self.State.StatusLabel then
-        self.State.StatusLabel.Text = " " .. #self.State.PluginsTable .. " plugin(s) loaded | IY Folder: " .. self.Config.PLUGINS_FOLDER
-    end
-    if #self.State.PluginsTable == 0 then
-        local emptyLabel = Instance.new("TextLabel", listContainer)
-        emptyLabel.Size = UDim2.new(1, 0, 0, 60)
-        emptyLabel.BackgroundTransparency = 1
-        emptyLabel.Font = Enum.Font.GothamMedium
-        emptyLabel.Text = "No plugins loaded.\nAdd a .iy file above or use ;addplugin"
-        emptyLabel.TextColor3 = Color3.fromRGB(80, 80, 100)
-        emptyLabel.TextSize = 12
-        emptyLabel.TextWrapped = true
-        return
-    end
-    for i, fileName in ipairs(self.State.PluginsTable) do
-        local pluginData = self.State.LoadedPlugins[fileName]
-        local pluginName = pluginData and pluginData.PluginName or fileName
-        local pluginDesc = pluginData and pluginData.PluginDescription or "Not loaded yet"
-        local cmdCount = pluginData and tostring(pluginData.CommandCount) or "?"
-        local isLoaded = pluginData ~= nil
-        local row = Instance.new("Frame", listContainer)
-        row.Name = "Plugin_" .. fileName
-        row.Size = UDim2.new(1, -8, 0, 38)
-        row.BackgroundColor3 = (i % 2 == 0) and cfg.ROW_COLOR or Color3.fromRGB(28, 28, 38)
-        row.BorderSizePixel = 0
-        IYmakeCorner(row, 5)
-        local dot = Instance.new("Frame", row)
-        dot.Size = UDim2.new(0, 6, 0, 6)
-        dot.Position = UDim2.new(0, 5, 0.5, -3)
-        dot.BackgroundColor3 = isLoaded and cfg.SUCCESS_COLOR or cfg.DANGER_COLOR
-        dot.BorderSizePixel = 0
-        IYmakeCorner(dot, 3)
-        local nameLabel = Instance.new("TextLabel", row)
-        nameLabel.Size = UDim2.new(0, 120, 1, 0)
-        nameLabel.Position = UDim2.new(0, 16, 0, 0)
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.Font = Enum.Font.GothamBold
-        nameLabel.Text = pluginName
-        nameLabel.TextColor3 = isLoaded and cfg.TEXT_COLOR or Color3.fromRGB(120, 120, 140)
-        nameLabel.TextSize = 11
-        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-        nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-        nameLabel.ClipsDescendants = true
-        local descLabel = Instance.new("TextLabel", row)
-        descLabel.Size = UDim2.new(0, 155, 1, 0)
-        descLabel.Position = UDim2.new(0, 138, 0, 0)
-        descLabel.BackgroundTransparency = 1
-        descLabel.Font = Enum.Font.Code
-        descLabel.Text = pluginDesc
-        descLabel.TextColor3 = Color3.fromRGB(120, 120, 150)
-        descLabel.TextSize = 9
-        descLabel.TextXAlignment = Enum.TextXAlignment.Left
-        descLabel.TextTruncate = Enum.TextTruncate.AtEnd
-        descLabel.ClipsDescendants = true
-        local cmdLabel = Instance.new("TextLabel", row)
-        cmdLabel.Size = UDim2.new(0, 30, 1, 0)
-        cmdLabel.Position = UDim2.new(0, 296, 0, 0)
-        cmdLabel.BackgroundTransparency = 1
-        cmdLabel.Font = Enum.Font.GothamBold
-        cmdLabel.Text = cmdCount
-        cmdLabel.TextColor3 = cfg.ACCENT_COLOR
-        cmdLabel.TextSize = 11
-        cmdLabel.TextXAlignment = Enum.TextXAlignment.Center
-        local reloadBtn = Instance.new("TextButton", row)
-        reloadBtn.Size = UDim2.new(0, 26, 0, 26)
-        reloadBtn.Position = UDim2.new(0, 330, 0.5, -13)
-        reloadBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 60)
-        reloadBtn.Font = Enum.Font.GothamBold
-        reloadBtn.Text = "↻"
-        reloadBtn.TextColor3 = Color3.new(1, 1, 1)
-        reloadBtn.TextSize = 14
-        reloadBtn.BorderSizePixel = 0
-        IYmakeCorner(reloadBtn, 5)
-        local capturedFileName = fileName
-        reloadBtn.MouseButton1Click:Connect(function()
-            self.State.LoadedPlugins[capturedFileName] = nil
-            local success = self:LoadPlugin(capturedFileName, false)
-            if success then
-                self:RefreshPluginList()
-            end
-        end)
-        local removeBtn = Instance.new("TextButton", row)
-        removeBtn.Size = UDim2.new(0, 26, 0, 26)
-        removeBtn.Position = UDim2.new(0, 360, 0.5, -13)
-        removeBtn.BackgroundColor3 = cfg.DANGER_COLOR
-        removeBtn.Font = Enum.Font.GothamBold
-        removeBtn.Text = "✕"
-        removeBtn.TextColor3 = Color3.new(1, 1, 1)
-        removeBtn.TextSize = 12
-        removeBtn.BorderSizePixel = 0
-        IYmakeCorner(removeBtn, 5)
-        removeBtn.MouseButton1Click:Connect(function()
-            self:RemovePlugin(capturedFileName)
-        end)
-    end
-end
-function Modules.IYPluginManager:ShowScanResults()
-    local available = self:ScanFolder()
-    if #available == 0 then
-        DoNotif("IY Scan: No .iy files found in '" .. self.Config.PLUGINS_FOLDER .. "' folder", 4)
-        return
-    end
-    local cfg = self.Config
-    local screenGui = self.State.ScreenGui
-    if not screenGui then return end
-    local overlay = Instance.new("Frame", screenGui)
-    overlay.Size = UDim2.new(0, 300, 0, 360)
-    overlay.Position = UDim2.new(0.5, 20, 0.5, -180)
-    overlay.BackgroundColor3 = cfg.BG_COLOR
-    overlay.BorderSizePixel = 0
-    overlay.ZIndex = 10
-    IYmakeCorner(overlay, 10)
-    IYmakeStroke(overlay, cfg.ACCENT_COLOR)
-    local header = Instance.new("Frame", overlay)
-    header.Size = UDim2.new(1, 0, 0, 32)
-    header.BackgroundColor3 = cfg.HEADER_COLOR
-    header.BorderSizePixel = 0
-    IYmakeCorner(header, 10)
-    local headerLabel = Instance.new("TextLabel", header)
-    headerLabel.Size = UDim2.new(1, -40, 1, 0)
-    headerLabel.Position = UDim2.new(0, 10, 0, 0)
-    headerLabel.BackgroundTransparency = 1
-    headerLabel.Font = Enum.Font.GothamBold
-    headerLabel.Text = "- Found " .. #available .. " Plugin(s)"
-    headerLabel.TextColor3 = cfg.ACCENT_COLOR
-    headerLabel.TextSize = 12
-    headerLabel.TextXAlignment = Enum.TextXAlignment.Left
-    local closeOverlay = Instance.new("TextButton", header)
-    closeOverlay.Size = UDim2.new(0, 24, 0, 24)
-    closeOverlay.Position = UDim2.new(1, -28, 0.5, -12)
-    closeOverlay.BackgroundColor3 = cfg.DANGER_COLOR
-    closeOverlay.Font = Enum.Font.GothamBold
-    closeOverlay.Text = "✕"
-    closeOverlay.TextColor3 = Color3.new(1, 1, 1)
-    closeOverlay.TextSize = 11
-    closeOverlay.BorderSizePixel = 0
-    IYmakeCorner(closeOverlay, 5)
-    closeOverlay.MouseButton1Click:Connect(function()
-        overlay:Destroy()
-    end)
-    local scroll = Instance.new("ScrollingFrame", overlay)
-    scroll.Size = UDim2.new(1, -10, 1, -44)
-    scroll.Position = UDim2.new(0, 5, 0, 38)
-    scroll.BackgroundTransparency = 1
-    scroll.BorderSizePixel = 0
-    scroll.ScrollBarThickness = 4
-    scroll.ScrollBarImageColor3 = cfg.ACCENT_COLOR
-    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    local layout = Instance.new("UIListLayout", scroll)
-    layout.Padding = UDim.new(0, 3)
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 4)
-    end)
-    for _, fileName in ipairs(available) do
-        local alreadyAdded = IYfindInTable(self.State.PluginsTable, fileName)
-        local row = Instance.new("Frame", scroll)
-        row.Size = UDim2.new(1, -4, 0, 32)
-        row.BackgroundColor3 = cfg.SECONDARY_COLOR
-        row.BorderSizePixel = 0
-        IYmakeCorner(row, 5)
-        local fileLabel = Instance.new("TextLabel", row)
-        fileLabel.Size = UDim2.new(1, -60, 1, 0)
-        fileLabel.Position = UDim2.new(0, 8, 0, 0)
-        fileLabel.BackgroundTransparency = 1
-        fileLabel.Font = Enum.Font.Code
-        fileLabel.Text = fileName
-        fileLabel.TextColor3 = alreadyAdded and Color3.fromRGB(100, 180, 100) or cfg.TEXT_COLOR
-        fileLabel.TextSize = 11
-        fileLabel.TextXAlignment = Enum.TextXAlignment.Left
-        fileLabel.TextTruncate = Enum.TextTruncate.AtEnd
-        local addFileBtn = Instance.new("TextButton", row)
-        addFileBtn.Size = UDim2.new(0, 50, 0, 24)
-        addFileBtn.Position = UDim2.new(1, -54, 0.5, -12)
-        addFileBtn.BackgroundColor3 = alreadyAdded and Color3.fromRGB(40, 60, 40) or cfg.ACCENT_COLOR
-        addFileBtn.Font = Enum.Font.GothamBold
-        addFileBtn.Text = alreadyAdded and "✓ ON" or "+ ADD"
-        addFileBtn.TextColor3 = alreadyAdded and Color3.fromRGB(100, 200, 100) or Color3.fromRGB(0, 0, 0)
-        addFileBtn.TextSize = 9
-        addFileBtn.BorderSizePixel = 0
-        IYmakeCorner(addFileBtn, 5)
-        if not alreadyAdded then
-            local capturedFile = fileName
-            addFileBtn.MouseButton1Click:Connect(function()
-                self:AddPlugin(capturedFile)
-                addFileBtn.Text = "✓ ON"
-                addFileBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 40)
-                addFileBtn.TextColor3 = Color3.fromRGB(100, 200, 100)
-                fileLabel.TextColor3 = Color3.fromRGB(100, 180, 100)
-            end)
-        end
-    end
-end
-function Modules.IYPluginManager:Initialize()
-    pcall(function()
-        if makefolder and (not isfolder or not isfolder(self.Config.SAVE_FOLDER)) then
-            makefolder(self.Config.SAVE_FOLDER)
-        end
-    end)
-    self:LoadAllSaved()
-end
-RegisterCommand({
-    Name = "plugins",
-    Aliases = { "iy", "iyplugins", "pluginmanager" },
-    Description = "Open the IY Plugin Manager UI"
-}, function(args)
-    Modules.IYPluginManager:CreateUI()
-    DoNotif("IY Plugin Manager opened", 2)
-end)
-RegisterCommand({
-    Name = "addplugin",
-    Aliases = { "loadplugin", "plugin" },
-    Description = "Load an .iy plugin. Usage: ;addplugin filename"
-}, function(args)
-    if not args[1] then
-        DoNotif("Usage: ;addplugin <filename>", 2)
-        return
-    end
-    Modules.IYPluginManager:AddPlugin(args[1])
-end)
-RegisterCommand({
-    Name = "removeplugin",
-    Aliases = { "delplugin", "rmplugin" },
-    Description = "Remove a loaded plugin. Usage: ;removeplugin filename"
-}, function(args)
-    if not args[1] then
-        DoNotif("Usage: ;removeplugin <filename>", 2)
-        return
-    end
-    local fileName = args[1]
-    if fileName:sub(-3) ~= ".iy" then
-        fileName = fileName .. ".iy"
-    end
-    Modules.IYPluginManager:RemovePlugin(fileName)
-end)
-RegisterCommand({
-    Name = "reloadplugins",
-    Aliases = { "refreshplugins" },
-    Description = "Reload all saved plugins from disk"
-}, function(args)
-    for _, fileName in ipairs(Modules.IYPluginManager.State.PluginsTable) do
-        Modules.IYPluginManager.State.LoadedPlugins[fileName] = nil
-        Modules.IYPluginManager:LoadPlugin(fileName, false)
-    end
-    Modules.IYPluginManager:RefreshPluginList()
-    DoNotif("IY Plugins: All plugins reloaded", 2)
-end)
-RegisterCommand({
-    Name = "listplugins",
-    Aliases = { "pluginlist" },
-    Description = "List all loaded plugins in chat"
-}, function(args)
-    local pm = Modules.IYPluginManager
-    if #pm.State.PluginsTable == 0 then
-        DoNotif("IY Plugins: No plugins loaded", 2)
-        return
-    end
-    for i, fileName in ipairs(pm.State.PluginsTable) do
-        local data = pm.State.LoadedPlugins[fileName]
-        local name = data and data.PluginName or fileName
-        local cmds = data and data.CommandCount or 0
-        DoNotif("[" .. i .. "] " .. name .. " (" .. cmds .. " cmds)", 3)
-    end
-end)
-RegisterCommand({
-    Name = "scanplugins",
-    Aliases = { "pluginscan" },
-    Description = "Scan IY folder for available .iy files"
-}, function(args)
-    local found = Modules.IYPluginManager:ScanFolder()
-    if #found == 0 then
-        DoNotif("IY Scan: No .iy files found in '" .. Modules.IYPluginManager.Config.PLUGINS_FOLDER .. "'", 4)
-    else
-        DoNotif("IY Scan: Found " .. #found .. " plugin(s). Open ;plugins to add them.", 4)
-        for _, f in ipairs(found) do
-            DoNotif("  → " .. f, 2)
-        end
-    end
-end)
-Modules.HatFling = {
-    State = {
-        IsActive = false,
-        Connections = {},
-        Accessories = {},
-        TargetMode = "all", -- "all", "others", "nearest", "specific"
-        TargetPlayer = nil,
-        OriginalGravity = workspace.Gravity,
-        FakeDeath = false,
-        CameraPart = nil,
-        Stats = {
-            FlingsAttempted = 0,
-            PlayersTargeted = 0,
-        }
-    },
-    Config = {
-        FlingVelocity = Vector3.new(1e20, 1e20, 1e20),
-        RotVelocity = Vector3.new(1e10, 1e10, 1e10),
-        FlingDuration = 20, -- Frames to fling per target
-        UpdateRate = 0, -- How often to update (0 = every frame)
-        RequireCollision = true, -- Only use hats with CanCollide
-        DropHeight = -500,
-        DropAngle = 45, -- Angle for R15 fake death
-        UsePermDeath = false, -- Deprecated but kept for compatibility
-        AutoStop = false, -- Stop after X seconds
-        AutoStopTime = 30,
-        TargetTeammates = false,
-        TargetSelf = false,
-        MaxDistance = math.huge, -- Max distance to target players
-        Debug = false,
-    },
-    Services = {
-        Players = game:GetService("Players"),
-        RunService = game:GetService("RunService"),
-        StarterGui = game:GetService("StarterGui"),
-        Debris = game:GetService("Debris"),
-    }
-}
-
-function Modules.HatFling:GetAccessories()
-    local character = LocalPlayer.Character
-    if not character then return {} end
-    
-    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
-    if not humanoid then return {} end
-    
-    local accessories = {}
-    for _, accessory in ipairs(humanoid:GetAccessories()) do
-        local handle = accessory:FindFirstChild("Handle")
-        
-        -- Filter by collision requirement
-        if handle and handle:IsA("BasePart") then
-            if not self.Config.RequireCollision or handle.CanCollide then
-                table.insert(accessories, {
-                    Accessory = accessory,
-                    Handle = handle
-                })
-            end
-        end
-    end
-    
-    return accessories
-end
-
-function Modules.HatFling:UnlockAccessories()
-    local accessories = self:GetAccessories()
-    local unlocked = 0
-    
-    for _, data in ipairs(accessories) do
-        pcall(function()
-            sethiddenproperty(data.Accessory, "BackendAccoutrementState", 3)
-            unlocked = unlocked + 1
-        end)
-    end
-    
-    if self.Config.Debug then
-        DoNotif(string.format("Unlocked %d accessories", unlocked), 2)
-    end
-    
-    return accessories
-end
-
-function Modules.HatFling:GetTargetPlayers()
-    local targets = {}
-    local localPlayer = LocalPlayer
-    
-    for _, player in ipairs(self.Services.Players:GetPlayers()) do
-        -- Skip self unless configured
-        if player == localPlayer and not self.Config.TargetSelf then
-            continue
-        end
-        
-        -- Skip teammates unless configured
-        if not self.Config.TargetTeammates and player.Team == localPlayer.Team and player ~= localPlayer then
-            continue
-        end
-        
-        -- Check distance
-        if self.Config.MaxDistance < math.huge then
-            local char = player.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            local localHRP = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-            
-            if hrp and localHRP then
-                local distance = (hrp.Position - localHRP.Position).Magnitude
-                if distance > self.Config.MaxDistance then
-                    continue
-                end
-            end
-        end
-        
-        -- Mode-specific filtering
-        if self.State.TargetMode == "specific" and player ~= self.State.TargetPlayer then
-            continue
-        end
-        
-        table.insert(targets, player)
-    end
-    
-    -- Sort by distance for "nearest" mode
-    if self.State.TargetMode == "nearest" then
-        local localHRP = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if localHRP then
-            table.sort(targets, function(a, b)
-                local aHRP = a.Character and a.Character:FindFirstChild("HumanoidRootPart")
-                local bHRP = b.Character and b.Character:FindFirstChild("HumanoidRootPart")
-                if not aHRP then return false end
-                if not bHRP then return true end
-                
-                local aDist = (aHRP.Position - localHRP.Position).Magnitude
-                local bDist = (bHRP.Position - localHRP.Position).Magnitude
-                return aDist < bDist
-            end)
-        end
-    end
-    
-    return targets
-end
-
-function Modules.HatFling:SetupFakeDeath()
-    local character = LocalPlayer.Character
-    if not character then return false end
-    
-    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    
-    if not humanoid or not rootPart then return false end
-    
-    -- Store original gravity
-    self.State.OriginalGravity = workspace.Gravity
-    
-    -- Disable gravity and fallen parts
-    workspace.Gravity = 0
-    workspace.FallenPartsDestroyHeight = math.huge
-    
-    -- Setup fall animation
-    local animator = humanoid:FindFirstChild("Animator")
-    if animator then
-        local animScript = character:FindFirstChild("Animate")
-        local fallValue = animScript and animScript:FindFirstChild("fall")
-        local fallAnim = fallValue and fallValue:FindFirstChild("FallAnim")
-        
-        local fallAnimIds = {
-            [Enum.HumanoidRigType.R6] = "rbxassetid://180436148",
-            [Enum.HumanoidRigType.R15] = "rbxassetid://507767968"
-        }
-        
-        local animId = fallAnimIds[humanoid.RigType]
-        if animId then
-            local anim = Instance.new("Animation")
-            anim.AnimationId = animId
-            
-            local track = animator:LoadAnimation(anim)
-            track.Priority = Enum.AnimationPriority.Action
-            track.TimePosition = 0.1
-            track:Play()
-            track:AdjustWeight(5)
-        end
-    end
-    
-    -- Create camera part
-    self.State.CameraPart = Instance.new("Part")
-    self.State.CameraPart.Transparency = 1
-    self.State.CameraPart.Anchored = true
-    self.State.CameraPart.CFrame = workspace.CurrentCamera.CFrame
-    self.State.CameraPart.Parent = workspace
-    
-    -- Position character at drop height
-    local dropCFrame = CFrame.new(rootPart.Position.X, self.Config.DropHeight, rootPart.Position.Z)
-    if humanoid.RigType == Enum.HumanoidRigType.R15 then
-        dropCFrame = dropCFrame * CFrame.Angles(math.rad(self.Config.DropAngle), 0, 0)
-        humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
-    end
-    
-    -- Keep character at drop position
-    self.State.Connections.PositionLoop = self.Services.RunService.PostSimulation:Connect(function()
-        if rootPart and rootPart.Parent then
-            rootPart.CFrame = dropCFrame
-            rootPart.AssemblyLinearVelocity = Vector3.zero
-            rootPart.AssemblyAngularVelocity = Vector3.zero
-        end
-    end)
-    
-    self.State.FakeDeath = true
-    return true
-end
-
-function Modules.HatFling:FlingTarget(handle, targetRootPart)
-    if not handle or not targetRootPart then return end
-    
-    pcall(function()
-        for i = 1, self.Config.FlingDuration do
-            sethiddenproperty(handle, "PhysicsRepRootPart", targetRootPart)
-            handle.CFrame = targetRootPart.CFrame
-            handle.AssemblyLinearVelocity = self.Config.FlingVelocity
-            handle.AssemblyAngularVelocity = self.Config.RotVelocity
-            task.wait()
-        end
-    end)
-end
-
-function Modules.HatFling:StartFlingLoop()
-    local offset = 0
-    
-    self.State.Connections.FlingLoop = self.Services.RunService.Heartbeat:Connect(function()
-        local accessories = self.State.Accessories
-        local targets = self:GetTargetPlayers()
-        
-        if #accessories == 0 or #targets == 0 then return end
-        
-        -- Distribute hats across targets
-        for hatIndex, data in ipairs(accessories) do
-            local targetIndex = ((hatIndex + offset - 1) % #targets) + 1
-            local targetPlayer = targets[targetIndex]
-            
-            local targetChar = targetPlayer.Character
-            local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-            
-            if targetRoot then
-                task.spawn(function()
-                    self:FlingTarget(data.Handle, targetRoot)
-                    self.State.Stats.FlingsAttempted = self.State.Stats.FlingsAttempted + 1
                 end)
-            end
-        end
-        
-        offset = offset + 1
-        if offset > #targets then
-            offset = 0
-            self.State.Stats.PlayersTargeted = #targets
-        end
-        
-        if self.Config.UpdateRate > 0 then
-            task.wait(self.Config.UpdateRate)
-        end
-    end)
-end
-
-function Modules.HatFling:SetupReset()
-    local resetBind = Instance.new("BindableEvent")
-    
-    resetBind.Event:Connect(function()
-        self:Disable()
-        task.wait(0.1)
-        
-        -- Trigger respawn
-        if self.Config.UsePermDeath then
-            pcall(function()
-                replicatesignal(LocalPlayer.ConnectDiedSignalBackend)
             end)
         end
-    end)
-    
-    pcall(function()
-        self.Services.StarterGui:SetCore("ResetButtonCallback", resetBind)
-    end)
-    
-    -- Restore on character added
-    self.State.Connections.CharacterAdded = LocalPlayer.CharacterAdded:Connect(function()
-        self:RestoreWorld()
-        task.wait(0.5)
-        pcall(function()
-            self.Services.StarterGui:SetCore("ResetButtonCallback", true)
-        end)
-    end)
+    end))
+    table.insert(AntiAdminState.Connections, char.DescendantAdded:Connect(function(obj)
+        if obj:IsA("BodyVelocity") or obj:IsA("BodyForce") or obj:IsA("RocketPropulsion") or obj:IsA("BodyAngularVelocity") then
+            task.defer(function() pcall(function() obj:Destroy() end) end)
+        end
+    end))
+    table.insert(AntiAdminState.Connections, char.ChildRemoved:Connect(function(obj)
+        if obj:IsA("ForceField") and humanoid and humanoid.Health > 0 then
+            task.defer(function() Instance.new("ForceField", char).Visible = false end)
+        elseif obj:IsA("Tool") then
+            task.delay(0.1, function()
+                if obj and not obj.Parent then pcall(function() obj.Parent = lp.Backpack end) end
+            end)
+        end
+    end))
 end
-
-function Modules.HatFling:RestoreWorld()
-    -- Restore gravity
-    workspace.Gravity = self.State.OriginalGravity
-    workspace.FallenPartsDestroyHeight = -500
-    
-    -- Restore camera
-    if self.State.CameraPart then
-        pcall(function()
-            workspace.CurrentCamera.CameraSubject = LocalPlayer.Character and 
-                LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
-            self.State.CameraPart:Destroy()
-        end)
-        self.State.CameraPart = nil
-    end
-end
-
-function Modules.HatFling:Enable()
-    if self.State.IsActive then
-        DoNotif("Hat Fling already active", 3)
-        return
-    end
-    
-    local character = LocalPlayer.Character
-    if not character then
-        DoNotif("No character found", 3)
-        return
-    end
-    
-    -- Get and unlock accessories
-    DoNotif("Unlocking accessories...", 2)
-    self.State.Accessories = self:UnlockAccessories()
-    
-    if #self.State.Accessories == 0 then
-        DoNotif("No usable accessories found. Equip hats!", 3)
-        return
-    end
-    
-    DoNotif(string.format("Found %d accessories", #self.State.Accessories), 2)
-    
-    -- Setup fake death
-    DoNotif("Setting up fake death...", 2)
-    if not self:SetupFakeDeath() then
-        DoNotif("Failed to setup fake death", 3)
-        return
-    end
-    
-    -- Start fling loop
-    self:StartFlingLoop()
-    self:SetupReset()
-    
-    -- Auto-stop timer
-    if self.Config.AutoStop then
-        task.delay(self.Config.AutoStopTime, function()
-            if self.State.IsActive then
-                self:Disable()
-                DoNotif("Auto-stopped after " .. self.Config.AutoStopTime .. "s", 2)
+local function setupHooks()
+    local hdc = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+    if hdc and hdc:FindFirstChild("Signals") then
+        for _, sigName in ipairs({"ExecuteClientCommand", "ActivateClientCommand", "ReplicationEffectClientCommand"}) do
+            local s = hdc.Signals:FindFirstChild(sigName)
+            if s then
+                table.insert(AntiAdminState.Connections, s.OnClientEvent:Connect(function(cmd)
+                    log("Intercepted HD command: " .. tostring(cmd))
+                end))
             end
-        end)
-    end
-    
-    -- Kill character after setup
-    task.wait(0.2)
-    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
-    if humanoid then
-        humanoid:ChangeState(Enum.HumanoidStateType.Dead)
-    end
-    
-    -- Wait for death
-    local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
-    if torso then
-        torso.AncestryChanged:Wait()
-    end
-    
-    -- Set camera to fake part
-    if self.State.CameraPart then
-        workspace.CurrentCamera.CameraSubject = self.State.CameraPart
-    end
-    
-    self.State.IsActive = true
-    self.State.Stats.FlingsAttempted = 0
-    self.State.Stats.PlayersTargeted = 0
-    
-    DoNotif(string.format("Hat Fling active! Mode: %s, Hats: %d", 
-        self.State.TargetMode, #self.State.Accessories), 3)
-end
-
-function Modules.HatFling:Disable()
-    if not self.State.IsActive then return end
-    
-    self.State.IsActive = false
-    
-    -- Disconnect all connections
-    for _, conn in pairs(self.State.Connections) do
-        pcall(function() conn:Disconnect() end)
-    end
-    table.clear(self.State.Connections)
-    
-    -- Restore world
-    self:RestoreWorld()
-    
-    -- Clear state
-    self.State.Accessories = {}
-    self.State.FakeDeath = false
-    
-    DoNotif(string.format("Hat Fling disabled. Stats: %d flings attempted, %d players targeted", 
-        self.State.Stats.FlingsAttempted, self.State.Stats.PlayersTargeted), 3)
-end
-
-function Modules.HatFling:SetTargetMode(mode)
-    local validModes = {all = true, others = true, nearest = true, specific = true}
-    
-    if not validModes[mode:lower()] then
-        DoNotif("Invalid mode. Use: all, others, nearest, specific", 3)
-        return
-    end
-    
-    self.State.TargetMode = mode:lower()
-    DoNotif("Target mode: " .. mode:lower(), 2)
-end
-
-function Modules.HatFling:SetTargetPlayer(playerName)
-    local player = self.Services.Players:FindFirstChild(playerName)
-    
-    if not player then
-        DoNotif("Player not found: " .. playerName, 3)
-        return
-    end
-    
-    self.State.TargetPlayer = player
-    self.State.TargetMode = "specific"
-    DoNotif("Targeting: " .. player.Name, 2)
-end
-
-function Modules.HatFling:SetFlingPower(velocity, rotVelocity)
-    velocity = tonumber(velocity) or 1e20
-    rotVelocity = tonumber(rotVelocity) or velocity / 10
-    
-    self.Config.FlingVelocity = Vector3.new(velocity, velocity, velocity)
-    self.Config.RotVelocity = Vector3.new(rotVelocity, rotVelocity, rotVelocity)
-    
-    DoNotif(string.format("Fling power: %.0e", velocity), 2)
-end
-
-function Modules.HatFling:ShowStats()
-    DoNotif(string.format(
-        "Stats:\nActive: %s\nHats: %d\nFlings: %d\nPlayers: %d\nMode: %s",
-        tostring(self.State.IsActive),
-        #self.State.Accessories,
-        self.State.Stats.FlingsAttempted,
-        self.State.Stats.PlayersTargeted,
-        self.State.TargetMode
-    ), 5)
-end
-
--- Commands
-RegisterCommand({
-    Name = "hatfling",
-    Aliases = {"hfling", "massfling"},
-    Description = "Mass fling exploit using hats. Equip accessories first!"
-}, function(args)
-    if #args > 0 then
-        local subcommand = args[1]:lower()
-        
-        if subcommand == "mode" and args[2] then
-            Modules.HatFling:SetTargetMode(args[2])
-        elseif subcommand == "target" and args[2] then
-            Modules.HatFling:SetTargetPlayer(args[2])
-        elseif subcommand == "power" and args[2] then
-            Modules.HatFling:SetFlingPower(args[2], args[3])
-        elseif subcommand == "stats" then
-            Modules.HatFling:ShowStats()
-        elseif subcommand == "off" or subcommand == "disable" then
-            Modules.HatFling:Disable()
-        else
-            Modules.HatFling:Enable()
-        end
-    else
-        if Modules.HatFling.State.IsActive then
-            Modules.HatFling:Disable()
-        else
-            Modules.HatFling:Enable()
         end
     end
-end)
-
-RegisterCommand({
-    Name = "hflingmode",
-    Aliases = {"hfm"},
-    Description = "Set targeting mode: all, others, nearest, specific"
-}, function(args)
-    if not args[1] then
-        DoNotif("Current mode: " .. Modules.HatFling.State.TargetMode, 2)
-        return
+    local adonis = ReplicatedStorage:FindFirstChild("Adonis")
+    if adonis then
+        local remote = adonis:FindFirstChild("Remote") or adonis:FindFirstChildOfClass("RemoteEvent")
+        if remote then
+            table.insert(AntiAdminState.Connections, remote.OnClientEvent:Connect(function(cmd)
+                log("Intercepted Adonis signal: " .. tostring(cmd))
+            end))
+        end
     end
-    Modules.HatFling:SetTargetMode(args[1])
-end)
-
-RegisterCommand({
-    Name = "hflingtarget",
-    Aliases = {"hft"},
-    Description = "Set specific target player. Usage: ;hflingtarget <username>"
-}, function(args)
-    if not args[1] then
-        local target = Modules.HatFling.State.TargetPlayer
-        DoNotif("Current target: " .. (target and target.Name or "None"), 2)
-        return
+end
+local function startWatchdog()
+    local lastCheck = 0
+    AntiAdminState.Watchdog = RunService.Heartbeat:Connect(function(dt)
+        lastCheck += dt
+        if lastCheck < 0.5 then return end
+        lastCheck = 0
+        local char = lp.Character
+        if not char then return end
+        local pg = lp:FindFirstChild("PlayerGui")
+        if pg then
+            for _, obj in ipairs(pg:GetDescendants()) do
+                if obj:IsA("Frame") and obj.BackgroundTransparency < 0.1 and obj.BackgroundColor3 == Color3.new(0,0,0) and obj.Size.X.Scale > 0.9 then
+                    pcall(function() obj:Destroy() end)
+                end
+            end
+        end
+        for _, obj in ipairs(Lighting:GetChildren()) do
+            if obj:IsA("ColorCorrectionEffect") and obj.Brightness < -0.8 then
+                pcall(function() obj:Destroy() end)
+            end
+        end
+    end)
+end
+addcmd('antiabuse', {'nahadmin', 'bladmin'}, 
+    function(args, speaker)
+        if AntiAdminState.Enabled then
+            AntiAdminState.Enabled = false
+            cleanConnections()
+            log("AntiAdmin Disabled.")
+        else
+            AntiAdminState.Enabled = true
+            log("AntiAdmin Enabled.")
+            if lp.Character then applyProtections(lp.Character) end
+            table.insert(AntiAdminState.Connections, lp.CharacterAdded:Connect(applyProtections))
+            setupHooks()
+            startWatchdog()
+        end
     end
-    Modules.HatFling:SetTargetPlayer(args[1])
+)
+addcmd("removeads", {"adblock"}, function(args, speaker)
+	while wait() do
+		pcall(function()
+			for i, v in pairs(workspace:GetDescendants()) do
+				if v:IsA("PackageLink") then
+					if v.Parent:FindFirstChild("ADpart") then
+						v.Parent:Destroy()
+					end
+					if v.Parent:FindFirstChild("AdGuiAdornee") then
+						v.Parent.Parent:Destroy()
+					end
+				end
+			end
+		end)
+	end
 end)
-Modules.ToolFly = {
-    State = {
-        IsActive = false,
-        Tool = nil,
-        Handle = nil,
-        OriginalHandleName = nil,
-        BodyMovers = {
-            Position = nil,
-            Gyro = nil
-        },
-        Keys = {
-            Q = false,
-            E = false,
-            W = false,
-            A = false,
-            S = false,
-            D = false
-        },
-        Connections = {},
-        Speed = 0,
-        FlingActive = false,
-        OriginalCameraSubject = nil,
-    },
-    Config = {
-        MaxSpeed = 50,
-        MinSpeed = 1,
-        MovementPower = 10,
-        FlingPower = 69420,
-        FlingKey = Enum.KeyCode.X,
-        SmoothAcceleration = true,
-        AccelerationRate = 0.01,
-        BobAmount = 40, -- Vertical bobbing while idle
-        AutoFindTool = true,
-        PreferredTools = {}, -- List of tool names to prefer
-        Debug = false,
-    },
-    Services = {
-        Players = game:GetService("Players"),
-        RunService = game:GetService("RunService"),
-        StarterGui = game:GetService("StarterGui"),
-        UserInputService = game:GetService("UserInputService"),
-    }
+local networkPaused = nil
+addcmd("antigameplaypaused", {}, function(args, speaker)
+    pcall(function() networkPaused:Disconnect() end)
+    networkPaused = COREGUI.RobloxGui.ChildAdded:Connect(function(obj)
+        if obj.Name == "CoreScripts/NetworkPause" then
+            obj:Destroy()
+        end
+    end)
+    COREGUI.RobloxGui["CoreScripts/NetworkPause"]:Destroy()
+end)
+addcmd("unantigameplaypaused", {}, function(args, speaker)
+    networkPaused:Disconnect()
+end)
+addcmd('clientantikick',{'antikick'},function(args, speaker)
+	if not hookmetamethod then 
+		return DoNotif('Incompatible Exploit','Your exploit does not support this command (missing hookmetamethod)')
+	end
+	local LocalPlayer = Players.LocalPlayer
+	local oldhmmi
+	local oldhmmnc
+	local oldKickFunction
+	if hookfunction then
+		oldKickFunction = hookfunction(LocalPlayer.Kick, function() end)
+	end
+	oldhmmi = hookmetamethod(game, "__index", function(self, method)
+		if self == LocalPlayer and method:lower() == "kick" then
+			return error("Expected ':' not '.' calling member function Kick", 2)
+		end
+		return oldhmmi(self, method)
+	end)
+	oldhmmnc = hookmetamethod(game, "__namecall", function(self, ...)
+		if self == LocalPlayer and getnamecallmethod():lower() == "kick" then
+			return
+		end
+		return oldhmmnc(self, ...)
+	end)
+end)
+addcmd("listento", {}, function(args, speaker)
+	execCmd("unlistento")
+	if not args[1] then return end
+	local player = Players:FindFirstChild(getPlayer(args[1], speaker)[1])
+	local root = player and player.Character and getRoot(player.Character)
+	if root then
+		SoundService:SetListener(Enum.ListenerType.ObjectPosition, root)
+		listentoChar = player.CharacterAdded:Connect(function()
+			repeat task.wait() until Players[player.Name].Character ~= nil and getRoot(Players[player.Name].Character)
+			SoundService:SetListener(Enum.ListenerType.ObjectPosition, getRoot(Players[player.Name].Character))
+		end)
+	end
+end)
+addcmd("unlistento", {}, function(args, speaker)
+	SoundService:SetListener(Enum.ListenerType.Camera)
+	listentoChar:Disconnect()
+end)
+addcmd('unswim',{'noswim'},function(args, speaker)
+	if speaker and speaker.Character and speaker.Character:FindFirstChildWhichIsA("Humanoid") then
+		workspace.Gravity = oldgrav
+		swimming = false
+		if gravReset then
+			gravReset:Disconnect()
+		end
+		if swimbeat ~= nil then
+			swimbeat:Disconnect()
+			swimbeat = nil
+		end
+		local Humanoid = speaker.Character:FindFirstChildWhichIsA("Humanoid")
+		local enums = Enum.HumanoidStateType:GetEnumItems()
+		table.remove(enums, table.find(enums, Enum.HumanoidStateType.None))
+		for i, v in pairs(enums) do
+			Humanoid:SetStateEnabled(v, true)
+		end
+	end
+end)
+addcmd('toggleswim',{},function(args, speaker)
+	if swimming then
+		execCmd('unswim')
+	else
+		execCmd('swim')
+	end
+end)
+local lp = Players.LocalPlayer
+local AntiAdmin = {
+    Enabled = false,
+    Registry = {},
+    Watchdog = nil
 }
-
-function Modules.ToolFly:FindBestTool()
-    local character = LocalPlayer.Character
-    local backpack = LocalPlayer.Backpack
-    
-    if not character then return nil end
-    
-    -- Check for preferred tools first
-    for _, toolName in ipairs(self.Config.PreferredTools) do
-        local tool = character:FindFirstChild(toolName) or backpack:FindFirstChild(toolName)
-        if tool and tool:IsA("Tool") then
-            return tool
+local function log(msg: string)
+    print("[AntiAdmin]", msg)
+end
+local function register(conn: RBXScriptConnection)
+    table.insert(AntiAdmin.Registry, conn)
+    return conn
+end
+local function cleanup()
+    for _, conn in ipairs(AntiAdmin.Registry) do
+        if typeof(conn) == "RBXScriptConnection" then
+            conn:Disconnect()
         end
     end
-    
-    -- Find any tool
-    local tool = character:FindFirstChildWhichIsA("Tool") or backpack:FindFirstChildWhichIsA("Tool")
-    return tool
-end
-
-function Modules.ToolFly:ValidateTool(tool)
-    if not tool or not tool:IsA("Tool") then
-        return false, "Invalid tool"
-    end
-    
-    local handle = tool:FindFirstChild("Handle")
-    if not handle or not handle:IsA("BasePart") then
-        return false, "Tool has no valid Handle"
-    end
-    
-    return true, handle
-end
-
-function Modules.ToolFly:GainNetworkOwnership()
-    local character = LocalPlayer.Character
-    local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
-    
-    if not humanoid then
-        return false, "No humanoid found"
-    end
-    
-    -- Equip and unequip twice to ensure network ownership
-    for i = 1, 2 do
-        humanoid:EquipTool(self.State.Tool)
-        repeat task.wait() until character:FindFirstChildWhichIsA("Tool")
-        humanoid:UnequipTools()
-        task.wait(0.1)
-    end
-    
-    return true
-end
-
-function Modules.ToolFly:TriggerDeathState()
-    local character = LocalPlayer.Character
-    local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
-    
-    if not humanoid then
-        return false, "No humanoid found"
-    end
-    
-    -- Trigger special death state without actual respawn
-    repeat
-        LocalPlayer:Move(Vector3.new(math.huge, math.huge, math.huge))
-        task.wait()
-    until humanoid.Health == 0
-    
-    -- Wait for character parts to be removed
-    repeat task.wait() until not character:FindFirstChildWhichIsA("BasePart")
-    
-    return true
-end
-
-function Modules.ToolFly:SetupHandle()
-    local character = LocalPlayer.Character
-    local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
-    
-    if not humanoid then
-        return false, "No humanoid after death state"
-    end
-    
-    -- Equip tool
-    humanoid:EquipTool(self.State.Tool)
-    task.wait(0.2)
-    
-    -- Store original name and rename handle
-    self.State.OriginalHandleName = self.State.Handle.Name
-    self.State.Handle.Name = "HumanoidRootPart"
-    self.State.Handle.Parent = character
-    
-    -- Set camera to follow handle
-    self.State.OriginalCameraSubject = workspace.CurrentCamera.CameraSubject
-    workspace.CurrentCamera.CameraSubject = self.State.Handle
-    
-    return true
-end
-
-function Modules.ToolFly:CreateBodyMovers()
-    if not self.State.Handle then return false end
-    
-    -- Create BodyPosition
-    local bodyPosition = Instance.new("BodyPosition")
-    bodyPosition.Name = "ToolFlyPosition"
-    bodyPosition.P = self.Config.MovementPower * 1000
-    bodyPosition.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    bodyPosition.Position = self.State.Handle.Position
-    bodyPosition.Parent = self.State.Handle
-    
-    -- Create BodyGyro
-    local bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.Name = "ToolFlyGyro"
-    bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
-    bodyGyro.CFrame = self.State.Handle.CFrame
-    bodyGyro.Parent = self.State.Handle
-    
-    self.State.BodyMovers.Position = bodyPosition
-    self.State.BodyMovers.Gyro = bodyGyro
-    
-    return true
-end
-
-function Modules.ToolFly:DestroyBodyMovers()
-    if self.State.BodyMovers.Position then
-        pcall(function() self.State.BodyMovers.Position:Destroy() end)
-        self.State.BodyMovers.Position = nil
-    end
-    
-    if self.State.BodyMovers.Gyro then
-        pcall(function() self.State.BodyMovers.Gyro:Destroy() end)
-        self.State.BodyMovers.Gyro = nil
+    AntiAdmin.Registry = {}
+    if AntiAdmin.Watchdog then
+        AntiAdmin.Watchdog:Disconnect()
+        AntiAdmin.Watchdog = nil
     end
 end
-
-function Modules.ToolFly:SetupControls()
-    local uis = self.Services.UserInputService
-    
-    -- Key press handler
-    self.State.Connections.InputBegan = uis.InputBegan:Connect(function(input, typing)
-        if typing then return end
-        
-        local keyName = input.KeyCode.Name
-        if self.State.Keys[keyName] ~= nil then
-            self.State.Keys[keyName] = true
+local function protectHumanoid(hum: Humanoid)
+    if not hum then return end
+    register(hum:GetPropertyChangedSignal("Health"):Connect(function()
+        if hum.Health <= 0 and hum.MaxHealth > 0 then
+            pcall(function() hum.Health = hum.MaxHealth end)
+            log("Prevented health zeroing.")
         end
-        
-        -- Fling toggle
-        if input.KeyCode == self.Config.FlingKey then
-            self:ToggleFling()
+    end))
+    register(hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+        if hum.WalkSpeed <= 0 then
+            task.defer(function() pcall(function() hum.WalkSpeed = 16 end) end)
         end
-    end)
-    
-    -- Key release handler
-    self.State.Connections.InputEnded = uis.InputEnded:Connect(function(input, typing)
-        if typing then return end
-        
-        local keyName = input.KeyCode.Name
-        if self.State.Keys[keyName] ~= nil then
-            self.State.Keys[keyName] = false
-        end
-    end)
+    end))
 end
-
-function Modules.ToolFly:UpdateMovement()
-    if not self.State.Handle or not self.State.BodyMovers.Position or not self.State.BodyMovers.Gyro then
-        return
-    end
-    
-    local bodyPos = self.State.BodyMovers.Position
-    local bodyGyro = self.State.BodyMovers.Gyro
-    local camera = workspace.CurrentCamera
-    local keys = self.State.Keys
-    
-    -- Calculate new position
-    local new = bodyGyro.CFrame - bodyGyro.CFrame.Position + bodyPos.Position
-    
-    -- Reset speed if not all keys pressed
-    if not (keys.Q and keys.E and keys.W and keys.A and keys.S and keys.D) then
-        self.State.Speed = self.Config.MaxSpeed * 0.75
-    end
-    
-    -- Vertical movement
-    if keys.Q then
-        new = new * CFrame.new(0, -self.State.Speed / 2, 0)
-    end
-    if keys.E then
-        new = new * CFrame.new(0, self.State.Speed / 2, 0)
-    end
-    
-    -- Forward/backward
-    if keys.W then
-        new = new + camera.CFrame.LookVector * self.State.Speed
-        if self.Config.SmoothAcceleration then
-            self.State.Speed = math.min(self.State.Speed + self.Config.AccelerationRate, self.Config.MaxSpeed)
+local function onCharacterAdded(char: Model)
+    local hum = char:WaitForChild("Humanoid", 10)
+    local root = char:WaitForChild("HumanoidRootPart", 10)
+    if hum then protectHumanoid(hum) end
+    register(Workspace.DescendantAdded:Connect(function(obj)
+        if obj:IsA("Explosion") and root then
+            task.defer(function()
+                pcall(function()
+                    if (obj.Position - root.Position).Magnitude < obj.BlastRadius + 50 then
+                        obj.BlastRadius = 0
+                        obj.BlastPressure = 0
+                    end
+                end)
+            end)
+        end
+    end))
+    register(char.DescendantAdded:Connect(function(obj)
+        if obj:IsA("BodyVelocity") or obj:IsA("BodyForce") or obj:IsA("RocketPropulsion") then
+            task.defer(function() pcall(function() obj:Destroy() end) end)
+        end
+    end))
+end
+local function applyAdminHooks()
+    local hd = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+    if hd and hd:FindFirstChild("Signals") then
+        local signals = {"ExecuteClientCommand", "ActivateClientCommand"}
+        for _, name in ipairs(signals) do
+            local s = hd.Signals:FindFirstChild(name)
+            if s then
+                register(s.OnClientEvent:Connect(function(cmd)
+                    log("HD Admin Signal Blocked: " .. tostring(cmd))
+                end))
+            end
         end
     end
-    if keys.S then
-        new = new - camera.CFrame.LookVector * self.State.Speed
-        if self.Config.SmoothAcceleration then
-            self.State.Speed = math.min(self.State.Speed + self.Config.AccelerationRate, self.Config.MaxSpeed)
-        end
-    end
-    
-    -- Left/right
-    if keys.A then
-        new = new * CFrame.new(-self.State.Speed, 0, 0)
-        if self.Config.SmoothAcceleration then
-            self.State.Speed = math.min(self.State.Speed + self.Config.AccelerationRate, self.Config.MaxSpeed)
-        end
-    end
-    if keys.D then
-        new = new * CFrame.new(self.State.Speed, 0, 0)
-        if self.Config.SmoothAcceleration then
-            self.State.Speed = math.min(self.State.Speed + self.Config.AccelerationRate, self.Config.MaxSpeed)
-        end
-    end
-    
-    -- Apply position
-    bodyPos.Position = new.Position
-    
-    -- Apply rotation
-    if keys.W then
-        bodyGyro.CFrame = camera.CFrame * CFrame.Angles(-math.rad(self.State.Speed * 5), 0, 0)
-    elseif keys.S then
-        bodyGyro.CFrame = camera.CFrame * CFrame.Angles(math.rad(self.State.Speed * 5), 0, 0)
-    else
-        -- Idle bobbing effect
-        local time = tick() * 2
-        bodyGyro.CFrame = camera.CFrame
-        bodyPos.Position = new.Position + Vector3.new(0, math.sin(time) / self.Config.BobAmount, 0)
-    end
-end
-
-function Modules.ToolFly:UpdateFling()
-    if not self.State.FlingActive or not self.State.Handle then return end
-    
-    local velocity = self.State.Handle.AssemblyLinearVelocity
-    local flingVector = (self.State.Handle.CFrame.LookVector * self.Config.FlingPower) + 
-                        Vector3.new(0, self.Config.FlingPower, 0)
-    
-    self.State.Handle.AssemblyLinearVelocity = velocity + flingVector
-    self.Services.RunService.RenderStepped:Wait()
-    self.State.Handle.AssemblyLinearVelocity = velocity
-end
-
-function Modules.ToolFly:ToggleFling()
-    self.State.FlingActive = not self.State.FlingActive
-    DoNotif("Fling: " .. (self.State.FlingActive and "ON" or "OFF"), 2)
-end
-
-function Modules.ToolFly:StartLoops()
-    -- Movement loop
-    self.State.Connections.MovementLoop = self.Services.RunService.Heartbeat:Connect(function()
-        pcall(function()
-            self:UpdateMovement()
-        end)
-    end)
-    
-    -- Fling loop
-    self.State.Connections.FlingLoop = self.Services.RunService.Heartbeat:Connect(function()
-        pcall(function()
-            self:UpdateFling()
-        end)
-    end)
-end
-
-function Modules.ToolFly:SetupReset()
-    local resetBind = Instance.new("BindableEvent")
-    
-    resetBind.Event:Connect(function()
-        self:Disable()
-        
-        -- Trigger actual respawn
-        pcall(function()
-            replicatesignal(LocalPlayer.ConnectDiedSignalBackend)
-        end)
-    end)
-    
-    -- Override reset button
-    pcall(function()
-        self.Services.StarterGui:SetCore("ResetButtonCallback", resetBind)
-    end)
-    
-    -- Restore on character added
-    self.State.Connections.CharacterAdded = LocalPlayer.CharacterAdded:Connect(function()
-        task.wait(0.5)
-        pcall(function()
-            self.Services.StarterGui:SetCore("ResetButtonCallback", true)
-        end)
-    end)
-end
-
-function Modules.ToolFly:Enable()
-    if self.State.IsActive then
-        DoNotif("ToolFly already active", 3)
-        return
-    end
-    
-    DoNotif("Starting ToolFly setup...", 2)
-    
-    -- Step 1: Find tool
-    local tool = self:FindBestTool()
-    if not tool then
-        DoNotif("No tool found. Equip a tool and try again.", 3)
-        return
-    end
-    
-    local valid, handleOrError = self:ValidateTool(tool)
-    if not valid then
-        DoNotif("Tool validation failed: " .. handleOrError, 3)
-        return
-    end
-    
-    self.State.Tool = tool
-    self.State.Handle = handleOrError
-    
-    DoNotif("Tool found: " .. tool.Name, 2)
-    
-    -- Step 2: Gain network ownership
-    DoNotif("Gaining network ownership...", 2)
-    local success, err = self:GainNetworkOwnership()
-    if not success then
-        DoNotif("Failed to gain ownership: " .. err, 3)
-        return
-    end
-    
-    -- Step 3: Trigger death state
-    DoNotif("Triggering death state...", 2)
-    success, err = self:TriggerDeathState()
-    if not success then
-        DoNotif("Failed death state: " .. err, 3)
-        return
-    end
-    
-    -- Step 4: Setup handle
-    DoNotif("Setting up handle...", 2)
-    success, err = self:SetupHandle()
-    if not success then
-        DoNotif("Failed handle setup: " .. err, 3)
-        return
-    end
-    
-    -- Step 5: Create body movers
-    if not self:CreateBodyMovers() then
-        DoNotif("Failed to create body movers", 3)
-        self:Cleanup()
-        return
-    end
-    
-    -- Step 6: Setup controls and loops
-    self:SetupControls()
-    self:StartLoops()
-    self:SetupReset()
-    
-    self.State.IsActive = true
-    self.State.Speed = self.Config.MaxSpeed * 0.75
-    
-    DoNotif(string.format("ToolFly active! Controls: QWESD, Fling: %s", self.Config.FlingKey.Name), 3)
-end
-
-function Modules.ToolFly:Disable()
-    if not self.State.IsActive then return end
-    
-    self.State.IsActive = false
-    
-    -- Disconnect all connections
-    for _, conn in pairs(self.State.Connections) do
-        pcall(function() conn:Disconnect() end)
-    end
-    table.clear(self.State.Connections)
-    
-    -- Destroy body movers
-    self:DestroyBodyMovers()
-    
-    -- Restore handle name
-    if self.State.Handle and self.State.OriginalHandleName then
-        pcall(function()
-            self.State.Handle.Name = self.State.OriginalHandleName
-        end)
-    end
-    
-    -- Restore camera subject
-    if self.State.OriginalCameraSubject then
-        pcall(function()
-            workspace.CurrentCamera.CameraSubject = self.State.OriginalCameraSubject
-        end)
-    end
-    
-    -- Reset state
-    self.State.FlingActive = false
-    self.State.Speed = 0
-    for key in pairs(self.State.Keys) do
-        self.State.Keys[key] = false
-    end
-    
-    DoNotif("ToolFly disabled", 2)
-end
-
-function Modules.ToolFly:Cleanup()
-    self:Disable()
-    self.State.Tool = nil
-    self.State.Handle = nil
-    self.State.OriginalHandleName = nil
-end
-
-function Modules.ToolFly:SetSpeed(speed)
-    speed = tonumber(speed)
-    if not speed or speed < self.Config.MinSpeed then
-        DoNotif("Invalid speed", 3)
-        return
-    end
-    
-    self.Config.MaxSpeed = speed
-    DoNotif(string.format("Max speed: %d", speed), 2)
-end
-
-function Modules.ToolFly:SetFlingPower(power)
-    power = tonumber(power)
-    if not power or power < 0 then
-        DoNotif("Invalid fling power", 3)
-        return
-    end
-    
-    self.Config.FlingPower = power
-    DoNotif(string.format("Fling power: %d", power), 2)
-end
-
-function Modules.ToolFly:AddPreferredTool(toolName)
-    if not toolName or toolName == "" then
-        DoNotif("Invalid tool name", 3)
-        return
-    end
-    
-    table.insert(self.Config.PreferredTools, toolName)
-    DoNotif("Added preferred tool: " .. toolName, 2)
-end
-
-RegisterCommand({
-    Name = "toolfly",
-    Aliases = {"tfly", "fefly"},
-    Description = "FE tool flight exploit. Equip a tool first!"
-}, function(args)
-    if #args > 0 then
-        local subcommand = args[1]:lower()
-        
-        if subcommand == "speed" and args[2] then
-            Modules.ToolFly:SetSpeed(args[2])
-        elseif subcommand == "fling" and args[2] then
-            Modules.ToolFly:SetFlingPower(args[2])
-        elseif subcommand == "prefer" and args[2] then
-            Modules.ToolFly:AddPreferredTool(args[2])
-        elseif subcommand == "off" or subcommand == "disable" then
-            Modules.ToolFly:Disable()
-        else
-            Modules.ToolFly:Enable()
-        end
-    else
-        if Modules.ToolFly.State.IsActive then
-            Modules.ToolFly:Disable()
-        else
-            Modules.ToolFly:Enable()
+    local adonis = ReplicatedStorage:FindFirstChild("Adonis")
+    if adonis then
+        local remote = adonis:FindFirstChild("Remote") or adonis:FindFirstChildOfClass("RemoteEvent")
+        if remote then
+            register(remote.OnClientEvent:Connect(function(cmd)
+                log("Adonis Signal Blocked: " .. tostring(cmd))
+            end))
         end
     end
 end)
-
-RegisterCommand({
-    Name = "tflingpower",
-    Aliases = {"tfp"},
-    Description = "Set tool fling power. Usage: ;tflingpower <power>"
-}, function(args)
-    if not args[1] then
-        DoNotif(string.format("Current fling power: %d", Modules.ToolFly.Config.FlingPower), 2)
-        return
+addcmd('antiadmin', {'blockadmin', 'noadmin'}, 
+    function(args, speaker)
+        if AntiAdmin.Enabled then
+            AntiAdmin.Enabled = false
+            cleanup()
+            log("AntiAdmin Protection: DISABLED")
+        else
+            AntiAdmin.Enabled = true
+            log("AntiAdmin Protection: ENABLED")
+            if lp.Character then 
+                task.spawn(onCharacterAdded, lp.Character) 
+            end
+            register(lp.CharacterAdded:Connect(onCharacterAdded))
+            applyAdminHooks()
+            local lastCheck = 0
+            AntiAdmin.Watchdog = RunService.Heartbeat:Connect(function(dt)
+                lastCheck += dt
+                if lastCheck < 1 then return end
+                lastCheck = 0
+                local pg = lp:FindFirstChild("PlayerGui")
+                if pg then
+                    for _, obj in ipairs(pg:GetDescendants()) do
+                        if obj:IsA("Frame") and obj.Size.X.Scale > 0.9 and obj.BackgroundColor3 == Color3.new(0,0,0) then
+                            pcall(function() obj:Destroy() end)
+                        end
+                    end
+                end
+                for _, obj in ipairs(Lighting:GetChildren()) do
+                    if obj:IsA("ColorCorrectionEffect") and obj.Brightness < -0.8 then
+                        pcall(function() obj:Destroy() end)
+                    end
+                end
+            end)
+        end
     end
-    Modules.ToolFly:SetFlingPower(args[1])
-end)
-
+)
 Modules.AdonisBypass = {
     State = {
         IsLoaded = false,
     },
     Config = {
-        DelayTime = 25
+        DelayTime = 35
     }
 }
 function Modules.AdonisBypass:Execute()
@@ -44793,7 +40759,6 @@ function Modules.AdonisBypass:Initialize()
         module:Execute()
     end)
 end
-
 Modules.AntiAttach = {
     State = {
         IsEnabled = false,
@@ -44805,13 +40770,11 @@ Modules.AntiAttach = {
         CheckInterval = 0.1
     }
 }
-
 function Modules.AntiAttach:_isBeingAttached()
     local character = LocalPlayer.Character
     if not character then return false, nil end
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if not hrp then return false, nil end
-    
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local theirChar = player.Character
@@ -44830,36 +40793,27 @@ function Modules.AntiAttach:_isBeingAttached()
     end
     return false, nil
 end
-
 function Modules.AntiAttach:_voidAttacker(attacker)
     if self.State.Countering then return end
     self.State.Countering = true
-    
     DoNotif("ATTACHER DETECTED: " .. attacker.DisplayName .. " - SENDING TO VOID", 3)
-    
     task.spawn(function()
         for i = 1, 30 do
             local character = LocalPlayer.Character
             local hrp = character and character:FindFirstChild("HumanoidRootPart")
-            
             if hrp then
-
                 hrp.AssemblyLinearVelocity = Vector3.new(0, self.Config.VoidVelocity, 0)
                 hrp.AssemblyAngularVelocity = Vector3.zero
             else
                 break
             end
-            
             task.wait(0.05)
         end
-        
         self.State.Countering = false
     end)
 end
-
 function Modules.AntiAttach:Toggle()
     self.State.IsEnabled = not self.State.IsEnabled
-    
     if self.State.IsEnabled then
         DoNotif("Anti-Attach: ACTIVE", 2)
         self.State.DetectionLoop = game:GetService("RunService").Heartbeat:Connect(function()
@@ -44879,10 +40833,9 @@ function Modules.AntiAttach:Toggle()
         self.State.Countering = false
     end
 end
-
 RegisterCommand({
-    Name = "void",
-    Aliases = {},
+    Name = "sendtothevoid",
+    Aliases = {"voidkill"},
     Description = "Detects when someone attaches to you and drags them into the void via velocity."
 }, function()
     Modules.AntiAttach:Toggle()
@@ -45017,7 +40970,7 @@ ClientReplicator.AncestryChanged:Connect(function()
     TeleportService:TeleportToPlaceInstance(game["PlaceId"], CurrentServer)
 end)
 task.spawn(function()
-    task.wait(1) -- let character finish loading
+    task.wait(1)
     Modules.AdminOrb:Spawn()
 end)
 DoNotif("We're So back. The Best Underground Panel.")
