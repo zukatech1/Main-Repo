@@ -1680,127 +1680,10 @@ local function main()
             context:AddRegistered("UNANCHOR") -- Registered below
 		end
 
-        context:Register("FORCE_HUMANOID_IGNORE", {Name = "Force Ignore", IconMap = Explorer.MiscIcons, Icon = "Shuffle", OnClick = function()
-	local sList = selection.List
-	
-	for i = 1, #sList do
-		local node = sList[i]
-		local obj = node.Obj
-		local humanoid = obj:IsA("Humanoid") and obj or obj:FindFirstChild("Humanoid")
-		
-		if humanoid then
-			-- Use a tag-based system for better performance and persistence
-			-- Assumes you have a tag service available
-			local tag = "IgnoreLocalPlayer"
-			if game:GetService("CollectionService") then
-				game:GetService("CollectionService"):AddTag(humanoid, tag)
-			end
-		end
-	end
-end})
 
-context:Register("ANCHOR", {Name = "ANCHOR Model/Humanoid", IconMap = Explorer.MiscIcons, Icon = "Copy", OnClick = function()
-	local sList = selection.List
-	local parts = {}
-	
-	-- First pass: collect all parts
-	for i = 1, #sList do
-		local obj = sList[i].Obj
-		if obj:IsA("BasePart") then
-			table.insert(parts, obj)
-		elseif obj:IsA("Model") then
-			for _, part in ipairs(obj:FindFirstChildOfClass("BasePart") and obj:GetDescendants() or {}) do
-				if part:IsA("BasePart") then
-					table.insert(parts, part)
-				end
-			end
-		end
-	end
-	
-	-- Second pass: batch anchor (reduces PropertyChanged events)
-	for i = 1, #parts do
-		parts[i].Anchored = true
-	end
-end})
 
-context:Register("UNANCHOR", {Name = "UNANCHOR Model/Humanoid", IconMap = Explorer.MiscIcons, Icon = "Copy", OnClick = function()
-	local sList = selection.List
-	local parts = {}
-	
-	-- First pass: collect all parts
-	for i = 1, #sList do
-		local obj = sList[i].Obj
-		if obj:IsA("BasePart") then
-			table.insert(parts, obj)
-		elseif obj:IsA("Model") then
-			for _, part in ipairs(obj:FindFirstChildOfClass("BasePart") and obj:GetDescendants() or {}) do
-				if part:IsA("BasePart") then
-					table.insert(parts, part)
-				end
-			end
-		end
-	end
-	
-	-- Second pass: batch unanchor
-	for i = 1, #parts do
-		parts[i].Anchored = false
-	end
-end})
 
-		context:Register("INSERT_ANIMATION", {Name = "Insert Animation", IconMap = Explorer.MiscIcons, Icon = "Copy", OnClick = function()
-			local sList = selection.List
-			
-			for i = 1, #sList do
-				local node = sList[i]
-				local obj = node.Obj
-				local parent = obj.Parent
-				
-				if obj:IsA("Tool") then
-					-- Insert animation into tool
-					local anim = Instance.new("Animation")
-					anim.AnimationId = "rbxassetid://0"
-					anim.Parent = obj
-				elseif parent and parent:IsA("Humanoid") then
-					-- Insert animation into humanoid
-					local char = parent.Parent
-					if char then
-						local anim = Instance.new("Animation")
-						anim.AnimationId = "rbxassetid://0"
-						anim.Parent = char:FindFirstChild("Humanoid") or char
-					end
-				end
-			end
-		end})
 
-		context:Register("INSERT_RANDOM_ANIMATION", {Name = "Insert Random Animation", IconMap = Explorer.MiscIcons, Icon = "Shuffle", OnClick = function()
-			local sList = selection.List
-			local randomAnimIds = {
-				"rbxassetid://180612465", -- Sword slash
-				"rbxassetid://181287976", -- Sword slash 2
-				"rbxassetid://512595558", -- Sword attack
-				"rbxassetid://520587562", -- Punch
-				"rbxassetid://534693880", -- One handed slash
-				"rbxassetid://534694710", -- Two handed slash
-				"rbxassetid://534696152", -- Spear thrust
-				"rbxassetid://534696975", -- Magic cast
-				"rbxassetid://534697914", -- Bow draw
-				"rbxassetid://534698122", -- Overhead slash
-				"rbxassetid://731614546", -- Sword slash variant
-				"rbxassetid://200722865", -- Cartoon fighting
-			}
-			
-			for i = 1, #sList do
-				local node = sList[i]
-				local obj = node.Obj
-				
-				if obj:IsA("Tool") then
-					local randomId = randomAnimIds[math.random(1, #randomAnimIds)]
-					local anim = Instance.new("Animation")
-					anim.AnimationId = randomId
-					anim.Parent = obj
-				end
-			end
-		end})
 
 		if presentClasses["Tween"] then context:AddRegistered("PLAY_TWEEN") end
 		if presentClasses["Animation"] then
@@ -1966,117 +1849,6 @@ end})
 			selection:Clear()
 		end})
 		
-        local _swordifyConnections = _swordifyConnections or {} -- Store connections to prevent garbage collection
-
-context:Register("SWORDIFY", {Name = "Swordify (Linked)", IconMap = Explorer.MiscIcons, Icon = "Paste", OnClick = function()
-		local sList = selection.List
-		local Players = game:GetService("Players")
---        local LocalPlayer = Players.LocalPlayer
-		local RunService = game:GetService("RunService")
-		local UserInputService = game:GetService("UserInputService")
-		
-		for i = 1, #sList do
-			local tool = sList[i].Obj
-			if tool:IsA("Tool") then
-				local handle = tool:FindFirstChild("Handle")
-				if handle and handle:IsA("BasePart") then
-					-- 1. Wipe existing logic
-					for _, child in ipairs(tool:GetChildren()) do
-						if child ~= handle then
-							child:Destroy()
-						end
-					end
-
-					-- 2. Setup Linked Sword Meta-Data
-					tool.Grip = CFrame.new(0, 0, -1.5, 0, 0, 1, 1, 0, 0, 0, 1, 0)
-					tool.ToolTip = "Swordified Logic"
-					
-					-- 3. Setup client-side sword logic (no script needed)
-					local player = Players.LocalPlayer
-					local damage = 10
-					local lastDamaged = {}
-					local lastAttack = 0
-					local swinging = false
-					local equipped = false
-					local currentTool = tool
-
-					local function blow(hit)
-						if swinging and hit.Parent ~= tool then
-							local humanoid = hit.Parent:FindFirstChild("Humanoid")
-							local targetChar = player.Character
-							
-							if humanoid and targetChar and hit.Parent ~= targetChar then
-								if not lastDamaged[hit.Parent] then
-									humanoid:TakeDamage(damage)
-									lastDamaged[hit.Parent] = true
-								end
-							end
-						end
-					end
-
-					local function attack()
-						local now = tick()
-						if now - lastAttack < 0.6 then return end
-						lastAttack = now
-						swinging = true
-						lastDamaged = {}
-						
-						local char = player.Character
-						if not char then return end
-						
-						local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
-						local rightArm = char:FindFirstChild("Right Arm") or char:FindFirstChild("RightUpperArm")
-						
-						if torso and rightArm then
-							local joint = torso:FindFirstChild("Right Shoulder") 
-								or (char:FindFirstChild("RightUpperArm") and char.RightUpperArm:FindFirstChild("RightShoulder"))
-							
-							if joint then
-								local oldC0 = joint.C0
-								spawn(function()
-									for i = 0, 1, 0.15 do
-										joint.C0 = oldC0 * CFrame.Angles(math.rad(120 * i), 0, 0)
-										task.wait(0.05)
-									end
-									for i = 1, 0, -0.15 do
-										joint.C0 = oldC0 * CFrame.Angles(math.rad(120 * i), 0, 0)
-										task.wait(0.05)
-									end
-									joint.C0 = oldC0
-									swinging = false
-								end)
-							end
-						end
-					end
-
-					handle.Touched:Connect(blow)
-
-					tool.Equipped:Connect(function()
-						equipped = true
-					end)
-
-					tool.Unequipped:Connect(function()
-						equipped = false
-					end)
-
-					-- M1 input detection (runs from executor client)
-					-- Store connection in external table to prevent garbage collection
-					local m1Connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-						if gameProcessed then return end
-						if input.UserInputType == Enum.UserInputType.MouseButton1 and equipped and tool.Parent == player.Character then
-							attack()
-						end
-					end)
-					table.insert(_swordifyConnections, m1Connection)
-					
-					-- 4. Re-parenting check for execution
-					if tool.Parent == nil then
-						tool.Parent = Players.LocalPlayer.Backpack
-					end
-				end
-			end
-		end
-	end})
 
 		context:Register("DELETE_CHILDREN",{Name = "Delete Children", IconMap = Explorer.MiscIcons, Icon = "Delete", DisabledIcon = "Delete_Disabled", Shortcut = "Shift+Del", OnClick = function()
 			local sList = selection.List
@@ -2516,169 +2288,6 @@ local function requestNeuralLink(prompt: string, maxTokens: number): string?
 	return nil
 end
 
-context:Register("AI_ANALYZE_REMOTE", {
-	Name = "Analyze Remote (AI)",
-	IconMap = Explorer.MiscIcons,
-	Icon = "Reference",
-	OnClick = function()
-		local sList = selection.List
-		for i = 1, #sList do
-			local obj = sList[i].Obj
-			if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-				local path: string = obj:GetFullName()
-				local prompt: string = string.format(
-					"Analyze Roblox %s. Path: %s. Name: %s. Provide: 1) Likely Purpose, 2) Expected Parameters, 3) Attack Surface/Behavior.",
-					obj.ClassName, path, obj.Name
-				)
-				
-				local analysis = requestNeuralLink(prompt, 250)
-				if analysis then
-					env.setclipboard(analysis)
-					print("--> [REMOTE_ANALYSIS]:\n" .. analysis)
-					if getgenv().DoNotif then getgenv().DoNotif("Analysis copied to clipboard", 2) end
-				end
-			end
-		end
-	end
-})
-
-context:Register("AI_TRACE_REMOTE", {
-	Name = "Find Remote Calls (AI)",
-	IconMap = Explorer.MiscIcons,
-	Icon = "Find",
-	OnClick = function()
-		local sList = selection.List
-		for i = 1, #sList do
-			local obj = sList[i].Obj
-			if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-				local remoteName: string = obj.Name
-				local found: {string} = {}
-				
-				local function searchScripts(instance: Instance)
-					if instance:IsA("LuaSourceContainer") then
-						local success, source = pcall(function() return instance.Source end)
-						if success and source:find(remoteName, 1, true) then
-							table.insert(found, instance:GetFullName())
-						end
-					end
-					for _, child in ipairs(instance:GetChildren()) do
-						searchScripts(child)
-					end
-				end
-				
-				searchScripts(game)
-				
-				if #found > 0 then
-					local result: string = string.format("[%s] referenced in:\n%s", remoteName, table.concat(found, "\n"))
-					env.setclipboard(result)
-					print("--> [TRACE]:\n" .. result)
-				else
-					print("--> [TRACE]: No static references found for " .. remoteName)
-				end
-			end
-		end
-	end
-})
-
-context:Register("AI_GENERATE_MOCK", {
-	Name = "Generate Mock Call (AI)",
-	IconMap = Explorer.MiscIcons,
-	Icon = "Play",
-	OnClick = function()
-		local sList = selection.List
-		for i = 1, #sList do
-			local obj = sList[i].Obj
-			if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-				local prompt: string = string.format(
-					"Write a realistic Luau mock call for %s '%s'. Output RAW CODE ONLY. No explanation.",
-					obj.ClassName, obj.Name
-				)
-				
-				local mockCode = requestNeuralLink(prompt, 300)
-				if mockCode then
-					env.setclipboard(mockCode)
-					print("--> [MOCK_GENERATED]:\n" .. mockCode)
-					if getgenv().DoNotif then getgenv().DoNotif("Mock logic copied", 2) end
-				end
-			end
-		end
-	end
-})
-
-context:Register("REMOTE_SECURITY_CHECK", {
-	Name = "Security Analysis (AI)",
-	IconMap = Explorer.MiscIcons,
-	Icon = "Delete",
-	OnClick = function()
-		local sList = selection.List
-		for i = 1, #sList do
-			local obj = sList[i].Obj
-			if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-				local path: string = obj:GetFullName()
-				local risks: {string} = {}
-				
-				if path:find("ReplicatedStorage") then table.insert(risks, "- Publicly accessible (ReplicatedStorage)") end
-				if obj.Name:lower():find("event") or obj.Name:lower():find("remote") then table.insert(risks, "- Generic/Predictable naming") end
-				
-				local prompt: string = string.format(
-					"Security audit for Roblox Remote. Path: %s. Identified risks: %s. Recommend specific server-side mitigations.",
-					path, table.concat(risks, ", ")
-				)
-				
-				local audit = requestNeuralLink(prompt, 300)
-				if audit then
-					local fullReport: string = string.format("[SECURITY REPORT: %s]\n\n%s", obj.Name, audit)
-					env.setclipboard(fullReport)
-					print("--> [AUDIT_COMPLETE]: Check F9 and Clipboard.")
-				end
-			end
-		end
-	end
-})
-
-context:Register("REMOTE_NETWORK_LOGGER", {
-	Name = "Network Logger (Toggle)",
-	IconMap = Explorer.MiscIcons,
-	Icon = "Play",
-	OnClick = function()
-		if not _G._remoteNetworkLogger then
-			_G._remoteNetworkLogger = {}
-			_G._loggerActive = true
-			
-			local oldNamecall; oldNamecall = env.hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-				local method = getnamecallmethod()
-				if _G._loggerActive and (self:IsA("RemoteEvent") or self:IsA("RemoteFunction")) then
-					if method == "FireServer" or method == "InvokeServer" then
-						local args = {...}
-						table.insert(_G._remoteNetworkLogger, {
-							time = tick(),
-							remote = self.Name,
-							path = self:GetFullName(),
-							method = method,
-							args = args
-						})
-						print(string.format("[NET_LOG] %s:%s | Args: %d", self.Name, method, #args))
-					end
-				end
-				return oldNamecall(self, ...)
-			end))
-			
-			if getgenv().DoNotif then getgenv().DoNotif("Network Observer: ACTIVE", 2) end
-		else
-			_G._loggerActive = not _G._loggerActive
-			local state: string = _G._loggerActive and "RESUMED" or "PAUSED"
-			if getgenv().DoNotif then getgenv().DoNotif("Network Observer: " .. state, 2) end
-			
-			if not _G._loggerActive then
-				local logOutput: string = "--- [ZUKA NETWORK LOG] ---\n"
-				for i, entry in ipairs(_G._remoteNetworkLogger) do
-					logOutput ..= string.format("[%d] %s -> %s (%s)\n", i, entry.method, entry.remote, entry.path)
-				end
-				env.setclipboard(logOutput)
-			end
-		end
-	end
-})
 
 		context:Register("3DVIEW_MODEL",{Name = "3D Preview Object", IconMap = Explorer.LegacyClassIcons, Icon = 54, OnClick = function()
 			local sList = selection.List
@@ -2768,1175 +2377,9 @@ context:Register("REMOTE_NETWORK_LOGGER", {
 			end
 		end})
 		
-context:Register("GENERATE_POISON_PATCH",{
-    Name = "[ZEX] Poison++ (Advanced)", 
-    IconMap = Explorer.MiscIcons, 
-    Icon = "CallFunction", 
-    OnClick = function()
-        local node = selection.List[1]
-        if not node or not node.Obj:IsA("ModuleScript") then 
-            if getgenv().DoNotif then 
-                getgenv().DoNotif("⚠ Select a ModuleScript first!", 2) 
-            end
-            return 
-        end
-        
-        local module = node.Obj
-        local path = Explorer.GetInstancePath(module)
-        local success, result = pcall(require, module)
-        
-
-        local detectedArch = "UNKNOWN"
-        local confidence = 0
-        
-        local function detectArchitecture(tbl)
-            if type(tbl) ~= "table" then return end
-            
-            local signatures = {
-                ["1_ENGINE"] = {"BaseDamage", "FireRate", "AmmoPerMag", "HeadshotDamageMultiplier"},
-                ["PRISON_LIFE"] = {"Damage", "FireRate", "MagSize", "Automatic"},
-                ["ARSENAL"] = {"damagemin", "damagemax", "range", "penetration"},
-                ["COUNTER_BLOX"] = {"damage", "firerate", "recoil", "accuracy"},
-                ["GENERIC_FPS"] = {"Damage", "RPM", "Magazine", "Reload"},
-                ["TOWER_DEFENSE"] = {"Cost", "Damage", "Range", "Cooldown"},
-                ["SIMULATOR"] = {"Cost", "Multiplier", "Boost", "Rate"},
-                ["STATS_MODULE"] = {"Health", "MaxHealth", "Speed", "WalkSpeed"},
-                ["SHOP_MODULE"] = {"Price", "Cost", "Currency", "Gamepass"},
-            }
-            
-            for archName, keys in pairs(signatures) do
-                local matches = 0
-                for _, key in ipairs(keys) do
-                    if tbl[key] ~= nil then
-                        matches = matches + 1
-                    end
-                end
-                
-                local matchPercent = (matches / #keys) * 100
-                if matchPercent > confidence then
-                    confidence = matchPercent
-                    detectedArch = archName
-                end
-            end
-        end
-        
-        if success and type(result) == "table" then
-            detectArchitecture(result)
-        end
-        
-        local function getPoisonValue(name, currentVal, architecture)
-            local n = tostring(name)
-            local lowerN = n:lower()
-            local typeV = type(currentVal)
-            
-            -- TYPE-BASED UNIVERSAL PATTERNS
-            if typeV == "boolean" then
-                if lowerN:find("limit") or lowerN:find("restrict") or lowerN:find("enabled") or 
-                   lowerN:find("lock") or lowerN:find("delay") then
-                    return false
-                elseif lowerN:find("auto") or lowerN:find("infinite") or lowerN:find("unlimited") then
-                    return true
-                end
-            end
-            
-            -- NUMERICAL BOOST PATTERNS
-            if typeV == "number" then
-                -- Minimize (costs, recoil, spread) - TRUE ZEROS
-                if lowerN:find("cost") or lowerN:find("price") or 
-                   lowerN:find("recoil") or lowerN:find("spread") then
-                    return 0
-                end
-                
-                -- Minimize timers but keep SMALL values to prevent breakage
-                if lowerN:find("reload") or lowerN:find("equip") then
-                    return 0.05 -- 50ms minimum
-                end
-                
-                -- DON'T touch FireRate/Cooldown here - handle per-architecture
-                
-                -- Maximize (damage, speed, range, ammo)
-                if lowerN:find("damage") or lowerN:find("speed") or lowerN:find("range") or 
-                   lowerN:find("ammo") or lowerN:find("mag") or lowerN:find("multi") or 
-                   lowerN:find("boost") or lowerN:find("radius") or lowerN:find("health") then
-                    return 999999
-                end
-            end
-            
-
-            
-            if architecture == "1_ENGINE" then
-                if n == "BaseDamage" or lowerN:find("damage") then return 999999
-                elseif n == "HeadshotDamageMultiplier" then return 100
-                elseif n == "FireRate" or n == "BurstRate" then return 0.01 -- CRITICAL FIX: minimum 10ms
-                elseif n == "ReloadTime" or n == "TacticalReloadTime" then return 0.05
-                elseif n == "EquipTime" or n == "UnequipTime" then return 0.01
-                elseif n == "AmmoPerMag" or n == "MagSize" then return 999999
-                elseif n == "Auto" or n == "Automatic" then return true
-                elseif n == "Recoil" or n == "Spread" or n == "HipFireSpread" then return 0
-                elseif n == "BulletSpeed" or n == "Range" or n == "MaxRange" then return 90000
-                elseif n == "BulletPerShot" then 
-                    -- Only boost if it's already > 1 (shotgun detection)
-                    return currentVal > 1 and 15 or currentVal 
-                elseif n == "FriendlyFire" then return true
-                elseif lowerN:find("enabled") and lowerN:find("limit") then return false
-                elseif n == "Lifesteal" then return 99999
-                elseif n == "Knockback" then return 9999
-                elseif n == "ExplosionRadius" then return 9999
-                end
-            
-            -- PRISON LIFE
-            elseif architecture == "PRISON_LIFE" then
-                if n == "Damage" then return 999999
-                elseif n == "FireRate" then return 0.01 -- FIXED
-                elseif n == "MagSize" then return 999999
-                elseif n == "Automatic" then return true
-                elseif n == "ReloadTime" then return 0.05 -- FIXED
-                end
-            
-            -- ARSENAL
-            elseif architecture == "ARSENAL" then
-                if n == "damagemin" or n == "damagemax" then return 999999
-                elseif n == "firerate" then return 0.01 -- FIXED from 0.001
-                elseif n == "range" then return 99999
-                elseif n == "penetration" then return 99999
-                elseif n == "recoilx" or n == "recoily" then return 0
-                elseif n == "reloadtime" then return 0.05
-                end
-            
-            -- COUNTER BLOX
-            elseif architecture == "COUNTER_BLOX" then
-                if n == "damage" then return 999999
-                elseif n == "firerate" then return 0.01 -- FIXED
-                elseif n == "recoil" then return 0
-                elseif n == "accuracy" then return 100
-                end
-            
-            -- GENERIC FPS
-            elseif architecture == "GENERIC_FPS" then
-                if n == "Damage" then return 999999
-                elseif n == "RPM" then return 6000 -- 100 rounds/sec = safe max
-                elseif n == "Magazine" then return 999999
-                elseif n == "Reload" then return 0.05
-                end
-            
-            -- TOWER DEFENSE GAMES
-            elseif architecture == "TOWER_DEFENSE" then
-                if n == "Cost" or n == "Price" then return 0
-                elseif n == "Damage" then return 999999
-                elseif n == "Range" then return 99999
-                elseif n == "Cooldown" or n == "FireRate" then return 0.01 -- FIXED
-                elseif n == "MaxLevel" then return 999
-                end
-            
-            -- SIMULATOR GAMES
-            elseif architecture == "SIMULATOR" then
-                if n == "Cost" or n == "Price" then return 0
-                elseif n == "Multiplier" or n == "Boost" then return 999999
-                elseif n == "Rate" or n == "Speed" then return 999999
-                elseif n == "Cooldown" then return 0.01 -- FIXED
-                end
-            
-            -- STATS MODULES
-            elseif architecture == "STATS_MODULE" then
-                if n == "Health" or n == "MaxHealth" then return 999999
-                end
-            
-            -- SHOP MODULES
-            elseif architecture == "SHOP_MODULE" then
-                if n == "Price" or n == "Cost" then return 0
-                elseif n == "Gamepass" or n == "GamepassRequired" then return false
-                elseif n == "VIPOnly" or n == "PremiumOnly" then return false
-                end
-            end
-            
-            return currentVal
-        end
-        
-        -- ============================================================================
-        -- ADVANCED TYPE SERIALIZER
-        -- ============================================================================
-        local function serialize(v, depth)
-            depth = depth or 0
-            if depth > 5 then return "nil --[[MAX_DEPTH]]" end
-            
-            local t = typeof(v)
-            
-            if t == "string" then 
-                return '"' .. v:gsub('"', '\\"'):gsub("\n", "\\n") .. '"'
-            elseif t == "number" then 
-                if v == math.huge then return "math.huge"
-                elseif v == -math.huge then return "-math.huge"
-                elseif v ~= v then return "0/0 --[[NaN]]"
-                else return tostring(v) end
-            elseif t == "boolean" then 
-                return tostring(v)
-            elseif t == "nil" then 
-                return "nil"
-            
-            -- Roblox Types
-            elseif t == "Vector3" then 
-                return string.format("Vector3.new(%.2f, %.2f, %.2f)", v.X, v.Y, v.Z)
-            elseif t == "Vector2" then 
-                return string.format("Vector2.new(%.2f, %.2f)", v.X, v.Y)
-            elseif t == "UDim2" then
-                return string.format("UDim2.new(%.3f, %d, %.3f, %d)", v.X.Scale, v.X.Offset, v.Y.Scale, v.Y.Offset)
-            elseif t == "CFrame" then 
-                local components = {v:GetComponents()}
-                return "CFrame.new(" .. table.concat(components, ", ") .. ")"
-            elseif t == "Color3" then 
-                return string.format("Color3.fromRGB(%d, %d, %d)", 
-                    math.floor(v.R*255), math.floor(v.G*255), math.floor(v.B*255))
-            elseif t == "BrickColor" then
-                return 'BrickColor.new("' .. v.Name .. '")'
-            elseif t == "EnumItem" then 
-                return tostring(v)
-            elseif t == "NumberRange" then
-                return string.format("NumberRange.new(%.2f, %.2f)", v.Min, v.Max)
-            elseif t == "Rect" then
-                return string.format("Rect.new(%.2f, %.2f, %.2f, %.2f)", 
-                    v.Min.X, v.Min.Y, v.Max.X, v.Max.Y)
-            
-            -- Table serialization (shallow)
-            elseif t == "table" then
-                local items = {}
-                for k, val in pairs(v) do
-                    if type(k) == "string" then
-                        table.insert(items, '["' .. k .. '"] = ' .. serialize(val, depth + 1))
-                    else
-                        table.insert(items, '[' .. k .. '] = ' .. serialize(val, depth + 1))
-                    end
-                end
-                return "{" .. table.concat(items, ", ") .. "}"
-            end
-            
-            return "nil --[[UNSUPPORTED_TYPE:" .. t .. "]]"
-        end
-        
-        -- ============================================================================
-        -- RECURSIVE TABLE PATCHER
-        -- ============================================================================
-        local patchedCount = 0
-        local skippedCount = 0
-        
-        local function generatePatchCode(tbl, parentPath, depth)
-            depth = depth or 0
-            if depth > 3 then return "" end
-            
-            local code = ""
-            
-            for k, v in pairs(tbl) do
-                local keyPath = parentPath .. "." .. tostring(k)
-                local valueType = type(v)
-                
-                if valueType == "table" then
-                    code = code .. generatePatchCode(v, keyPath, depth + 1)
-                    
-                elseif valueType ~= "function" and valueType ~= "userdata" then
-                    local pVal = getPoisonValue(tostring(k), v, detectedArch)
-                    
-                    if pVal ~= v then
-                        local pValSerialized = serialize(pVal)
-                        code = code .. keyPath .. " = " .. pValSerialized .. " -- [PATCHED]\n"
-                        patchedCount = patchedCount + 1
-                    else
-                        skippedCount = skippedCount + 1
-                    end
-                end
-            end
-            
-            return code
-        end
-        
-        -- ============================================================================
-        -- OUTPUT GENERATION
-        -- ============================================================================
-        local output = ""
-        output = output .. "--[[\n"
-        output = output .. "    ╔═══════════════════════════════════════════════════════╗\n"
-        output = output .. "    ║      POISON++ ADVANCED MODULE PATCH                   ║\n"
-        output = output .. "    ╚═══════════════════════════════════════════════════════╝\n"
-        output = output .. "    \n"
-        output = output .. "    Target:        " .. module.Name .. "\n"
-        output = output .. "    Path:          " .. path .. "\n"
-        output = output .. "    Architecture:  " .. detectedArch .. " (" .. confidence .. "% confidence)\n"
-        output = output .. "    Generated:     " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
-        output = output .. "    Engine:        ZukaTech Poison++ v2.1 (Stability Fix)\n"
-        output = output .. "--]]\n\n"
-        
-        if not success then
-            output = output .. "-- [ERROR]: Failed to require module\n"
-            output = output .. "-- Reason: " .. tostring(result) .. "\n"
-            output = output .. "-- This module may be server-sided or protected\n"
-            
-        elseif type(result) ~= "table" then
-            output = output .. "-- [INFO]: Module returns " .. type(result) .. " instead of table\n"
-            output = output .. "-- Cannot generate patch for non-table modules\n"
-            
-        else
-            output = output .. "local targetModule = require(" .. path .. ")\n"
-            output = output .. "assert(type(targetModule) == 'table', 'Module must return a table')\n\n"
-            output = output .. "-- Disable read-only protection\n"
-            output = output .. "if setreadonly then \n"
-            output = output .. "    pcall(setreadonly, targetModule, false)\n"
-            output = output .. "end\n\n"
-            output = output .. "-- Apply patches\n"
-            
-            local patchCode = generatePatchCode(result, "targetModule", 0)
-            output = output .. patchCode
-            
-            output = output .. "\n-- Re-enable read-only protection\n"
-            output = output .. "if setreadonly then \n"
-            output = output .. "    pcall(setreadonly, targetModule, true)\n"
-            output = output .. "end\n\n"
-            output = output .. "print('[Poison++] " .. module.Name .. " neutralized (" .. patchedCount .. " patches applied)')\n"
-            output = output .. "return targetModule\n"
-        end
-        
-        -- ============================================================================
-        -- OUTPUT TO CONSOLE & CLIPBOARD
-        -- ============================================================================
-        print("\n" .. string.rep("=", 60))
-        print("[ZUKATECH POISON++]")
-        print(string.rep("=", 60))
-        print(output)
-        print(string.rep("=", 60))
-        print("Stats: " .. patchedCount .. " patched, " .. skippedCount .. " unchanged")
-        print(string.rep("=", 60) .. "\n")
-        
-        -- Multi-environment clipboard support
-        local clipboardSuccess = false
-        local clipboardFunctions = {
-            function() setclipboard(output) end,
-            function() env.setclipboard(output) end,
-            function() getgenv().setclipboard(output) end,
-            function() syn.write_clipboard(output) end,
-            function() Clipboard.set(output) end,
-        }
-        
-        for _, func in ipairs(clipboardFunctions) do
-            if pcall(func) then
-                clipboardSuccess = true
-                break
-            end
-        end
-        
-        if getgenv().DoNotif then
-            if clipboardSuccess then
-                getgenv().DoNotif("✓ Poison++ patch copied! (" .. patchedCount .. " patches)", 3)
-            else
-                getgenv().DoNotif("⚠ Patch generated but clipboard failed", 3)
-            end
-        end
-    end
-})
 
 
-context:Register("GENERATE_UNIVERSAL_POISON",{
-    Name = "[ZEX] Universal Module Poison", 
-    IconMap = Explorer.MiscIcons, 
-    Icon = "Zap", 
-    OnClick = function()
-        local node = selection.List[1]
-        if not node or not node.Obj:IsA("ModuleScript") then 
-            if getgenv().DoNotif then 
-                getgenv().DoNotif("⚠ Select a ModuleScript first!", 2) 
-            end
-            return 
-        end
-        
-        local module = node.Obj
-        local path = Explorer.GetInstancePath(module)
-        local success, result = pcall(require, module)
-        
-        -- ============================================================================
-        -- UNIVERSAL MODULE TYPE DETECTION
-        -- ============================================================================
-        local detectedTypes = {} -- Can be multiple types
-        local confidence = {}
-        
-        local function detectModuleTypes(tbl)
-            if type(tbl) ~= "table" then return end
-            
-            local signatures = {
-                -- Economy
-                ["SHOP"] = {"Price", "Cost", "Currency", "BuyPrice", "SellPrice"},
-                ["CURRENCY"] = {"Coins", "Cash", "Money", "Gems", "Credits"},
-                ["REWARDS"] = {"Reward", "Prize", "Loot", "Drop", "XP"},
-                
-                -- Character/Player
-                ["STATS"] = {"Health", "MaxHealth", "Speed", "WalkSpeed", "JumpPower"},
-                ["ABILITIES"] = {"Cooldown", "ManaCost", "Duration", "Power"},
-                ["INVENTORY"] = {"MaxSlots", "Capacity", "Weight", "Limit"},
-                
-                -- Vehicles
-                ["VEHICLE"] = {"Speed", "Acceleration", "Handling", "TopSpeed", "Fuel"},
-                ["BOAT"] = {"MaxSpeed", "TurnSpeed", "Buoyancy"},
-                ["AIRCRAFT"] = {"ThrustPower", "LiftForce", "MaxAltitude"},
-                
-                -- Pets/Companions
-                ["PET"] = {"Damage", "CollectionRadius", "SpawnRate", "Rarity", "Level"},
-                ["COMPANION"] = {"FollowDistance", "AttackDamage", "Health"},
-                
-                -- Building/Tycoon
-                ["TYCOON"] = {"Income", "BuildTime", "UpgradeCost", "ProductionRate"},
-                ["BUILDING"] = {"Cost", "BuildDuration", "Material", "Requirement"},
-                
-                -- Farming/Simulator
-                ["FARMING"] = {"GrowthTime", "YieldAmount", "WaterNeeded", "HarvestValue"},
-                ["MINING"] = {"HardnessLevel", "OreValue", "RespawnTime", "Durability"},
-                ["SIMULATOR"] = {"Multiplier", "Boost", "Rate", "ClickPower"},
-                
-                -- Game Mechanics
-                ["CRAFTING"] = {"CraftTime", "MaterialCost", "Recipe", "Ingredients"},
-                ["REBIRTH"] = {"Requirement", "Multiplier", "ResetValue", "Level"},
-                ["UPGRADE"] = {"Level", "MaxLevel", "UpgradeCost", "Effect"},
-                ["TELEPORT"] = {"Cooldown", "Destination", "RequiredLevel", "Cost"},
-                
-                -- Restrictions
-                ["GAMEPASS"] = {"GamepassId", "GamepassRequired", "Premium", "VIP"},
-                ["RESTRICTIONS"] = {"MinLevel", "MaxLevel", "RequiredItem", "Locked"},
-                ["COOLDOWNS"] = {"GlobalCooldown", "ActionDelay", "RateLimit"},
-                
-                -- Environmental
-                ["ZONE"] = {"Radius", "DamagePerSecond", "SafeZone", "Boundary"},
-                ["DOOR"] = {"Keycard", "AccessLevel", "Permission", "RequiredRank"},
-                ["EVENT"] = {"SpawnRate", "Duration", "Frequency", "Chance"},
-            }
-            
-            for moduleType, keys in pairs(signatures) do
-                local matches = 0
-                for _, key in ipairs(keys) do
-                    if tbl[key] ~= nil then
-                        matches = matches + 1
-                    end
-                end
-                
-                local matchPercent = (matches / #keys) * 100
-                if matchPercent >= 30 then -- 30% threshold for multi-detection
-                    table.insert(detectedTypes, moduleType)
-                    confidence[moduleType] = matchPercent
-                end
-            end
-            
-            -- Sort by confidence
-            table.sort(detectedTypes, function(a, b)
-                return confidence[a] > confidence[b]
-            end)
-        end
-        
-        if success and type(result) == "table" then
-            detectModuleTypes(result)
-        end
-        
-        -- ============================================================================
-        -- UNIVERSAL POISON LOGIC
-        -- ============================================================================
-        local function getPoisonValue(name, currentVal, types)
-            local n = tostring(name)
-            local lowerN = n:lower()
-            local typeV = type(currentVal)
-            
-            -- Skip if value is a table or function
-            if typeV == "table" or typeV == "function" or typeV == "userdata" then
-                return currentVal
-            end
-            
-            -- ============================================================================
-            -- BOOLEAN PATTERNS
-            -- ============================================================================
-            if typeV == "boolean" then
-                -- Disable restrictions
-                if lowerN:find("lock") or lowerN:find("restrict") or lowerN:find("limit") or 
-                   lowerN:find("required") or lowerN:find("enabled") or lowerN:find("disabled") or
-                   lowerN:find("vip") or lowerN:find("premium") or lowerN:find("gamepass") then
-                    return false
-                end
-                
-                -- Enable beneficial features
-                if lowerN:find("auto") or lowerN:find("infinite") or lowerN:find("unlimited") or
-                   lowerN:find("collect") or lowerN:find("free") then
-                    return true
-                end
-            end
-            
-            -- ============================================================================
-            -- NUMBER PATTERNS (MINIMIZE)
-            -- ============================================================================
-            if typeV == "number" then
-                -- Costs & Prices → 0
-                if lowerN:find("cost") or lowerN:find("price") or lowerN:find("expense") or
-                   lowerN:find("fee") or lowerN:find("tax") then
-                    return 0
-                end
-                
-                -- Cooldowns & Delays → 0.01 (safe minimum)
-                if lowerN:find("cooldown") or lowerN:find("delay") or lowerN:find("wait") or
-                   lowerN:find("ratelimit") then
-                    return 0.01
-                end
-                
-                -- Time-based (growth, craft, respawn) → 0.01
-                if lowerN:find("time") or lowerN:find("duration") or lowerN:find("respawn") or
-                   lowerN:find("growth") or lowerN:find("craft") or lowerN:find("build") then
-                    return 0.01
-                end
-                
-                -- Requirements & Thresholds → 0
-                if lowerN:find("requirement") or lowerN:find("needed") or lowerN:find("minlevel") or
-                   lowerN:find("threshold") then
-                    return 0
-                end
-                
-                -- Negative effects → 0
-                if lowerN:find("damage") and (lowerN:find("take") or lowerN:find("received")) then
-                    return 0
-                end
-                if lowerN:find("decay") or lowerN:find("drain") or lowerN:find("loss") then
-                    return 0
-                end
-            end
-            
-            -- ============================================================================
-            -- NUMBER PATTERNS (MAXIMIZE)
-            -- ============================================================================
-            if typeV == "number" then
-                -- Damage output → 999999
-                if (lowerN:find("damage") and not lowerN:find("take")) or lowerN:find("attack") or
-                   lowerN:find("power") or lowerN:find("strength") then
-                    return 999999
-                end
-                
-                -- Speed/Movement → 500 (sane cap to prevent physics breaks)
-                if lowerN:find("speed") or lowerN:find("velocity") or lowerN:find("acceleration") then
-                    return 500
-                end
-                
-                -- Ranges/Radius → 99999
-                if lowerN:find("range") or lowerN:find("radius") or lowerN:find("distance") or
-                   lowerN:find("reach") then
-                    return 99999
-                end
-                
-                -- Health/Defense → 999999
-                if lowerN:find("health") or lowerN:find("hp") or lowerN:find("defense") or
-                   lowerN:find("armor") or lowerN:find("shield") then
-                    return 999999
-                end
-                
-                -- Resources (ammo, capacity, slots) → 999999
-                if lowerN:find("ammo") or lowerN:find("mag") or lowerN:find("capacity") or
-                   lowerN:find("slot") or lowerN:find("limit") or lowerN:find("max") then
-                    return 999999
-                end
-                
-                -- Multipliers/Boosts → 999999
-                if lowerN:find("multi") or lowerN:find("boost") or lowerN:find("bonus") or
-                   lowerN:find("modifier") or lowerN:find("rate") then
-                    return 999999
-                end
-                
-                -- Income/Rewards → 999999
-                if lowerN:find("income") or lowerN:find("reward") or lowerN:find("yield") or
-                   lowerN:find("value") or lowerN:find("worth") or lowerN:find("profit") then
-                    return 999999
-                end
-                
-                -- Chances/Probability → 100 (max probability)
-                if lowerN:find("chance") or lowerN:find("probability") or lowerN:find("rate") and
-                   currentVal <= 1 then -- Only if it's a 0-1 probability
-                    return 1
-                elseif lowerN:find("chance") or lowerN:find("drop") then
-                    return 100
-                end
-            end
-            
-            -- No match found - return original
-            return currentVal
-        end
-        
-        -- ============================================================================
-        -- SERIALIZER (same as before)
-        -- ============================================================================
-        local function serialize(v, depth)
-            depth = depth or 0
-            if depth > 5 then return "nil --[[MAX_DEPTH]]" end
-            
-            local t = typeof(v)
-            
-            if t == "string" then 
-                return '"' .. v:gsub('"', '\\"'):gsub("\n", "\\n") .. '"'
-            elseif t == "number" then 
-                if v == math.huge then return "math.huge"
-                elseif v == -math.huge then return "-math.huge"
-                elseif v ~= v then return "0/0"
-                else return tostring(v) end
-            elseif t == "boolean" then 
-                return tostring(v)
-            elseif t == "nil" then 
-                return "nil"
-            elseif t == "Vector3" then 
-                return string.format("Vector3.new(%.2f, %.2f, %.2f)", v.X, v.Y, v.Z)
-            elseif t == "Vector2" then 
-                return string.format("Vector2.new(%.2f, %.2f)", v.X, v.Y)
-            elseif t == "Color3" then 
-                return string.format("Color3.fromRGB(%d, %d, %d)", 
-                    math.floor(v.R*255), math.floor(v.G*255), math.floor(v.B*255))
-            elseif t == "CFrame" then 
-                local components = {v:GetComponents()}
-                return "CFrame.new(" .. table.concat(components, ", ") .. ")"
-            elseif t == "EnumItem" then 
-                return tostring(v)
-            elseif t == "table" then
-                local items = {}
-                for k, val in pairs(v) do
-                    if type(k) == "string" then
-                        table.insert(items, '["' .. k .. '"] = ' .. serialize(val, depth + 1))
-                    else
-                        table.insert(items, '[' .. k .. '] = ' .. serialize(val, depth + 1))
-                    end
-                end
-                return "{" .. table.concat(items, ", ") .. "}"
-            end
-            
-            return "nil --[[UNSUPPORTED:" .. t .. "]]"
-        end
-        
-        -- ============================================================================
-        -- RECURSIVE PATCHER
-        -- ============================================================================
-        local patchedCount = 0
-        local skippedCount = 0
-        local patchDetails = {}
-        
-        local function generatePatchCode(tbl, parentPath, depth)
-            depth = depth or 0
-            if depth > 4 then return "" end
-            
-            local code = ""
-            
-            for k, v in pairs(tbl) do
-                local keyPath = parentPath .. "." .. tostring(k)
-                local valueType = type(v)
-                
-                if valueType == "table" then
-                    code = code .. generatePatchCode(v, keyPath, depth + 1)
-                    
-                elseif valueType ~= "function" and valueType ~= "userdata" then
-                    local pVal = getPoisonValue(tostring(k), v, detectedTypes)
-                    
-                    if pVal ~= v then
-                        local pValSerialized = serialize(pVal)
-                        code = code .. keyPath .. " = " .. pValSerialized .. " -- " .. tostring(v) .. " → " .. tostring(pVal) .. "\n"
-                        patchedCount = patchedCount + 1
-                        table.insert(patchDetails, {key = k, old = v, new = pVal})
-                    else
-                        skippedCount = skippedCount + 1
-                    end
-                end
-            end
-            
-            return code
-        end
-        
-        -- ============================================================================
-        -- OUTPUT GENERATION
-        -- ============================================================================
-        local typesList = #detectedTypes > 0 and table.concat(detectedTypes, ", ") or "GENERIC"
-        
-        local output = ""
-        output = output .. "--[[\n"
-        output = output .. "    ╔═══════════════════════════════════════════════════════╗\n"
-        output = output .. "    ║      UNIVERSAL MODULE POISON                          ║\n"
-        output = output .. "    ╚═══════════════════════════════════════════════════════╝\n"
-        output = output .. "    \n"
-        output = output .. "    Target:        " .. module.Name .. "\n"
-        output = output .. "    Path:          " .. path .. "\n"
-        output = output .. "    Detected:      " .. typesList .. "\n"
-        
-        if #detectedTypes > 0 then
-            for _, mType in ipairs(detectedTypes) do
-                output = output .. "                   - " .. mType .. " (" .. math.floor(confidence[mType]) .. "%)\n"
-            end
-        end
-        
-        output = output .. "    Generated:     " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
-        output = output .. "    Engine:        ZukaTech Universal Poisoner v1.0\n"
-        output = output .. "--]]\n\n"
-        
-        if not success then
-            output = output .. "-- [ERROR]: Failed to require module\n"
-            output = output .. "-- Reason: " .. tostring(result) .. "\n"
-            
-        elseif type(result) ~= "table" then
-            output = output .. "-- [INFO]: Module returns " .. type(result) .. "\n"
-            output = output .. "-- Cannot poison non-table modules\n"
-            
-        else
-            output = output .. "local targetModule = require(" .. path .. ")\n"
-            output = output .. "assert(type(targetModule) == 'table', 'Module must return a table')\n\n"
-            
-            output = output .. "-- Disable protections\n"
-            output = output .. "if setreadonly then pcall(setreadonly, targetModule, false) end\n"
-            output = output .. "if make_writeable then pcall(make_writeable, targetModule) end\n\n"
-            
-            output = output .. "-- Apply universal patches\n"
-            local patchCode = generatePatchCode(result, "targetModule", 0)
-            output = output .. patchCode
-            
-            output = output .. "\n-- Re-enable protections\n"
-            output = output .. "if setreadonly then pcall(setreadonly, targetModule, true) end\n\n"
-            output = output .. "print('[Universal Poison] " .. module.Name .. " poisoned (" .. patchedCount .. " patches)')\n"
-            output = output .. "return targetModule\n"
-        end
-        
-        -- ============================================================================
-        -- CONSOLE OUTPUT
-        -- ============================================================================
-        print("\n" .. string.rep("=", 70))
-        print("[ZUKATECH UNIVERSAL POISONER]")
-        print(string.rep("=", 70))
-        print("Module: " .. module.Name)
-        print("Types:  " .. typesList)
-        print(string.rep("-", 70))
-        print(output)
-        print(string.rep("=", 70))
-        print("Stats: " .. patchedCount .. " patched, " .. skippedCount .. " unchanged")
-        print(string.rep("=", 70) .. "\n")
-        
-        -- Clipboard
-        local clipboardSuccess = false
-        local clipboardFuncs = {
-            function() setclipboard(output) end,
-            function() env.setclipboard(output) end,
-            function() getgenv().setclipboard(output) end,
-            function() syn.write_clipboard(output) end,
-        }
-        
-        for _, func in ipairs(clipboardFuncs) do
-            if pcall(func) then
-                clipboardSuccess = true
-                break
-            end
-        end
-        
-        if getgenv().DoNotif then
-            if clipboardSuccess then
-                getgenv().DoNotif("✓ Universal poison copied! (" .. patchedCount .. " patches)", 3)
-            else
-                getgenv().DoNotif("⚠ Generated but clipboard failed", 3)
-            end
-        end
-    end
-})
 
-context:Register("GENERATE_POISON_PATCH2",{Name = "[ZEX] Poison!", IconMap = Explorer.MiscIcons, Icon = "CallFunction", OnClick = function()
-			local node = selection.List[1]
-			if not node or not node.Obj:IsA("ModuleScript") then return end
-			local module = node.Obj
-			
-			local path = Explorer.GetInstancePath(module)
-			local success, result = pcall(require, module)
-			
-			-- Architecture-Specific Poison Logic (Optimized for "1" Engine)
-			local function getPoisonValue(name, currentVal)
-				local n = tostring(name)
-				local lowerN = n:lower()
-				
-				-- Damage & Multipliers
-				if n == "BaseDamage" or lowerN:find("damage") then return 999999
-				elseif n == "HeadshotDamageMultiplier" or lowerN:find("headshot") then return 100
-				
-				-- Fire Rate & Reloads
-				elseif n == "FireRate" or n == "BurstRate" or n == "ReloadTime" or n == "EquipTime" then return 0
-				elseif n == "TacticalReloadTime" or n == "SwitchTime" or lowerN:find("delay") then return 0
-
-                elseif n == "AmmoPerMag" then return 999999
-				elseif n == "Recoil" then return 0
-                elseif n == "BulletPerShot" then return 5
-                elseif n == "FriendlyFire" then return true
-                elseif n == "Lifesteal" then return 99999
-                elseif n == "ShotgunEnabled" then return true
-                elseif n == "Knockback" then return 9999999
-                elseif n == "DualFireEnabled" then return true
-                elseif n == "IcifyChance" then return 9999
-                elseif n == "FlamingBullet" then return true
-                elseif n == "IgniteChance" then return 9999
-                elseif n == "FreezingBullet" then return true
-                elseif n == "HoldDownEnabled" then return false
-                elseif n == "ChargedShotEnabled" then return false
-                elseif n == "ChargingTime" then return 0
-                elseif n == "HoldAndReleaseEnabled" then return false
-                elseif n == "DelayBeforeFiring" then return 0
-                elseif n == "HoldDownEnabled" then return false
-                elseif n == "Auto" then return false
-                elseif n == "CriticalDamageEnabled" then return 999999
-
-				elseif n == "Recoil" or n == "Spread" or n == "Accuracy" then return 0
-				elseif lowerN:find("angle") and (lowerN:find("min") or lowerN:find("max")) then return 0
-				elseif n == "BulletSpeed" or n == "Range" then return 90000
-				
-				-- Mechanics
-				elseif n == "LimitedAmmoEnabled" or n == "DamageDropOffEnabled" then return false
-				elseif n == "WalkSpeedRedutionEnabled" then return false
-				elseif n == "WalkSpeedRedution" then return 0
-				end
-				return currentVal
-			end
-
-			-- Complex Type Serializer (Ensures generated code runs)
-			local function serialize(v)
-				local t = typeof(v)
-				if t == "string" then return '"' .. v .. '"'
-				elseif t == "number" or t == "boolean" then return tostring(v)
-				elseif t == "Vector3" then return "Vector3.new(" .. v.X .. ", " .. v.Y .. ", " .. v.Z .. ")"
-				elseif t == "Vector2" then return "Vector2.new(" .. v.X .. ", " .. v.Y .. ")"
-				elseif t == "CFrame" then return "CFrame.new(" .. tostring(v) .. ")"
-				elseif t == "Color3" then return "Color3.fromRGB(" .. math.floor(v.R*255) .. ", " .. math.floor(v.G*255) .. ", " .. math.floor(v.B*255) .. ")"
-				elseif t == "EnumItem" then return tostring(v)
-				end
-				return "nil"
-			end
-
-			local output = "\n--[[ \n\GENERATED PATCH: " .. module.Name .. "\n\tENGINE: Basic Weapon '1' Architecture\n\tARCHITECT: Made with - (ZukaTech v10)\n\tTARGET: " .. path .. "\n--]]\n\n"
-			output = output .. "local targetModule = require(" .. path .. ")\n"
-			output = output .. "if setreadonly then setreadonly(targetModule, false) end\n\n"
-
-			if not success then
-				output = output .. "-- [ERROR]: Require failed. Protected or Server-Side.\n"
-			elseif type(result) == "table" then
-				for k, v in pairs(result) do
-					if type(v) ~= "function" and type(v) ~= "table" then
-						local pVal = getPoisonValue(tostring(k), v)
-						local pValDisp = serialize(pVal)
-						
-						if pVal ~= v then
-							output = output .. "targetModule." .. tostring(k) .. " = " .. pValDisp .. " -- [PATCHED]\n"
-						end
-					end
-				end
-				output = output .. "\nif setreadonly then setreadonly(targetModule, true) end\n"
-				output = output .. "print('--> [Poison]: " .. module.Name .. " has been neutralized.')"
-			else
-				output = output .. "-- [INFO]: Module returns a " .. type(result) .. " instead of a table."
-			end
-
-			-- OUTPUT TO CONSOLE
-			print("--- [ZUKATECH] ---")
-			print(output)
-			print("--- [ZUKATECH] ---")
-
-			-- COPY TO CLIPBOARD (Multiple fallback methods)
-			local clipboardSuccess = false
-			if setclipboard then
-				pcall(function() setclipboard(output) end)
-				clipboardSuccess = true
-			elseif env.setclipboard then
-				pcall(function() env.setclipboard(output) end)
-				clipboardSuccess = true
-			elseif getgenv().setclipboard then
-				pcall(function() getgenv().setclipboard(output) end)
-				clipboardSuccess = true
-			end
-
-			if clipboardSuccess then
-				if getgenv().DoNotif then getgenv().DoNotif("✓ Poison Patch copied to clipboard!", 3) end
-			else
-				if getgenv().DoNotif then getgenv().DoNotif("⚠ Failed to copy to clipboard", 3) end
-			end
-		end})
-
-		context:Register("SCREENGUI_TO_SCRIPT",{
-    Name = "Convert to Script (Deep)", 
-    IconMap = Explorer.MiscIcons, 
-    Icon = "Save", 
-    OnClick = function()
-        local node = selection.List[1]
-        if not node or not node.Obj:IsA("ScreenGui") then return end
-        local gui = node.Obj
-        
-        -- ============================================================================
-        -- SERIALIZATION
-        -- ============================================================================
-        local function serialize(v)
-            local t = typeof(v)
-            if t == "string" then
-                return '"' .. v:gsub('"', '\\"'):gsub("\n", "\\n") .. '"'
-            elseif t == "number" or t == "boolean" then
-                return tostring(v)
-            elseif t == "Vector3" then
-                return "Vector3.new(" .. v.X .. ", " .. v.Y .. ", " .. v.Z .. ")"
-            elseif t == "Vector2" then
-                return "Vector2.new(" .. v.X .. ", " .. v.Y .. ")"
-            elseif t == "UDim2" then
-                return "UDim2.new(" .. v.X.Scale .. ", " .. v.X.Offset .. ", " .. v.Y.Scale .. ", " .. v.Y.Offset .. ")"
-            elseif t == "UDim" then
-                return "UDim.new(" .. v.Scale .. ", " .. v.Offset .. ")"
-            elseif t == "CFrame" then
-                return "CFrame.new(" .. tostring(v) .. ")"
-            elseif t == "Color3" then
-                return "Color3.fromRGB(" .. math.floor(v.R*255) .. ", " .. math.floor(v.G*255) .. ", " .. math.floor(v.B*255) .. ")"
-            elseif t == "BrickColor" then
-                return "BrickColor.new(" .. serialize(v.Name) .. ")"
-            elseif t == "EnumItem" then
-                return tostring(v)
-            elseif t == "Rect" then
-                return "Rect.new(" .. v.Min.X .. ", " .. v.Min.Y .. ", " .. v.Max.X .. ", " .. v.Max.Y .. ")"
-            elseif t == "FontFace" then
-                return "Font.new(" .. serialize(v.Family) .. ", Enum.FontWeight." .. tostring(v.Weight):match("FontWeight%.(.+)") .. ", Enum.FontStyle." .. tostring(v.Style):match("FontStyle%.(.+)") .. ")"
-            end
-            return "nil"
-        end
-        
-        -- ============================================================================
-        -- PROPERTY MAPS
-        -- ============================================================================
-        local propertyMap = {
-            ScreenGui = {
-                "Name", "Enabled", "ResetOnSpawn", "DisplayOrder", "IgnoreGuiInset", "ZIndexBehavior",
-                "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel", "Transparency"
-            },
-            TextLabel = {
-                "Name", "Text", "TextSize", "Font", "TextColor3", "TextWrapped", "TextScaled", "TextXAlignment", "TextYAlignment",
-                "Size", "Position", "Visible", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
-            },
-            TextButton = {
-                "Name", "Text", "TextSize", "Font", "TextColor3", "TextWrapped", "TextScaled", "TextXAlignment", "TextYAlignment",
-                "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
-            },
-            Frame = {
-                "Name", "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel", "ClipsDescendants"
-            },
-            ScrollingFrame = {
-                "Name", "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel",
-                "CanvasSize", "ScrollBarThickness", "ClipsDescendants"
-            },
-            ImageLabel = {
-                "Name", "Image", "ImageColor3", "ImageScaled", "ImageSize", "Size", "Position", "Visible", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
-            },
-            ImageButton = {
-                "Name", "Image", "ImageColor3", "ImageScaled", "ImageSize", "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
-            },
-            UICorner = {"CornerRadius"},
-            UIStroke = {"Color", "Thickness", "Transparency", "LineJoinMode"},
-            UIGradient = {"Color", "Rotation", "Transparency"},
-            UIPadding = {"PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom"},
-            UIListLayout = {"Padding", "FillDirection", "HorizontalAlignment", "VerticalAlignment", "SortOrder"},
-            UIGridLayout = {"CellPadding", "CellSize", "FillDirectionMaxCells", "FillDirection", "HorizontalAlignment", "VerticalAlignment", "SortOrder"},
-            UIAspectRatioConstraint = {"AspectRatio", "AspectType", "DominantAxis"},
-            UISizeConstraint = {"MinSize", "MaxSize"},
-            UITextSizeConstraint = {"MinTextSize", "MaxTextSize"},
-        }
-        
-        local function getPropertiesForObject(obj)
-            local className = obj.ClassName
-            return propertyMap[className] or {"Name", "Size", "Position", "Visible", "BackgroundColor3", "BackgroundTransparency"}
-        end
-        
-        -- ============================================================================
-        -- SCRIPT EXTRACTION
-        -- ============================================================================
-        local extractedScripts = {}
-        local scriptCounter = 0
-        
-        local function extractScript(scriptObj, parentVar)
-            scriptCounter = scriptCounter + 1
-            local scriptVar = "script_" .. scriptCounter
-            
-            local source = ""
-            local success, result = pcall(function()
-                return scriptObj.Source or decompile(scriptObj)
-            end)
-            
-            if success and result and result ~= "" then
-                source = result
-            else
-                source = "-- [PROTECTED/EMPTY SCRIPT]\n-- Could not extract source"
-            end
-            
-            table.insert(extractedScripts, {
-                var = scriptVar,
-                parent = parentVar,
-                className = scriptObj.ClassName,
-                name = scriptObj.Name,
-                source = source,
-                enabled = scriptObj.Enabled or scriptObj.Disabled == false
-            })
-            
-            return scriptVar
-        end
-        
-        -- ============================================================================
-        -- RECURSIVE GUI CODE GENERATOR (WITH SCRIPTS)
-        -- ============================================================================
-        local function generateGuiCode(obj, indent, varName, varCounter)
-            local code = ""
-            local objType = obj.ClassName
-            varCounter = varCounter or {count = 0}
-            
-            -- Skip if it's a script (we handle those separately)
-            if objType == "LocalScript" or objType == "Script" or objType == "ModuleScript" then
-                extractScript(obj, varName)
-                return ""
-            end
-            
-            -- Create object
-            code = code .. indent .. "local " .. varName .. " = Instance.new(\"" .. objType .. "\")\n"
-            
-            -- Get properties for this object type
-            local properties = getPropertiesForObject(obj)
-            
-            -- Set properties
-            for _, propName in ipairs(properties) do
-                local success, prop = pcall(function() return obj[propName] end)
-                if success and prop ~= nil then
-                    -- Skip default values
-                    local shouldSet = true
-                    if objType == "ScreenGui" and propName == "Enabled" and prop == true then shouldSet = false end
-                    if objType == "ScreenGui" and propName == "DisplayOrder" and prop == 0 then shouldSet = false end
-                    if (objType == "TextLabel" or objType == "TextButton") and propName == "TextWrapped" and prop == false then shouldSet = false end
-                    if (objType == "TextLabel" or objType == "TextButton") and propName == "TextScaled" and prop == false then shouldSet = false end
-                    if propName == "Visible" and prop == true then shouldSet = false end
-                    if propName == "BackgroundTransparency" and prop == 0 then shouldSet = false end
-                    if propName == "BorderSizePixel" and prop == 1 then shouldSet = false end
-                    
-                    if shouldSet then
-                        code = code .. indent .. varName .. "." .. propName .. " = " .. serialize(prop) .. "\n"
-                    end
-                end
-            end
-            
-            -- Recursively add children
-            local children = obj:GetChildren()
-            for i, child in ipairs(children) do
-                local childType = child.ClassName
-                
-                if childType == "LocalScript" or childType == "Script" or childType == "ModuleScript" then
-                    -- Extract script but don't generate GUI code for it
-                    extractScript(child, varName)
-                else
-                    varCounter.count = varCounter.count + 1
-                    local childVar = varName .. "_" .. varCounter.count
-                    
-                    code = code .. generateGuiCode(child, indent, childVar, varCounter)
-                    code = code .. indent .. childVar .. ".Parent = " .. varName .. "\n"
-                end
-            end
-            
-            return code
-        end
-        
-        -- ============================================================================
-        -- GENERATE FULL OUTPUT
-        -- ============================================================================
-        local output = "--[[\n"
-        output = output .. "    ╔═══════════════════════════════════════════════════════╗\n"
-        output = output .. "    ║      DEEP GUI CONVERTER                               ║\n"
-        output = output .. "    ╚═══════════════════════════════════════════════════════╝\n"
-        output = output .. "    \n"
-        output = output .. "    ScreenGui: " .. gui.Name .. "\n"
-        output = output .. "    Extracted: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
-        output = output .. "    Engine:    ZukaTech Deep GUI v1.0\n"
-        output = output .. "    \n"
-        output = output .. "    This script recreates the FULL GUI including:\n"
-        output = output .. "    - All GUI elements and properties\n"
-        output = output .. "    - LocalScripts and their functionality\n"
-        output = output .. "    - Event connections (if extractable)\n"
-        output = output .. "--]]\n\n"
-        
-        output = output .. "local Players = game:GetService(\"Players\")\n"
-        output = output .. "local player = Players.LocalPlayer\n"
-        output = output .. "local screenGui\n\n"
-        
-        output = output .. "-- ============================================================================\n"
-        output = output .. "-- GUI STRUCTURE\n"
-        output = output .. "-- ============================================================================\n"
-        output = output .. "local function createGui()\n"
-        output = output .. generateGuiCode(gui, "  ", "screenGui")
-        output = output .. "  screenGui.Parent = player:WaitForChild(\"PlayerGui\")\n"
-        output = output .. "  return screenGui\n"
-        output = output .. "end\n\n"
-        
-        -- ============================================================================
-        -- ADD EXTRACTED SCRIPTS
-        -- ============================================================================
-        if #extractedScripts > 0 then
-            output = output .. "-- ============================================================================\n"
-            output = output .. "-- EXTRACTED SCRIPTS (" .. #extractedScripts .. " found)\n"
-            output = output .. "-- ============================================================================\n\n"
-            
-            for i, scriptData in ipairs(extractedScripts) do
-                output = output .. "-- Script #" .. i .. ": " .. scriptData.name .. " (" .. scriptData.className .. ")\n"
-                output = output .. "local function " .. scriptData.var .. "_func(parent)\n"
-                
-                -- Indent the script source
-                local indentedSource = scriptData.source:gsub("\n", "\n  ")
-                output = output .. "  " .. indentedSource .. "\n"
-                
-                output = output .. "end\n\n"
-            end
-            
-            output = output .. "-- ============================================================================\n"
-            output = output .. "-- INITIALIZE GUI + SCRIPTS\n"
-            output = output .. "-- ============================================================================\n"
-            output = output .. "local gui = createGui()\n\n"
-            
-            for i, scriptData in ipairs(extractedScripts) do
-                output = output .. "-- Run: " .. scriptData.name .. "\n"
-                
-                -- Try to find the parent element by variable name
-                local parentRef = scriptData.parent == "screenGui" and "gui" or "gui:FindFirstChild(\"" .. scriptData.parent .. "\", true)"
-                
-                output = output .. "task.spawn(function()\n"
-                output = output .. "  local parent = " .. parentRef .. "\n"
-                output = output .. "  if parent then\n"
-                output = output .. "    " .. scriptData.var .. "_func(parent)\n"
-                output = output .. "  else\n"
-                output = output .. "    warn('[Deep GUI] Could not find parent for " .. scriptData.name .. "')\n"
-                output = output .. "  end\n"
-                output = output .. "end)\n\n"
-            end
-        else
-            output = output .. "-- No scripts found in this GUI\n"
-            output = output .. "createGui()\n"
-        end
-        
-        -- ============================================================================
-        -- OUTPUT
-        -- ============================================================================
-        print("\n" .. string.rep("=", 70))
-        print("[ZUKATECH DEEP GUI CONVERTER]")
-        print(string.rep("=", 70))
-        print("GUI: " .. gui.Name)
-        print("Scripts found: " .. #extractedScripts)
-        print(string.rep("-", 70))
-        print(output)
-        print(string.rep("=", 70) .. "\n")
-        
-        -- Clipboard
-        local clipboardSuccess = false
-        local clipboardFuncs = {
-            function() setclipboard(output) end,
-            function() env.setclipboard(output) end,
-            function() getgenv().setclipboard(output) end,
-            function() syn.write_clipboard(output) end,
-        }
-        
-        for _, func in ipairs(clipboardFuncs) do
-            if pcall(func) then
-                clipboardSuccess = true
-                break
-            end
-        end
-        
-        if getgenv().DoNotif then
-            if clipboardSuccess then
-                getgenv().DoNotif("✓ Deep GUI script copied! (" .. #extractedScripts .. " scripts)", 3)
-            else
-                getgenv().DoNotif("⚠ Generated but clipboard failed", 3)
-            end
-        end
-    end
-})
 
 		context:Register("SELECT_CHARACTER",{Name = "Select Character", IconMap = Explorer.LegacyClassIcons, Icon = 9, OnClick = function()
 			local newSelection = {}
@@ -4129,6 +2572,1575 @@ context:Register("GENERATE_POISON_PATCH2",{Name = "[ZEX] Poison!", IconMap = Exp
 			
 			if getgenv().DoNotif then getgenv().DoNotif("✓ Backpack tools modified", 2) end
 		end})
+
+
+		-- ─── Blocks moved into InitRightClick (were incorrectly placed outside) ───
+		context:Register("INSERT_ANIMATION", {Name = "Insert Animation", IconMap = Explorer.MiscIcons, Icon = "Copy", OnClick = function()
+			local sList = selection.List
+			
+			for i = 1, #sList do
+				local node = sList[i]
+				local obj = node.Obj
+				local parent = obj.Parent
+				
+				if obj:IsA("Tool") then
+					-- Insert animation into tool
+					local anim = Instance.new("Animation")
+					anim.AnimationId = "rbxassetid://0"
+					anim.Parent = obj
+				elseif parent and parent:IsA("Humanoid") then
+					-- Insert animation into humanoid
+					local char = parent.Parent
+					if char then
+						local anim = Instance.new("Animation")
+						anim.AnimationId = "rbxassetid://0"
+						anim.Parent = char:FindFirstChild("Humanoid") or char
+					end
+				end
+			end
+		end})
+
+		context:Register("INSERT_RANDOM_ANIMATION", {Name = "Insert Random Animation", IconMap = Explorer.MiscIcons, Icon = "Shuffle", OnClick = function()
+			local sList = selection.List
+			local randomAnimIds = {
+				"rbxassetid://180612465", -- Sword slash
+				"rbxassetid://181287976", -- Sword slash 2
+				"rbxassetid://512595558", -- Sword attack
+				"rbxassetid://520587562", -- Punch
+				"rbxassetid://534693880", -- One handed slash
+				"rbxassetid://534694710", -- Two handed slash
+				"rbxassetid://534696152", -- Spear thrust
+				"rbxassetid://534696975", -- Magic cast
+				"rbxassetid://534697914", -- Bow draw
+				"rbxassetid://534698122", -- Overhead slash
+				"rbxassetid://731614546", -- Sword slash variant
+				"rbxassetid://200722865", -- Cartoon fighting
+			}
+			
+			for i = 1, #sList do
+				local node = sList[i]
+				local obj = node.Obj
+				
+				if obj:IsA("Tool") then
+					local randomId = randomAnimIds[math.random(1, #randomAnimIds)]
+					local anim = Instance.new("Animation")
+					anim.AnimationId = randomId
+					anim.Parent = obj
+				end
+			end
+		end})
+
+		context:Register("FORCE_HUMANOID_IGNORE", {Name = "Force Ignore", IconMap = Explorer.MiscIcons, Icon = "Shuffle", OnClick = function()
+		local sList = selection.List
+
+		for i = 1, #sList do
+		local node = sList[i]
+		local obj = node.Obj
+		local humanoid = obj:IsA("Humanoid") and obj or obj:FindFirstChild("Humanoid")
+
+		if humanoid then
+		-- Use a tag-based system for better performance and persistence
+		-- Assumes you have a tag service available
+		local tag = "IgnoreLocalPlayer"
+		if game:GetService("CollectionService") then
+		game:GetService("CollectionService"):AddTag(humanoid, tag)
+		end
+		end
+		end
+		end})
+
+		context:Register("ANCHOR", {Name = "ANCHOR Model/Humanoid", IconMap = Explorer.MiscIcons, Icon = "Copy", OnClick = function()
+		local sList = selection.List
+		local parts = {}
+
+		-- First pass: collect all parts
+		for i = 1, #sList do
+		local obj = sList[i].Obj
+		if obj:IsA("BasePart") then
+		table.insert(parts, obj)
+		elseif obj:IsA("Model") then
+		for _, part in ipairs(obj:FindFirstChildOfClass("BasePart") and obj:GetDescendants() or {}) do
+		if part:IsA("BasePart") then
+		table.insert(parts, part)
+		end
+		end
+		end
+		end
+
+		-- Second pass: batch anchor (reduces PropertyChanged events)
+		for i = 1, #parts do
+		parts[i].Anchored = true
+		end
+		end})
+
+		context:Register("UNANCHOR", {Name = "UNANCHOR Model/Humanoid", IconMap = Explorer.MiscIcons, Icon = "Copy", OnClick = function()
+		local sList = selection.List
+		local parts = {}
+
+		-- First pass: collect all parts
+		for i = 1, #sList do
+		local obj = sList[i].Obj
+		if obj:IsA("BasePart") then
+		table.insert(parts, obj)
+		elseif obj:IsA("Model") then
+		for _, part in ipairs(obj:FindFirstChildOfClass("BasePart") and obj:GetDescendants() or {}) do
+		if part:IsA("BasePart") then
+		table.insert(parts, part)
+		end
+		end
+		end
+		end
+
+		-- Second pass: batch unanchor
+		for i = 1, #parts do
+		parts[i].Anchored = false
+		end
+		end})
+
+		local _swordifyConnections = _swordifyConnections or {} -- Store connections to prevent garbage collection
+
+		context:Register("SWORDIFY", {Name = "Swordify (Linked)", IconMap = Explorer.MiscIcons, Icon = "Paste", OnClick = function()
+		local sList = selection.List
+		local Players = game:GetService("Players")
+		--        local LocalPlayer = Players.LocalPlayer
+		local RunService = game:GetService("RunService")
+		local UserInputService = game:GetService("UserInputService")
+
+		for i = 1, #sList do
+		local tool = sList[i].Obj
+		if tool:IsA("Tool") then
+		local handle = tool:FindFirstChild("Handle")
+		if handle and handle:IsA("BasePart") then
+		-- 1. Wipe existing logic
+		for _, child in ipairs(tool:GetChildren()) do
+		if child ~= handle then
+		child:Destroy()
+		end
+		end
+
+		-- 2. Setup Linked Sword Meta-Data
+		tool.Grip = CFrame.new(0, 0, -1.5, 0, 0, 1, 1, 0, 0, 0, 1, 0)
+		tool.ToolTip = "Swordified Logic"
+
+		-- 3. Setup client-side sword logic (no script needed)
+		local player = Players.LocalPlayer
+		local damage = 10
+		local lastDamaged = {}
+		local lastAttack = 0
+		local swinging = false
+		local equipped = false
+		local currentTool = tool
+
+		local function blow(hit)
+		if swinging and hit.Parent ~= tool then
+		local humanoid = hit.Parent:FindFirstChild("Humanoid")
+		local targetChar = player.Character
+
+		if humanoid and targetChar and hit.Parent ~= targetChar then
+		if not lastDamaged[hit.Parent] then
+		humanoid:TakeDamage(damage)
+		lastDamaged[hit.Parent] = true
+		end
+		end
+		end
+		end
+
+		local function attack()
+		local now = tick()
+		if now - lastAttack < 0.6 then return end
+		lastAttack = now
+		swinging = true
+		lastDamaged = {}
+
+		local char = player.Character
+		if not char then return end
+
+		local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+		local rightArm = char:FindFirstChild("Right Arm") or char:FindFirstChild("RightUpperArm")
+
+		if torso and rightArm then
+		local joint = torso:FindFirstChild("Right Shoulder") 
+		or (char:FindFirstChild("RightUpperArm") and char.RightUpperArm:FindFirstChild("RightShoulder"))
+
+		if joint then
+		local oldC0 = joint.C0
+		spawn(function()
+		for i = 0, 1, 0.15 do
+		joint.C0 = oldC0 * CFrame.Angles(math.rad(120 * i), 0, 0)
+		task.wait(0.05)
+		end
+		for i = 1, 0, -0.15 do
+		joint.C0 = oldC0 * CFrame.Angles(math.rad(120 * i), 0, 0)
+		task.wait(0.05)
+		end
+		joint.C0 = oldC0
+		swinging = false
+		end)
+		end
+		end
+		end
+
+		handle.Touched:Connect(blow)
+
+		tool.Equipped:Connect(function()
+		equipped = true
+		end)
+
+		tool.Unequipped:Connect(function()
+		equipped = false
+		end)
+
+		-- M1 input detection (runs from executor client)
+		-- Store connection in external table to prevent garbage collection
+		local m1Connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then return end
+		if input.UserInputType == Enum.UserInputType.MouseButton1 and equipped and tool.Parent == player.Character then
+		attack()
+		end
+		end)
+		table.insert(_swordifyConnections, m1Connection)
+
+		-- 4. Re-parenting check for execution
+		if tool.Parent == nil then
+		tool.Parent = Players.LocalPlayer.Backpack
+		end
+		end
+		end
+		end
+		end})
+
+		context:Register("AI_ANALYZE_REMOTE", {
+		Name = "Analyze Remote (AI)",
+		IconMap = Explorer.MiscIcons,
+		Icon = "Reference",
+		OnClick = function()
+		local sList = selection.List
+		for i = 1, #sList do
+		local obj = sList[i].Obj
+		if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+		local path: string = obj:GetFullName()
+		local prompt: string = string.format(
+		"Analyze Roblox %s. Path: %s. Name: %s. Provide: 1) Likely Purpose, 2) Expected Parameters, 3) Attack Surface/Behavior.",
+		obj.ClassName, path, obj.Name
+		)
+
+		local analysis = requestNeuralLink(prompt, 250)
+		if analysis then
+		env.setclipboard(analysis)
+		print("--> [REMOTE_ANALYSIS]:\n" .. analysis)
+		if getgenv().DoNotif then getgenv().DoNotif("Analysis copied to clipboard", 2) end
+		end
+		end
+		end
+		end
+		})
+
+		context:Register("AI_TRACE_REMOTE", {
+		Name = "Find Remote Calls (AI)",
+		IconMap = Explorer.MiscIcons,
+		Icon = "Find",
+		OnClick = function()
+		local sList = selection.List
+		for i = 1, #sList do
+		local obj = sList[i].Obj
+		if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+		local remoteName: string = obj.Name
+		local found: {string} = {}
+
+		local function searchScripts(instance: Instance)
+		if instance:IsA("LuaSourceContainer") then
+		local success, source = pcall(function() return instance.Source end)
+		if success and source:find(remoteName, 1, true) then
+		table.insert(found, instance:GetFullName())
+		end
+		end
+		for _, child in ipairs(instance:GetChildren()) do
+		searchScripts(child)
+		end
+		end
+
+		searchScripts(game)
+
+		if #found > 0 then
+		local result: string = string.format("[%s] referenced in:\n%s", remoteName, table.concat(found, "\n"))
+		env.setclipboard(result)
+		print("--> [TRACE]:\n" .. result)
+		else
+		print("--> [TRACE]: No static references found for " .. remoteName)
+		end
+		end
+		end
+		end
+		})
+
+		context:Register("AI_GENERATE_MOCK", {
+		Name = "Generate Mock Call (AI)",
+		IconMap = Explorer.MiscIcons,
+		Icon = "Play",
+		OnClick = function()
+		local sList = selection.List
+		for i = 1, #sList do
+		local obj = sList[i].Obj
+		if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+		local prompt: string = string.format(
+		"Write a realistic Luau mock call for %s '%s'. Output RAW CODE ONLY. No explanation.",
+		obj.ClassName, obj.Name
+		)
+
+		local mockCode = requestNeuralLink(prompt, 300)
+		if mockCode then
+		env.setclipboard(mockCode)
+		print("--> [MOCK_GENERATED]:\n" .. mockCode)
+		if getgenv().DoNotif then getgenv().DoNotif("Mock logic copied", 2) end
+		end
+		end
+		end
+		end
+		})
+
+		context:Register("REMOTE_SECURITY_CHECK", {
+		Name = "Security Analysis (AI)",
+		IconMap = Explorer.MiscIcons,
+		Icon = "Delete",
+		OnClick = function()
+		local sList = selection.List
+		for i = 1, #sList do
+		local obj = sList[i].Obj
+		if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+		local path: string = obj:GetFullName()
+		local risks: {string} = {}
+
+		if path:find("ReplicatedStorage") then table.insert(risks, "- Publicly accessible (ReplicatedStorage)") end
+		if obj.Name:lower():find("event") or obj.Name:lower():find("remote") then table.insert(risks, "- Generic/Predictable naming") end
+
+		local prompt: string = string.format(
+		"Security audit for Roblox Remote. Path: %s. Identified risks: %s. Recommend specific server-side mitigations.",
+		path, table.concat(risks, ", ")
+		)
+
+		local audit = requestNeuralLink(prompt, 300)
+		if audit then
+		local fullReport: string = string.format("[SECURITY REPORT: %s]\n\n%s", obj.Name, audit)
+		env.setclipboard(fullReport)
+		print("--> [AUDIT_COMPLETE]: Check F9 and Clipboard.")
+		end
+		end
+		end
+		end
+		})
+
+		context:Register("REMOTE_NETWORK_LOGGER", {
+		Name = "Network Logger (Toggle)",
+		IconMap = Explorer.MiscIcons,
+		Icon = "Play",
+		OnClick = function()
+		if not _G._remoteNetworkLogger then
+		_G._remoteNetworkLogger = {}
+		_G._loggerActive = true
+
+		local oldNamecall; oldNamecall = env.hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+		local method = getnamecallmethod()
+		if _G._loggerActive and (self:IsA("RemoteEvent") or self:IsA("RemoteFunction")) then
+		if method == "FireServer" or method == "InvokeServer" then
+		local args = {...}
+		table.insert(_G._remoteNetworkLogger, {
+		time = tick(),
+		remote = self.Name,
+		path = self:GetFullName(),
+		method = method,
+		args = args
+		})
+		print(string.format("[NET_LOG] %s:%s | Args: %d", self.Name, method, #args))
+		end
+		end
+		return oldNamecall(self, ...)
+		end))
+
+		if getgenv().DoNotif then getgenv().DoNotif("Network Observer: ACTIVE", 2) end
+		else
+		_G._loggerActive = not _G._loggerActive
+		local state: string = _G._loggerActive and "RESUMED" or "PAUSED"
+		if getgenv().DoNotif then getgenv().DoNotif("Network Observer: " .. state, 2) end
+
+		if not _G._loggerActive then
+		local logOutput: string = "--- [ZUKA NETWORK LOG] ---\n"
+		for i, entry in ipairs(_G._remoteNetworkLogger) do
+		logOutput ..= string.format("[%d] %s -> %s (%s)\n", i, entry.method, entry.remote, entry.path)
+		end
+		env.setclipboard(logOutput)
+		end
+		end
+		end
+		})
+
+		context:Register("GENERATE_POISON_PATCH",{
+		Name = "[ZEX] Poison++ (Advanced)", 
+		IconMap = Explorer.MiscIcons, 
+		Icon = "CallFunction", 
+		OnClick = function()
+		local node = selection.List[1]
+		if not node or not node.Obj:IsA("ModuleScript") then 
+		if getgenv().DoNotif then 
+		getgenv().DoNotif("⚠ Select a ModuleScript first!", 2) 
+		end
+		return 
+		end
+
+		local module = node.Obj
+		local path = Explorer.GetInstancePath(module)
+		local success, result = pcall(require, module)
+
+
+		local detectedArch = "UNKNOWN"
+		local confidence = 0
+
+		local function detectArchitecture(tbl)
+		if type(tbl) ~= "table" then return end
+
+		local signatures = {
+		["1_ENGINE"] = {"BaseDamage", "FireRate", "AmmoPerMag", "HeadshotDamageMultiplier"},
+		["PRISON_LIFE"] = {"Damage", "FireRate", "MagSize", "Automatic"},
+		["ARSENAL"] = {"damagemin", "damagemax", "range", "penetration"},
+		["COUNTER_BLOX"] = {"damage", "firerate", "recoil", "accuracy"},
+		["GENERIC_FPS"] = {"Damage", "RPM", "Magazine", "Reload"},
+		["TOWER_DEFENSE"] = {"Cost", "Damage", "Range", "Cooldown"},
+		["SIMULATOR"] = {"Cost", "Multiplier", "Boost", "Rate"},
+		["STATS_MODULE"] = {"Health", "MaxHealth", "Speed", "WalkSpeed"},
+		["SHOP_MODULE"] = {"Price", "Cost", "Currency", "Gamepass"},
+		}
+
+		for archName, keys in pairs(signatures) do
+		local matches = 0
+		for _, key in ipairs(keys) do
+		if tbl[key] ~= nil then
+		matches = matches + 1
+		end
+		end
+
+		local matchPercent = (matches / #keys) * 100
+		if matchPercent > confidence then
+		confidence = matchPercent
+		detectedArch = archName
+		end
+		end
+		end
+
+		if success and type(result) == "table" then
+		detectArchitecture(result)
+		end
+
+		local function getPoisonValue(name, currentVal, architecture)
+		local n = tostring(name)
+		local lowerN = n:lower()
+		local typeV = type(currentVal)
+
+		-- TYPE-BASED UNIVERSAL PATTERNS
+		if typeV == "boolean" then
+		if lowerN:find("limit") or lowerN:find("restrict") or lowerN:find("enabled") or 
+		lowerN:find("lock") or lowerN:find("delay") then
+		return false
+		elseif lowerN:find("auto") or lowerN:find("infinite") or lowerN:find("unlimited") then
+		return true
+		end
+		end
+
+		-- NUMERICAL BOOST PATTERNS
+		if typeV == "number" then
+		-- Minimize (costs, recoil, spread) - TRUE ZEROS
+		if lowerN:find("cost") or lowerN:find("price") or 
+		lowerN:find("recoil") or lowerN:find("spread") then
+		return 0
+		end
+
+		-- Minimize timers but keep SMALL values to prevent breakage
+		if lowerN:find("reload") or lowerN:find("equip") then
+		return 0.05 -- 50ms minimum
+		end
+
+		-- DON'T touch FireRate/Cooldown here - handle per-architecture
+
+		-- Maximize (damage, speed, range, ammo)
+		if lowerN:find("damage") or lowerN:find("speed") or lowerN:find("range") or 
+		lowerN:find("ammo") or lowerN:find("mag") or lowerN:find("multi") or 
+		lowerN:find("boost") or lowerN:find("radius") or lowerN:find("health") then
+		return 999999
+		end
+		end
+
+
+
+		if architecture == "1_ENGINE" then
+		if n == "BaseDamage" or lowerN:find("damage") then return 999999
+		elseif n == "HeadshotDamageMultiplier" then return 100
+		elseif n == "FireRate" or n == "BurstRate" then return 0.01 -- CRITICAL FIX: minimum 10ms
+		elseif n == "ReloadTime" or n == "TacticalReloadTime" then return 0.05
+		elseif n == "EquipTime" or n == "UnequipTime" then return 0.01
+		elseif n == "AmmoPerMag" or n == "MagSize" then return 999999
+		elseif n == "Auto" or n == "Automatic" then return true
+		elseif n == "Recoil" or n == "Spread" or n == "HipFireSpread" then return 0
+		elseif n == "BulletSpeed" or n == "Range" or n == "MaxRange" then return 90000
+		elseif n == "BulletPerShot" then 
+		-- Only boost if it's already > 1 (shotgun detection)
+		return currentVal > 1 and 15 or currentVal 
+		elseif n == "FriendlyFire" then return true
+		elseif lowerN:find("enabled") and lowerN:find("limit") then return false
+		elseif n == "Lifesteal" then return 99999
+		elseif n == "Knockback" then return 9999
+		elseif n == "ExplosionRadius" then return 9999
+		end
+
+		-- PRISON LIFE
+		elseif architecture == "PRISON_LIFE" then
+		if n == "Damage" then return 999999
+		elseif n == "FireRate" then return 0.01 -- FIXED
+		elseif n == "MagSize" then return 999999
+		elseif n == "Automatic" then return true
+		elseif n == "ReloadTime" then return 0.05 -- FIXED
+		end
+
+		-- ARSENAL
+		elseif architecture == "ARSENAL" then
+		if n == "damagemin" or n == "damagemax" then return 999999
+		elseif n == "firerate" then return 0.01 -- FIXED from 0.001
+		elseif n == "range" then return 99999
+		elseif n == "penetration" then return 99999
+		elseif n == "recoilx" or n == "recoily" then return 0
+		elseif n == "reloadtime" then return 0.05
+		end
+
+		-- COUNTER BLOX
+		elseif architecture == "COUNTER_BLOX" then
+		if n == "damage" then return 999999
+		elseif n == "firerate" then return 0.01 -- FIXED
+		elseif n == "recoil" then return 0
+		elseif n == "accuracy" then return 100
+		end
+
+		-- GENERIC FPS
+		elseif architecture == "GENERIC_FPS" then
+		if n == "Damage" then return 999999
+		elseif n == "RPM" then return 6000 -- 100 rounds/sec = safe max
+		elseif n == "Magazine" then return 999999
+		elseif n == "Reload" then return 0.05
+		end
+
+		-- TOWER DEFENSE GAMES
+		elseif architecture == "TOWER_DEFENSE" then
+		if n == "Cost" or n == "Price" then return 0
+		elseif n == "Damage" then return 999999
+		elseif n == "Range" then return 99999
+		elseif n == "Cooldown" or n == "FireRate" then return 0.01 -- FIXED
+		elseif n == "MaxLevel" then return 999
+		end
+
+		-- SIMULATOR GAMES
+		elseif architecture == "SIMULATOR" then
+		if n == "Cost" or n == "Price" then return 0
+		elseif n == "Multiplier" or n == "Boost" then return 999999
+		elseif n == "Rate" or n == "Speed" then return 999999
+		elseif n == "Cooldown" then return 0.01 -- FIXED
+		end
+
+		-- STATS MODULES
+		elseif architecture == "STATS_MODULE" then
+		if n == "Health" or n == "MaxHealth" then return 999999
+		end
+
+		-- SHOP MODULES
+		elseif architecture == "SHOP_MODULE" then
+		if n == "Price" or n == "Cost" then return 0
+		elseif n == "Gamepass" or n == "GamepassRequired" then return false
+		elseif n == "VIPOnly" or n == "PremiumOnly" then return false
+		end
+		end
+
+		return currentVal
+		end
+
+		-- ============================================================================
+		-- ADVANCED TYPE SERIALIZER
+		-- ============================================================================
+		local function serialize(v, depth)
+		depth = depth or 0
+		if depth > 5 then return "nil --[[MAX_DEPTH]]" end
+
+		local t = typeof(v)
+
+		if t == "string" then 
+		return '"' .. v:gsub('"', '\\"'):gsub("\n", "\\n") .. '"'
+		elseif t == "number" then 
+		if v == math.huge then return "math.huge"
+		elseif v == -math.huge then return "-math.huge"
+		elseif v ~= v then return "0/0 --[[NaN]]"
+		else return tostring(v) end
+		elseif t == "boolean" then 
+		return tostring(v)
+		elseif t == "nil" then 
+		return "nil"
+
+		-- Roblox Types
+		elseif t == "Vector3" then 
+		return string.format("Vector3.new(%.2f, %.2f, %.2f)", v.X, v.Y, v.Z)
+		elseif t == "Vector2" then 
+		return string.format("Vector2.new(%.2f, %.2f)", v.X, v.Y)
+		elseif t == "UDim2" then
+		return string.format("UDim2.new(%.3f, %d, %.3f, %d)", v.X.Scale, v.X.Offset, v.Y.Scale, v.Y.Offset)
+		elseif t == "CFrame" then 
+		local components = {v:GetComponents()}
+		return "CFrame.new(" .. table.concat(components, ", ") .. ")"
+		elseif t == "Color3" then 
+		return string.format("Color3.fromRGB(%d, %d, %d)", 
+		math.floor(v.R*255), math.floor(v.G*255), math.floor(v.B*255))
+		elseif t == "BrickColor" then
+		return 'BrickColor.new("' .. v.Name .. '")'
+		elseif t == "EnumItem" then 
+		return tostring(v)
+		elseif t == "NumberRange" then
+		return string.format("NumberRange.new(%.2f, %.2f)", v.Min, v.Max)
+		elseif t == "Rect" then
+		return string.format("Rect.new(%.2f, %.2f, %.2f, %.2f)", 
+		v.Min.X, v.Min.Y, v.Max.X, v.Max.Y)
+
+		-- Table serialization (shallow)
+		elseif t == "table" then
+		local items = {}
+		for k, val in pairs(v) do
+		if type(k) == "string" then
+		table.insert(items, '["' .. k .. '"] = ' .. serialize(val, depth + 1))
+		else
+		table.insert(items, '[' .. k .. '] = ' .. serialize(val, depth + 1))
+		end
+		end
+		return "{" .. table.concat(items, ", ") .. "}"
+		end
+
+		return "nil --[[UNSUPPORTED_TYPE:" .. t .. "]]"
+		end
+
+		-- ============================================================================
+		-- RECURSIVE TABLE PATCHER
+		-- ============================================================================
+		local patchedCount = 0
+		local skippedCount = 0
+
+		local function generatePatchCode(tbl, parentPath, depth)
+		depth = depth or 0
+		if depth > 3 then return "" end
+
+		local code = ""
+
+		for k, v in pairs(tbl) do
+		local keyPath = parentPath .. "." .. tostring(k)
+		local valueType = type(v)
+
+		if valueType == "table" then
+		code = code .. generatePatchCode(v, keyPath, depth + 1)
+
+		elseif valueType ~= "function" and valueType ~= "userdata" then
+		local pVal = getPoisonValue(tostring(k), v, detectedArch)
+
+		if pVal ~= v then
+		local pValSerialized = serialize(pVal)
+		code = code .. keyPath .. " = " .. pValSerialized .. " -- [PATCHED]\n"
+		patchedCount = patchedCount + 1
+		else
+		skippedCount = skippedCount + 1
+		end
+		end
+		end
+
+		return code
+		end
+
+		-- ============================================================================
+		-- OUTPUT GENERATION
+		-- ============================================================================
+		local output = ""
+		output = output .. "--[[\n"
+		output = output .. "    ╔═══════════════════════════════════════════════════════╗\n"
+		output = output .. "    ║      POISON++ ADVANCED MODULE PATCH                   ║\n"
+		output = output .. "    ╚═══════════════════════════════════════════════════════╝\n"
+		output = output .. "    \n"
+		output = output .. "    Target:        " .. module.Name .. "\n"
+		output = output .. "    Path:          " .. path .. "\n"
+		output = output .. "    Architecture:  " .. detectedArch .. " (" .. confidence .. "% confidence)\n"
+		output = output .. "    Generated:     " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
+		output = output .. "    Engine:        ZukaTech Poison++ v2.1 (Stability Fix)\n"
+		output = output .. "--]]\n\n"
+
+		if not success then
+		output = output .. "-- [ERROR]: Failed to require module\n"
+		output = output .. "-- Reason: " .. tostring(result) .. "\n"
+		output = output .. "-- This module may be server-sided or protected\n"
+
+		elseif type(result) ~= "table" then
+		output = output .. "-- [INFO]: Module returns " .. type(result) .. " instead of table\n"
+		output = output .. "-- Cannot generate patch for non-table modules\n"
+
+		else
+		output = output .. "local targetModule = require(" .. path .. ")\n"
+		output = output .. "assert(type(targetModule) == 'table', 'Module must return a table')\n\n"
+		output = output .. "-- Disable read-only protection\n"
+		output = output .. "if setreadonly then \n"
+		output = output .. "    pcall(setreadonly, targetModule, false)\n"
+		output = output .. "end\n\n"
+		output = output .. "-- Apply patches\n"
+
+		local patchCode = generatePatchCode(result, "targetModule", 0)
+		output = output .. patchCode
+
+		output = output .. "\n-- Re-enable read-only protection\n"
+		output = output .. "if setreadonly then \n"
+		output = output .. "    pcall(setreadonly, targetModule, true)\n"
+		output = output .. "end\n\n"
+		output = output .. "print('[Poison++] " .. module.Name .. " neutralized (" .. patchedCount .. " patches applied)')\n"
+		output = output .. "return targetModule\n"
+		end
+
+		-- ============================================================================
+		-- OUTPUT TO CONSOLE & CLIPBOARD
+		-- ============================================================================
+		print("\n" .. string.rep("=", 60))
+		print("[ZUKATECH POISON++]")
+		print(string.rep("=", 60))
+		print(output)
+		print(string.rep("=", 60))
+		print("Stats: " .. patchedCount .. " patched, " .. skippedCount .. " unchanged")
+		print(string.rep("=", 60) .. "\n")
+
+		-- Multi-environment clipboard support
+		local clipboardSuccess = false
+		local clipboardFunctions = {
+		function() setclipboard(output) end,
+		function() env.setclipboard(output) end,
+		function() getgenv().setclipboard(output) end,
+		function() syn.write_clipboard(output) end,
+		function() Clipboard.set(output) end,
+		}
+
+		for _, func in ipairs(clipboardFunctions) do
+		if pcall(func) then
+		clipboardSuccess = true
+		break
+		end
+		end
+
+		if getgenv().DoNotif then
+		if clipboardSuccess then
+		getgenv().DoNotif("✓ Poison++ patch copied! (" .. patchedCount .. " patches)", 3)
+		else
+		getgenv().DoNotif("⚠ Patch generated but clipboard failed", 3)
+		end
+		end
+		end
+		})
+
+		context:Register("GENERATE_UNIVERSAL_POISON",{
+		Name = "[ZEX] Universal Module Poison", 
+		IconMap = Explorer.MiscIcons, 
+		Icon = "Zap", 
+		OnClick = function()
+		local node = selection.List[1]
+		if not node or not node.Obj:IsA("ModuleScript") then 
+		if getgenv().DoNotif then 
+		getgenv().DoNotif("⚠ Select a ModuleScript first!", 2) 
+		end
+		return 
+		end
+
+		local module = node.Obj
+		local path = Explorer.GetInstancePath(module)
+		local success, result = pcall(require, module)
+
+		-- ============================================================================
+		-- UNIVERSAL MODULE TYPE DETECTION
+		-- ============================================================================
+		local detectedTypes = {} -- Can be multiple types
+		local confidence = {}
+
+		local function detectModuleTypes(tbl)
+		if type(tbl) ~= "table" then return end
+
+		local signatures = {
+		-- Economy
+		["SHOP"] = {"Price", "Cost", "Currency", "BuyPrice", "SellPrice"},
+		["CURRENCY"] = {"Coins", "Cash", "Money", "Gems", "Credits"},
+		["REWARDS"] = {"Reward", "Prize", "Loot", "Drop", "XP"},
+
+		-- Character/Player
+		["STATS"] = {"Health", "MaxHealth", "Speed", "WalkSpeed", "JumpPower"},
+		["ABILITIES"] = {"Cooldown", "ManaCost", "Duration", "Power"},
+		["INVENTORY"] = {"MaxSlots", "Capacity", "Weight", "Limit"},
+
+		-- Vehicles
+		["VEHICLE"] = {"Speed", "Acceleration", "Handling", "TopSpeed", "Fuel"},
+		["BOAT"] = {"MaxSpeed", "TurnSpeed", "Buoyancy"},
+		["AIRCRAFT"] = {"ThrustPower", "LiftForce", "MaxAltitude"},
+
+		-- Pets/Companions
+		["PET"] = {"Damage", "CollectionRadius", "SpawnRate", "Rarity", "Level"},
+		["COMPANION"] = {"FollowDistance", "AttackDamage", "Health"},
+
+		-- Building/Tycoon
+		["TYCOON"] = {"Income", "BuildTime", "UpgradeCost", "ProductionRate"},
+		["BUILDING"] = {"Cost", "BuildDuration", "Material", "Requirement"},
+
+		-- Farming/Simulator
+		["FARMING"] = {"GrowthTime", "YieldAmount", "WaterNeeded", "HarvestValue"},
+		["MINING"] = {"HardnessLevel", "OreValue", "RespawnTime", "Durability"},
+		["SIMULATOR"] = {"Multiplier", "Boost", "Rate", "ClickPower"},
+
+		-- Game Mechanics
+		["CRAFTING"] = {"CraftTime", "MaterialCost", "Recipe", "Ingredients"},
+		["REBIRTH"] = {"Requirement", "Multiplier", "ResetValue", "Level"},
+		["UPGRADE"] = {"Level", "MaxLevel", "UpgradeCost", "Effect"},
+		["TELEPORT"] = {"Cooldown", "Destination", "RequiredLevel", "Cost"},
+
+		-- Restrictions
+		["GAMEPASS"] = {"GamepassId", "GamepassRequired", "Premium", "VIP"},
+		["RESTRICTIONS"] = {"MinLevel", "MaxLevel", "RequiredItem", "Locked"},
+		["COOLDOWNS"] = {"GlobalCooldown", "ActionDelay", "RateLimit"},
+
+		-- Environmental
+		["ZONE"] = {"Radius", "DamagePerSecond", "SafeZone", "Boundary"},
+		["DOOR"] = {"Keycard", "AccessLevel", "Permission", "RequiredRank"},
+		["EVENT"] = {"SpawnRate", "Duration", "Frequency", "Chance"},
+		}
+
+		for moduleType, keys in pairs(signatures) do
+		local matches = 0
+		for _, key in ipairs(keys) do
+		if tbl[key] ~= nil then
+		matches = matches + 1
+		end
+		end
+
+		local matchPercent = (matches / #keys) * 100
+		if matchPercent >= 30 then -- 30% threshold for multi-detection
+		table.insert(detectedTypes, moduleType)
+		confidence[moduleType] = matchPercent
+		end
+		end
+
+		-- Sort by confidence
+		table.sort(detectedTypes, function(a, b)
+		return confidence[a] > confidence[b]
+		end)
+		end
+
+		if success and type(result) == "table" then
+		detectModuleTypes(result)
+		end
+
+		-- ============================================================================
+		-- UNIVERSAL POISON LOGIC
+		-- ============================================================================
+		local function getPoisonValue(name, currentVal, types)
+		local n = tostring(name)
+		local lowerN = n:lower()
+		local typeV = type(currentVal)
+
+		-- Skip if value is a table or function
+		if typeV == "table" or typeV == "function" or typeV == "userdata" then
+		return currentVal
+		end
+
+		-- ============================================================================
+		-- BOOLEAN PATTERNS
+		-- ============================================================================
+		if typeV == "boolean" then
+		-- Disable restrictions
+		if lowerN:find("lock") or lowerN:find("restrict") or lowerN:find("limit") or 
+		lowerN:find("required") or lowerN:find("enabled") or lowerN:find("disabled") or
+		lowerN:find("vip") or lowerN:find("premium") or lowerN:find("gamepass") then
+		return false
+		end
+
+		-- Enable beneficial features
+		if lowerN:find("auto") or lowerN:find("infinite") or lowerN:find("unlimited") or
+		lowerN:find("collect") or lowerN:find("free") then
+		return true
+		end
+		end
+
+		-- ============================================================================
+		-- NUMBER PATTERNS (MINIMIZE)
+		-- ============================================================================
+		if typeV == "number" then
+		-- Costs & Prices → 0
+		if lowerN:find("cost") or lowerN:find("price") or lowerN:find("expense") or
+		lowerN:find("fee") or lowerN:find("tax") then
+		return 0
+		end
+
+		-- Cooldowns & Delays → 0.01 (safe minimum)
+		if lowerN:find("cooldown") or lowerN:find("delay") or lowerN:find("wait") or
+		lowerN:find("ratelimit") then
+		return 0.01
+		end
+
+		-- Time-based (growth, craft, respawn) → 0.01
+		if lowerN:find("time") or lowerN:find("duration") or lowerN:find("respawn") or
+		lowerN:find("growth") or lowerN:find("craft") or lowerN:find("build") then
+		return 0.01
+		end
+
+		-- Requirements & Thresholds → 0
+		if lowerN:find("requirement") or lowerN:find("needed") or lowerN:find("minlevel") or
+		lowerN:find("threshold") then
+		return 0
+		end
+
+		-- Negative effects → 0
+		if lowerN:find("damage") and (lowerN:find("take") or lowerN:find("received")) then
+		return 0
+		end
+		if lowerN:find("decay") or lowerN:find("drain") or lowerN:find("loss") then
+		return 0
+		end
+		end
+
+		-- ============================================================================
+		-- NUMBER PATTERNS (MAXIMIZE)
+		-- ============================================================================
+		if typeV == "number" then
+		-- Damage output → 999999
+		if (lowerN:find("damage") and not lowerN:find("take")) or lowerN:find("attack") or
+		lowerN:find("power") or lowerN:find("strength") then
+		return 999999
+		end
+
+		-- Speed/Movement → 500 (sane cap to prevent physics breaks)
+		if lowerN:find("speed") or lowerN:find("velocity") or lowerN:find("acceleration") then
+		return 500
+		end
+
+		-- Ranges/Radius → 99999
+		if lowerN:find("range") or lowerN:find("radius") or lowerN:find("distance") or
+		lowerN:find("reach") then
+		return 99999
+		end
+
+		-- Health/Defense → 999999
+		if lowerN:find("health") or lowerN:find("hp") or lowerN:find("defense") or
+		lowerN:find("armor") or lowerN:find("shield") then
+		return 999999
+		end
+
+		-- Resources (ammo, capacity, slots) → 999999
+		if lowerN:find("ammo") or lowerN:find("mag") or lowerN:find("capacity") or
+		lowerN:find("slot") or lowerN:find("limit") or lowerN:find("max") then
+		return 999999
+		end
+
+		-- Multipliers/Boosts → 999999
+		if lowerN:find("multi") or lowerN:find("boost") or lowerN:find("bonus") or
+		lowerN:find("modifier") or lowerN:find("rate") then
+		return 999999
+		end
+
+		-- Income/Rewards → 999999
+		if lowerN:find("income") or lowerN:find("reward") or lowerN:find("yield") or
+		lowerN:find("value") or lowerN:find("worth") or lowerN:find("profit") then
+		return 999999
+		end
+
+		-- Chances/Probability → 100 (max probability)
+		if lowerN:find("chance") or lowerN:find("probability") or lowerN:find("rate") and
+		currentVal <= 1 then -- Only if it's a 0-1 probability
+		return 1
+		elseif lowerN:find("chance") or lowerN:find("drop") then
+		return 100
+		end
+		end
+
+		-- No match found - return original
+		return currentVal
+		end
+
+		-- ============================================================================
+		-- SERIALIZER (same as before)
+		-- ============================================================================
+		local function serialize(v, depth)
+		depth = depth or 0
+		if depth > 5 then return "nil --[[MAX_DEPTH]]" end
+
+		local t = typeof(v)
+
+		if t == "string" then 
+		return '"' .. v:gsub('"', '\\"'):gsub("\n", "\\n") .. '"'
+		elseif t == "number" then 
+		if v == math.huge then return "math.huge"
+		elseif v == -math.huge then return "-math.huge"
+		elseif v ~= v then return "0/0"
+		else return tostring(v) end
+		elseif t == "boolean" then 
+		return tostring(v)
+		elseif t == "nil" then 
+		return "nil"
+		elseif t == "Vector3" then 
+		return string.format("Vector3.new(%.2f, %.2f, %.2f)", v.X, v.Y, v.Z)
+		elseif t == "Vector2" then 
+		return string.format("Vector2.new(%.2f, %.2f)", v.X, v.Y)
+		elseif t == "Color3" then 
+		return string.format("Color3.fromRGB(%d, %d, %d)", 
+		math.floor(v.R*255), math.floor(v.G*255), math.floor(v.B*255))
+		elseif t == "CFrame" then 
+		local components = {v:GetComponents()}
+		return "CFrame.new(" .. table.concat(components, ", ") .. ")"
+		elseif t == "EnumItem" then 
+		return tostring(v)
+		elseif t == "table" then
+		local items = {}
+		for k, val in pairs(v) do
+		if type(k) == "string" then
+		table.insert(items, '["' .. k .. '"] = ' .. serialize(val, depth + 1))
+		else
+		table.insert(items, '[' .. k .. '] = ' .. serialize(val, depth + 1))
+		end
+		end
+		return "{" .. table.concat(items, ", ") .. "}"
+		end
+
+		return "nil --[[UNSUPPORTED:" .. t .. "]]"
+		end
+
+		-- ============================================================================
+		-- RECURSIVE PATCHER
+		-- ============================================================================
+		local patchedCount = 0
+		local skippedCount = 0
+		local patchDetails = {}
+
+		local function generatePatchCode(tbl, parentPath, depth)
+		depth = depth or 0
+		if depth > 4 then return "" end
+
+		local code = ""
+
+		for k, v in pairs(tbl) do
+		local keyPath = parentPath .. "." .. tostring(k)
+		local valueType = type(v)
+
+		if valueType == "table" then
+		code = code .. generatePatchCode(v, keyPath, depth + 1)
+
+		elseif valueType ~= "function" and valueType ~= "userdata" then
+		local pVal = getPoisonValue(tostring(k), v, detectedTypes)
+
+		if pVal ~= v then
+		local pValSerialized = serialize(pVal)
+		code = code .. keyPath .. " = " .. pValSerialized .. " -- " .. tostring(v) .. " → " .. tostring(pVal) .. "\n"
+		patchedCount = patchedCount + 1
+		table.insert(patchDetails, {key = k, old = v, new = pVal})
+		else
+		skippedCount = skippedCount + 1
+		end
+		end
+		end
+
+		return code
+		end
+
+		-- ============================================================================
+		-- OUTPUT GENERATION
+		-- ============================================================================
+		local typesList = #detectedTypes > 0 and table.concat(detectedTypes, ", ") or "GENERIC"
+
+		local output = ""
+		output = output .. "--[[\n"
+		output = output .. "    ╔═══════════════════════════════════════════════════════╗\n"
+		output = output .. "    ║      UNIVERSAL MODULE POISON                          ║\n"
+		output = output .. "    ╚═══════════════════════════════════════════════════════╝\n"
+		output = output .. "    \n"
+		output = output .. "    Target:        " .. module.Name .. "\n"
+		output = output .. "    Path:          " .. path .. "\n"
+		output = output .. "    Detected:      " .. typesList .. "\n"
+
+		if #detectedTypes > 0 then
+		for _, mType in ipairs(detectedTypes) do
+		output = output .. "                   - " .. mType .. " (" .. math.floor(confidence[mType]) .. "%)\n"
+		end
+		end
+
+		output = output .. "    Generated:     " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
+		output = output .. "    Engine:        ZukaTech Universal Poisoner v1.0\n"
+		output = output .. "--]]\n\n"
+
+		if not success then
+		output = output .. "-- [ERROR]: Failed to require module\n"
+		output = output .. "-- Reason: " .. tostring(result) .. "\n"
+
+		elseif type(result) ~= "table" then
+		output = output .. "-- [INFO]: Module returns " .. type(result) .. "\n"
+		output = output .. "-- Cannot poison non-table modules\n"
+
+		else
+		output = output .. "local targetModule = require(" .. path .. ")\n"
+		output = output .. "assert(type(targetModule) == 'table', 'Module must return a table')\n\n"
+
+		output = output .. "-- Disable protections\n"
+		output = output .. "if setreadonly then pcall(setreadonly, targetModule, false) end\n"
+		output = output .. "if make_writeable then pcall(make_writeable, targetModule) end\n\n"
+
+		output = output .. "-- Apply universal patches\n"
+		local patchCode = generatePatchCode(result, "targetModule", 0)
+		output = output .. patchCode
+
+		output = output .. "\n-- Re-enable protections\n"
+		output = output .. "if setreadonly then pcall(setreadonly, targetModule, true) end\n\n"
+		output = output .. "print('[Universal Poison] " .. module.Name .. " poisoned (" .. patchedCount .. " patches)')\n"
+		output = output .. "return targetModule\n"
+		end
+
+		-- ============================================================================
+		-- CONSOLE OUTPUT
+		-- ============================================================================
+		print("\n" .. string.rep("=", 70))
+		print("[ZUKATECH UNIVERSAL POISONER]")
+		print(string.rep("=", 70))
+		print("Module: " .. module.Name)
+		print("Types:  " .. typesList)
+		print(string.rep("-", 70))
+		print(output)
+		print(string.rep("=", 70))
+		print("Stats: " .. patchedCount .. " patched, " .. skippedCount .. " unchanged")
+		print(string.rep("=", 70) .. "\n")
+
+		-- Clipboard
+		local clipboardSuccess = false
+		local clipboardFuncs = {
+		function() setclipboard(output) end,
+		function() env.setclipboard(output) end,
+		function() getgenv().setclipboard(output) end,
+		function() syn.write_clipboard(output) end,
+		}
+
+		for _, func in ipairs(clipboardFuncs) do
+		if pcall(func) then
+		clipboardSuccess = true
+		break
+		end
+		end
+
+		if getgenv().DoNotif then
+		if clipboardSuccess then
+		getgenv().DoNotif("✓ Universal poison copied! (" .. patchedCount .. " patches)", 3)
+		else
+		getgenv().DoNotif("⚠ Generated but clipboard failed", 3)
+		end
+		end
+		end
+		})
+
+		context:Register("GENERATE_POISON_PATCH2",{Name = "[ZEX] Poison!", IconMap = Explorer.MiscIcons, Icon = "CallFunction", OnClick = function()
+		local node = selection.List[1]
+		if not node or not node.Obj:IsA("ModuleScript") then return end
+		local module = node.Obj
+
+		local path = Explorer.GetInstancePath(module)
+		local success, result = pcall(require, module)
+
+		-- Architecture-Specific Poison Logic (Optimized for "1" Engine)
+		local function getPoisonValue(name, currentVal)
+		local n = tostring(name)
+		local lowerN = n:lower()
+
+		-- Damage & Multipliers
+		if n == "BaseDamage" or lowerN:find("damage") then return 999999
+		elseif n == "HeadshotDamageMultiplier" or lowerN:find("headshot") then return 100
+
+		-- Fire Rate & Reloads
+		elseif n == "FireRate" or n == "BurstRate" or n == "ReloadTime" or n == "EquipTime" then return 0
+		elseif n == "TacticalReloadTime" or n == "SwitchTime" or lowerN:find("delay") then return 0
+
+		elseif n == "AmmoPerMag" then return 999999
+		elseif n == "Recoil" then return 0
+		elseif n == "BulletPerShot" then return 5
+		elseif n == "FriendlyFire" then return true
+		elseif n == "Lifesteal" then return 99999
+		elseif n == "ShotgunEnabled" then return true
+		elseif n == "Knockback" then return 9999999
+		elseif n == "DualFireEnabled" then return true
+		elseif n == "IcifyChance" then return 9999
+		elseif n == "FlamingBullet" then return true
+		elseif n == "IgniteChance" then return 9999
+		elseif n == "FreezingBullet" then return true
+		elseif n == "HoldDownEnabled" then return false
+		elseif n == "ChargedShotEnabled" then return false
+		elseif n == "ChargingTime" then return 0
+		elseif n == "HoldAndReleaseEnabled" then return false
+		elseif n == "DelayBeforeFiring" then return 0
+		elseif n == "HoldDownEnabled" then return false
+		elseif n == "Auto" then return false
+		elseif n == "CriticalDamageEnabled" then return 999999
+
+		elseif n == "Recoil" or n == "Spread" or n == "Accuracy" then return 0
+		elseif lowerN:find("angle") and (lowerN:find("min") or lowerN:find("max")) then return 0
+		elseif n == "BulletSpeed" or n == "Range" then return 90000
+
+		-- Mechanics
+		elseif n == "LimitedAmmoEnabled" or n == "DamageDropOffEnabled" then return false
+		elseif n == "WalkSpeedRedutionEnabled" then return false
+		elseif n == "WalkSpeedRedution" then return 0
+		end
+		return currentVal
+		end
+
+		-- Complex Type Serializer (Ensures generated code runs)
+		local function serialize(v)
+		local t = typeof(v)
+		if t == "string" then return '"' .. v .. '"'
+		elseif t == "number" or t == "boolean" then return tostring(v)
+		elseif t == "Vector3" then return "Vector3.new(" .. v.X .. ", " .. v.Y .. ", " .. v.Z .. ")"
+		elseif t == "Vector2" then return "Vector2.new(" .. v.X .. ", " .. v.Y .. ")"
+		elseif t == "CFrame" then return "CFrame.new(" .. tostring(v) .. ")"
+		elseif t == "Color3" then return "Color3.fromRGB(" .. math.floor(v.R*255) .. ", " .. math.floor(v.G*255) .. ", " .. math.floor(v.B*255) .. ")"
+		elseif t == "EnumItem" then return tostring(v)
+		end
+		return "nil"
+		end
+
+		local output = "\n--[[ \n\GENERATED PATCH: " .. module.Name .. "\n\tENGINE: Basic Weapon '1' Architecture\n\tARCHITECT: Made with - (ZukaTech v10)\n\tTARGET: " .. path .. "\n--]]\n\n"
+		output = output .. "local targetModule = require(" .. path .. ")\n"
+		output = output .. "if setreadonly then setreadonly(targetModule, false) end\n\n"
+
+		if not success then
+		output = output .. "-- [ERROR]: Require failed. Protected or Server-Side.\n"
+		elseif type(result) == "table" then
+		for k, v in pairs(result) do
+		if type(v) ~= "function" and type(v) ~= "table" then
+		local pVal = getPoisonValue(tostring(k), v)
+		local pValDisp = serialize(pVal)
+
+		if pVal ~= v then
+		output = output .. "targetModule." .. tostring(k) .. " = " .. pValDisp .. " -- [PATCHED]\n"
+		end
+		end
+		end
+		output = output .. "\nif setreadonly then setreadonly(targetModule, true) end\n"
+		output = output .. "print('--> [Poison]: " .. module.Name .. " has been neutralized.')"
+		else
+		output = output .. "-- [INFO]: Module returns a " .. type(result) .. " instead of a table."
+		end
+
+		-- OUTPUT TO CONSOLE
+		print("--- [ZUKATECH] ---")
+		print(output)
+		print("--- [ZUKATECH] ---")
+
+		-- COPY TO CLIPBOARD (Multiple fallback methods)
+		local clipboardSuccess = false
+		if setclipboard then
+		pcall(function() setclipboard(output) end)
+		clipboardSuccess = true
+		elseif env.setclipboard then
+		pcall(function() env.setclipboard(output) end)
+		clipboardSuccess = true
+		elseif getgenv().setclipboard then
+		pcall(function() getgenv().setclipboard(output) end)
+		clipboardSuccess = true
+		end
+
+		if clipboardSuccess then
+		if getgenv().DoNotif then getgenv().DoNotif("✓ Poison Patch copied to clipboard!", 3) end
+		else
+		if getgenv().DoNotif then getgenv().DoNotif("⚠ Failed to copy to clipboard", 3) end
+		end
+		end})
+
+		context:Register("SCREENGUI_TO_SCRIPT",{
+		Name = "Convert to Script (Deep)", 
+		IconMap = Explorer.MiscIcons, 
+		Icon = "Save", 
+		OnClick = function()
+		local node = selection.List[1]
+		if not node or not node.Obj:IsA("ScreenGui") then return end
+		local gui = node.Obj
+
+		-- ============================================================================
+		-- SERIALIZATION
+		-- ============================================================================
+		local function serialize(v)
+		local t = typeof(v)
+		if t == "string" then
+		return '"' .. v:gsub('"', '\\"'):gsub("\n", "\\n") .. '"'
+		elseif t == "number" or t == "boolean" then
+		return tostring(v)
+		elseif t == "Vector3" then
+		return "Vector3.new(" .. v.X .. ", " .. v.Y .. ", " .. v.Z .. ")"
+		elseif t == "Vector2" then
+		return "Vector2.new(" .. v.X .. ", " .. v.Y .. ")"
+		elseif t == "UDim2" then
+		return "UDim2.new(" .. v.X.Scale .. ", " .. v.X.Offset .. ", " .. v.Y.Scale .. ", " .. v.Y.Offset .. ")"
+		elseif t == "UDim" then
+		return "UDim.new(" .. v.Scale .. ", " .. v.Offset .. ")"
+		elseif t == "CFrame" then
+		return "CFrame.new(" .. tostring(v) .. ")"
+		elseif t == "Color3" then
+		return "Color3.fromRGB(" .. math.floor(v.R*255) .. ", " .. math.floor(v.G*255) .. ", " .. math.floor(v.B*255) .. ")"
+		elseif t == "BrickColor" then
+		return "BrickColor.new(" .. serialize(v.Name) .. ")"
+		elseif t == "EnumItem" then
+		return tostring(v)
+		elseif t == "Rect" then
+		return "Rect.new(" .. v.Min.X .. ", " .. v.Min.Y .. ", " .. v.Max.X .. ", " .. v.Max.Y .. ")"
+		elseif t == "FontFace" then
+		return "Font.new(" .. serialize(v.Family) .. ", Enum.FontWeight." .. tostring(v.Weight):match("FontWeight%.(.+)") .. ", Enum.FontStyle." .. tostring(v.Style):match("FontStyle%.(.+)") .. ")"
+		end
+		return "nil"
+		end
+
+		-- ============================================================================
+		-- PROPERTY MAPS
+		-- ============================================================================
+		local propertyMap = {
+		ScreenGui = {
+		"Name", "Enabled", "ResetOnSpawn", "DisplayOrder", "IgnoreGuiInset", "ZIndexBehavior",
+		"BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel", "Transparency"
+		},
+		TextLabel = {
+		"Name", "Text", "TextSize", "Font", "TextColor3", "TextWrapped", "TextScaled", "TextXAlignment", "TextYAlignment",
+		"Size", "Position", "Visible", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
+		},
+		TextButton = {
+		"Name", "Text", "TextSize", "Font", "TextColor3", "TextWrapped", "TextScaled", "TextXAlignment", "TextYAlignment",
+		"Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
+		},
+		Frame = {
+		"Name", "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel", "ClipsDescendants"
+		},
+		ScrollingFrame = {
+		"Name", "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel",
+		"CanvasSize", "ScrollBarThickness", "ClipsDescendants"
+		},
+		ImageLabel = {
+		"Name", "Image", "ImageColor3", "ImageScaled", "ImageSize", "Size", "Position", "Visible", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
+		},
+		ImageButton = {
+		"Name", "Image", "ImageColor3", "ImageScaled", "ImageSize", "Size", "Position", "Visible", "Active", "Selectable", "BackgroundColor3", "BackgroundTransparency", "BorderColor3", "BorderSizePixel"
+		},
+		UICorner = {"CornerRadius"},
+		UIStroke = {"Color", "Thickness", "Transparency", "LineJoinMode"},
+		UIGradient = {"Color", "Rotation", "Transparency"},
+		UIPadding = {"PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom"},
+		UIListLayout = {"Padding", "FillDirection", "HorizontalAlignment", "VerticalAlignment", "SortOrder"},
+		UIGridLayout = {"CellPadding", "CellSize", "FillDirectionMaxCells", "FillDirection", "HorizontalAlignment", "VerticalAlignment", "SortOrder"},
+		UIAspectRatioConstraint = {"AspectRatio", "AspectType", "DominantAxis"},
+		UISizeConstraint = {"MinSize", "MaxSize"},
+		UITextSizeConstraint = {"MinTextSize", "MaxTextSize"},
+		}
+
+		local function getPropertiesForObject(obj)
+		local className = obj.ClassName
+		return propertyMap[className] or {"Name", "Size", "Position", "Visible", "BackgroundColor3", "BackgroundTransparency"}
+		end
+
+		-- ============================================================================
+		-- SCRIPT EXTRACTION
+		-- ============================================================================
+		local extractedScripts = {}
+		local scriptCounter = 0
+
+		local function extractScript(scriptObj, parentVar)
+		scriptCounter = scriptCounter + 1
+		local scriptVar = "script_" .. scriptCounter
+
+		local source = ""
+		local success, result = pcall(function()
+		return scriptObj.Source or decompile(scriptObj)
+		end)
+
+		if success and result and result ~= "" then
+		source = result
+		else
+		source = "-- [PROTECTED/EMPTY SCRIPT]\n-- Could not extract source"
+		end
+
+		table.insert(extractedScripts, {
+		var = scriptVar,
+		parent = parentVar,
+		className = scriptObj.ClassName,
+		name = scriptObj.Name,
+		source = source,
+		enabled = scriptObj.Enabled or scriptObj.Disabled == false
+		})
+
+		return scriptVar
+		end
+
+		-- ============================================================================
+		-- RECURSIVE GUI CODE GENERATOR (WITH SCRIPTS)
+		-- ============================================================================
+		local function generateGuiCode(obj, indent, varName, varCounter)
+		local code = ""
+		local objType = obj.ClassName
+		varCounter = varCounter or {count = 0}
+
+		-- Skip if it's a script (we handle those separately)
+		if objType == "LocalScript" or objType == "Script" or objType == "ModuleScript" then
+		extractScript(obj, varName)
+		return ""
+		end
+
+		-- Create object
+		code = code .. indent .. "local " .. varName .. " = Instance.new(\"" .. objType .. "\")\n"
+
+		-- Get properties for this object type
+		local properties = getPropertiesForObject(obj)
+
+		-- Set properties
+		for _, propName in ipairs(properties) do
+		local success, prop = pcall(function() return obj[propName] end)
+		if success and prop ~= nil then
+		-- Skip default values
+		local shouldSet = true
+		if objType == "ScreenGui" and propName == "Enabled" and prop == true then shouldSet = false end
+		if objType == "ScreenGui" and propName == "DisplayOrder" and prop == 0 then shouldSet = false end
+		if (objType == "TextLabel" or objType == "TextButton") and propName == "TextWrapped" and prop == false then shouldSet = false end
+		if (objType == "TextLabel" or objType == "TextButton") and propName == "TextScaled" and prop == false then shouldSet = false end
+		if propName == "Visible" and prop == true then shouldSet = false end
+		if propName == "BackgroundTransparency" and prop == 0 then shouldSet = false end
+		if propName == "BorderSizePixel" and prop == 1 then shouldSet = false end
+
+		if shouldSet then
+		code = code .. indent .. varName .. "." .. propName .. " = " .. serialize(prop) .. "\n"
+		end
+		end
+		end
+
+		-- Recursively add children
+		local children = obj:GetChildren()
+		for i, child in ipairs(children) do
+		local childType = child.ClassName
+
+		if childType == "LocalScript" or childType == "Script" or childType == "ModuleScript" then
+		-- Extract script but don't generate GUI code for it
+		extractScript(child, varName)
+		else
+		varCounter.count = varCounter.count + 1
+		local childVar = varName .. "_" .. varCounter.count
+
+		code = code .. generateGuiCode(child, indent, childVar, varCounter)
+		code = code .. indent .. childVar .. ".Parent = " .. varName .. "\n"
+		end
+		end
+
+		return code
+		end
+
+		-- ============================================================================
+		-- GENERATE FULL OUTPUT
+		-- ============================================================================
+		local output = "--[[\n"
+		output = output .. "    ╔═══════════════════════════════════════════════════════╗\n"
+		output = output .. "    ║      DEEP GUI CONVERTER                               ║\n"
+		output = output .. "    ╚═══════════════════════════════════════════════════════╝\n"
+		output = output .. "    \n"
+		output = output .. "    ScreenGui: " .. gui.Name .. "\n"
+		output = output .. "    Extracted: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
+		output = output .. "    Engine:    ZukaTech Deep GUI v1.0\n"
+		output = output .. "    \n"
+		output = output .. "    This script recreates the FULL GUI including:\n"
+		output = output .. "    - All GUI elements and properties\n"
+		output = output .. "    - LocalScripts and their functionality\n"
+		output = output .. "    - Event connections (if extractable)\n"
+		output = output .. "--]]\n\n"
+
+		output = output .. "local Players = game:GetService(\"Players\")\n"
+		output = output .. "local player = Players.LocalPlayer\n"
+		output = output .. "local screenGui\n\n"
+
+		output = output .. "-- ============================================================================\n"
+		output = output .. "-- GUI STRUCTURE\n"
+		output = output .. "-- ============================================================================\n"
+		output = output .. "local function createGui()\n"
+		output = output .. generateGuiCode(gui, "  ", "screenGui")
+		output = output .. "  screenGui.Parent = player:WaitForChild(\"PlayerGui\")\n"
+		output = output .. "  return screenGui\n"
+		output = output .. "end\n\n"
+
+		-- ============================================================================
+		-- ADD EXTRACTED SCRIPTS
+		-- ============================================================================
+		if #extractedScripts > 0 then
+		output = output .. "-- ============================================================================\n"
+		output = output .. "-- EXTRACTED SCRIPTS (" .. #extractedScripts .. " found)\n"
+		output = output .. "-- ============================================================================\n\n"
+
+		for i, scriptData in ipairs(extractedScripts) do
+		output = output .. "-- Script #" .. i .. ": " .. scriptData.name .. " (" .. scriptData.className .. ")\n"
+		output = output .. "local function " .. scriptData.var .. "_func(parent)\n"
+
+		-- Indent the script source
+		local indentedSource = scriptData.source:gsub("\n", "\n  ")
+		output = output .. "  " .. indentedSource .. "\n"
+
+		output = output .. "end\n\n"
+		end
+
+		output = output .. "-- ============================================================================\n"
+		output = output .. "-- INITIALIZE GUI + SCRIPTS\n"
+		output = output .. "-- ============================================================================\n"
+		output = output .. "local gui = createGui()\n\n"
+
+		for i, scriptData in ipairs(extractedScripts) do
+		output = output .. "-- Run: " .. scriptData.name .. "\n"
+
+		-- Try to find the parent element by variable name
+		local parentRef = scriptData.parent == "screenGui" and "gui" or "gui:FindFirstChild(\"" .. scriptData.parent .. "\", true)"
+
+		output = output .. "task.spawn(function()\n"
+		output = output .. "  local parent = " .. parentRef .. "\n"
+		output = output .. "  if parent then\n"
+		output = output .. "    " .. scriptData.var .. "_func(parent)\n"
+		output = output .. "  else\n"
+		output = output .. "    warn('[Deep GUI] Could not find parent for " .. scriptData.name .. "')\n"
+		output = output .. "  end\n"
+		output = output .. "end)\n\n"
+		end
+		else
+		output = output .. "-- No scripts found in this GUI\n"
+		output = output .. "createGui()\n"
+		end
+
+		-- ============================================================================
+		-- OUTPUT
+		-- ============================================================================
+		print("\n" .. string.rep("=", 70))
+		print("[ZUKATECH DEEP GUI CONVERTER]")
+		print(string.rep("=", 70))
+		print("GUI: " .. gui.Name)
+		print("Scripts found: " .. #extractedScripts)
+		print(string.rep("-", 70))
+		print(output)
+		print(string.rep("=", 70) .. "\n")
+
+		-- Clipboard
+		local clipboardSuccess = false
+		local clipboardFuncs = {
+		function() setclipboard(output) end,
+		function() env.setclipboard(output) end,
+		function() getgenv().setclipboard(output) end,
+		function() syn.write_clipboard(output) end,
+		}
+
+		for _, func in ipairs(clipboardFuncs) do
+		if pcall(func) then
+		clipboardSuccess = true
+		break
+		end
+		end
+
+		if getgenv().DoNotif then
+		if clipboardSuccess then
+		getgenv().DoNotif("✓ Deep GUI script copied! (" .. #extractedScripts .. " scripts)", 3)
+		else
+		getgenv().DoNotif("⚠ Generated but clipboard failed", 3)
+		end
+		end
+		end
+		})
 
 		Explorer.RightClickContext = context
 	end
