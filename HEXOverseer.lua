@@ -3119,7 +3119,7 @@ function Modules.OverseerCE:CreateUI()
     menuBar.BackgroundColor3 = self.Config.BG_PANEL
     menuBar.BorderSizePixel = 0
     self:_createBorder(menuBar, false)
-    local menuItems = {"Tools", "Scanner", "Dumper", "Injector", "Anti-Tamper", "Hooks", "Decompiler", "Poisons"}
+    local menuItems = {"Tools", "Scanner", "Dumper", "Injector", "Anti-Tamper", "Hooks", "Decompiler", "Poisons", "Proto Tree", "Str Grep", "Arg Log", "Bytecode", "UV Diff", "MT Mon", "Env Dump"}
     local menuX = 4
     for _, menuName in ipairs(menuItems) do
         local menuBtn = self:_createButton(menuBar, menuName, UDim2.fromOffset(75, 18), UDim2.fromOffset(menuX, 2), function()
@@ -4321,7 +4321,21 @@ function Modules.OverseerCE:OpenToolWindow(toolName)
     elseif toolName == "Tools" then
         self:CreateToolsMenuUI(contentArea)
 	elseif toolName == "Poisons" then
-		self:CreatePoisonMenuUI(contentArea)				
+		self:CreatePoisonMenuUI(contentArea)
+    elseif toolName == "Proto Tree" then
+        self:CreateProtoTreeUI(contentArea)
+    elseif toolName == "Str Grep" then
+        self:CreateStrGrepUI(contentArea)
+    elseif toolName == "Arg Log" then
+        self:CreateArgLogUI(contentArea)
+    elseif toolName == "Bytecode" then
+        self:CreateBytecodeUI(contentArea)
+    elseif toolName == "UV Diff" then
+        self:CreateUVDiffUI(contentArea)
+    elseif toolName == "MT Mon" then
+        self:CreateMTMonitorUI(contentArea)
+    elseif toolName == "Env Dump" then
+        self:CreateEnvDumpUI(contentArea)
     end
     local dragging, dragStart, startPos
     titleBar.InputBegan:Connect(function(input)
@@ -5252,6 +5266,1209 @@ function Modules.OverseerCE:_NotepadDisplay(source, moduleName)
             end
         end)
     end
+end
+
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- [GHIDRA] 1. PROTO TREE — recursive closure/proto walker
+-- ══════════════════════════════════════════════════════════════════════════════
+function Modules.OverseerCE:WalkProtoTree(func, depth, visited, results)
+    depth   = depth   or 0
+    visited = visited or {}
+    results = results or {}
+    if depth > 12 then return results end
+    local faddr = tostring(func)
+    if visited[faddr] then return results end
+    visited[faddr] = true
+
+    local entry = {
+        Depth    = depth,
+        Address  = faddr,
+        Constants = {},
+        Upvalues  = {},
+        Info      = {},
+        Children  = {}
+    }
+
+    -- info
+    pcall(function()
+        local fn = (debug and debug.getinfo) or getinfo
+        if fn then
+            local info = fn(func)
+            entry.Info = {
+                Source      = tostring(info.source or "?"),
+                LineDefined = tostring(info.linedefined or "?"),
+                NumParams   = tostring(info.nparams or "?"),
+                NumUpvalues = tostring(info.nups or "?"),
+                What        = tostring(info.what or "?"),
+            }
+        end
+    end)
+
+    -- constants
+    pcall(function()
+        local fn = getconstants or (debug and debug.getconstants)
+        if fn then
+            local ok, consts = pcall(fn, func)
+            if ok and consts then
+                for i, v in pairs(consts) do
+                    table.insert(entry.Constants, {Index=i, Type=type(v), Value=tostring(v):sub(1,80)})
+                end
+            end
+        end
+    end)
+
+    -- upvalues
+    pcall(function()
+        local fn = getupvalues or (debug and debug.getupvalues)
+        if fn then
+            local ok, uvs = pcall(fn, func)
+            if ok and uvs then
+                for i, v in pairs(uvs) do
+                    table.insert(entry.Upvalues, {Index=i, Type=type(v), Value=tostring(v):sub(1,80)})
+                end
+            end
+        end
+    end)
+
+    -- recurse into protos
+    pcall(function()
+        local fn = getprotos or (debug and debug.getprotos)
+        if fn then
+            local ok, protos = pcall(fn, func)
+            if ok and protos then
+                for _, proto in pairs(protos) do
+                    if type(proto) == "function" then
+                        local child = self:WalkProtoTree(proto, depth+1, visited, {})
+                        if child and child[1] then
+                            table.insert(entry.Children, child[1])
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    table.insert(results, entry)
+    return results
+end
+
+function Modules.OverseerCE:CreateProtoTreeUI(parent)
+    local C = self.Config
+    local results = {}
+
+    local pathLabel = Instance.new("TextLabel", parent)
+    pathLabel.Size = UDim2.new(1, -8, 0, 18)
+    pathLabel.Position = UDim2.fromOffset(4, 4)
+    pathLabel.BackgroundTransparency = 1
+    pathLabel.Text = "Proto Tree — select a module then click Walk"
+    pathLabel.TextColor3 = C.TEXT_GRAY
+    pathLabel.Font = Enum.Font.SourceSans
+    pathLabel.TextSize = 10
+    pathLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local walkBtn = self:_createButton(parent, "Walk Selected Module", UDim2.fromOffset(160, 22), UDim2.fromOffset(4, 24), function()
+        if not self.State.SelectedModule then
+            self:_showNotification("Select a module first", "warning")
+            return
+        end
+        local ok, mod = pcall(require, self.State.SelectedModule)
+        if not ok then self:_showNotification("require() failed", "error") return end
+        results = {}
+        local function walkTable(tbl, depth)
+            if depth > 3 then return end
+            for k, v in pairs(tbl) do
+                if type(v) == "function" then
+                    local tree = self:WalkProtoTree(v, 0, {}, {})
+                    for _, e in ipairs(tree) do
+                        e._label = tostring(k)
+                        table.insert(results, e)
+                    end
+                elseif type(v) == "table" then
+                    walkTable(v, depth+1)
+                end
+            end
+        end
+        if type(mod) == "function" then
+            results = self:WalkProtoTree(mod, 0, {}, {})
+        elseif type(mod) == "table" then
+            walkTable(mod, 0)
+        end
+        pathLabel.Text = "Found " .. #results .. " proto entries in: " .. self.State.SelectedModule.Name
+        -- rebuild scroll
+        for _, c in ipairs(parent:GetChildren()) do
+            if c.Name == "ProtoScroll" then c:Destroy() end
+        end
+        local scroll = Instance.new("ScrollingFrame", parent)
+        scroll.Name = "ProtoScroll"
+        scroll.Size = UDim2.new(1, -8, 1, -56)
+        scroll.Position = UDim2.fromOffset(4, 52)
+        scroll.BackgroundColor3 = C.BG_WHITE
+        scroll.BorderSizePixel = 0
+        scroll.ScrollBarThickness = 10
+        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        scroll.CanvasSize = UDim2.new(0,0,0,0)
+        self:_createBorder(scroll, true)
+        Instance.new("UIListLayout", scroll).Padding = UDim.new(0,1)
+
+        local function addRow(text, depth, clr)
+            local row = Instance.new("Frame", scroll)
+            row.Size = UDim2.new(1,0,0,18)
+            row.BackgroundColor3 = clr or C.BG_LIGHT
+            row.BorderSizePixel = 0
+            local lbl = Instance.new("TextLabel", row)
+            lbl.Size = UDim2.new(1,-6,1,0)
+            lbl.Position = UDim2.fromOffset(4 + depth*10, 0)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = text
+            lbl.TextColor3 = C.TEXT_BLACK
+            lbl.Font = Enum.Font.Code
+            lbl.TextSize = 10
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.TextTruncate = Enum.TextTruncate.AtEnd
+        end
+
+        local function renderEntry(e)
+            local indent = e.Depth
+            local label = e._label and ("[fn: "..e._label.."]") or "[proto]"
+            addRow(string.rep("  ",indent)..label.."  @"..e.Address:sub(-8).."  L"..e.Info.LineDefined.."  params:"..e.Info.NumParams.."  upvals:"..e.Info.NumUpvalues, indent, C.BG_DARK)
+            -- constants
+            for _, c in ipairs(e.Constants) do
+                addRow(string.rep("  ",indent+1).."K["..c.Index.."] ("..c.Type..") "..c.Value, indent+1, C.BG_WHITE)
+            end
+            -- upvalues
+            for _, u in ipairs(e.Upvalues) do
+                addRow(string.rep("  ",indent+1).."UV["..u.Index.."] ("..u.Type..") "..u.Value, indent+1, C.BG_LIGHT)
+            end
+            -- children
+            for _, child in ipairs(e.Children) do
+                renderEntry(child)
+            end
+        end
+        for _, e in ipairs(results) do renderEntry(e) end
+    end)
+
+    local copyBtn = self:_createButton(parent, "Copy All", UDim2.fromOffset(80, 22), UDim2.fromOffset(168, 24), function()
+        if #results == 0 then return end
+        local lines = {}
+        local function dump(e, indent)
+            table.insert(lines, string.rep("  ",indent).."["..tostring(e._label or "proto").."] @"..e.Address.." L"..e.Info.LineDefined)
+            for _, c in ipairs(e.Constants) do
+                table.insert(lines, string.rep("  ",indent+1).."K["..c.Index.."] "..c.Type.." = "..c.Value)
+            end
+            for _, u in ipairs(e.Upvalues) do
+                table.insert(lines, string.rep("  ",indent+1).."UV["..u.Index.."] "..u.Type.." = "..u.Value)
+            end
+            for _, child in ipairs(e.Children) do dump(child, indent+1) end
+        end
+        for _, e in ipairs(results) do dump(e, 0) end
+        self:_setClipboard(table.concat(lines, "\n"))
+        self:_showNotification("Proto tree copied!", "success")
+    end)
+end
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- [GHIDRA] 2. STRING CONSTANT GREP — scan every constant in every function
+-- ══════════════════════════════════════════════════════════════════════════════
+function Modules.OverseerCE:GrepStringConstants(mod, pattern, results, visited, path)
+    results = results or {}
+    visited = visited or {}
+    path    = path    or "root"
+    if type(mod) == "function" then
+        local addr = tostring(mod)
+        if visited[addr] then return results end
+        visited[addr] = true
+        pcall(function()
+            local fn = getconstants or (debug and debug.getconstants)
+            if not fn then return end
+            local ok, consts = pcall(fn, mod)
+            if ok and consts then
+                for i, v in pairs(consts) do
+                    if type(v) == "string" then
+                        local match = (pattern == "" or v:lower():find(pattern:lower(), 1, true))
+                        if match then
+                            table.insert(results, {Path=path, Index=i, Value=v})
+                        end
+                    end
+                end
+            end
+        end)
+        -- recurse into protos
+        pcall(function()
+            local fn = getprotos or (debug and debug.getprotos)
+            if not fn then return end
+            local ok, protos = pcall(fn, mod)
+            if ok and protos then
+                for pi, proto in pairs(protos) do
+                    if type(proto) == "function" then
+                        self:GrepStringConstants(proto, pattern, results, visited, path.."[P"..pi.."]")
+                    end
+                end
+            end
+        end)
+    elseif type(mod) == "table" then
+        if visited[mod] then return results end
+        visited[mod] = true
+        for k, v in pairs(mod) do
+            local subpath = path.."."..tostring(k)
+            if type(v) == "function" or type(v) == "table" then
+                self:GrepStringConstants(v, pattern, results, visited, subpath)
+            end
+        end
+    end
+    return results
+end
+
+function Modules.OverseerCE:CreateStrGrepUI(parent)
+    local C = self.Config
+    local grepResults = {}
+
+    local searchBox = Instance.new("TextBox", parent)
+    searchBox.Size = UDim2.fromOffset(260, 22)
+    searchBox.Position = UDim2.fromOffset(4, 4)
+    searchBox.BackgroundColor3 = C.BG_WHITE
+    searchBox.Text = ""
+    searchBox.PlaceholderText = "Filter string (blank = all strings)..."
+    searchBox.TextColor3 = C.TEXT_BLACK
+    searchBox.Font = Enum.Font.SourceSans
+    searchBox.TextSize = 11
+    searchBox.TextXAlignment = Enum.TextXAlignment.Left
+    searchBox.ClearTextOnFocus = false
+    searchBox.BorderSizePixel = 0
+    self:_createBorder(searchBox, true)
+    local sp = Instance.new("UIPadding", searchBox)
+    sp.PaddingLeft = UDim.new(0,4)
+
+    local countLabel = Instance.new("TextLabel", parent)
+    countLabel.Size = UDim2.fromOffset(120, 22)
+    countLabel.Position = UDim2.fromOffset(270, 4)
+    countLabel.BackgroundTransparency = 1
+    countLabel.Text = "Results: 0"
+    countLabel.TextColor3 = C.TEXT_GRAY
+    countLabel.Font = Enum.Font.SourceSans
+    countLabel.TextSize = 10
+    countLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local scroll = Instance.new("ScrollingFrame", parent)
+    scroll.Size = UDim2.new(1,-8,1,-56)
+    scroll.Position = UDim2.fromOffset(4, 52)
+    scroll.BackgroundColor3 = C.BG_WHITE
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 10
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new(0,0,0,0)
+    self:_createBorder(scroll, true)
+    Instance.new("UIListLayout", scroll).Padding = UDim.new(0,1)
+
+    local function populateScroll()
+        for _, c in ipairs(scroll:GetChildren()) do
+            if c:IsA("Frame") then c:Destroy() end
+        end
+        for _, r in ipairs(grepResults) do
+            local row = Instance.new("Frame", scroll)
+            row.Size = UDim2.new(1,0,0,18)
+            row.BackgroundColor3 = C.BG_WHITE
+            row.BorderSizePixel = 0
+            local lbl = Instance.new("TextLabel", row)
+            lbl.Size = UDim2.new(1,-60,1,0)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = "["..r.Path.."] K"..r.Index.." = \""..r.Value.."\""
+            lbl.TextColor3 = C.TEXT_BLACK
+            lbl.Font = Enum.Font.Code
+            lbl.TextSize = 10
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            local pad = Instance.new("UIPadding", lbl)
+            pad.PaddingLeft = UDim.new(0,4)
+            lbl.TextTruncate = Enum.TextTruncate.AtEnd
+            local cpBtn = self:_createButton(row, "Copy", UDim2.fromOffset(50,16), UDim2.new(1,-52,0,1), function()
+                self:_setClipboard(r.Value)
+                self:_showNotification("Copied: "..r.Value:sub(1,40), "success")
+            end)
+            cpBtn.TextSize = 9
+        end
+    end
+
+    local grepBtn = self:_createButton(parent, "Grep Module", UDim2.fromOffset(90,22), UDim2.fromOffset(4,28), function()
+        if not self.State.SelectedModule then
+            self:_showNotification("Select a module first", "warning") return
+        end
+        local ok, mod = pcall(require, self.State.SelectedModule)
+        if not ok then self:_showNotification("require() failed","error") return end
+        local pat = searchBox.Text
+        grepResults = self:GrepStringConstants(mod, pat, {}, {}, self.State.SelectedModule.Name)
+        countLabel.Text = "Results: "..#grepResults
+        populateScroll()
+        self:_showNotification("Found "..#grepResults.." strings", "success")
+    end)
+
+    local grepAllBtn = self:_createButton(parent, "Grep All Modules", UDim2.fromOffset(110,22), UDim2.fromOffset(98,28), function()
+        local pat = searchBox.Text
+        grepResults = {}
+        local visited = {}
+        for _, md in ipairs(self.State.ModuleList) do
+            local ok, mod = pcall(require, md.Script)
+            if ok then
+                self:GrepStringConstants(mod, pat, grepResults, visited, md.Name)
+            end
+        end
+        countLabel.Text = "Results: "..#grepResults
+        populateScroll()
+        self:_showNotification("Grepped "..#self.State.ModuleList.." modules — "..#grepResults.." hits", "success")
+    end)
+
+    local copyAllBtn = self:_createButton(parent, "Copy All", UDim2.fromOffset(70,22), UDim2.fromOffset(212,28), function()
+        if #grepResults == 0 then return end
+        local lines = {}
+        for _, r in ipairs(grepResults) do
+            table.insert(lines, r.Path.." K"..r.Index.." = \""..r.Value.."\"")
+        end
+        self:_setClipboard(table.concat(lines, "\n"))
+        self:_showNotification("All strings copied!", "success")
+    end)
+end
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- [GHIDRA] 3. ARG LOG — live call recorder with pretty-printed args
+-- ══════════════════════════════════════════════════════════════════════════════
+function Modules.OverseerCE:PrettyArg(v, depth)
+    depth = depth or 0
+    if depth > 3 then return "..." end
+    local t = type(v)
+    if t == "nil" then return "nil"
+    elseif t == "boolean" or t == "number" then return tostring(v)
+    elseif t == "string" then return '"'..v:sub(1,60)..'"'
+    elseif t == "function" then return "fn@"..tostring(v):sub(-6)
+    elseif t == "table" then
+        local parts = {}
+        local n = 0
+        for k, val in pairs(v) do
+            n = n + 1
+            if n > 6 then table.insert(parts, "...") break end
+            table.insert(parts, tostring(k).."="..self:PrettyArg(val, depth+1))
+        end
+        return "{"..table.concat(parts,", ").."}"
+    else
+        -- Roblox types
+        local s = tostring(v)
+        if typeof then
+            local ty = typeof(v)
+            if ty == "Vector3" then return string.format("V3(%.2f,%.2f,%.2f)",v.X,v.Y,v.Z)
+            elseif ty == "CFrame" then return string.format("CF(%.1f,%.1f,%.1f)",v.X,v.Y,v.Z)
+            elseif ty == "Instance" then return "["..v.ClassName.." "..v.Name.."]"
+            elseif ty == "Color3" then return string.format("C3(%d,%d,%d)",v.R*255,v.G*255,v.B*255)
+            elseif ty == "UDim2" then return string.format("UD2(%.2f,%d,%.2f,%d)",v.X.Scale,v.X.Offset,v.Y.Scale,v.Y.Offset)
+            end
+        end
+        return s:sub(1,40)
+    end
+end
+
+function Modules.OverseerCE:CreateArgLogUI(parent)
+    local C = self.Config
+    local log = {}
+    local activeHooks = {}
+    local maxEntries = 200
+
+    local pathBox = Instance.new("TextBox", parent)
+    pathBox.Size = UDim2.fromOffset(260,22)
+    pathBox.Position = UDim2.fromOffset(4,4)
+    pathBox.BackgroundColor3 = C.BG_WHITE
+    pathBox.PlaceholderText = "path e.g. _G.Combat.Attack"
+    pathBox.Text = ""
+    pathBox.TextColor3 = C.TEXT_BLACK
+    pathBox.Font = Enum.Font.Code
+    pathBox.TextSize = 10
+    pathBox.ClearTextOnFocus = false
+    pathBox.BorderSizePixel = 0
+    self:_createBorder(pathBox, true)
+    local pp = Instance.new("UIPadding",pathBox)
+    pp.PaddingLeft=UDim.new(0,4)
+
+    local statusLbl = Instance.new("TextLabel", parent)
+    statusLbl.Size = UDim2.fromOffset(200,22)
+    statusLbl.Position = UDim2.fromOffset(270,4)
+    statusLbl.BackgroundTransparency = 1
+    statusLbl.Text = "Hooks active: 0"
+    statusLbl.TextColor3 = C.TEXT_GRAY
+    statusLbl.Font = Enum.Font.SourceSans
+    statusLbl.TextSize = 10
+    statusLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+    local scroll = Instance.new("ScrollingFrame", parent)
+    scroll.Name = "ArgLogScroll"
+    scroll.Size = UDim2.new(1,-8,1,-56)
+    scroll.Position = UDim2.fromOffset(4,52)
+    scroll.BackgroundColor3 = Color3.fromRGB(18,18,18)
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 10
+    scroll.ScrollBarImageColor3 = C.ACCENT_BLUE
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new(0,0,0,0)
+    self:_createBorder(scroll, true)
+    Instance.new("UIListLayout", scroll).Padding = UDim.new(0,1)
+
+    local function addLogRow(entry)
+        if #log >= maxEntries then
+            local oldest = scroll:FindFirstChildWhichIsA("Frame")
+            if oldest then oldest:Destroy() end
+            table.remove(log,1)
+        end
+        table.insert(log, entry)
+        local row = Instance.new("Frame", scroll)
+        row.Size = UDim2.new(1,0,0,18)
+        row.BackgroundColor3 = entry.isReturn and Color3.fromRGB(20,35,20) or Color3.fromRGB(20,20,35)
+        row.BorderSizePixel = 0
+        local lbl = Instance.new("TextLabel", row)
+        lbl.Size = UDim2.new(1,-60,1,0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = string.format("[%s][#%d] %s(%s)",
+            entry.isReturn and "RET" or "CALL",
+            entry.n,
+            entry.name,
+            entry.argStr)
+        lbl.TextColor3 = entry.isReturn and Color3.fromRGB(100,220,100) or Color3.fromRGB(100,180,255)
+        lbl.Font = Enum.Font.Code
+        lbl.TextSize = 10
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        local lpad = Instance.new("UIPadding",lbl)
+    lpad.PaddingLeft=UDim.new(0,4)
+        lbl.TextTruncate = Enum.TextTruncate.AtEnd
+        local cpb = self:_createButton(row,"CP",UDim2.fromOffset(28,16),UDim2.new(1,-58,0,1),function()
+            self:_setClipboard(lbl.Text)
+        end)
+        cpb.TextSize = 9
+        -- auto-scroll to bottom
+        scroll.CanvasPosition = Vector2.new(0, scroll.AbsoluteCanvasSize.Y)
+    end
+
+    local callCount = 0
+    local function hookFunc(path, name)
+        if not hookfunction then
+            self:_showNotification("hookfunction not available","error") return
+        end
+        -- resolve path
+        local parts = {}
+        for p in path:gmatch("[^%.]+") do table.insert(parts,p) end
+        local tbl = _G
+        local key = parts[#parts]
+        for i=1,#parts-1 do
+            local nxt = tbl[parts[i]]
+            if type(nxt) ~= "table" then
+                self:_showNotification("Path not found: "..parts[i],"error") return
+            end
+            tbl = nxt
+        end
+        local target = tbl[key]
+        if type(target) ~= "function" then
+            self:_showNotification("Not a function: "..path,"error") return
+        end
+        local origFunc
+        local ok, orig = pcall(hookfunction, target, newcclosure and newcclosure(function(...)
+            callCount = callCount + 1
+            local args = {...}
+            local parts2 = {}
+            for _, a in ipairs(args) do table.insert(parts2, self:PrettyArg(a)) end
+            local rets = {origFunc(...)}
+            local retParts = {}
+            for _, r in ipairs(rets) do table.insert(retParts, self:PrettyArg(r)) end
+            task.defer(function()
+                addLogRow({n=callCount, name=name or key, argStr=table.concat(parts2,", "), isReturn=false})
+                if #rets > 0 then
+                    addLogRow({n=callCount, name=name or key, argStr=table.concat(retParts,", "), isReturn=true})
+                end
+            end)
+            return table.unpack(rets)
+        end) or function(...)
+            callCount = callCount + 1
+            local args = {...}
+            local parts2 = {}
+            for _, a in ipairs(args) do table.insert(parts2, self:PrettyArg(a)) end
+            local rets = {origFunc(...)}
+            local retParts = {}
+            for _, r in ipairs(rets) do table.insert(retParts, self:PrettyArg(r)) end
+            task.defer(function()
+                addLogRow({n=callCount, name=name or key, argStr=table.concat(parts2,", "), isReturn=false})
+                if #rets > 0 then
+                    addLogRow({n=callCount, name=name or key, argStr=table.concat(retParts,", "), isReturn=true})
+                end
+            end)
+            return table.unpack(rets)
+        end)
+        if ok then
+            origFunc = orig
+            table.insert(activeHooks, {Path=path, Original=orig, Table=tbl, Key=key})
+            statusLbl.Text = "Hooks active: "..#activeHooks
+            self:_showNotification("Hooked: "..path, "success")
+        else
+            self:_showNotification("Hook failed: "..tostring(orig), "error")
+        end
+    end
+
+    local hookBtn = self:_createButton(parent,"Hook Path",UDim2.fromOffset(80,22),UDim2.fromOffset(4,28),function()
+        hookFunc(pathBox.Text, nil)
+    end)
+
+    local clearBtn = self:_createButton(parent,"Clear Log",UDim2.fromOffset(70,22),UDim2.fromOffset(88,28),function()
+        for _, c in ipairs(scroll:GetChildren()) do
+            if c:IsA("Frame") then c:Destroy() end
+        end
+        log = {}
+        callCount = 0
+    end)
+
+    local unhookBtn = self:_createButton(parent,"Unhook All",UDim2.fromOffset(80,22),UDim2.fromOffset(162,28),function()
+        for _, h in ipairs(activeHooks) do
+            pcall(function() h.Table[h.Key] = h.Original end)
+        end
+        activeHooks = {}
+        statusLbl.Text = "Hooks active: 0"
+        self:_showNotification("All hooks removed", "success")
+    end)
+
+    local copyBtn = self:_createButton(parent,"Copy Log",UDim2.fromOffset(70,22),UDim2.fromOffset(246,28),function()
+        local lines = {}
+        for _, e in ipairs(log) do
+            table.insert(lines, string.format("[%s][#%d] %s(%s)", e.isReturn and "RET" or "CALL", e.n, e.name, e.argStr))
+        end
+        self:_setClipboard(table.concat(lines,"\n"))
+        self:_showNotification("Log copied!", "success")
+    end)
+end
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- [GHIDRA] 4. BYTECODE VIEWER — hex + ASCII dump of script bytecode
+-- ══════════════════════════════════════════════════════════════════════════════
+function Modules.OverseerCE:CreateBytecodeUI(parent)
+    local C = self.Config
+
+    local infoLbl = Instance.new("TextLabel", parent)
+    infoLbl.Size = UDim2.new(1,-8,0,18)
+    infoLbl.Position = UDim2.fromOffset(4,4)
+    infoLbl.BackgroundTransparency = 1
+    infoLbl.Text = "Requires getscriptbytecode. Select a script/module then click Dump."
+    infoLbl.TextColor3 = C.TEXT_GRAY
+    infoLbl.Font = Enum.Font.SourceSans
+    infoLbl.TextSize = 10
+    infoLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+    local filterBox = Instance.new("TextBox", parent)
+    filterBox.Size = UDim2.fromOffset(160,22)
+    filterBox.Position = UDim2.fromOffset(4,26)
+    filterBox.BackgroundColor3 = C.BG_WHITE
+    filterBox.PlaceholderText = "ASCII filter (optional)"
+    filterBox.Text = ""
+    filterBox.TextColor3 = C.TEXT_BLACK
+    filterBox.Font = Enum.Font.Code
+    filterBox.TextSize = 10
+    filterBox.ClearTextOnFocus = false
+    filterBox.BorderSizePixel = 0
+    self:_createBorder(filterBox, true)
+    local fp = Instance.new("UIPadding",filterBox)
+    fp.PaddingLeft=UDim.new(0,4)
+
+    local scroll = Instance.new("ScrollingFrame", parent)
+    scroll.Size = UDim2.new(1,-8,1,-58)
+    scroll.Position = UDim2.fromOffset(4,54)
+    scroll.BackgroundColor3 = Color3.fromRGB(14,14,14)
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 10
+    scroll.ScrollBarImageColor3 = C.ACCENT_BLUE
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new(0,0,0,0)
+    self:_createBorder(scroll, true)
+    Instance.new("UIListLayout", scroll).Padding = UDim.new(0,0)
+
+    local function addHexRow(offset, bytes, ascii)
+        local row = Instance.new("Frame", scroll)
+        row.Size = UDim2.new(1,0,0,14)
+        row.BackgroundColor3 = offset % 32 == 0 and Color3.fromRGB(22,22,22) or Color3.fromRGB(14,14,14)
+        row.BorderSizePixel = 0
+        local lbl = Instance.new("TextLabel", row)
+        lbl.Size = UDim2.new(1,-6,1,0)
+        lbl.Position = UDim2.fromOffset(4,0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = string.format("%06X  %-47s  %s", offset, bytes, ascii)
+        lbl.TextColor3 = Color3.fromRGB(180,220,180)
+        lbl.Font = Enum.Font.Code
+        lbl.TextSize = 10
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+    end
+
+    local rawBytecode = nil
+
+    local dumpBtn = self:_createButton(parent,"Dump Bytecode",UDim2.fromOffset(100,22),UDim2.fromOffset(168,26),function()
+        if not getscriptbytecode then
+            self:_showNotification("getscriptbytecode not available","error") return
+        end
+        if not self.State.SelectedModule then
+            self:_showNotification("Select a script first","warning") return
+        end
+        local ok, bc = pcall(getscriptbytecode, self.State.SelectedModule)
+        if not ok or not bc then
+            self:_showNotification("Failed to get bytecode","error") return
+        end
+        rawBytecode = bc
+        for _, c in ipairs(scroll:GetChildren()) do
+            if c:IsA("Frame") then c:Destroy() end
+        end
+        local filter = filterBox.Text:lower()
+        local COLS = 16
+        for i = 1, #bc, COLS do
+            local hexParts = {}
+            local ascParts = {}
+            for j = i, math.min(i+COLS-1, #bc) do
+                local byte = bc:byte(j)
+                table.insert(hexParts, string.format("%02X", byte))
+                local ch = (byte >= 32 and byte < 127) and string.char(byte) or "."
+                table.insert(ascParts, ch)
+            end
+            local hexStr = table.concat(hexParts," ")
+            local ascStr = table.concat(ascParts)
+            if filter == "" or ascStr:lower():find(filter,1,true) or hexStr:lower():find(filter,1,true) then
+                addHexRow(i-1, hexStr, ascStr)
+            end
+        end
+        self:_showNotification("Bytecode: "..#bc.." bytes", "success")
+    end)
+
+    local copyRawBtn = self:_createButton(parent,"Copy Hex",UDim2.fromOffset(70,22),UDim2.fromOffset(272,26),function()
+        if not rawBytecode then return end
+        local parts = {}
+        for i=1,#rawBytecode do table.insert(parts, string.format("%02X",rawBytecode:byte(i))) end
+        self:_setClipboard(table.concat(parts," "))
+        self:_showNotification("Hex copied!", "success")
+    end)
+
+    -- string extractor button
+    local strBtn = self:_createButton(parent,"Extract Strings",UDim2.fromOffset(100,22),UDim2.fromOffset(346,26),function()
+        if not rawBytecode then
+            self:_showNotification("Dump bytecode first","warning") return
+        end
+        local strings = {}
+        local current = {}
+        for i=1,#rawBytecode do
+            local b = rawBytecode:byte(i)
+            if b >= 32 and b < 127 then
+                table.insert(current, string.char(b))
+            else
+                if #current >= 4 then
+                    table.insert(strings, table.concat(current))
+                end
+                current = {}
+            end
+        end
+        if #current >= 4 then table.insert(strings, table.concat(current)) end
+        local out = "-- Strings extracted from bytecode ("..#strings.." found)\n"
+        for i, s in ipairs(strings) do
+            out = out .. string.format('[%d] "%s"\n', i, s)
+        end
+        self:_setClipboard(out)
+        self:_showNotification("Extracted "..#strings.." strings, copied!", "success")
+    end)
+end
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- [GHIDRA] 5. UPVALUE DIFF — snapshot then compare to detect mutations
+-- ══════════════════════════════════════════════════════════════════════════════
+function Modules.OverseerCE:SnapshotUpvalues(func, path)
+    local snapshot = {}
+    local fn = getupvalues or (debug and debug.getupvalues)
+    if not fn then return snapshot end
+    local ok, uvs = pcall(fn, func)
+    if not ok or not uvs then return snapshot end
+    for i, v in pairs(uvs) do
+        snapshot[i] = {Value=v, Type=type(v), Str=tostring(v):sub(1,80), Path=path, Index=i}
+    end
+    -- also recurse into protos
+    local pfn = getprotos or (debug and debug.getprotos)
+    if pfn then
+        local pok, protos = pcall(pfn, func)
+        if pok and protos then
+            for pi, proto in pairs(protos) do
+                if type(proto) == "function" then
+                    local sub = self:SnapshotUpvalues(proto, path.."[P"..pi.."]")
+                    for k, v in pairs(sub) do
+                        snapshot[path.."[P"..pi.."]["..k.."]"] = v
+                    end
+                end
+            end
+        end
+    end
+    return snapshot
+end
+
+function Modules.OverseerCE:CreateUVDiffUI(parent)
+    local C = self.Config
+    local snapshots = {}  -- {label, data}
+    local diffs = {}
+
+    local snapLabel = Instance.new("TextLabel", parent)
+    snapLabel.Size = UDim2.new(1,-8,0,18)
+    snapLabel.Position = UDim2.fromOffset(4,4)
+    snapLabel.BackgroundTransparency = 1
+    snapLabel.Text = "Snapshots: 0  —  Select module, snap, wait, snap again, then diff."
+    snapLabel.TextColor3 = C.TEXT_GRAY
+    snapLabel.Font = Enum.Font.SourceSans
+    snapLabel.TextSize = 10
+    snapLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local scroll = Instance.new("ScrollingFrame", parent)
+    scroll.Size = UDim2.new(1,-8,1,-56)
+    scroll.Position = UDim2.fromOffset(4,52)
+    scroll.BackgroundColor3 = C.BG_WHITE
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 10
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new(0,0,0,0)
+    self:_createBorder(scroll, true)
+    Instance.new("UIListLayout", scroll).Padding = UDim.new(0,1)
+
+    local function addRow(text, clr)
+        local row = Instance.new("Frame", scroll)
+        row.Size = UDim2.new(1,0,0,18)
+        row.BackgroundColor3 = clr or C.BG_WHITE
+        row.BorderSizePixel = 0
+        local lbl = Instance.new("TextLabel", row)
+        lbl.Size = UDim2.new(1,-6,1,0)
+        lbl.Position = UDim2.fromOffset(4,0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = text
+        lbl.TextColor3 = C.TEXT_BLACK
+        lbl.Font = Enum.Font.Code
+        lbl.TextSize = 10
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.TextTruncate = Enum.TextTruncate.AtEnd
+    end
+
+    local function collectSnap(label)
+        if not self.State.SelectedModule then
+            self:_showNotification("Select a module first","warning") return
+        end
+        local ok, mod = pcall(require, self.State.SelectedModule)
+        if not ok then self:_showNotification("require() failed","error") return end
+        local combined = {}
+        local function walk(v, path, visited)
+            if visited[v] then return end
+            visited[v] = true
+            if type(v) == "function" then
+                local s = self:SnapshotUpvalues(v, path)
+                for k, entry in pairs(s) do combined[path.."["..tostring(k).."]"] = entry end
+            elseif type(v) == "table" then
+                for k, child in pairs(v) do
+                    walk(child, path.."."..tostring(k), visited)
+                end
+            end
+        end
+        walk(mod, self.State.SelectedModule.Name, {})
+        table.insert(snapshots, {Label=label, Data=combined, Time=os.time()})
+        snapLabel.Text = "Snapshots: "..#snapshots.."  —  last: "..label
+        self:_showNotification("Snapshot "..label.." captured ("..self:_tableLen(combined).." upvalues)", "success")
+    end
+
+    local snapABtn = self:_createButton(parent,"Snap A",UDim2.fromOffset(65,22),UDim2.fromOffset(4,28),function()
+        collectSnap("A")
+    end)
+    local snapBBtn = self:_createButton(parent,"Snap B",UDim2.fromOffset(65,22),UDim2.fromOffset(72,28),function()
+        collectSnap("B")
+    end)
+    local diffBtn = self:_createButton(parent,"Diff A→B",UDim2.fromOffset(70,22),UDim2.fromOffset(140,28),function()
+        if #snapshots < 2 then
+            self:_showNotification("Need at least 2 snapshots","warning") return
+        end
+        local A = snapshots[#snapshots-1].Data
+        local B = snapshots[#snapshots].Data
+        diffs = {}
+        -- changed / new
+        for k, bEntry in pairs(B) do
+            local aEntry = A[k]
+            if not aEntry then
+                table.insert(diffs, {Key=k, Kind="NEW", OldVal="(nil)", NewVal=bEntry.Str, Type=bEntry.Type})
+            elseif aEntry.Str ~= bEntry.Str then
+                table.insert(diffs, {Key=k, Kind="CHANGED", OldVal=aEntry.Str, NewVal=bEntry.Str, Type=bEntry.Type})
+            end
+        end
+        -- removed
+        for k, aEntry in pairs(A) do
+            if not B[k] then
+                table.insert(diffs, {Key=k, Kind="REMOVED", OldVal=aEntry.Str, NewVal="(nil)", Type=aEntry.Type})
+            end
+        end
+        -- render
+        for _, c in ipairs(scroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+        if #diffs == 0 then
+            addRow("No upvalue changes detected between snapshots.", C.BG_LIGHT)
+        else
+            addRow(string.format("=== %d upvalue change(s) detected ===", #diffs), C.BG_DARK)
+            for _, d in ipairs(diffs) do
+                local clr = d.Kind=="NEW" and Color3.fromRGB(200,240,200)
+                    or d.Kind=="REMOVED" and Color3.fromRGB(255,200,200)
+                    or Color3.fromRGB(200,220,255)
+                addRow(string.format("[%s] %s  (%s)  %s → %s", d.Kind, d.Key, d.Type, d.OldVal, d.NewVal), clr)
+            end
+        end
+        self:_showNotification("Diff complete: "..#diffs.." change(s)", "success")
+    end)
+
+    local clearBtn = self:_createButton(parent,"Clear",UDim2.fromOffset(55,22),UDim2.fromOffset(214,28),function()
+        snapshots = {}
+        diffs = {}
+        for _, c in ipairs(scroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+        snapLabel.Text = "Snapshots: 0"
+    end)
+
+    local copyBtn = self:_createButton(parent,"Copy Diffs",UDim2.fromOffset(75,22),UDim2.fromOffset(272,28),function()
+        if #diffs == 0 then return end
+        local lines = {}
+        for _, d in ipairs(diffs) do
+            table.insert(lines, string.format("[%s] %s (%s) %s → %s", d.Kind, d.Key, d.Type, d.OldVal, d.NewVal))
+        end
+        self:_setClipboard(table.concat(lines,"\n"))
+        self:_showNotification("Diffs copied!", "success")
+    end)
+end
+
+-- helper used by UV Diff
+function Modules.OverseerCE:_tableLen(t)
+    local n = 0
+    for _ in pairs(t) do n = n + 1 end
+    return n
+end
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- [GHIDRA] 6. METATABLE MONITOR — hook __index / __newindex on a table
+-- ══════════════════════════════════════════════════════════════════════════════
+function Modules.OverseerCE:CreateMTMonitorUI(parent)
+    local C = self.Config
+    local log = {}
+    local activeMonitors = {}
+
+    local pathBox = Instance.new("TextBox", parent)
+    pathBox.Size = UDim2.fromOffset(260,22)
+    pathBox.Position = UDim2.fromOffset(4,4)
+    pathBox.BackgroundColor3 = C.BG_WHITE
+    pathBox.PlaceholderText = "path e.g. _G.SomeModule or leave blank = selected module"
+    pathBox.Text = ""
+    pathBox.TextColor3 = C.TEXT_BLACK
+    pathBox.Font = Enum.Font.Code
+    pathBox.TextSize = 10
+    pathBox.ClearTextOnFocus = false
+    pathBox.BorderSizePixel = 0
+    self:_createBorder(pathBox, true)
+    local mpp = Instance.new("UIPadding",pathBox)
+    mpp.PaddingLeft=UDim.new(0,4)
+
+    local statusLbl = Instance.new("TextLabel", parent)
+    statusLbl.Size = UDim2.fromOffset(160,22)
+    statusLbl.Position = UDim2.fromOffset(270,4)
+    statusLbl.BackgroundTransparency = 1
+    statusLbl.Text = "Monitors: 0  |  Events: 0"
+    statusLbl.TextColor3 = C.TEXT_GRAY
+    statusLbl.Font = Enum.Font.SourceSans
+    statusLbl.TextSize = 10
+    statusLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+    local scroll = Instance.new("ScrollingFrame", parent)
+    scroll.Size = UDim2.new(1,-8,1,-56)
+    scroll.Position = UDim2.fromOffset(4,52)
+    scroll.BackgroundColor3 = Color3.fromRGB(14,14,14)
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 10
+    scroll.ScrollBarImageColor3 = C.ACCENT_BLUE
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new(0,0,0,0)
+    self:_createBorder(scroll, true)
+    Instance.new("UIListLayout", scroll).Padding = UDim.new(0,1)
+
+    local evCount = 0
+    local function addEvent(kind, key, val, extra)
+        evCount = evCount + 1
+        table.insert(log, {kind=kind,key=key,val=val,extra=extra,n=evCount})
+        statusLbl.Text = "Monitors: "..#activeMonitors.."  |  Events: "..evCount
+        local row = Instance.new("Frame", scroll)
+        row.Size = UDim2.new(1,0,0,14)
+        row.BackgroundColor3 = kind=="__newindex" and Color3.fromRGB(35,18,18) or Color3.fromRGB(18,18,35)
+        row.BorderSizePixel = 0
+        local lbl = Instance.new("TextLabel", row)
+        lbl.Size = UDim2.new(1,-6,1,0)
+        lbl.Position = UDim2.fromOffset(4,0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = string.format("[#%d][%s] key=%s  val=%s  %s", evCount, kind, tostring(key), tostring(val):sub(1,40), extra or "")
+        lbl.TextColor3 = kind=="__newindex" and Color3.fromRGB(255,120,120) or Color3.fromRGB(120,180,255)
+        lbl.Font = Enum.Font.Code
+        lbl.TextSize = 10
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.TextTruncate = Enum.TextTruncate.AtEnd
+        scroll.CanvasPosition = Vector2.new(0, scroll.AbsoluteCanvasSize.Y)
+    end
+
+    local function installMonitor(tbl, label)
+        if not rawequal then rawequal = function(a,b) return a==b end end
+        local mt, method = self:GetRawMetatable(tbl)
+        local existingIndex    = mt and mt.__index
+        local existingNewindex = mt and mt.__newindex
+        local newMt = mt or {}
+
+        newMt.__index = function(t, k)
+            local v = existingIndex and (type(existingIndex)=="function" and existingIndex(t,k) or existingIndex[k]) or rawget(t,k)
+            addEvent("__index", k, v, label)
+            return v
+        end
+        newMt.__newindex = function(t, k, v)
+            addEvent("__newindex", k, v, label.."  (was: "..tostring(rawget(t,k)):sub(1,30)..")")
+            if existingNewindex and type(existingNewindex)=="function" then
+                existingNewindex(t,k,v)
+            else
+                rawset(t,k,v)
+            end
+        end
+        local ok = pcall(setmetatable, tbl, newMt)
+        if not ok then
+            -- try rawsetmetatable
+            if rawsetmetatable then
+                rawsetmetatable(tbl, newMt)
+                ok = true
+            end
+        end
+        if ok then
+            table.insert(activeMonitors, {Label=label, Table=tbl, OldMt=mt})
+            statusLbl.Text = "Monitors: "..#activeMonitors.."  |  Events: "..evCount
+            self:_showNotification("Monitor installed on: "..label, "success")
+        else
+            self:_showNotification("Could not set metatable on: "..label, "error")
+        end
+    end
+
+    local monBtn = self:_createButton(parent,"Monitor Path",UDim2.fromOffset(90,22),UDim2.fromOffset(4,28),function()
+        local path = pathBox.Text
+        if path == "" then
+            -- use selected module
+            if not self.State.SelectedModule then
+                self:_showNotification("Enter a path or select a module","warning") return
+            end
+            local ok, mod = pcall(require, self.State.SelectedModule)
+            if not ok or type(mod) ~= "table" then
+                self:_showNotification("Module must return a table","error") return
+            end
+            installMonitor(mod, self.State.SelectedModule.Name)
+        else
+            -- resolve path
+            local parts = {}
+            for p in path:gmatch("[^%.]+") do table.insert(parts,p) end
+            local tbl = _G
+            for _, p in ipairs(parts) do
+                if type(tbl) ~= "table" then
+                    self:_showNotification("Invalid path segment: "..p,"error") return
+                end
+                tbl = tbl[p]
+            end
+            if type(tbl) ~= "table" then
+                self:_showNotification("Resolved value is not a table","error") return
+            end
+            installMonitor(tbl, path)
+        end
+    end)
+
+    local clearBtn = self:_createButton(parent,"Clear Log",UDim2.fromOffset(70,22),UDim2.fromOffset(98,28),function()
+        for _, c in ipairs(scroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+        log = {}
+        evCount = 0
+        statusLbl.Text = "Monitors: "..#activeMonitors.."  |  Events: 0"
+    end)
+
+    local removeBtn = self:_createButton(parent,"Remove All Monitors",UDim2.fromOffset(130,22),UDim2.fromOffset(172,28),function()
+        for _, m in ipairs(activeMonitors) do
+            pcall(setmetatable, m.Table, m.OldMt)
+        end
+        activeMonitors = {}
+        statusLbl.Text = "Monitors: 0  |  Events: "..evCount
+        self:_showNotification("All monitors removed", "success")
+    end)
+
+    local copyBtn = self:_createButton(parent,"Copy Log",UDim2.fromOffset(65,22),UDim2.fromOffset(306,28),function()
+        if #log == 0 then return end
+        local lines = {}
+        for _, e in ipairs(log) do
+            table.insert(lines, string.format("[#%d][%s] key=%s val=%s %s", e.n, e.kind, tostring(e.key), tostring(e.val):sub(1,60), e.extra or ""))
+        end
+        self:_setClipboard(table.concat(lines,"\n"))
+        self:_showNotification("Log copied!", "success")
+    end)
+end
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- [GHIDRA] 7. ENV DUMP — getfenv / getreg / getsenv sweep
+-- ══════════════════════════════════════════════════════════════════════════════
+function Modules.OverseerCE:CreateEnvDumpUI(parent)
+    local C = self.Config
+    local dumpData = {}
+
+    local modeLbl = Instance.new("TextLabel", parent)
+    modeLbl.Size = UDim2.new(1,-8,0,18)
+    modeLbl.Position = UDim2.fromOffset(4,4)
+    modeLbl.BackgroundTransparency = 1
+    modeLbl.Text = "Dump script environment, registry tables, or custom env path."
+    modeLbl.TextColor3 = C.TEXT_GRAY
+    modeLbl.Font = Enum.Font.SourceSans
+    modeLbl.TextSize = 10
+    modeLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+    local filterBox = Instance.new("TextBox", parent)
+    filterBox.Size = UDim2.fromOffset(180,22)
+    filterBox.Position = UDim2.fromOffset(4,26)
+    filterBox.BackgroundColor3 = C.BG_WHITE
+    filterBox.PlaceholderText = "Filter key name..."
+    filterBox.Text = ""
+    filterBox.TextColor3 = C.TEXT_BLACK
+    filterBox.Font = Enum.Font.Code
+    filterBox.TextSize = 10
+    filterBox.ClearTextOnFocus = false
+    filterBox.BorderSizePixel = 0
+    self:_createBorder(filterBox, true)
+    local efp = Instance.new("UIPadding",filterBox)
+    efp.PaddingLeft=UDim.new(0,4)
+
+    local countLbl = Instance.new("TextLabel", parent)
+    countLbl.Size = UDim2.fromOffset(100,22)
+    countLbl.Position = UDim2.fromOffset(188,26)
+    countLbl.BackgroundTransparency = 1
+    countLbl.Text = "Keys: 0"
+    countLbl.TextColor3 = C.TEXT_GRAY
+    countLbl.Font = Enum.Font.SourceSans
+    countLbl.TextSize = 10
+    countLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+    local scroll = Instance.new("ScrollingFrame", parent)
+    scroll.Size = UDim2.new(1,-8,1,-60)
+    scroll.Position = UDim2.fromOffset(4,56)
+    scroll.BackgroundColor3 = C.BG_WHITE
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 10
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new(0,0,0,0)
+    self:_createBorder(scroll, true)
+    Instance.new("UIListLayout", scroll).Padding = UDim.new(0,1)
+
+    local function renderDump(data)
+        for _, c in ipairs(scroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+        local filter = filterBox.Text:lower()
+        local shown = 0
+        local sorted = {}
+        for k, v in pairs(data) do table.insert(sorted, {k=k,v=v}) end
+        table.sort(sorted, function(a,b) return tostring(a.k) < tostring(b.k) end)
+        for _, entry in ipairs(sorted) do
+            local keyStr = tostring(entry.k)
+            if filter == "" or keyStr:lower():find(filter,1,true) then
+                shown = shown + 1
+                local row = Instance.new("Frame", scroll)
+                row.Size = UDim2.new(1,0,0,18)
+                row.BackgroundColor3 = shown%2==0 and C.BG_LIGHT or C.BG_WHITE
+                row.BorderSizePixel = 0
+                local lbl = Instance.new("TextLabel", row)
+                lbl.Size = UDim2.new(1,-60,1,0)
+                lbl.Position = UDim2.fromOffset(4,0)
+                lbl.BackgroundTransparency = 1
+                local vt = type(entry.v)
+                local vs = (vt == "function") and ("fn@"..tostring(entry.v):sub(-6))
+                    or (vt == "table") and ("{table #"..tostring(self:_tableLen(entry.v)).."}")
+                    or tostring(entry.v):sub(1,60)
+                lbl.Text = string.format("%-30s  %-10s  %s", keyStr:sub(1,30), vt, vs)
+                lbl.TextColor3 = vt=="function" and C.ACCENT_BLUE or vt=="table" and C.WARNING_ORANGE or C.TEXT_BLACK
+                lbl.Font = Enum.Font.Code
+                lbl.TextSize = 10
+                lbl.TextXAlignment = Enum.TextXAlignment.Left
+                lbl.TextTruncate = Enum.TextTruncate.AtEnd
+                local cpb = self:_createButton(row,"CP",UDim2.fromOffset(30,16),UDim2.new(1,-50,0,1),function()
+                    self:_setClipboard(keyStr.." = "..vs)
+                end)
+                cpb.TextSize = 9
+                local drillBtn = self:_createButton(row,"->",UDim2.fromOffset(18,16),UDim2.new(1,-18,0,1),function()
+                    if vt == "table" then
+                        dumpData = entry.v
+                        renderDump(dumpData)
+                        modeLbl.Text = "Drilled into: "..keyStr
+                    end
+                end)
+                drillBtn.TextSize = 9
+            end
+        end
+        countLbl.Text = "Keys: "..shown
+    end
+
+    local function doFenvDump()
+        if not self.State.SelectedModule then
+            self:_showNotification("Select a script first","warning") return
+        end
+        local fenvFn = getsenv or getfenv
+        if not fenvFn then
+            self:_showNotification("getsenv/getfenv not available","error") return
+        end
+        local ok, env = pcall(fenvFn, self.State.SelectedModule)
+        if not ok or type(env) ~= "table" then
+            self:_showNotification("Could not get script env","error") return
+        end
+        dumpData = env
+        modeLbl.Text = "Script env: "..self.State.SelectedModule.Name.." ("..self:_tableLen(env).." keys)"
+        renderDump(env)
+        self:_showNotification("Script env dumped", "success")
+    end
+
+    local function doRegDump()
+        if not getreg then
+            self:_showNotification("getreg not available","error") return
+        end
+        local ok, reg = pcall(getreg)
+        if not ok or type(reg) ~= "table" then
+            self:_showNotification("getreg failed","error") return
+        end
+        -- flatten: getreg returns a list of values; we want the table entries
+        local flat = {}
+        for i, v in ipairs(reg) do
+            if type(v) == "table" then
+                for k, val in pairs(v) do
+                    flat["reg["..i.."]."..tostring(k)] = val
+                end
+            else
+                flat["reg["..i.."]"] = v
+            end
+        end
+        dumpData = flat
+        modeLbl.Text = "Registry dump ("..self:_tableLen(flat).." entries)"
+        renderDump(flat)
+        self:_showNotification("Registry dumped", "success")
+    end
+
+    local function doGEnvDump()
+        dumpData = getgenv and getgenv() or getfenv and getfenv(0) or _G
+        modeLld = "Global env dump"
+        modeLbl.Text = "Global env ("..self:_tableLen(dumpData).." keys)"
+        renderDump(dumpData)
+        self:_showNotification("Global env dumped", "success")
+    end
+
+    local fenvBtn  = self:_createButton(parent,"Script Env",UDim2.fromOffset(80,22),UDim2.fromOffset(290,26),function() doFenvDump() end)
+    local regBtn   = self:_createButton(parent,"Registry",UDim2.fromOffset(70,22),UDim2.fromOffset(374,26),function() doRegDump() end)
+    local genvBtn  = self:_createButton(parent,"Global Env",UDim2.fromOffset(80,22),UDim2.fromOffset(448,26),function() doGEnvDump() end)
+
+    local copyBtn = self:_createButton(parent,"Copy All",UDim2.fromOffset(65,22),UDim2.fromOffset(532,26),function()
+        if not dumpData or self:_tableLen(dumpData)==0 then return end
+        local lines = {}
+        for k, v in pairs(dumpData) do
+            local vt = type(v)
+            local vs = vt=="function" and "fn@"..tostring(v):sub(-6)
+                or vt=="table" and "{table}"
+                or tostring(v):sub(1,80)
+            table.insert(lines, string.format("%-35s  %-10s  %s", tostring(k):sub(1,35), vt, vs))
+        end
+        table.sort(lines)
+        self:_setClipboard(table.concat(lines,"\n"))
+        self:_showNotification("Env dump copied!", "success")
+    end)
+
+    filterBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if dumpData and next(dumpData) then
+            renderDump(dumpData)
+        end
+    end)
 end
 
 function Modules.OverseerCE:Initialize()
