@@ -1753,6 +1753,79 @@ local function main()
 			context:AddRegistered("HIDE_NIL")
 		end
 
+		-- Sound
+		if presentClasses["Sound"] then
+			context:AddRegistered("PLAY_SOUND")
+			context:AddRegistered("STOP_SOUND")
+			context:AddRegistered("COPY_SOUND_ID")
+		end
+
+		-- Humanoid
+		if presentClasses["Humanoid"] then
+			context:AddRegistered("KILL_HUMANOID")
+			context:AddRegistered("SET_HUMANOID_HEALTH")
+			context:AddRegistered("SET_WALKSPEED")
+			context:AddRegistered("SET_JUMPPOWER")
+		end
+
+		-- ValueBase
+		if presentClasses["ValueBase"] then
+			context:AddRegistered("COPY_VALUE")
+			context:AddRegistered("SET_VALUE")
+			context:AddRegistered("PRINT_VALUE")
+		end
+
+		-- Joints
+		if presentClasses["JointInstance"] or presentClasses["Weld"] or presentClasses["Motor6D"] or presentClasses["WeldConstraint"] then
+			context:AddRegistered("DESTROY_WELD")
+			context:AddRegistered("UNLOCK_JOINTS")
+		end
+
+		-- Attachment
+		if presentClasses["Attachment"] then
+			context:AddRegistered("COPY_ATTACHMENT_WORLDPOS")
+			context:AddRegistered("TELEPORT_TO_ATTACHMENT")
+		end
+
+		-- ParticleEmitter
+		if presentClasses["ParticleEmitter"] then
+			context:AddRegistered("BURST_PARTICLE")
+			context:AddRegistered("CLEAR_PARTICLES")
+			context:AddRegistered("TOGGLE_PARTICLE_ENABLED")
+		end
+
+		-- Beam
+		if presentClasses["Beam"] then
+			context:AddRegistered("TOGGLE_BEAM_ENABLED")
+		end
+
+		-- Constraints
+		if presentClasses["Constraint"] then
+			context:AddRegistered("DESTROY_CONSTRAINT")
+			context:AddRegistered("TOGGLE_CONSTRAINT_ENABLED")
+		end
+
+		-- SpecialMesh / Decal / Texture
+		if presentClasses["SpecialMesh"] then
+			context:AddRegistered("COPY_MESH_ID")
+		end
+		if presentClasses["Decal"] or presentClasses["Texture"] then
+			context:AddRegistered("COPY_TEXTURE_ID")
+		end
+
+		-- Script / LocalScript toggle
+		if presentClasses["BaseScript"] then
+			context:AddRegistered("TOGGLE_SCRIPT_ENABLED")
+		end
+
+		-- Remote extras not yet wired
+		if presentClasses["RemoteEvent"] or presentClasses["RemoteFunction"] or presentClasses["UnreliableRemoteEvent"] then
+			context:AddRegistered("REMOTE_NETWORK_LOGGER")
+			context:AddRegistered("AI_TRACE_REMOTE")
+			context:AddRegistered("REMOTE_SECURITY_CHECK")
+			context:AddRegistered("AI_GENERATE_MOCK")
+		end
+
 		Explorer.LastRightClickX, Explorer.LastRightClickY = Mouse.X, Mouse.Y
 		context:Show(Mouse.X, Mouse.Y)
 	end
@@ -4141,6 +4214,298 @@ end
 		end
 		end
 		})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- SOUND
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("PLAY_SOUND", {Name = "Play Sound", IconMap = Explorer.MiscIcons, Icon = "Play", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("Sound") then
+					pcall(function() obj:Play() end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("▶ Sound playing", 2) end
+		end})
+
+		context:Register("STOP_SOUND", {Name = "Stop Sound", IconMap = Explorer.MiscIcons, Icon = "Pause", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("Sound") then
+					pcall(function() obj:Stop() end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("■ Sound stopped", 2) end
+		end})
+
+		context:Register("COPY_SOUND_ID", {Name = "Copy SoundId", IconMap = Explorer.MiscIcons, Icon = "Copy", OnClick = function()
+			local node = selection.List[1]
+			if node and node.Obj:IsA("Sound") then
+				local id = tostring(node.Obj.SoundId)
+				if env.setclipboard then env.setclipboard(id) end
+				if getgenv().DoNotif then getgenv().DoNotif("Copied: " .. id, 2) end
+			end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- HUMANOID
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("KILL_HUMANOID", {Name = "Kill", IconMap = Explorer.MiscIcons, Icon = "Delete", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("Humanoid") then
+					pcall(function() obj.Health = 0 end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("Humanoid killed", 2) end
+		end})
+
+		context:Register("SET_HUMANOID_HEALTH", {Name = "Set Health (max)", IconMap = Explorer.MiscIcons, Icon = "Play", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("Humanoid") then
+					pcall(function() obj.Health = obj.MaxHealth end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("Health set to max", 2) end
+		end})
+
+		context:Register("SET_WALKSPEED", {Name = "Set WalkSpeed (16)", IconMap = Explorer.MiscIcons, Icon = "SelectChildren", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("Humanoid") then
+					pcall(function() obj.WalkSpeed = 16 end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("WalkSpeed reset to 16", 2) end
+		end})
+
+		context:Register("SET_JUMPPOWER", {Name = "Set JumpPower (50)", IconMap = Explorer.MiscIcons, Icon = "SelectChildren", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("Humanoid") then
+					pcall(function() obj.JumpPower = 50 end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("JumpPower reset to 50", 2) end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- VALUE BASE
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("COPY_VALUE", {Name = "Copy Value", IconMap = Explorer.MiscIcons, Icon = "Copy", OnClick = function()
+			local node = selection.List[1]
+			if node then
+				local obj = node.Obj
+				local ok, val = pcall(function() return tostring(obj.Value) end)
+				if ok and env.setclipboard then
+					env.setclipboard(val)
+					if getgenv().DoNotif then getgenv().DoNotif("Copied: " .. val, 2) end
+				end
+			end
+		end})
+
+		context:Register("SET_VALUE", {Name = "Print Value to Console", IconMap = Explorer.MiscIcons, Icon = "Reference", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				local ok, val = pcall(function() return obj.Value end)
+				if ok then
+					print(string.format("[ValueBase] %s (%s) = %s", obj:GetFullName(), obj.ClassName, tostring(val)))
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("Values printed to F9", 3) end
+		end})
+
+		context:Register("PRINT_VALUE", {Name = "Watch Value (print on change)", IconMap = Explorer.MiscIcons, Icon = "Play", OnClick = function()
+			local node = selection.List[1]
+			if not node then return end
+			local obj = node.Obj
+			local ok, conn = pcall(function()
+				return obj:GetPropertyChangedSignal("Value"):Connect(function()
+					print(string.format("[WATCH] %s = %s", obj:GetFullName(), tostring(obj.Value)))
+				end)
+			end)
+			if ok and conn then
+				if not _G._zexWatchConns then _G._zexWatchConns = {} end
+				table.insert(_G._zexWatchConns, conn)
+				if getgenv().DoNotif then getgenv().DoNotif("Watching: " .. obj.Name .. " (stored in _G._zexWatchConns)", 3) end
+			end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- JOINTS / WELDS
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("DESTROY_WELD", {Name = "Destroy Weld/Joint", IconMap = Explorer.MiscIcons, Icon = "Delete", OnClick = function()
+			local sList = selection.List
+			local count = 0
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("JointInstance") or obj:IsA("WeldConstraint") then
+					pcall(function() obj:Destroy() count = count + 1 end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("Destroyed " .. count .. " joint(s)", 2) end
+		end})
+
+		context:Register("UNLOCK_JOINTS", {Name = "Unlock All Joints (model)", IconMap = Explorer.MiscIcons, Icon = "Ungroup", OnClick = function()
+			local sList = selection.List
+			local count = 0
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				for _, desc in ipairs(obj:GetDescendants()) do
+					if desc:IsA("JointInstance") or desc:IsA("WeldConstraint") then
+						pcall(function() desc:Destroy() count = count + 1 end)
+					end
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("Removed " .. count .. " joint(s)", 2) end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- ATTACHMENT
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("COPY_ATTACHMENT_WORLDPOS", {Name = "Copy WorldPosition", IconMap = Explorer.MiscIcons, Icon = "Copy", OnClick = function()
+			local node = selection.List[1]
+			if node and node.Obj:IsA("Attachment") then
+				local wp = node.Obj.WorldPosition
+				local str = string.format("Vector3.new(%g, %g, %g)", wp.X, wp.Y, wp.Z)
+				if env.setclipboard then env.setclipboard(str) end
+				if getgenv().DoNotif then getgenv().DoNotif("Copied: " .. str, 3) end
+			end
+		end})
+
+		context:Register("TELEPORT_TO_ATTACHMENT", {Name = "Teleport To Attachment", IconMap = Explorer.MiscIcons, Icon = "TeleportTo", OnClick = function()
+			local node = selection.List[1]
+			if not node or not node.Obj:IsA("Attachment") then return end
+			local char = plr.Character
+			local root = char and char:FindFirstChild("HumanoidRootPart")
+			if root then
+				pcall(function() root.CFrame = CFrame.new(node.Obj.WorldPosition) end)
+				if getgenv().DoNotif then getgenv().DoNotif("Teleported to attachment", 2) end
+			end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- PARTICLE EMITTER
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("BURST_PARTICLE", {Name = "Burst Particles", IconMap = Explorer.MiscIcons, Icon = "Play", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("ParticleEmitter") then
+					pcall(function() obj:Emit(50) end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("Burst emitted", 2) end
+		end})
+
+		context:Register("CLEAR_PARTICLES", {Name = "Clear Particles", IconMap = Explorer.MiscIcons, Icon = "Delete", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("ParticleEmitter") then
+					pcall(function() obj:Clear() end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("Particles cleared", 2) end
+		end})
+
+		context:Register("TOGGLE_PARTICLE_ENABLED", {Name = "Toggle Enabled", IconMap = Explorer.MiscIcons, Icon = "Shuffle", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("ParticleEmitter") then
+					pcall(function() obj.Enabled = not obj.Enabled end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("Particle toggled", 2) end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- BEAM
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("TOGGLE_BEAM_ENABLED", {Name = "Toggle Beam Enabled", IconMap = Explorer.MiscIcons, Icon = "Shuffle", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("Beam") then
+					pcall(function() obj.Enabled = not obj.Enabled end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("Beam toggled", 2) end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- CONSTRAINT
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("DESTROY_CONSTRAINT", {Name = "Destroy Constraint", IconMap = Explorer.MiscIcons, Icon = "Delete", OnClick = function()
+			local sList = selection.List
+			local count = 0
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("Constraint") then
+					pcall(function() obj:Destroy() count = count + 1 end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("Destroyed " .. count .. " constraint(s)", 2) end
+		end})
+
+		context:Register("TOGGLE_CONSTRAINT_ENABLED", {Name = "Toggle Constraint Enabled", IconMap = Explorer.MiscIcons, Icon = "Shuffle", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("Constraint") then
+					pcall(function() obj.Enabled = not obj.Enabled end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("Constraint toggled", 2) end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- MESH / DECAL / TEXTURE IDs
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("COPY_MESH_ID", {Name = "Copy MeshId", IconMap = Explorer.MiscIcons, Icon = "Copy", OnClick = function()
+			local node = selection.List[1]
+			if node and node.Obj:IsA("SpecialMesh") then
+				local id = tostring(node.Obj.MeshId)
+				if env.setclipboard then env.setclipboard(id) end
+				if getgenv().DoNotif then getgenv().DoNotif("Copied: " .. id, 2) end
+			end
+		end})
+
+		context:Register("COPY_TEXTURE_ID", {Name = "Copy Texture/Decal Id", IconMap = Explorer.MiscIcons, Icon = "Copy", OnClick = function()
+			local node = selection.List[1]
+			if not node then return end
+			local obj = node.Obj
+			local id
+			if obj:IsA("Decal") then id = obj.Texture
+			elseif obj:IsA("Texture") then id = obj.Texture end
+			if id and env.setclipboard then
+				env.setclipboard(tostring(id))
+				if getgenv().DoNotif then getgenv().DoNotif("Copied: " .. tostring(id), 2) end
+			end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- SCRIPT / LOCALSCRIPT TOGGLE
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("TOGGLE_SCRIPT_ENABLED", {Name = "Toggle Script Enabled", IconMap = Explorer.MiscIcons, Icon = "Shuffle", OnClick = function()
+			local sList = selection.List
+			for i = 1, #sList do
+				local obj = sList[i].Obj
+				if obj:IsA("BaseScript") then
+					pcall(function() obj.Disabled = not obj.Disabled end)
+				end
+			end
+			if getgenv().DoNotif then getgenv().DoNotif("Script enabled state toggled", 2) end
+		end})
 
 		Explorer.RightClickContext = context
 	end
