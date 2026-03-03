@@ -51,13 +51,11 @@ local function hookACTable(tbl)
     if type(tbl.Detected) == "function" then
         safeHook(tbl.Detected, function(player, action, info)
             Stats.DetectionsCaught += 1
-            warn(string.format("[ZukaBypass] Blocked Anti.Detected | action=%s info=%s", tostring(action), tostring(info)))
         end)
     end
     if type(tbl.RemovePlayer) == "function" then
         safeHook(tbl.RemovePlayer, function(p, info)
             Stats.KickAttempts += 1
-            warn(string.format("[ZukaBypass] Blocked RemovePlayer | info=%s", tostring(info)))
         end)
     end
     if type(tbl.CheckAllClients) == "function" then
@@ -110,7 +108,6 @@ local function findAndPatchRemoteClients()
                         end
                     end
                 end)
-                warn("[ZukaBypass] Found and patched Remote.Clients")
                 return v
             end
         end
@@ -133,7 +130,6 @@ local function installNamecallHook()
                msg:find("detected") or msg:find("exploit") or
                msg:find("acli") then
                 Stats.KickAttempts += 1
-                warn(string.format("[ZukaBypass] Blocked Kick: %s", tostring(args[1])))
                 return nil
             end
         end
@@ -194,7 +190,6 @@ local function protectKick()
            msg:find("exploit") or msg:find("acli") or
            msg:find("cheat") then
             Stats.KickAttempts += 1
-            warn(string.format("[ZukaBypass] Blocked Kick (function level): %s", tostring(reason)))
             return nil
         end
         return origKick(self, reason, ...)
@@ -222,7 +217,6 @@ local function rescan()
     if tbl and tbl ~= cachedACTable then
         cachedACTable = tbl
         hookACTable(tbl)
-        warn("[ZukaBypass] AC table found and hooked on rescan")
     end
     findAndPatchRemoteClients()
 end
@@ -234,9 +228,9 @@ local function initialize()
     if tbl then
         cachedACTable = tbl
         hookACTable(tbl)
-        warn("[ZukaBypass] AC hooked successfully")
+        warn("[AntiAdonis] Loaded")
     else
-        warn("[ZukaBypass] AC not found on initial scan — will rescan")
+        warn("[AntiAdonis] Adonis has been removed.")
     end
     findAndPatchRemoteClients()
     task.spawn(function()
@@ -247,19 +241,18 @@ local function initialize()
     task.spawn(function()
         while task.wait(60) do
             print(string.format(
-                "[ZukaBypass] Runtime stats — Kicks blocked: %d | Remotes blocked: %d | Detections caught: %d | Client checks blocked: %d | Functions hooked: %d",
+                "[AntiAdonis] Runtime stats — Kicks blocked: %d | Remotes blocked: %d | Detections caught: %d | Client checks blocked: %d | Functions hooked: %d",
                 Stats.KickAttempts, Stats.RemotesBlocked, Stats.DetectionsCaught, Stats.ClientChecksBlocked, Stats.FunctionsHooked
             ))
         end
     end)
-    warn("[ZukaBypass] v2 loaded — Built from source")
 end
-getgenv().ZukaBypass = {
-    Version = "2.0",
+getgenv().AntiAdonis = {
+    Version = "1.0",
     Stats = Stats,
     Rescan = function()
         rescan()
-        warn("[ZukaBypass] Manual rescan complete")
+        warn("[AntiAdonis] rescan complete")
     end,
     GetStats = function()
         return Stats
@@ -299,7 +292,7 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
     then
         cfg.BlockedCount += 1
         notify(
-            "AntiKick",
+            "Warn",
             "Kick attempt blocked. (#" .. cfg.BlockedCount .. ")",
             "rbxassetid://6238540373",
             2
@@ -308,4 +301,3 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
     end
     return oldNamecall(self, ...)
 end))
-notify("AntiKick", "Shield active.", "rbxassetid://6238537240", 3)
