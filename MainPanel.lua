@@ -22527,6 +22527,338 @@ RegisterCommand({
 }, function()
     Modules.ModelBring:Toggle()
 end)
+Modules.ApexCounter = {
+    State = {
+        IsEnabled = false,
+        LagShieldActive = false,
+        GhostMode = false,
+        Blender = false,
+        AcidProtection = false,
+        Connections = {},
+        BlacklistedRemotes = {
+            "AcidSpit",
+            "PLACE_LANDMINE",
+            "AbilityPlayer",
+            "PlayerAttack",
+            "ReplicateAcidAbility",
+            "AcidDamageVisual",
+        },
+        AcidSpamCounter = 0,
+        LastAcidTime = 0,
+        AcidThreshold = 10,
+    },
+    Services = {
+        Players = game:GetService("Players"),
+        RunService = game:GetService("RunService"),
+        ReplicatedStorage = game:GetService("ReplicatedStorage"),
+        Workspace = game:GetService("Workspace"),
+        Debris = game:GetService("Debris")
+    }
+}
+function Modules.ApexCounter:ToggleLagShield(state)
+    self.State.LagShieldActive = state
+    if state then
+        local targetFolder = self.Services.Workspace:FindFirstChild("Interaction") 
+            and self.Services.Workspace.Interaction:FindFirstChild("PlayerPlaced")
+        if targetFolder then
+            for _, child in ipairs(targetFolder:GetChildren()) do
+                if child.Name:find("Landmine") or child.Name:find("Acid") then
+                    child:Destroy()
+                end
+            end
+            self.State.Connections.LagMonitor = targetFolder.ChildAdded:Connect(function(child)
+                task.defer(function()
+                    if child and child.Parent then
+                        if child.Name:find("Landmine") or child.Name:find("Acid") then
+                            child:Destroy()
+                            local currentTime = tick()
+                            if currentTime - self.State.LastAcidTime < 1 then
+                                self.State.AcidSpamCounter = self.State.AcidSpamCounter + 1
+                            else
+                                self.State.AcidSpamCounter = 0
+                            end
+                            self.State.LastAcidTime = currentTime
+                            if self.State.AcidSpamCounter > self.State.AcidThreshold then
+                                DoNotif("⚠ HEAVY ACID SPAM DETECTED - Deflecting", 1)
+                            end
+                        end
+                    end
+                end)
+            end)
+        end
+        DoNotif("🛡 Lag Deflector: ACTIVE (Blocking Exploit Spam)", 2)
+    else
+        if self.State.Connections.LagMonitor then
+            self.State.Connections.LagMonitor:Disconnect()
+        end
+        self.State.AcidSpamCounter = 0
+        DoNotif("Lag Deflector: DISABLED", 2)
+    end
+end
+function Modules.ApexCounter:ToggleGhost(state)
+    self.State.GhostMode = state
+    local lp = self.Services.Players.LocalPlayer
+    local char = lp.Character
+    if state and char then
+        pcall(function()
+            char:SetAttribute("Team", "Ghost")
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                local mt = getrawmetatable(game)
+                local oldIndex = mt.__index
+                setreadonly(mt, false)
+                mt.__index = newcclosure(function(t, k)
+                    if t == hum and k == "Health" and not checkcaller() then
+                        return 0
+                    end
+                    return oldIndex(t, k)
+                end)
+                setreadonly(mt, true)
+            end
+        end)
+        DoNotif("👻 Ghost Mode: ACTIVE (Invisible to Kill Aura)", 2)
+    else
+        DoNotif("Ghost Mode: DISABLED", 2)
+    end
+end
+function Modules.ApexCounter:RunBlender()
+    if self.State.BlenderActive then return end
+    self.State.BlenderActive = true
+    local lp = self.Services.Players.LocalPlayer
+    local meleeRemote = self.Services.ReplicatedStorage:FindFirstChild("Remotes") 
+        and self.Services.ReplicatedStorage.Remotes:FindFirstChild("Melee") 
+        and self.Services.ReplicatedStorage.Remotes.Melee:FindFirstChild("Damage")
+    local zombieRemote = self.Services.ReplicatedStorage:FindFirstChild("Remotes")
+        and self.Services.ReplicatedStorage.Remotes:FindFirstChild("ZombieRelated") 
+        and self.Services.ReplicatedStorage.Remotes.ZombieRelated:FindFirstChild("PlayerAttack")
+    local isProcessing = false
+    local lastCall = 0
+    local callDelay = 0.05
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        if (self == meleeRemote or self == zombieRemote) and method == "InvokeServer" and not checkcaller() then
+            local currentTime = tick()
+            if not isProcessing and (currentTime - lastCall) > callDelay then
+                isProcessing = true
+                lastCall = currentTime
+                for i = 1, 6 do
+                    task.spawn(function()
+                        pcall(function()
+                            oldNamecall(self, unpack(args))
+                        end)
+                    end)
+                end
+                isProcessing = false
+                return nil
+            end
+        end
+        return oldNamecall(self, ...)
+    end))
+    DoNotif("⚔ Kill Blender: ACTIVE (6x Multiplier)", 2)
+end
+function Modules.ApexCounter:NullifySkidRemotes()
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if not checkcaller() then
+            local remoteName = self.Name
+            for _, blocked in ipairs(Modules.ApexCounter.State.BlacklistedRemotes) do
+                if remoteName == blocked and (method == "FireServer" or method == "InvokeServer") then
+                    return nil
+                end
+            end
+        end
+        return oldNamecall(self, ...)
+    end)
+    setreadonly(mt, true)
+    DoNotif("🔒 Remote Shield: ACTIVE (Blocking Exploit Remotes)", 2)
+end
+function Modules.ApexCounter:ToggleAcidProtection(state)
+    self.State.AcidProtection = state
+    if state then
+        self.State.Connections.AcidReplication = self.Services.ReplicatedStorage
+            :FindFirstChild("Remotes", true) and self.Services.ReplicatedStorage.Remotes
+            :FindFirstChild("Replication", true) and self.Services.ReplicatedStorage.Remotes.Replication
+            :FindFirstChild("ReplicateAcidAbility")
+        if self.State.Connections.AcidReplication then
+            local oldConnect = self.State.Connections.AcidReplication.OnClientEvent.Connect
+            self.State.Connections.AcidReplication.OnClientEvent.Connect = function(...)
+                return {Disconnect = function() end}
+            end
+        end
+        task.spawn(function()
+            while self.State.AcidProtection do
+                for _, v in ipairs(self.Services.Workspace:GetDescendants()) do
+                    if v:IsA("BasePart") and v.Name:find("Acid") then
+                        v:Destroy()
+                    end
+                end
+                task.wait(0.5)
+            end
+        end)
+        local acidDamageModule = self.Services.ReplicatedStorage:FindFirstChild("Modules", true)
+            and self.Services.ReplicatedStorage.Modules:FindFirstChild("MostRandomStuff", true)
+            and self.Services.ReplicatedStorage.Modules.MostRandomStuff:FindFirstChild("AcidDamage")
+        if acidDamageModule then
+            local mt = getrawmetatable(game)
+            local oldRequire = mt.__index
+            setreadonly(mt, false)
+            local originalAcidDamage = require(acidDamageModule)
+            mt.__index = newcclosure(function(t, k)
+                if k == acidDamageModule then
+                    return function() end
+                end
+                return oldRequire(t, k)
+            end)
+            setreadonly(mt, true)
+        end
+        DoNotif("☣ Acid Protection: MAXIMUM (Full Immunity)", 2)
+    else
+        if self.State.Connections.AcidReplicationHook then
+            self.State.Connections.AcidReplicationHook:Disconnect()
+        end
+        DoNotif("Acid Protection: DISABLED", 2)
+    end
+end
+function Modules.ApexCounter:CleanVisualEffects()
+    if not self.State.IsEnabled then return end
+    task.spawn(function()
+        while self.State.IsEnabled do
+            for _, player in ipairs(self.Services.Players:GetPlayers()) do
+                if player.Character then
+                    for _, part in ipairs(player.Character:GetDescendants()) do
+                        if part:IsA("ParticleEmitter") and part.Name == "ParticleEmitter" then
+                            part:Destroy()
+                        elseif part:IsA("Sound") and part.Name == "Burn" then
+                            part:Destroy()
+                        end
+                    end
+                end
+            end
+            task.wait(1)
+        end
+    end)
+end
+function Modules.ApexCounter:EnableNetworkProtection()
+    local eventCounter = {}
+    local threshold = 50
+    local oldFireServer
+    oldFireServer = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if method == "FireServer" or method == "InvokeServer" then
+            local remoteName = tostring(self)
+            local currentTime = tick()
+            if not eventCounter[remoteName] then
+                eventCounter[remoteName] = {count = 0, lastReset = currentTime}
+            end
+            local data = eventCounter[remoteName]
+            if currentTime - data.lastReset >= 1 then
+                data.count = 0
+                data.lastReset = currentTime
+            end
+            data.count = data.count + 1
+            if data.count > threshold then
+                if not checkcaller() then
+                    return nil
+                end
+            end
+        end
+        return oldFireServer(self, ...)
+    end))
+    DoNotif("🌐 Network Protection: ENABLED", 2)
+end
+function Modules.ApexCounter:Initialize()
+    local module = self
+    RegisterCommand({
+        Name = "zcounter",
+        Aliases = {"zc"},
+        Description = "Toggles the counter-exploit suite (APEX Edition)."
+    }, function(args)
+        module.State.IsEnabled = not module.State.IsEnabled
+        if module.State.IsEnabled then
+            DoNotif("⚡ APEX SUITE: INITIALIZING...", 1.5)
+            task.wait(0.5)
+            module:ToggleLagShield(true)
+            module:ToggleGhost(true)
+            module:ToggleAcidProtection(true)
+            module:RunBlender()
+            module:NullifySkidRemotes()
+            module:CleanVisualEffects()
+            module:EnableNetworkProtection()
+            task.wait(0.5)
+            DoNotif("✅ APEX SUITE: FULLY OPERATIONAL", 3)
+            DoNotif("🛡 All Protections: ACTIVE", 2)
+        else
+            module:ToggleLagShield(false)
+            module:ToggleGhost(false)
+            module:ToggleAcidProtection(false)
+            for _, conn in pairs(module.State.Connections) do
+                if typeof(conn) == "RBXScriptConnection" then
+                    conn:Disconnect()
+                end
+            end
+            module.State.Connections = {}
+            module.State.BlenderActive = false
+            DoNotif("🔴 APEX SUITE: DEACTIVATED", 3)
+        end
+    end)
+    RegisterCommand({
+        Name = "acidblock",
+        Aliases = {"ab"},
+        Description = "Toggle acid-specific protection only."
+    }, function(args)
+        local newState = not module.State.AcidProtection
+        module:ToggleAcidProtection(newState)
+    end)
+end
+    RegisterCommand({
+        Name = "minigunsniper",
+        Aliases = {"spawnsniper"},
+        Description = "For Zombie Game Series."
+    }, function()
+        local shop = game:GetService("ReplicatedStorage").Remotes.Shop.EquipWeapon
+        shop:InvokeServer("Sniper")
+        find.Sniper(true)
+        task.wait(0.2)
+        local gun = localplayer.Character:FindFirstChild("Sniper") or localplayer.Backpack:FindFirstChild("Sniper")
+        if gun then
+            local scr = getsenv(gun:FindFirstChildOfClass("LocalScript"))
+            if scr and scr.FireGun then
+                self.Services.RunService.Heartbeat:Connect(function()
+                    if localplayer:GetMouse().Button1Down then
+                        pcall(scr.FireGun, lp:GetMouse().X, lp:GetMouse().Y)
+                    end
+                end)
+                DoNotif("Rapid Fire: ENABLED", 2)
+            end
+        end
+    end)
+    RegisterCommand({
+        Name = "spwnShotgun",
+        Aliases = {"spawnsgun"},
+        Description = "For Zombie Game Series."
+    }, function()
+        local shop = game:GetService("ReplicatedStorage").Remotes.Shop.EquipWeapon
+        shop:InvokeServer("Shotgun")
+        find.Shotgun(true)
+        task.wait(0.2)
+        local gun = localplayer.Character:FindFirstChild("Shotgun") or localplayer.Backpack:FindFirstChild("Shotgun")
+        if gun then
+            local scr = getsenv(gun:FindFirstChildOfClass("LocalScript"))
+            if scr and scr.FireGun then
+                self.Services.RunService.Heartbeat:Connect(function()
+                    if localplayer:GetMouse().Button1Down then
+                        pcall(scr.FireGun, lp:GetMouse().X, lp:GetMouse().Y)
+                    end
+                end)
+                DoNotif("Rapid Fire: ENABLED", 2)
+            end
+        end
+    end)
 Modules.ModuleExplorer = {
     State = {
         IsOpen = false,
@@ -26435,6 +26767,201 @@ RegisterCommand({
     end
     local itemName = table.concat(args, " ")
     Modules.BadgeSpoofer:BruteForceUnlock(itemName)
+end)
+Modules.AntiSlapGear = {
+    State = {
+        IsEnabled           = false,
+        SteppedConnection   = nil,
+        DescendantConn      = nil,
+        CharacterConn       = nil,
+        TouchConnections    = {},
+        LastSafePosition    = nil,
+        LastSafeTime        = 0,
+    },
+    Config = {
+        MAX_VELOCITY        = 80,
+        MAX_DELTA_STUDS     = 25,
+        ANCHOR_DURATION     = 0.15,
+        PHYSICS_TYPES = {
+            "BodyVelocity",
+            "BodyForce",
+            "BodyThrust",
+            "LinearVelocity",
+            "VectorForce",
+        },
+        SLAP_PATTERNS = {
+            "slap", "hand", "fling", "launch", "yeet",
+            "smack", "punch", "whack", "slam",
+        },
+    }
+}
+function Modules.AntiSlapGear:_getHRP()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+function Modules.AntiSlapGear:_isSlappy(name)
+    local low = name:lower()
+    for _, pat in ipairs(self.Config.SLAP_PATTERNS) do
+        if low:find(pat, 1, true) then return true end
+    end
+    return false
+end
+function Modules.AntiSlapGear:_momentaryAnchor()
+    local hrp = self:_getHRP()
+    if not hrp or hrp.Anchored then return end
+    hrp.Anchored = true
+    hrp.AssemblyLinearVelocity  = Vector3.zero
+    hrp.AssemblyAngularVelocity = Vector3.zero
+    task.delay(self.Config.ANCHOR_DURATION, function()
+        local h = self:_getHRP()
+        if h and self.State.IsEnabled then
+            h.Anchored = false
+        end
+    end)
+end
+function Modules.AntiSlapGear:_enforceVelocity()
+    local hrp = self:_getHRP()
+    if not hrp or hrp.Anchored then return end
+    local vel = hrp.AssemblyLinearVelocity
+    if vel.Magnitude > self.Config.MAX_VELOCITY then
+        hrp.AssemblyLinearVelocity  = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end
+    local pos  = hrp.Position
+    local now  = tick()
+    local safe = self.State.LastSafePosition
+    if safe and (now - self.State.LastSafeTime) < 0.5 then
+        local delta = (pos - safe).Magnitude
+        if delta > self.Config.MAX_DELTA_STUDS then
+            hrp.CFrame = CFrame.new(safe) * (hrp.CFrame - hrp.CFrame.Position)
+            hrp.AssemblyLinearVelocity  = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+            return
+        end
+    end
+    if vel.Magnitude < 60 then
+        self.State.LastSafePosition = pos
+        self.State.LastSafeTime     = now
+    end
+end
+function Modules.AntiSlapGear:_watchDescendants(character)
+    if self.State.DescendantConn then
+        self.State.DescendantConn:Disconnect()
+        self.State.DescendantConn = nil
+    end
+    self.State.DescendantConn = character.DescendantAdded:Connect(function(obj)
+        if not self.State.IsEnabled then return end
+        for _, t in ipairs(self.Config.PHYSICS_TYPES) do
+            if obj:IsA(t) then
+                task.defer(function()
+                    if obj and obj.Parent then
+                        pcall(function() obj:Destroy() end)
+                    end
+                end)
+                local hrp = self:_getHRP()
+                if hrp then
+                    hrp.AssemblyLinearVelocity  = Vector3.zero
+                    hrp.AssemblyAngularVelocity = Vector3.zero
+                end
+                return
+            end
+        end
+    end)
+end
+function Modules.AntiSlapGear:_setupTouchGuards(character)
+    for _, conn in pairs(self.State.TouchConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    self.State.TouchConnections = {}
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            local conn = part.Touched:Connect(function(hit)
+                if not self.State.IsEnabled then return end
+                local suspect = hit
+                local tool    = hit:FindFirstAncestorOfClass("Tool")
+                    or hit:FindFirstAncestorOfClass("Model")
+                if tool then suspect = tool end
+                if self:_isSlappy(suspect.Name) or self:_isSlappy(hit.Name) then
+                    self:_momentaryAnchor()
+                end
+            end)
+            self.State.TouchConnections[part] = conn
+        end
+    end
+    character.DescendantAdded:Connect(function(obj)
+        if not self.State.IsEnabled then return end
+        if obj:IsA("BasePart") then
+            task.wait()
+            local conn = obj.Touched:Connect(function(hit)
+                if not self.State.IsEnabled then return end
+                local suspect = hit
+                local tool = hit:FindFirstAncestorOfClass("Tool")
+                    or hit:FindFirstAncestorOfClass("Model")
+                if tool then suspect = tool end
+                if self:_isSlappy(suspect.Name) or self:_isSlappy(hit.Name) then
+                    self:_momentaryAnchor()
+                end
+            end)
+            self.State.TouchConnections[obj] = conn
+        end
+    end)
+end
+function Modules.AntiSlapGear:_onCharacter(character)
+    character:WaitForChild("HumanoidRootPart", 5)
+    self.State.LastSafePosition = nil
+    self:_watchDescendants(character)
+    self:_setupTouchGuards(character)
+end
+function Modules.AntiSlapGear:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    if LocalPlayer.Character then
+        self:_onCharacter(LocalPlayer.Character)
+    end
+    self.State.CharacterConn = LocalPlayer.CharacterAdded:Connect(function(char)
+        if self.State.IsEnabled then self:_onCharacter(char) end
+    end)
+    self.State.SteppedConnection = RunService.Stepped:Connect(function()
+        if self.State.IsEnabled then self:_enforceVelocity() end
+    end)
+    DoNotif("Anti Slap Gear: ENABLED", 2)
+end
+function Modules.AntiSlapGear:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    if self.State.SteppedConnection then
+        self.State.SteppedConnection:Disconnect()
+        self.State.SteppedConnection = nil
+    end
+    if self.State.DescendantConn then
+        self.State.DescendantConn:Disconnect()
+        self.State.DescendantConn = nil
+    end
+    if self.State.CharacterConn then
+        self.State.CharacterConn:Disconnect()
+        self.State.CharacterConn = nil
+    end
+    for _, conn in pairs(self.State.TouchConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    self.State.TouchConnections = {}
+    local hrp = self:_getHRP()
+    if hrp then hrp.Anchored = false end
+    DoNotif("Anti Slap Gear: DISABLED", 2)
+end
+function Modules.AntiSlapGear:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+RegisterCommand({
+    Name        = "antislapgear",
+    Aliases     = { "antislap", "nolaunch", "noslap" },
+    Description = "Toggle anti slap gear — blocks velocity, physics objects, touch launches and CFrame teleports from slap gears",
+}, function()
+    Modules.AntiSlapGear:Toggle()
 end)
 Modules.vFly = {
     State = {
@@ -35997,6 +36524,258 @@ function Modules.ProximityPromptTools:Initialize()
         self:DisableInstantPrompts()
     end)
 end
+Modules.HDAdmin = {
+    State = {
+        AntiClientCommands  = false,
+        AntiDeath           = false,
+        AntiJail            = false,
+        AntiMute            = false,
+        ClientCommandConn   = nil,
+        DeathConn           = nil,
+        CharAddedConn       = nil,
+        AntiJailThread      = nil,
+        AntiMuteThread      = nil,
+    }
+}
+function Modules.HDAdmin:_getAPI()
+    local rs = game:GetService("ReplicatedStorage")
+    return rs:FindFirstChild("HDAdminHDClient") or rs:FindFirstChild("HDAdminClient")
+end
+function Modules.HDAdmin:_getRequest()
+    local api = self:_getAPI()
+    if not api then return nil end
+    local signals = api:FindFirstChild("Signals")
+    if not signals then return nil end
+    return signals:FindFirstChild("RequestCommandSilent")
+        or signals:FindFirstChild("RequestCommand")
+end
+function Modules.HDAdmin:_invoke(cmd)
+    local request = self:_getRequest()
+    if request and request:IsA("RemoteFunction") then
+        pcall(function() request:InvokeServer(cmd) end)
+    end
+end
+function Modules.HDAdmin:EnableAntiClientCommands()
+    if self.State.AntiClientCommands then return end
+    self.State.AntiClientCommands = true
+    self.State.ClientCommandConn = LocalPlayer.PlayerGui.ChildAdded:Connect(function(obj)
+        if obj:IsA("LocalScript") then
+            task.wait()
+            pcall(function() obj:Destroy() end)
+            DoNotif("Anti CC: blocked client command", 2)
+        end
+    end)
+    DoNotif("Anti Client Commands: ENABLED", 2)
+end
+function Modules.HDAdmin:DisableAntiClientCommands()
+    if not self.State.AntiClientCommands then return end
+    self.State.AntiClientCommands = false
+    if self.State.ClientCommandConn then
+        self.State.ClientCommandConn:Disconnect()
+        self.State.ClientCommandConn = nil
+    end
+    DoNotif("Anti Client Commands: DISABLED", 2)
+end
+function Modules.HDAdmin:EnableAntiDeath()
+    if self.State.AntiDeath then return end
+    self.State.AntiDeath = true
+    local function bindDeath(char)
+        if self.State.DeathConn then
+            self.State.DeathConn:Disconnect()
+            self.State.DeathConn = nil
+        end
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            self.State.DeathConn = hum.Died:Connect(function()
+                if self.State.AntiDeath then
+                    self:_invoke(";re me")
+                end
+            end)
+        end
+    end
+    if LocalPlayer.Character then bindDeath(LocalPlayer.Character) end
+    self.State.CharAddedConn = LocalPlayer.CharacterAdded:Connect(bindDeath)
+    DoNotif("Anti Death: ENABLED", 2)
+end
+function Modules.HDAdmin:DisableAntiDeath()
+    if not self.State.AntiDeath then return end
+    self.State.AntiDeath = false
+    if self.State.DeathConn then
+        self.State.DeathConn:Disconnect()
+        self.State.DeathConn = nil
+    end
+    if self.State.CharAddedConn then
+        self.State.CharAddedConn:Disconnect()
+        self.State.CharAddedConn = nil
+    end
+    DoNotif("Anti Death: DISABLED", 2)
+end
+function Modules.HDAdmin:EnableAntiJail()
+    if self.State.AntiJail then return end
+    self.State.AntiJail = true
+    self.State.AntiJailThread = task.spawn(function()
+        while self.State.AntiJail do
+            local jailName = LocalPlayer.Name .. "'s JailCell"
+            if Workspace:FindFirstChild(jailName) then
+                self:_invoke(";unjail me")
+                DoNotif("Anti Jail: escaped jail", 2)
+            end
+            task.wait(0.5)
+        end
+    end)
+    DoNotif("Anti Jail: ENABLED", 2)
+end
+function Modules.HDAdmin:DisableAntiJail()
+    if not self.State.AntiJail then return end
+    self.State.AntiJail = false
+    self.State.AntiJailThread = nil
+    DoNotif("Anti Jail: DISABLED", 2)
+end
+function Modules.HDAdmin:EnableAntiMute()
+    if self.State.AntiMute then return end
+    self.State.AntiMute = true
+    local StarterGui = game:GetService("StarterGui")
+    self.State.AntiMuteThread = task.spawn(function()
+        while self.State.AntiMute do
+            pcall(function()
+                StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+            end)
+            task.wait(0.1)
+        end
+    end)
+    DoNotif("Anti Mute: ENABLED", 2)
+end
+function Modules.HDAdmin:DisableAntiMute()
+    if not self.State.AntiMute then return end
+    self.State.AntiMute = false
+    self.State.AntiMuteThread = nil
+    DoNotif("Anti Mute: DISABLED", 2)
+end
+function Modules.HDAdmin:RemoveBlurs()
+    local Lighting = game:GetService("Lighting")
+    local cam = Workspace.CurrentCamera
+    for _, obj in ipairs(Lighting:GetChildren()) do
+        if obj:IsA("BlurEffect") then obj:Destroy() end
+    end
+    if cam then
+        for _, obj in ipairs(cam:GetChildren()) do
+            if obj:IsA("BlurEffect") then obj:Destroy() end
+        end
+    end
+    DoNotif("Blurs removed.", 2)
+end
+function Modules.HDAdmin:GivePeriastrons()
+    local ids = {
+        159229806, 80661504, 99119240, 69499437,
+        120307951, 108158379, 73829193, 93136802,
+        139577901, 233520257, 2544549379, 80597060
+    }
+    for _, id in ipairs(ids) do
+        task.spawn(function()
+            self:_invoke(";gear me " .. id)
+        end)
+    end
+    DoNotif("Periastrons: giving all " .. #ids, 2)
+end
+function Modules.HDAdmin:GiveAllGears()
+    local ids = {10468797,10468915,10469910,10472779,10510024,10727852,10730984,10758456,10760425,10831489,10831509,10884288,10910681,11115851,11373617,11377306,11419319,11419882,11450664,11452821,11453385,11563251,11719016,11885154,11895536,11956382,11999235,11999247,11999279,12145515,12187319,12187348,12187431,12504077,12547976,12562390,12562394,12562495,12775410,12848902,12890798,12902404,12909278,13206856,13206887,13206984,13207169,13477890,13477940,13478015,13745494,13838639,13841367,14130887,14131296,14131602,14492601,14516975,14719505,14864611,14876573,15176169,15177716,15179006,15397778,15470183,15470222,15470359,15642486,15668963,15731350,15932306,15970544,15973049,15973059,16200199,16200204,16200373,16200402,16200420,16200508,16201421,16201628,16214845,16216702,16433862,16435306,16435368,16469499,16641274,16688968,16722267,16726030,16726984,16895215,16924676,16951083,16979083,16986649,16986805,16987194,17237662,17237675,17237692,17407931,17527921,17527923,17680660,18010691,18017365,18210455,18268645,18409191,18426536,18446258,18446266,18462637,18466105,18474459,18479357,18479966,18481407,18482562,18482570,18776718,18971349,19111869,19111883,19111894,19328185,19381970,19382057,19395497,19396450,19397135,19399456,19643249,19644347,19703034,19703041,19703046,19703062,19703476,19704064,19704172,20048880,20056642,20064349,20373160,20519646,20577851,20642023,20721924,21064230,21294489,21351465,21392199,21392417,21416138,21420014,21439778,21439893,21439965,21439991,21440056,21440120,21440340,21445765,21754543,21802000,22152171,22152195,22152211,22152234,22158176,22596452,22787168,22787189,22787248,22788064,22788102,22788134,22788972,22920072,22960388,22960435,22969230,22971409,23153735,23153742,23155792,23156134,23306097,23532796,23727705,23922939,24015579,24294377,24294400,24346755,24396804,24419811,24419822,24440014,24659699,24686580,24713330,24785057,24791472,24814192,24839406,24841520,24903431,24903441,24903474,25158998,25162389,25317304,25535467,25545089,25695001,25740034,25741198,25923196,25926517,25974222,25977812,26013203,26014536,26017478,26417031,26419811,26421972,26673760,26774629,26777410,26777502,26945832,27133214,27171403,27245855,27312415,27471379,27474371,27477255,27494652,27848918,27848921,27848937,27849961,27858062,27860496,27902303,27902388,27902398,27902406,28275809,28277195,28277486,28492363,28664212,28671909,28672001,29099749,29100347,29100449,29100543,29345958,29532089,29532111,29532138,29939404,29957963,29959768,29959897,29959911,30392263,30393548,30393653,30649735,30847685,30847733,30847746,30847779,31314849,31314931,31314966,31532496,31839203,31839260,31839337,31839411,32199868,32353654,32355759,32355966,32356064,32858586,32858662,32858699,32858741,33382537,33382711,33383241,33683368,33732371,33866728,33866846,33867016,33867401,33879504,34223662,34247537,34398653,34398938,34399318,34399428,34870758,34898883,34901961,35293856,35366155,35366215,35682284,35683911,35684857,35809502,36042596,36042821,36105781,36107470,36431591,36568384,36568418,36568603,36784258,36913594,36913598,36913601,37347081,37347098,37347141,37694889,37694914,37816777,37821008,37821473,37821996,38326803,38327125,38861951,39258329,39258389,40493542,40493590,40493658,40504724,40811356,40892405,40892781,41457484,41457719,41855117,41855400,41856126,42067245,42200159,42200852,42201538,42321801,42845609,42845684,42845853,42845896,42847923,43245080,43245104,43245530,43567614,43708943,43708954,44084783,44115185,44115926,44116233,44561343,44561400,44561450,45094376,45177979,45201977,45513203,45513247,45754061,45941397,45941451,46132907,46360821,46360870,46360920,46362414,46846024,46846074,46846115,46846246,47262108,47262951,47597760,47597835,47871597,47871615,47871635,47871646,48159648,48159731,48159815,48395736,48596305,48596324,48596336,48847374,49052638,49052686,49052716,49059364,49491716,49491736,49491781,49491808,49929724,49929746,49929767,49929776,50454041,50454086,50937815,50938746,50938765,50938773,51302649,51346271,51346336,51346471,51347716,51757126,51757158,51757162,51760061,52180858,52180863,52180871,52180878,52625728,52625733,52625744,52627419,52938493,53130850,53130867,53130887,53130896,53623248,53623295,53623322,53623350,53917288,54130537,54130543,54130552,54130559,54694311,54694324,54694329,54694334,55028088,55192815,55194474,55301897,55302141,55302225,55642223,55917409,55917420,55917429,55917432,56561570,56561579,56561593,56561607,57229313,57229337,57229357,57229371,57902859,57902997,57983479,57983532,57983650,58364871,58574416,58574431,58574445,58574452,58880579,59175769,59175777,59190534,59190543,59805584,59806354,59848474,59848509,60357959,60357972,60357982,60357989,60678464,60791062,60888200,60888225,60888284,60888308,61459592,61459678,61459706,61459718,61916108,61916132,61916137,61963621,62350846,62350856,62350867,62350883,62803165,62803173,62803186,62809243,62827106,62827121,63253676,63253701,63253706,63253718,63721700,63721711,63721724,63721732,64160538,64160547,64220933,64220952,64372659,64372667,64447616,64647631,64647651,64647666,64735604,64869906,64869947,64870000,64870021,65079090,65079094,65082246,65082275,65469817,65469882,65469908,65545955,65545971,65546284,65554735,65868656,65954788,65969704,65969749,65969758,65979823,66416579,66416590,66416602,66416616,66426103,66426498,66823631,66823689,66896542,66896565,66896601,66896638,67319385,67319408,67319425,67494312,67747860,67747884,67747912,67755182,67755192,67755215,67798397,67998086,68233678,68354832,68354853,68478587,68539623,68603151,68603324,68848741,69209924,69210321,69210407,69499437,69499452,69567827,69567879,69947367,69947379,69964719,70032387,70353298,70476425,70476435,70476446,70476451,71037028,71037056,71037076,71037101,71422327,71422340,71422361,71597027,71597048,71597060,71597072,72069827,72069855,72069888,72318993,72644603,72644629,72644644,72713855,73232786,73232803,73232825,73265108,73799243,73799348,73829193,73829202,73829214,73888479,74385386,74385399,74385418,74385438,74904387,74904396,74904413,74972442,75550883,75550907,75550928,75556791,75906930,75906942,75906973,75941738,76170471,76170515,76170545,76262706,76596269,76596299,76768897,77443436,77443461,77443491,77443704,78005009,78005022,78005082,78026639,78367424,78665196,78665204,78665215,78730532,79446395,79446433,79446454,79446473,79736563,79736586,80576913,80576928,80576952,80576967,80597060,80661504,81154592,81155006,81330766,81847365,81847533,81847570,81847637,82357079,82357101,82357123,82358339,82707568,82707577,82711866,82711870,83021197,83021217,83021236,83021250,83704154,83704165,83704169,83704179,83704190,84012460,84417104,84417281,84418938,84419543,85145626,85145662,85145680,85145730,85145757,85150452,85150872,85150978,85754656,85879435,85879447,85879456,85879465,86492467,86492583,86494893,86494914,86692539,86903805,87361508,87361662,87361806,87361995,88143060,88143074,88143093,88143166,88146486,88146497,88146505,88885268,88885481,88885497,88885506,88885524,88885539,89203876,89203895,89390416,89390459,89487903,89487934,89488524,89491407,90211299,90220371,90220438,90242059,90718350,90718505,90718618,90718686,91294485,91360028,91360052,91360081,91360104,91450692,91517984,91518057,91658290,92142799,92142829,92142841,92142950,92627975,92627988,92628074,92628079,93136666,93136674,93136746,93136802,93528414,93536785,93536827,93536844,93536867,93667422,93709266,93722443,93722515,93725362,93746675,94119269,94233286,94233344,94233367,94233391,94333296,94794774,94794833,94794847,95258660,95354259,95354268,95354288,95354304,95484098,95484354,95951270,95951291,95951330,95951359,96092647,96095042,96493688,96501417,96501454,96669682,96669687,96669697,96669943,97161222,97161241,97161262,97161295,97311482,97712291,97756645,97885289,97885508,97885552,97885572,97886188,97932897,98219158,98253569,98253592,98253626,98253651,98341183,98346415,98411325,98411393,98411436,98970218,99033296,99119158,99119198,99119240,99119261,99130630,99174250,99199463,99206951,99206970,99254164,99254203,99254241,99254358,99254437,99610601,99641902,99797327,99797357,99797381,99797403,100469994,100472063,100472084,101078326,101078350,101078524,101078559,101078911,101078953,101079008,101106419,101106464,101110605,101191388,101715440,101734094,101854599,101854660,102705386,102705402,102705430,102705454,103234296,103234612,103235041,103338520,103358098,103359953,104642522,104642550,104642566,104642700,105179506,105189286,105189783,105289761,105351503,105351545,105351572,105351720,105351748,105430216,106064277,106064315,106064447,106064469,106701564,106701619,106701659,106701702,107458429,107458461,107458483,107458531,108148416,108148449,108148479,108149175,108149201,108153884,108155504,108158379,108158439,108234775,108875151,108875172,108875216,108875237,108899214,109364052,109583771,109583797,109583822,109583846,110204666,110335886,110337782,110337828,110337853,110337884,110337910,110702207,110703943,110704033,110789105,110892267,111518891,111876831,112591865,112591894,112593662,112593687,113299556,113299590,113299620,113299641,113328094,114020480,114020505,114020538,114020557,114491710,114552541,114687223,114687236,114687251,114690870,115377964,116040770,116040789,116040807,116040828,116055112,116693694,116693715,116693735,116693764,117498775,117498793,117498849,117544573,118281463,118281490,118281529,118281609,118650365,119101539,119101595,119101643,119917487,119917513,119917531,119917556,119934168,120307951,120749408,120749452,120749494,120749528,121121915,121385193,121385230,121385262,121385328,121925044,121946387,122278149,122278207,122278276,122278316,122330194,123042140,123134886,123134949,123234510,123234545,123234626,123234673,124126528,124126871,124127383,124128001,124472052,124908320,124908832,125013769,125013799,125013830,125013849,125859385,125859450,125859483,126704033,126710875,126719093,126719120,126719148,127506105,127506257,127506324,127506364,128160832,128160929,128162639,128162713,128209615,128210518,129457095,129471121,129471151,129471170,130112971,130113061,130113146,130167063,130925426,131372632,131592085,132789698,132870835,133315268,134109039,134111541,135472231,135518721,135949859,135949881,136170437,136172718,136213778,138761013,139308319,139574344,139577901,139577956,139577997,139578061,139578136,139578207,139578571,139581823,139586244,139593916,140490812,140821168,141759818,142498104,143517948,143606297,143606363,143606407,144510568,144980658,146026904,146026928,146026944,146047188,146047220,146047247,146057771,146071355,147143821,147143848,147143863,147143881,147937284,147937377,147937415,147937443,147948041,148017553,148521629,148790984,148791372,148791414,148791460,148812192,149222485,149222558,149411775,149612167,149612200,149612243,149638899,150336333,150336402,150363993,150366274,150366320,150366351,150927798,150980377,150980409,150980444,150980471,151291980,151292047,151311761,151777652,152173291,152173304,152173333,152187131,152187198,152233094,152233381,152660131,152660258,152766031,152822815,152822847,152823565,152823669,152824068,152824174,152832328,152971952,153025459,153938986,153939072,153939226,154727201,154727251,154727343,154727487,155414424,155661985,155662051,155662087,155696189,156467855,156467926,156467963,156467990,157205782,157205818,157205831,157205837,158069071,158069110,158069143,158069180,159199204,159199218,159199229,159199263,159229806,159913543,160189476,160189629,160189720,160189871,160198008,160198363,160198658,160199141,161075864,161208517,161211085,161216321,161219921,161219985,161220552,161230469,161282711,162857268,162857316,162857357,162857391,162857422,162979146,162979250,163323379,163348575,163348758,163348987,163350265,163351579,163351966,163352376,163353363,163354553,163355211,163355404,163355764,163488515,163995329,163995460,164015715,164016477,164017027,164174293,164174394,164207580,164207842,164369961,168140516,168140813,168140949,168141301,168141496,168142114,168142394,168142620,168142869,168143042,169602010,169602103,169602388,169669671,170896461,170896571,170896941,170897263,170902990,170903216,170903610,170903868,172246669,172246820,172248941,172249239,172289170,172298750,172921991,172922026,172922089,173751087,173755801,173781053,173812248,174418144,174752186,174752245,174752400,174752553,176087466,176087505,176087556,176087597,176087639,176087640,176219131,178076749,178076831,178076989,178077177,178400986,179369406,179369627,179369752,179369914,179625551,180298135,180298414,180298769,180300142,180313580,180518956,181196009,181245094,181245120,181245141,181245172,181245219,181355844,181356054,181469197,181469279,181550181,182273799,182273893,182273948,183346956,183347165,183355732,183355817,183355892,183355969,183441634,183665171,183665514,183665594,183665698,183704866,183797762,183826384,184757813,184757948,184758255,184758713,184760397,185422055,185422295,185422758,186521342,186867645,186867671,186867693,186868641,186868758,186958653,186959114,187688069,187840979,188643628,188644205,188644771,188853857,188854357,188868661,189756588,189910262,189910707,189910805,190094159,190094270,190094313,190111117,190880295,191261808,191261930,192456288,192537346,193705415,193743245,193769809,193771176,193772607,201756020,201756469,202039834,202083069,204095612,204095670,204095724,204485737,206136361,206136532,206566653,206798405,206799274,208659586,208659734,209290837,209980135,209980247,211944997,212296400,212296936,212500257,212641536,215354986,215355157,215355320,215392741,215448210,217901450,218631022,218631128,218631227,218634097,220288951,220288991,220289039,221173389,221173959,221181437,221241923,221266538,223132403,223132588,223439643,223785065,223785350,223785473,223800426,225921000,225921137,225921650,225921724,226205948,226206253,226206426,226206639,228588531,228588651,228588772,228589017,229909386,229909697,230185510,230516405,230729032,230758501,230758639,232520546,232522034,233519998,233520157,233520257,233520425,233633874,233657188,233660801,236401511,236402747,236403380,236403905,236438668,236440696,236441643,236442380,236443047,241017426,241017568,241511828,241512134,241542047,243007180,243777016,243778818,243788010,243788599,243790334,243790517,243791145,243791329,243890860,244081145,244082303,245617341,248285248,248287898,250407413,250407647,250533235,250534394,252564167,253485047,253518869,253518920,253519495,254608905,255800146,255800577,255800783,257342981,257343434,257343597,257807125,257807712,257810065,257811449,257812862,257813288,257816690,257829534,257837994,257838919,257840933,261439002,261447208,261762082,261826406,261826521,261826683,261827192,262406180,264289990,264290413,264989911,264990158,264990548,264991177,268533320,268533563,268533852,268586231,270560835,270562881,271017031,271017217,271017537,271017937,273795078,273969902,273970482,277954704,277955084,277955605,277956390,277963405,278009025,280661926,280662667,280662903,283754518,283755431,283756680,284135286,286526176,286526788,286527185,286527303,287424278,287424705,287425246,287426148,292044716,292046825,292969139,292969458,292969932,292970740,292971046,294950095,295460073,295460702,295461517,298085284,298087401,300410436,300410799,300436644,302030998,302063713,302280931,302281291,302418416,302502491,304719869,304720206,304720496,304721834,305943571,306163602,306971294,306971449,306971659,313532084,313532207,313532292,313536525,313547087,313547345,314534854,315565799,315573586,315574690,315617026,317592936,317593132,317593302,319106687,319655993,319656339,319656563,321345839,321582427,323192649,323477973,325755895,325758098,327365543,329021694,329021959,329022047,330295904,330296114,330296266,332747438,332747874,332748371,332755212,332774000,334177905,334523653,334620158,334620353,334620605,335085355,335086410,335087161,335132838,336370943,336371164,341108783,341109697,341110180,342869414,343586214,343587237,346685995,346686597,346686979,346687267,346687565,346687946,356212121,356212933,356213216,356213494,357834584,357837444,359178822,359179120,359179463,359244394,361950297,361950795,365631067,365642085,365642352,365674685,368070589,375829909,375832969,379098145,380204314,380210977,382837475,382837631,382837706,382837862,382837983,383608755,383609201,385780758,387285940,387286257,390969719,391005275,392057539,395205750,395205954,395449601,397902579,398122525,398122724,398122908,398675172,398675588,401277404,402304782,402305186,405991634,405996670,406101128,409745306,409746054,410001793,413199938,413200176,416846710,419240423,419241111,420160506,420161128,420178043,424700938,425120575,425121415,427947884,427948872,427949130,430065768,430066424,431038614,431042935,431044405,431045523,431047232,433922317,433923430,434289516,435116454,435116927,439307591,439988813,439989184,444457864,445150567,445151478,450565762,450566409,454733534,454733927,454734258,456221232,456226536,460099901,461488745,461489128,462294549,467109039,467109371,467137230,467138029,467859890,467895641,467935723,471751406,471830826,472607336,472607575,473287763,477910063,477911027,478707595,483308034,483308681,483899693,489196923,489197999,491599826,492670565,492854717,492979024,498752334,498752764,501753915,501755654,501939119,501940219,501941714,501942750,501966315,503955938,503957396,503957703,507797529,507803661,511930668,511931885,512422543,512451831,515687734,515687925,515688182,515688387,515688568,517827255,517827962,521925833,522586178,522587921,527383094,527384527,531702150,532254782,535104095,536288166,537374622,537435862,537436189,537436448,542184488,542755101,548019247,549914420,549914888,549915884,553937189,553939167,561842836,563287969,563288952,566780253,566780416,569676258,569678090,579868200,583007360,583026228,583030187,583157224,583159170,602145262,602146440,608818868,610133129,610133821,621089209,621090617,629893424,629895007,635616686,635636907,638034686,639343572,639345143,658805662,674103772,674104921,675312894,686806111,698862470,709229848,709399046,709400407,718234275,718245473,718258183,718259118,725802037,725802546,728205177,728207067,738924664,738925737,743687369,743691009,743692189,743692715,746686384,746687364,754869699,754871615,782684707,790967234,790968060,790968791,790979662,815545408,820013867,834681176,834681446,835779898,835780770,845518976,845527166,846792499,846794018,858740936,869123788,869125445,880432781,880433057,880448457,880453518,880499904,880506541,891900286,891924036,892001727,892003497,903197575,903199054,904534058,904534702,928794651,928796097,928805891,928806888,928807470,928913996,928914739,936703279,936703828,936704694,939131179,939132399,939160890,945527020,953518028,968188707,972187699,972189904,987005222,987030948,987032734,999861927,999864256,999864737,999865627,999866081,999866560,1001541309,1001649855,1001653705,1016183873,1016496274,1030943683,1033136271,1033137155,1046322934,1046323916,1047877698,1047878121,1060280135,1060282245,1062304136,1074738432,1074742019,1076255449,1076457286,1076467071,1084980039,1088051376,1088051790,1102656209,1103011681,1103012605,1117743696,1117745433,1119904760,1119905177,1119905579,1119906090,1132884456,1132887630,1144705079,1144845319,1145081326,1145358304,1145358579,1149193097,1149193369,1149573271,1149579825,1178843200,1180417820,1180418251,1183006601,1183007014,1183007628,1183008259,1191128759,1191143111,1191149773,1208300505,1208300973,1213388821,1213389922,1215506016,1215515248,1224414225,1227732454,1230024287,1230027322,1230839551,1241156565,1241156683,1241585055,1241585476,1241586091,1241586595,1241587075,1245307956,1245309147,1258015236,1258015943,1304339797,1304344132,1320966419,1320966824,1340206298,1340206957,1360077860,1360078533,1363010936,1363011928,1363019628,1363020083,1363023036,1377984056,1377987605,1380774367,1380788230,1402292509,1402322831,1402445648,1402446243,1402452608,1427401206,1427402900,1466341532,1466353882,1469849512,1469850646,1469987740,1492225511,1492226137,1504917437,1513260464,1513262045,1532311127,1536052210,1536053426,1560398824,1560400932,1560600467,1560608167,1587165780,1587175338,1602503043,1609498185,1645052196,1645056094,1665509807,1665540132,1665541125,1665544157,1678314358,1678349400,1694623317,1694661592,1708354246,1708355542,1748600996,1748602670,1748603889,1748604797,1760404984,1760406591,1789546750,1789547756,1829078563,1829110586,1856115349,1856117810,1868161479,1868405032,1886281601,1903663829,1903666770,1915020448,1929592959,1929597345,1981809272,1981813154,1990279115,2002056831,2008153361,2008153855,2008154280,2008155070,2010630652,2014805757,2014853976,2016188435,2016189421,2045764727,2045767145,2103274863,2103276507,2136389582,2136391608,2136411578,2136443074,2163549594,2163551089,2190016098,2190019650,2221406451,2221408043,2221409781,2222652960,2226815033,2230347432,2230348478,2261167878,2261478942,2274759555,2290921705,2291005315,2316759705,2316760298,2350122208,2385189785,2385192846,2409286506,2409287383,2413687523,2413755690,2435999037,2435999675,2436000243,2445084910,2445089071,2463674178,2463675080,2463683230,2463693263,2470915740,2470977704,2470982537,2470984833,2506347092,2506365260,2530753967,2535102249,2535102910,2535464538,2535472650,2535479252,2544539043,2544539559,2544549379,2544748094,2548989639,2548992615,2548993638,2549005282,2568113462,2569022418,2569028708,2588272910,2605965785,2605966484,2620420065,2620441860,2620451289,2620452349,2620470482,2620521684,2620523077,2620523875,2620524562,2646379006,2646396550,2649068009,2713323785,2804667002,2830533679}
+    for _, id in ipairs(ids) do
+        task.spawn(function()
+            task.wait(0.1)
+            self:_invoke(";gear me " .. id)
+        end)
+    end
+    DoNotif("Gears: firing " .. #ids .. " gear commands", 3)
+end
+function Modules.HDAdmin:SpawnDoges(count)
+    count = count or 25
+    for i = 1, count do
+        self:_invoke(";insert 257489726")
+    end
+    DoNotif("Doge army: spawned " .. count, 2)
+end
+function Modules.HDAdmin:SpawnMeteors(count)
+    count = count or 25
+    for i = 1, count do
+        task.spawn(function()
+            self:_invoke(";insert 86374494")
+            self:_invoke(";insert 12221636")
+        end)
+    end
+    DoNotif("Meteors: spawned " .. count, 2)
+end
+function Modules.HDAdmin:Goner()
+    local gonerChar = "OverZuka"
+    self:_invoke(";r6 me")
+    self:_invoke(";speed me 10")
+    task.wait(1)
+    self:_invoke(";char me " .. gonerChar)
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local debounce = false
+        hrp.Touched:Connect(function(hit)
+            if debounce then return end
+            local hum = hit.Parent and hit.Parent:FindFirstChildOfClass("Humanoid")
+            if hum then
+                local victim = Players:GetPlayerFromCharacter(hit.Parent)
+                if victim and victim ~= LocalPlayer then
+                    debounce = true
+                    self:_invoke(";kill " .. victim.Name)
+                    task.wait(1)
+                    debounce = false
+                end
+            end
+        end)
+    end
+    DoNotif("Goner: activated", 2)
+end
+RegisterCommand({ Name = "anticc",    Aliases = {"anticlientcmd"},  Description = "Toggle anti client commands (HD Admin)" }, function()
+    if Modules.HDAdmin.State.AntiClientCommands then
+        Modules.HDAdmin:DisableAntiClientCommands()
+    else
+        Modules.HDAdmin:EnableAntiClientCommands()
+    end
+end)
+RegisterCommand({ Name = "antideath", Aliases = {"nodeath", "nd"}, Description = "Toggle anti death via HD Admin respawn" }, function()
+    if Modules.HDAdmin.State.AntiDeath then
+        Modules.HDAdmin:DisableAntiDeath()
+    else
+        Modules.HDAdmin:EnableAntiDeath()
+    end
+end)
+RegisterCommand({ Name = "antijail",  Aliases = {"nojail", "unjail"}, Description = "Toggle anti jail loop (HD Admin)" }, function()
+    if Modules.HDAdmin.State.AntiJail then
+        Modules.HDAdmin:DisableAntiJail()
+    else
+        Modules.HDAdmin:EnableAntiJail()
+    end
+end)
+RegisterCommand({ Name = "antimu",  Aliases = {"nomute"},         Description = "Toggle anti mute (HD Admin)" }, function()
+    if Modules.HDAdmin.State.AntiMute then
+        Modules.HDAdmin:DisableAntiMute()
+    else
+        Modules.HDAdmin:EnableAntiMute()
+    end
+end)
+RegisterCommand({ Name = "removeblurs", Aliases = {}, Description = "Remove all blur effects from Lighting and Camera" }, function()
+    Modules.HDAdmin:RemoveBlurs()
+end)
+RegisterCommand({ Name = "hdperiastrons", Aliases = {"periastrons"}, Description = "Give yourself all Periastrons via HD Admin" }, function()
+    Modules.HDAdmin:GivePeriastrons()
+end)
+RegisterCommand({ Name = "hdgears", Aliases = {"allgears"},          Description = "Give yourself all gears via HD Admin (~2000 IDs)" }, function()
+    Modules.HDAdmin:GiveAllGears()
+end)
+RegisterCommand({ Name = "doges",    Aliases = {"doge"},             Description = "Spawn doge army via HD Admin. Usage: doges [count]" }, function(args)
+    Modules.HDAdmin:SpawnDoges(tonumber(args[1]) or 25)
+end)
+RegisterCommand({ Name = "meteors",  Aliases = {"meteor"},           Description = "Spawn meteors via HD Admin. Usage: meteors [count]" }, function(args)
+    Modules.HDAdmin:SpawnMeteors(tonumber(args[1]) or 25)
+end)
+RegisterCommand({ Name = "goner",    Aliases = {},                   Description = "Goner morph with touch kill via HD Admin" }, function()
+    Modules.HDAdmin:Goner()
+end)
 Modules.RevealInvisible = {
     State = {
         Connection = nil,
@@ -39682,571 +40461,682 @@ end)
 RegisterCommand({
     Name        = "ragebot",
     Aliases     = {"rage", "pfarm"},
-    Description = "Playerfarmer for the client",
+    Description = "Zombie Attack counter-bot — attack, evade, void bait",
     ArgsDesc    = {},
     Permissions = {},
 }, function(args, speaker)
-    local RunService = game:GetService("RunService")
-    local UserInputService = game:GetService("UserInputService")
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-    local Theme = {
-        Background = Color3.fromRGB(35, 35, 45),
-        Primary = Color3.fromRGB(25, 25, 35),
-        Accent = Color3.fromRGB(255, 80, 80),
-        Text = Color3.fromRGB(200, 220, 255),
-        TextSecondary = Color3.fromRGB(220, 180, 180),
-        Interactive = Color3.fromRGB(40, 40, 40),
-        Font = Enum.Font.Code,
-        CornerRadius = 8
-    }
-    local Settings = {
-        Enabled = false,
-        AutoAttack = false,
-        AutoCycle = false,
-        HoverDistance = 6,
-        AttackCPS = 10,
-        Target = nil,
-        LerpSpeed = 0.15,
-        BoxReachEnabled = false,
-        BoxReachSize = Vector3.new(15, 15, 15),
-        BoxReachSelectedPart = nil
-    }
-    local mainConnection, lastAttackTime = nil, 0
-    local equippedTool, playerList = nil, {}
-    local currentTargetIndex = 1
-    local reachSelectionBox = nil
-    local characterConnections = {}
-    local isMinimized = false
-    local originalMainWindowSize = UDim2.new(0, 600, 0, 280)
-    local ScreenGui = Instance.new("ScreenGui", PlayerGui)
-    ScreenGui.Name = "RageBotMenuGUI_Complete"
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-    ScreenGui.ResetOnSpawn = false
-    local function makeUICorner(e, r)
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, r or Theme.CornerRadius)
-        c.Parent = e
+    local RunService        = game:GetService("RunService")
+    local UIS               = game:GetService("UserInputService")
+    local Players           = game:GetService("Players")
+    local TweenService      = game:GetService("TweenService")
+    local LocalPlayer       = Players.LocalPlayer
+    local PlayerGui         = LocalPlayer:WaitForChild("PlayerGui")
+    local Camera            = workspace.CurrentCamera
+    if PlayerGui:FindFirstChild("RageBot_V2") then
+        PlayerGui:FindFirstChild("RageBot_V2"):Destroy()
     end
-    local MainWindow = Instance.new("Frame", ScreenGui)
-    MainWindow.Name = "MainWindow"
-    MainWindow.Size = originalMainWindowSize
-    MainWindow.Position = UDim2.new(0.5, -300, 0.5, -140)
-    MainWindow.BackgroundColor3 = Theme.Background
-    MainWindow.Active = true
-    makeUICorner(MainWindow)
-    local TopBar = Instance.new("Frame", MainWindow)
-    TopBar.Name = "TopBar"
-    TopBar.Size = UDim2.new(1, 0, 0, 30)
-    TopBar.BackgroundColor3 = Theme.Primary
-    do
-        local c = Instance.new("UICorner", TopBar)
-        c.CornerRadius = UDim.new(0, Theme.CornerRadius)
+    if getgenv().__RageBotV2_Connections then
+        for _, c in ipairs(getgenv().__RageBotV2_Connections) do pcall(function() c:Disconnect() end) end
     end
-    local TitleLabel = Instance.new("TextLabel", TopBar)
-    TitleLabel.Name = "TitleLabel"
-    TitleLabel.Size = UDim2.new(1, -40, 1, 0)
-    TitleLabel.Position = UDim2.new(0, 10, 0, 0)
-    TitleLabel.BackgroundTransparency = 1
-    TitleLabel.Font = Theme.Font
-    TitleLabel.Text = "Rage Bot (Complete)"
-    TitleLabel.TextColor3 = Theme.Text
-    TitleLabel.TextSize = 16
-    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    local MinimizeButton = Instance.new("TextButton", TopBar)
-    MinimizeButton.Name = "MinimizeButton"
-    MinimizeButton.Size = UDim2.new(0, 24, 0, 24)
-    MinimizeButton.Position = UDim2.new(1, -28, 0.5, -12)
-    MinimizeButton.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
-    MinimizeButton.Font = Theme.Font
-    MinimizeButton.TextColor3 = Color3.new(1, 1, 1)
-    MinimizeButton.Text = "-"
-    MinimizeButton.TextSize = 14
-    makeUICorner(MinimizeButton, 6)
-    local ContentPage = Instance.new("Frame", MainWindow)
-    ContentPage.Name = "ContentPage"
-    ContentPage.Size = UDim2.new(1, 0, 1, -30)
-    ContentPage.Position = UDim2.new(0, 0, 0, 30)
-    ContentPage.BackgroundTransparency = 1
-    local LeftColumn = Instance.new("Frame", ContentPage)
-    LeftColumn.Name = "LeftColumn"
-    LeftColumn.Size = UDim2.new(0.5, -10, 1, -20)
-    LeftColumn.Position = UDim2.new(0, 10, 0, 10)
-    LeftColumn.BackgroundTransparency = 1
-    local LeftLayout = Instance.new("UIListLayout", LeftColumn)
-    LeftLayout.Padding = UDim.new(0, 10)
-    LeftLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    local RightColumn = Instance.new("Frame", ContentPage)
-    RightColumn.Name = "RightColumn"
-    RightColumn.Size = UDim2.new(0.5, -10, 1, -20)
-    RightColumn.Position = UDim2.new(0.5, 0, 0, 10)
-    RightColumn.BackgroundTransparency = 1
-    local RightLayout = Instance.new("UIListLayout", RightColumn)
-    RightLayout.Padding = UDim.new(0, 10)
-    RightLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    local playerSelectorContainer = Instance.new("Frame", LeftColumn)
-    playerSelectorContainer.Size = UDim2.new(1, 0, 0, 64)
-    playerSelectorContainer.BackgroundTransparency = 1
-    playerSelectorContainer.LayoutOrder = 1
-    local playerSelectorLabel = Instance.new("TextLabel", playerSelectorContainer)
-    playerSelectorLabel.Size = UDim2.new(1, 0, 0, 30)
-    playerSelectorLabel.BackgroundTransparency = 1
-    playerSelectorLabel.Text = "Target Player:"
-    playerSelectorLabel.TextColor3 = Theme.TextSecondary
-    playerSelectorLabel.Font = Theme.Font
-    playerSelectorLabel.TextSize = 15
-    playerSelectorLabel.TextXAlignment = Enum.TextXAlignment.Left
-    local playerDropdownButton = Instance.new("TextButton", playerSelectorContainer)
-    playerDropdownButton.Size = UDim2.new(0.6, -5, 0, 28)
-    playerDropdownButton.Position = UDim2.new(0, 0, 0, 30)
-    playerDropdownButton.BackgroundColor3 = Theme.Interactive
-    playerDropdownButton.TextColor3 = Theme.Text
-    playerDropdownButton.Font = Theme.Font
-    playerDropdownButton.TextSize = 15
-    playerDropdownButton.Text = "Select Player"
-    makeUICorner(playerDropdownButton, 6)
-    local cycleToggleButton = Instance.new("TextButton", playerSelectorContainer)
-    cycleToggleButton.Size = UDim2.new(0.4, 0, 0, 28)
-    cycleToggleButton.Position = UDim2.new(0.6, 5, 0, 30)
-    cycleToggleButton.BackgroundColor3 = Theme.Interactive
-    cycleToggleButton.TextColor3 = Theme.Text
-    cycleToggleButton.Font = Theme.Font
-    cycleToggleButton.TextSize = 16
-    makeUICorner(cycleToggleButton, 6)
-    local rageBotToggleContainer = Instance.new("Frame", LeftColumn)
-    rageBotToggleContainer.LayoutOrder = 2
-    local rageBotToggle = Instance.new("TextButton", rageBotToggleContainer)
-    local autoAttackToggleContainer = Instance.new("Frame", LeftColumn)
-    autoAttackToggleContainer.LayoutOrder = 3
-    local autoAttackToggle = Instance.new("TextButton", autoAttackToggleContainer)
-    local cpsInputContainer = Instance.new("Frame", LeftColumn)
-    cpsInputContainer.LayoutOrder = 4
-    local cpsInput = Instance.new("TextBox", cpsInputContainer)
-    local distanceInputContainer = Instance.new("Frame", LeftColumn)
-    distanceInputContainer.LayoutOrder = 5
-    local distanceInput = Instance.new("TextBox", distanceInputContainer)
-    local rightTitle = Instance.new("TextLabel", RightColumn)
-    rightTitle.Size = UDim2.new(1, 0, 0, 20)
-    rightTitle.BackgroundTransparency = 1
-    rightTitle.Font = Theme.Font
-    rightTitle.TextColor3 = Theme.Accent
-    rightTitle.TextSize = 18
-    rightTitle.Text = "BoxReach Module"
-    rightTitle.LayoutOrder = 0
-    local boxReachToggleContainer = Instance.new("Frame", RightColumn)
-    boxReachToggleContainer.LayoutOrder = 1
-    local boxReachToggle = Instance.new("TextButton", boxReachToggleContainer)
-    local sizeInputContainer = Instance.new("Frame", RightColumn)
-    sizeInputContainer.LayoutOrder = 2
-    local sizeInput = Instance.new("TextBox", sizeInputContainer)
-    local partsFrame = Instance.new("Frame", RightColumn)
-    partsFrame.LayoutOrder = 3
-    partsFrame.Size = UDim2.new(1, 0, 0, 120)
-    partsFrame.BackgroundTransparency = 1
-    local partsLabel = Instance.new("TextLabel", partsFrame)
-    partsLabel.Size = UDim2.new(1, 0, 0, 20)
-    partsLabel.BackgroundTransparency = 1
-    partsLabel.Font = Theme.Font
-    partsLabel.TextColor3 = Theme.TextSecondary
-    partsLabel.Text = "Tool Parts:"
-    local partsScroll = Instance.new("ScrollingFrame", partsFrame)
-    partsScroll.Size = UDim2.new(1, 0, 1, -20)
-    partsScroll.Position = UDim2.new(0, 0, 0, 20)
-    partsScroll.BackgroundColor3 = Theme.Primary
-    partsScroll.BorderSizePixel = 0
-    local partsLayout = Instance.new("UIListLayout", partsScroll)
-    partsLayout.Padding = UDim.new(0, 5)
-    function resetAllToolParts(tool)
-        if not tool then
-            return
+    getgenv().__RageBotV2_Connections = {}
+    local Connections = getgenv().__RageBotV2_Connections
+    local function track(c) table.insert(Connections, c) return c end
+    local T = {
+        Bg          = Color3.fromRGB(18, 18, 26),
+        Panel       = Color3.fromRGB(26, 26, 38),
+        Bar         = Color3.fromRGB(15, 15, 22),
+        Accent      = Color3.fromRGB(255, 60, 60),
+        AccentDim   = Color3.fromRGB(120, 30, 30),
+        Green       = Color3.fromRGB(60, 220, 100),
+        Yellow      = Color3.fromRGB(255, 200, 60),
+        Text        = Color3.fromRGB(210, 225, 255),
+        TextDim     = Color3.fromRGB(140, 150, 180),
+        Btn         = Color3.fromRGB(38, 38, 55),
+        BtnHover    = Color3.fromRGB(55, 55, 78),
+        Font        = Enum.Font.Code,
+    }
+    local S = {
+        BotEnabled      = false,
+        AutoAttack      = false,
+        AttackCPS       = 12,
+        HoverDist       = 5,
+        LerpSpeed       = 0.22,
+        Target          = nil,
+        AutoCycle       = false,
+        TeamFilter      = true,
+        MaxDistance     = 80,
+        BoxReach        = false,
+        BoxSize         = Vector3.new(15, 15, 15),
+        SelectedPart    = nil,
+        EvasionEnabled  = false,
+        EvasionMode     = "Jitter",
+        JitterRadius    = 4,
+        JitterSpeed     = 0.05,
+        SpinSpeed       = 8,
+        VoidBait        = false,
+        VoidMargin      = 12,
+        VoidReturnDist  = 6,
+        PredictSteps    = 4,
+    }
+    local equippedTool      = nil
+    local playerList        = {}
+    local targetIndex       = 1
+    local lastAttack        = 0
+    local reachBox          = nil
+    local charConns         = {}
+    local velHistory        = {}
+    local evasionPhase      = 0
+    local isMinimized       = false
+    local function corner(p, r)
+        local c = Instance.new("UICorner", p)
+        c.CornerRadius = UDim.new(0, r or 8)
+    end
+    local function stroke(p, clr, th)
+        local s = Instance.new("UIStroke", p)
+        s.Color = clr or Color3.fromRGB(60,60,80)
+        s.Thickness = th or 1
+    end
+    local function label(parent, txt, size, color, xalign)
+        local l = Instance.new("TextLabel", parent)
+        l.Size = UDim2.new(1,0,0,size or 20)
+        l.BackgroundTransparency = 1
+        l.Font = T.Font
+        l.Text = txt
+        l.TextSize = size or 14
+        l.TextColor3 = color or T.Text
+        l.TextXAlignment = xalign or Enum.TextXAlignment.Left
+        return l
+    end
+    local function btn(parent, txt, size, yOffset)
+        local b = Instance.new("TextButton", parent)
+        b.Size = size or UDim2.new(1,0,0,28)
+        b.Position = UDim2.new(0,0,0, yOffset or 0)
+        b.BackgroundColor3 = T.Btn
+        b.Font = T.Font
+        b.TextColor3 = T.Text
+        b.TextSize = 14
+        b.Text = txt
+        b.AutoButtonColor = false
+        corner(b, 6)
+        b.MouseEnter:Connect(function() b.BackgroundColor3 = T.BtnHover end)
+        b.MouseLeave:Connect(function() b.BackgroundColor3 = T.Btn end)
+        return b
+    end
+    local function toggleBtn(parent, txt, default, cb)
+        local b = btn(parent, txt .. ": " .. (default and "ON" or "OFF"))
+        local state = default
+        b.BackgroundColor3 = state and T.AccentDim or T.Btn
+        b.MouseButton1Click:Connect(function()
+            state = not state
+            b.Text = txt .. ": " .. (state and "ON" or "OFF")
+            b.BackgroundColor3 = state and T.AccentDim or T.Btn
+            if cb then cb(state) end
+        end)
+        return b, function(v)
+            state = v
+            b.Text = txt .. ": " .. (state and "ON" or "OFF")
+            b.BackgroundColor3 = state and T.AccentDim or T.Btn
         end
+    end
+    local function inputRow(parent, labelTxt, default, cb)
+        local row = Instance.new("Frame", parent)
+        row.Size = UDim2.new(1,0,0,28)
+        row.BackgroundTransparency = 1
+        local lbl = Instance.new("TextLabel", row)
+        lbl.Size = UDim2.new(0.5,-4,1,0)
+        lbl.BackgroundTransparency = 1
+        lbl.Font = T.Font
+        lbl.TextSize = 13
+        lbl.Text = labelTxt
+        lbl.TextColor3 = T.TextDim
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        local tb = Instance.new("TextBox", row)
+        tb.Size = UDim2.new(0.5,-4,1,0)
+        tb.Position = UDim2.new(0.5,4,0,0)
+        tb.BackgroundColor3 = T.Btn
+        tb.Font = T.Font
+        tb.TextSize = 13
+        tb.TextColor3 = T.Text
+        tb.Text = tostring(default)
+        tb.ClearTextOnFocus = false
+        corner(tb, 5)
+        tb.FocusLost:Connect(function(enter)
+            if enter and cb then
+                local result = cb(tb.Text)
+                if result ~= nil then tb.Text = tostring(result) end
+            else
+                tb.Text = tostring(default)
+            end
+        end)
+        return row, tb
+    end
+    local Screen = Instance.new("ScreenGui", PlayerGui)
+    Screen.Name = "RageBot_V2"
+    Screen.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    Screen.ResetOnSpawn = false
+    local WIN_W, WIN_H = 580, 340
+    local Win = Instance.new("Frame", Screen)
+    Win.Name = "Win"
+    Win.Size = UDim2.fromOffset(WIN_W, WIN_H)
+    Win.Position = UDim2.new(0.5,-WIN_W/2, 0.5,-WIN_H/2)
+    Win.BackgroundColor3 = T.Bg
+    Win.Active = true
+    corner(Win)
+    stroke(Win, Color3.fromRGB(80,40,40), 1)
+    local Bar = Instance.new("Frame", Win)
+    Bar.Size = UDim2.new(1,0,0,32)
+    Bar.BackgroundColor3 = T.Bar
+    corner(Bar)
+    local BarTitle = Instance.new("TextLabel", Bar)
+    BarTitle.Size = UDim2.new(1,-70,1,0)
+    BarTitle.Position = UDim2.new(0,10,0,0)
+    BarTitle.BackgroundTransparency = 1
+    BarTitle.Font = T.Font
+    BarTitle.Text = "⚔  Rage Bot V2  —  Zombie Attack Counter"
+    BarTitle.TextSize = 14
+    BarTitle.TextColor3 = T.Accent
+    BarTitle.TextXAlignment = Enum.TextXAlignment.Left
+    local CloseBtn = btn(Bar, "✕", UDim2.fromOffset(26,22))
+    CloseBtn.Position = UDim2.new(1,-30,0.5,-11)
+    CloseBtn.BackgroundColor3 = Color3.fromRGB(180,40,40)
+    local MinBtn = btn(Bar, "−", UDim2.fromOffset(26,22))
+    MinBtn.Position = UDim2.new(1,-60,0.5,-11)
+    local StatusBar = Instance.new("Frame", Win)
+    StatusBar.Size = UDim2.new(1,-20,0,22)
+    StatusBar.Position = UDim2.new(0,10,0,36)
+    StatusBar.BackgroundColor3 = T.Panel
+    StatusBar.BackgroundTransparency = 0.3
+    corner(StatusBar, 5)
+    local StatusLabel = Instance.new("TextLabel", StatusBar)
+    StatusLabel.Size = UDim2.new(1,-10,1,0)
+    StatusLabel.Position = UDim2.new(0,8,0,0)
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Font = T.Font
+    StatusLabel.TextSize = 12
+    StatusLabel.TextColor3 = T.TextDim
+    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    StatusLabel.Text = "Status: Idle  |  Target: None  |  Kicks blocked: 0"
+    local function updateStatus()
+        local tName = S.Target and S.Target.Name or "None"
+        local botState = S.BotEnabled and "🟢 Active" or "⚪ Idle"
+        local evasionState = S.EvasionEnabled and ("  |  Evasion: " .. S.EvasionMode) or ""
+        local voidState = S.VoidBait and "  |  VoidBait: ON" or ""
+        StatusLabel.Text = botState .. "  |  Target: " .. tName .. evasionState .. voidState
+    end
+    local Content = Instance.new("Frame", Win)
+    Content.Size = UDim2.new(1,-20,1,-66)
+    Content.Position = UDim2.new(0,10,0,64)
+    Content.BackgroundTransparency = 1
+    local function makeCol(xScale, xOffset, wScale, wOffset)
+        local f = Instance.new("Frame", Content)
+        f.Size = UDim2.new(wScale, wOffset, 1, 0)
+        f.Position = UDim2.new(xScale, xOffset, 0, 0)
+        f.BackgroundTransparency = 1
+        local l = Instance.new("UIListLayout", f)
+        l.Padding = UDim.new(0,6)
+        l.SortOrder = Enum.SortOrder.LayoutOrder
+        return f
+    end
+    local ColLeft   = makeCol(0,      0,   0.33, -4)
+    local ColMid    = makeCol(0.33,   4,   0.33, -8)
+    local ColRight  = makeCol(0.66,   4,   0.34, -4)
+    local function sectionTitle(parent, txt)
+        local l = Instance.new("TextLabel", parent)
+        l.Size = UDim2.new(1,0,0,18)
+        l.BackgroundTransparency = 1
+        l.Font = T.Font
+        l.Text = txt
+        l.TextSize = 12
+        l.TextColor3 = T.Accent
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        return l
+    end
+    sectionTitle(ColLeft, "── ATTACK BOT")
+    local targetRow = Instance.new("Frame", ColLeft)
+    targetRow.Size = UDim2.new(1,0,0,28)
+    targetRow.BackgroundTransparency = 1
+    local targetBtn = btn(targetRow, "Target: None", UDim2.new(0.65,-3,1,0))
+    local cycleBtn  = btn(targetRow, "Cycle: OFF", UDim2.new(0.35,-3,1,0))
+    cycleBtn.Position = UDim2.new(0.65,3,0,0)
+    local _, botToggleSet   = toggleBtn(ColLeft, "Bot", false, function(v)
+        S.BotEnabled = v
+        updateStatus()
+    end)
+    local _, atkToggleSet   = toggleBtn(ColLeft, "Auto Attack", false, function(v)
+        S.AutoAttack = v
+    end)
+    local _, teamToggleSet  = toggleBtn(ColLeft, "Team Filter", true, function(v)
+        S.TeamFilter = v
+    end)
+    inputRow(ColLeft, "CPS (max 25)", S.AttackCPS, function(v)
+        local n = tonumber(v)
+        if n and n > 0 and n <= 25 then S.AttackCPS = n end
+        return S.AttackCPS
+    end)
+    inputRow(ColLeft, "Hover Dist", S.HoverDist, function(v)
+        local n = tonumber(v)
+        if n and n >= 1 and n <= 25 then S.HoverDist = n end
+        return S.HoverDist
+    end)
+    inputRow(ColLeft, "Max Dist", S.MaxDistance, function(v)
+        local n = tonumber(v)
+        if n and n > 0 then S.MaxDistance = n end
+        return S.MaxDistance
+    end)
+    sectionTitle(ColMid, "── EVASION (break their lock)")
+    toggleBtn(ColMid, "Evasion", false, function(v)
+        S.EvasionEnabled = v
+        updateStatus()
+    end)
+    local modeRow = Instance.new("Frame", ColMid)
+    modeRow.Size = UDim2.new(1,0,0,28)
+    modeRow.BackgroundTransparency = 1
+    local modes = {"Jitter", "Spin", "Vertical", "Combo"}
+    local modeIdx = 1
+    local modeBtn = btn(modeRow, "Mode: Jitter", UDim2.new(1,0,1,0))
+    modeBtn.MouseButton1Click:Connect(function()
+        modeIdx = (modeIdx % #modes) + 1
+        S.EvasionMode = modes[modeIdx]
+        modeBtn.Text = "Mode: " .. S.EvasionMode
+        updateStatus()
+    end)
+    inputRow(ColMid, "Jitter Radius", S.JitterRadius, function(v)
+        local n = tonumber(v)
+        if n and n > 0 and n <= 20 then S.JitterRadius = n end
+        return S.JitterRadius
+    end)
+    inputRow(ColMid, "Spin Speed", S.SpinSpeed, function(v)
+        local n = tonumber(v)
+        if n and n > 0 then S.SpinSpeed = n end
+        return S.SpinSpeed
+    end)
+    sectionTitle(ColMid, "── VOID BAIT")
+    toggleBtn(ColMid, "Void Bait", false, function(v)
+        S.VoidBait = v
+        updateStatus()
+    end)
+    inputRow(ColMid, "Bait Margin", S.VoidMargin, function(v)
+        local n = tonumber(v)
+        if n and n > 0 then S.VoidMargin = n end
+        return S.VoidMargin
+    end)
+    sectionTitle(ColRight, "── BOX REACH")
+    toggleBtn(ColRight, "BoxReach", false, function(v)
+        S.BoxReach = v
+        if v then applyBoxReach() else resetReach() end
+    end)
+    inputRow(ColRight, "Size (x,y,z)", "15,15,15", function(t)
+        if t then
+            local n = {}
+            for m in t:gmatch("[^,]+") do table.insert(n, tonumber(m)) end
+            if #n == 3 and n[1] and n[2] and n[3] then
+                S.BoxSize = Vector3.new(n[1], n[2], n[3])
+                if S.BoxReach then applyBoxReach() end
+            end
+        end
+        return string.format("%.0f,%.0f,%.0f", S.BoxSize.X, S.BoxSize.Y, S.BoxSize.Z)
+    end)
+    local partsLabel = Instance.new("TextLabel", ColRight)
+    partsLabel.Size = UDim2.new(1,0,0,16)
+    partsLabel.BackgroundTransparency = 1
+    partsLabel.Font = T.Font
+    partsLabel.TextSize = 12
+    partsLabel.TextColor3 = T.TextDim
+    partsLabel.Text = "Tool Parts:"
+    partsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local partsScroll = Instance.new("ScrollingFrame", ColRight)
+    partsScroll.Size = UDim2.new(1,0,0,100)
+    partsScroll.BackgroundColor3 = T.Panel
+    partsScroll.BorderSizePixel = 0
+    partsScroll.ScrollBarThickness = 4
+    partsScroll.CanvasSize = UDim2.new(0,0,0,0)
+    corner(partsScroll, 5)
+    local partsLayout = Instance.new("UIListLayout", partsScroll)
+    partsLayout.Padding = UDim.new(0,4)
+    partsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    partsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        partsScroll.CanvasSize = UDim2.new(0,0,0, partsLayout.AbsoluteContentSize.Y + 8)
+    end)
+    do
+        local dragging, dragStart, startPos = false, nil, nil
+        Bar.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = true
+                dragStart = i.Position
+                startPos = Win.Position
+                i.Changed:Connect(function()
+                    if i.UserInputState == Enum.UserInputState.End then dragging = false end
+                end)
+            end
+        end)
+        track(UIS.InputChanged:Connect(function(i)
+            if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+                local d = i.Position - dragStart
+                Win.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset+d.X, startPos.Y.Scale, startPos.Y.Offset+d.Y)
+            end
+        end))
+    end
+    CloseBtn.MouseButton1Click:Connect(function()
+        Screen:Destroy()
+        for _, c in ipairs(Connections) do pcall(function() c:Disconnect() end) end
+    end)
+    MinBtn.MouseButton1Click:Connect(function()
+        isMinimized = not isMinimized
+        Content.Visible = not isMinimized
+        StatusBar.Visible = not isMinimized
+        Win.Size = isMinimized and UDim2.fromOffset(WIN_W, 32) or UDim2.fromOffset(WIN_W, WIN_H)
+        MinBtn.Text = isMinimized and "+" or "−"
+    end)
+    track(UIS.InputBegan:Connect(function(i, gp)
+        if gp then return end
+        if i.KeyCode == Enum.KeyCode.RightAlt then
+            S.BotEnabled = not S.BotEnabled
+            botToggleSet(S.BotEnabled)
+            DoNotif("Rage Bot: " .. (S.BotEnabled and "ON" or "OFF"), 1)
+            updateStatus()
+        end
+        if i.KeyCode == Enum.KeyCode.RightControl then
+            S.EvasionEnabled = not S.EvasionEnabled
+            DoNotif("Evasion: " .. (S.EvasionEnabled and "ON" or "OFF"), 1)
+            updateStatus()
+        end
+    end))
+    function resetReach(tool)
+        tool = tool or equippedTool
+        if not tool then return end
         for _, d in ipairs(tool:GetDescendants()) do
             if d:IsA("BasePart") then
-                local o = d:FindFirstChild("OriginalSize")
-                if o then
-                    d.Size = o.Value
-                    o:Destroy()
-                end
+                local o = d:FindFirstChild("__OrigSize")
+                if o then d.Size = o.Value; o:Destroy() end
             end
         end
-        if reachSelectionBox then
-            reachSelectionBox:Destroy()
-            reachSelectionBox = nil
-        end
+        if reachBox then reachBox:Destroy(); reachBox = nil end
     end
     function applyBoxReach()
-        if not Settings.BoxReachEnabled or not Settings.BoxReachSelectedPart or not Settings.BoxReachSelectedPart.Parent then
-            return
-        end
-        local p = Settings.BoxReachSelectedPart
-        if not p:FindFirstChild("OriginalSize") then
+        if not S.BoxReach or not S.SelectedPart or not S.SelectedPart.Parent then return end
+        local p = S.SelectedPart
+        if not p:FindFirstChild("__OrigSize") then
             local v = Instance.new("Vector3Value", p)
-            v.Name = "OriginalSize"
+            v.Name = "__OrigSize"
             v.Value = p.Size
         end
-        p.Size = Settings.BoxReachSize
-        if reachSelectionBox then
-            reachSelectionBox:Destroy()
-        end
-        reachSelectionBox = Instance.new("SelectionBox")
-        reachSelectionBox.Adornee = p
-        reachSelectionBox.LineThickness = 0.02
-        reachSelectionBox.Color3 = Theme.Accent
-        reachSelectionBox.Parent = p
+        p.Size = S.BoxSize
+        if reachBox then reachBox:Destroy() end
+        reachBox = Instance.new("SelectionBox")
+        reachBox.Adornee = p
+        reachBox.LineThickness = 0.025
+        reachBox.Color3 = T.Accent
+        reachBox.SurfaceTransparency = 0.85
+        reachBox.SurfaceColor3 = T.Accent
+        reachBox.Parent = workspace
     end
-    function handleMovement(mR, tR)
-        local bV = -tR.CFrame.LookVector
-        local tP = tR.Position + (bV * Settings.HoverDistance)
-        local nCF = CFrame.lookAt(tP, tR.Position)
-        mR.CFrame = mR.CFrame:Lerp(nCF, Settings.LerpSpeed)
-    end
-    function handleAutoAttack()
-        if not Settings.AutoAttack or not equippedTool then
-            return
-        end
-        local aI = 1 / Settings.AttackCPS
-        if os.clock() - lastAttackTime >= aI then
-            lastAttackTime = os.clock()
-            pcall(
-                function()
-                    equippedTool:Activate()
-                end
-            )
-        end
-    end
-    function startBot()
-        if mainConnection then
-            return
-        end
-        mainConnection =
-            RunService.RenderStepped:Connect(
-            function()
-                if not Settings.Enabled or not Settings.Target or not Settings.Target.Character then
-                    return
-                end
-                local mC, tC = LocalPlayer.Character, Settings.Target.Character
-                local mR, mH, tR =
-                    mC and mC:FindFirstChild("HumanoidRootPart"),
-                    mC and mC:FindFirstChildOfClass("Humanoid"),
-                    tC and tC:FindFirstChild("HumanoidRootPart")
-                if not (mR and mH and mH.Health > 0 and tR) then
-                    return
-                end
-                handleMovement(mR, tR)
-                handleAutoAttack()
-            end
-        )
-    end
-    function stopBot()
-        if mainConnection then
-            mainConnection:Disconnect()
-            mainConnection = nil
-        end
-    end
-    function populatePartList()
+    local selectedPartBtn = nil
+    function populateParts()
         for _, c in ipairs(partsScroll:GetChildren()) do
-            if c:IsA("TextButton") then
-                c:Destroy()
-            end
+            if c:IsA("TextButton") then c:Destroy() end
         end
-        Settings.BoxReachSelectedPart = nil
-        if not equippedTool then
-            return
-        end
-        local selectedButton = nil
+        S.SelectedPart = nil
+        selectedPartBtn = nil
+        if not equippedTool then return end
         for _, p in ipairs(equippedTool:GetDescendants()) do
             if p:IsA("BasePart") then
                 local b = Instance.new("TextButton", partsScroll)
-                b.Size = UDim2.new(1, -10, 0, 25)
-                b.BackgroundColor3 = Theme.Interactive
-                b.TextColor3 = Theme.Text
-                b.Font = Theme.Font
+                b.Size = UDim2.new(1,-6,0,22)
+                b.BackgroundColor3 = T.Btn
+                b.Font = T.Font
+                b.TextSize = 12
+                b.TextColor3 = T.Text
                 b.Text = p.Name
-                b.MouseButton1Click:Connect(
-                    function()
-                        resetAllToolParts(equippedTool)
-                        Settings.BoxReachSelectedPart = p
-                        applyBoxReach()
-                        if selectedButton then
-                            selectedButton.BackgroundColor3 = Theme.Interactive
-                        end
-                        b.BackgroundColor3 = Theme.Accent
-                        selectedButton = b
-                    end
-                )
+                corner(b, 4)
+                b.MouseButton1Click:Connect(function()
+                    resetReach(equippedTool)
+                    S.SelectedPart = p
+                    if S.BoxReach then applyBoxReach() end
+                    if selectedPartBtn then selectedPartBtn.BackgroundColor3 = T.Btn end
+                    b.BackgroundColor3 = T.AccentDim
+                    selectedPartBtn = b
+                end)
             end
         end
     end
-    function cleanupConnections()
-        for i, v in ipairs(characterConnections) do
-            v:Disconnect()
-        end
-        characterConnections = {}
+    local function cleanCharConns()
+        for _, c in ipairs(charConns) do pcall(function() c:Disconnect() end) end
+        charConns = {}
     end
-    function trackEquippedTool(character)
-        cleanupConnections()
-        resetAllToolParts(equippedTool)
-        equippedTool = character:FindFirstChildOfClass("Tool")
-        populatePartList()
-        table.insert(
-            characterConnections,
-            character.ChildAdded:Connect(
-                function(c)
-                    if c:IsA("Tool") then
-                        resetAllToolParts(equippedTool)
-                        equippedTool = c
-                        populatePartList()
-                    end
-                end
-            )
-        )
-        table.insert(
-            characterConnections,
-            character.ChildRemoved:Connect(
-                function(c)
-                    if c == equippedTool then
-                        resetAllToolParts(equippedTool)
-                        equippedTool = nil
-                        populatePartList()
-                    end
-                end
-            )
-        )
+    local function trackTool(char)
+        cleanCharConns()
+        resetReach(equippedTool)
+        equippedTool = char:FindFirstChildOfClass("Tool")
+        populateParts()
+        table.insert(charConns, char.ChildAdded:Connect(function(c)
+            if c:IsA("Tool") then
+                resetReach(equippedTool)
+                equippedTool = c
+                populateParts()
+            end
+        end))
+        table.insert(charConns, char.ChildRemoved:Connect(function(c)
+            if c == equippedTool then
+                resetReach(equippedTool)
+                equippedTool = nil
+                populateParts()
+            end
+        end))
     end
-    function createToggle(button, container, text, default, cb)
-        container.Size = UDim2.new(1, 0, 0, 32)
-        container.BackgroundTransparency = 1
-        button.Size = UDim2.new(1, 0, 1, 0)
-        button.BackgroundColor3 = Theme.Interactive
-        button.TextColor3 = Theme.Text
-        button.Font = Theme.Font
-        button.TextSize = 16
-        makeUICorner(button, 6)
-        local s = default
-        button.Text = text .. ": " .. (s and "ON" or "OFF")
-        button.MouseButton1Click:Connect(
-            function()
-                s = not s
-                button.Text = text .. ": " .. (s and "ON" or "OFF")
-                if cb then
-                    cb(s)
-                end
-            end
-        )
+    if LocalPlayer.Character then trackTool(LocalPlayer.Character) end
+    track(LocalPlayer.CharacterAdded:Connect(trackTool))
+    local function getChar(p)
+        return p and p.Character
     end
-    function createInput(textBox, container, label, default, cb)
-        container.Size = UDim2.new(1, 0, 0, 32)
-        container.BackgroundTransparency = 1
-        local l = Instance.new("TextLabel", container)
-        l.Size = UDim2.new(0.45, 0, 1, 0)
-        l.BackgroundTransparency = 1
-        l.Text = label .. ":"
-        l.TextColor3 = Theme.TextSecondary
-        l.Font = Theme.Font
-        l.TextSize = 15
-        l.TextXAlignment = Enum.TextXAlignment.Left
-        textBox.Size = UDim2.new(0.55, 0, 1, 0)
-        textBox.Position = UDim2.new(0.45, 0, 0, 0)
-        textBox.BackgroundColor3 = Theme.Interactive
-        textBox.TextColor3 = Theme.Text
-        textBox.Font = Theme.Font
-        textBox.TextSize = 15
-        textBox.Text = tostring(default)
-        makeUICorner(textBox, 6)
-        textBox.FocusLost:Connect(
-            function(e)
-                if e then
-                    textBox.Text = tostring(cb(textBox.Text))
-                else
-                    textBox.Text = tostring(cb(nil))
-                end
-            end
-        )
+    local function getHRP(p)
+        local c = getChar(p)
+        return c and c:FindFirstChild("HumanoidRootPart")
     end
-    do
-        local iS = false
-        local dS, sP
-        TopBar.InputBegan:Connect(
-            function(i)
-                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-                    iS = true
-                    dS = i.Position
-                    sP = MainWindow.Position
-                    i.Changed:Connect(
-                        function()
-                            if i.UserInputState == Enum.UserInputState.End then
-                                iS = false
-                            end
-                        end
-                    )
-                end
-            end
-        )
-        UserInputService.InputChanged:Connect(
-            function(i)
-                if
-                    (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) and
-                        iS
-                 then
-                    local d = i.Position - dS
-                    MainWindow.Position = UDim2.new(sP.X.Scale, sP.X.Offset + d.X, sP.Y.Scale, sP.Y.Offset + d.Y)
-                end
-            end
-        )
+    local function getHum(p)
+        local c = getChar(p)
+        return c and c:FindFirstChildOfClass("Humanoid")
     end
-    MinimizeButton.MouseButton1Click:Connect(
-        function()
-            isMinimized = not isMinimized
-            ContentPage.Visible = not isMinimized
-            if isMinimized then
-                MainWindow.Size = UDim2.new(0, 200, 0, 30)
-                MinimizeButton.Text = "+"
-            else
-                MainWindow.Size = originalMainWindowSize
-                MinimizeButton.Text = "-"
-            end
-        end
-    )
-    local cycleState = Settings.AutoCycle
-    cycleToggleButton.Text = "Cycle: " .. (cycleState and "ON" or "OFF")
-    cycleToggleButton.MouseButton1Click:Connect(
-        function()
-            cycleState = not cycleState
-            Settings.AutoCycle = cycleState
-            cycleToggleButton.Text = "Cycle: " .. (cycleState and "ON" or "OFF")
-        end
-    )
-    local function refreshPlayerList()
+    local function isAlive(p)
+        local h = getHum(p)
+        return h and h.Health > 0
+    end
+    local function sameTeam(p)
+        if not S.TeamFilter then return false end
+        return p.Team == LocalPlayer.Team
+    end
+    local function distTo(p)
+        local myHRP = getHRP(LocalPlayer)
+        local tHRP  = getHRP(p)
+        if not (myHRP and tHRP) then return math.huge end
+        return (myHRP.Position - tHRP.Position).Magnitude
+    end
+    local function refreshPlayers()
         playerList = {}
         for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then
+            if p ~= LocalPlayer and not sameTeam(p) then
                 table.insert(playerList, p)
             end
         end
-        if #playerList > 0 then
-            currentTargetIndex = math.clamp(currentTargetIndex, 1, #playerList)
-            Settings.Target = playerList[currentTargetIndex]
-            playerDropdownButton.Text = Settings.Target.Name
-        else
-            Settings.Target = nil
-            playerDropdownButton.Text = "No Players"
+        table.sort(playerList, function(a,b) return distTo(a) < distTo(b) end)
+        if S.Target and (not isAlive(S.Target) or sameTeam(S.Target)) then
+            S.Target = nil
+        end
+        if not S.Target and #playerList > 0 then
+            targetIndex = 1
+            S.Target = playerList[1]
+        end
+        targetBtn.Text = S.Target and S.Target.Name or "No Target"
+        updateStatus()
+    end
+    targetBtn.MouseButton1Click:Connect(function()
+        refreshPlayers()
+        if #playerList == 0 then return end
+        targetIndex = (targetIndex % #playerList) + 1
+        S.Target = playerList[targetIndex]
+        targetBtn.Text = S.Target.Name
+        updateStatus()
+    end)
+    local cycleOn = false
+    cycleBtn.Text = "Cycle: OFF"
+    cycleBtn.MouseButton1Click:Connect(function()
+        cycleOn = not cycleOn
+        S.AutoCycle = cycleOn
+        cycleBtn.Text = "Cycle: " .. (cycleOn and "ON" or "OFF")
+        cycleBtn.BackgroundColor3 = cycleOn and T.AccentDim or T.Btn
+    end)
+    track(Players.PlayerAdded:Connect(refreshPlayers))
+    track(Players.PlayerRemoving:Connect(function(p)
+        if S.Target == p then S.Target = nil end
+        refreshPlayers()
+    end))
+    refreshPlayers()
+    local lastTargetPos = nil
+    local function predictedPos(tHRP, dt)
+        local pos = tHRP.Position
+        if lastTargetPos then
+            local vel = (pos - lastTargetPos) / dt
+            table.insert(velHistory, vel)
+            if #velHistory > 6 then table.remove(velHistory, 1) end
+            local avgVel = Vector3.new(0,0,0)
+            for _, v in ipairs(velHistory) do avgVel = avgVel + v end
+            avgVel = avgVel / #velHistory
+            lastTargetPos = pos
+            return pos + avgVel * (dt * S.PredictSteps)
+        end
+        lastTargetPos = pos
+        return pos
+    end
+    local evasionTime = 0
+    local function applyEvasion(myHRP, dt)
+        if not S.EvasionEnabled then return end
+        evasionTime = evasionTime + dt
+        local mode = S.EvasionMode
+        if mode == "Jitter" or mode == "Combo" then
+            local r = S.JitterRadius
+            local jx = (math.random() * 2 - 1) * r
+            local jz = (math.random() * 2 - 1) * r
+            if math.random(1, 3) == 1 then
+                myHRP.CFrame = myHRP.CFrame * CFrame.new(jx * dt * 20, 0, jz * dt * 20)
+            end
+        end
+        if mode == "Spin" or mode == "Combo" then
+            local spinAngle = evasionTime * S.SpinSpeed
+            local pos = myHRP.Position
+            myHRP.CFrame = CFrame.new(pos) * CFrame.Angles(0, spinAngle, 0)
+        end
+        if mode == "Vertical" then
+            if math.random(1, 30) == 1 then
+                local spike = 8
+                myHRP.CFrame = myHRP.CFrame + Vector3.new(0, spike, 0)
+                task.delay(0.08, function()
+                    if myHRP and myHRP.Parent then
+                        myHRP.CFrame = myHRP.CFrame - Vector3.new(0, spike, 0)
+                    end
+                end)
+            end
         end
     end
-    playerDropdownButton.MouseButton1Click:Connect(
-        function()
-            if #playerList == 0 then
-                return
-            end
-            currentTargetIndex = (currentTargetIndex % #playerList) + 1
-            Settings.Target = playerList[currentTargetIndex]
-            playerDropdownButton.Text = Settings.Target.Name
-        end
-    )
-    task.spawn(
-        function()
-            while true do
-                task.wait(3)
-                if Settings.AutoCycle and Settings.Enabled and #playerList > 1 then
-                    currentTargetIndex = (currentTargetIndex % #playerList) + 1
-                    Settings.Target = playerList[currentTargetIndex]
-                    playerDropdownButton.Text = Settings.Target.Name
-                end
-            end
-        end
-    )
-    refreshPlayerList()
-    Players.PlayerAdded:Connect(refreshPlayerList)
-    Players.PlayerRemoving:Connect(refreshPlayerList)
-    createToggle(
-        rageBotToggle,
-        rageBotToggleContainer,
-        "Rage Bot",
-        Settings.Enabled,
-        function(s)
-            Settings.Enabled = s
-            if s then
-                startBot()
-            else
-                stopBot()
+    local voidFloor      = workspace.FallenPartsDestroyHeight or -500
+    local baitPhase      = "idle"
+    local safeReturnPos  = nil
+    local function findVoidEdge(myPos)
+        local dirs = {
+            Vector3.new(1,0,0), Vector3.new(-1,0,0),
+            Vector3.new(0,0,1), Vector3.new(0,0,-1),
+            Vector3.new(1,0,1).Unit, Vector3.new(-1,0,1).Unit,
+            Vector3.new(1,0,-1).Unit, Vector3.new(-1,0,-1).Unit,
+        }
+        local params = RaycastParams.new()
+        params.FilterDescendantsInstances = {LocalPlayer.Character}
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        for _, dir in ipairs(dirs) do
+            local probePos = myPos + dir * S.VoidMargin
+            local result = workspace:Raycast(probePos, Vector3.new(0,-300,0), params)
+            if not result then
+                return probePos, dir
             end
         end
-    )
-    createToggle(
-        autoAttackToggle,
-        autoAttackToggleContainer,
-        "Auto Attack",
-        Settings.AutoAttack,
-        function(s)
-            Settings.AutoAttack = s
-        end
-    )
-    createInput(
-        cpsInput,
-        cpsInputContainer,
-        "CPS",
-        Settings.AttackCPS,
-        function(v)
-            if v and tonumber(v) and tonumber(v) > 0 and tonumber(v) <= 30 then
-                Settings.AttackCPS = tonumber(v)
-            end
-            return Settings.AttackCPS
-        end
-    )
-    createInput(
-        distanceInput,
-        distanceInputContainer,
-        "Distance",
-        Settings.HoverDistance,
-        function(v)
-            if v and tonumber(v) and tonumber(v) >= 2 and tonumber(v) <= 20 then
-                Settings.HoverDistance = tonumber(v)
-            end
-            return Settings.HoverDistance
-        end
-    )
-    createToggle(
-        boxReachToggle,
-        boxReachToggleContainer,
-        "BoxReach",
-        Settings.BoxReachEnabled,
-        function(s)
-            Settings.BoxReachEnabled = s
-            if s then
-                applyBoxReach()
-            else
-                resetAllToolParts(equippedTool)
-            end
-        end
-    )
-    createInput(
-        sizeInput,
-        sizeInputContainer,
-        "Size",
-        "15,15,15",
-        function(t)
-            if t then
-                local n = {}
-                for m in string.gmatch(t, "[^,]+") do
-                    table.insert(n, tonumber(m))
-                end
-                if #n == 3 and n[1] and n[2] and n[3] then
-                    Settings.BoxReachSize = Vector3.new(n[1], n[2], n[3])
-                    applyBoxReach()
-                end
-            end
-            return string.format(
-                "%.1f,%.1f,%.1f",
-                Settings.BoxReachSize.X,
-                Settings.BoxReachSize.Y,
-                Settings.BoxReachSize.Z
-            )
-        end
-    )
-    if LocalPlayer.Character then
-        trackEquippedTool(LocalPlayer.Character)
+        return nil, nil
     end
-    LocalPlayer.CharacterAdded:Connect(trackEquippedTool)
+    local function applyVoidBait(myHRP, tHRP, dt)
+        if not S.VoidBait or not tHRP then return end
+        local myPos = myHRP.Position
+        if baitPhase == "idle" then
+            local edgePos, edgeDir = findVoidEdge(myPos)
+            if edgePos then
+                safeReturnPos = myPos
+                baitPhase = "approaching"
+            end
+        elseif baitPhase == "approaching" then
+            local edgePos, edgeDir = findVoidEdge(myPos)
+            if edgePos then
+                local target = edgePos
+                local newPos = myPos + (target - myPos).Unit * 20 * dt
+                myHRP.CFrame = CFrame.new(newPos, newPos + (target - myPos).Unit)
+                if (myPos - edgePos).Magnitude < S.VoidReturnDist then
+                    baitPhase = "returning"
+                end
+            else
+                baitPhase = "idle"
+            end
+        elseif baitPhase == "returning" then
+            if safeReturnPos then
+                myHRP.CFrame = CFrame.new(safeReturnPos)
+            end
+            baitPhase = "idle"
+            safeReturnPos = nil
+        end
+    end
+    task.spawn(function()
+        while true do
+            task.wait(3)
+            if S.AutoCycle and S.BotEnabled then
+                refreshPlayers()
+                if #playerList > 1 then
+                    targetIndex = (targetIndex % #playerList) + 1
+                    S.Target = playerList[targetIndex]
+                    targetBtn.Text = S.Target.Name
+                    updateStatus()
+                end
+            end
+        end
+    end)
+    local lastFrame = tick()
+    track(RunService.RenderStepped:Connect(function()
+        local now = tick()
+        local dt  = now - lastFrame
+        lastFrame = now
+        if S.Target then
+            if not isAlive(S.Target) or distTo(S.Target) > S.MaxDistance then
+                refreshPlayers()
+            end
+        end
+        local myChar = LocalPlayer.Character
+        local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        local myHum  = myChar and myChar:FindFirstChildOfClass("Humanoid")
+        if not (myHRP and myHum and myHum.Health > 0) then return end
+        applyEvasion(myHRP, dt)
+        if not S.BotEnabled or not S.Target then return end
+        local tChar = S.Target.Character
+        local tHRP  = tChar and tChar:FindFirstChild("HumanoidRootPart")
+        if not tHRP then return end
+        applyVoidBait(myHRP, tHRP, dt)
+        local predPos   = predictedPos(tHRP, dt)
+        local behindVec = -tHRP.CFrame.LookVector
+        local goalPos   = predPos + behindVec * S.HoverDist
+        local goalCF    = CFrame.lookAt(goalPos, predPos)
+        myHRP.CFrame = myHRP.CFrame:Lerp(goalCF, S.LerpSpeed)
+        if S.AutoAttack and equippedTool then
+            local interval = 1 / S.AttackCPS
+            local jitteredInterval = interval * (0.85 + math.random() * 0.3)
+            if now - lastAttack >= jitteredInterval then
+                lastAttack = now
+                pcall(function() equippedTool:Activate() end)
+            end
+        end
+    end))
+    DoNotif("Rage Bot V2 loaded — RightAlt = toggle bot, RightCtrl = toggle evasion", 4)
+    updateStatus()
 end)
 Modules.Aggressor = {
     State = {
@@ -42632,7 +43522,7 @@ function Modules.AdonisBypass:Execute()
     if self.State.IsLoaded then return end
     task.delay(self.Config.DelayTime, function()
         local success, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/ByeByeAdonis.lua"))()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/idioticanisgae-pixel/MainSourceHub/refs/heads/main/ByeByAdonis.lua"))()
         end)
         if success then
             self.State.IsLoaded = true
