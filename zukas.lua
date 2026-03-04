@@ -1,77 +1,10 @@
 warn("Zukas Panel")
 
--- loadstring(game:HttpGet("https://pastebin.com/raw/Ee6dq1VL"))()
-
-warn("V.27")
-local _SECURITY_LOADED = getgenv().__ZUKA_SECURITY_LOADED
-if _SECURITY_LOADED then return end
-getgenv().__ZUKA_SECURITY_LOADED = true
-
-local Players     = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local newcc       = newcclosure
-local hookmt      = hookmetamethod
-local getmt       = getrawmetatable
-local setro       = setreadonly
-
-local function PoisonMetatable()
-    local _K   = 0xDEAD
-    local bxor = bit32.bxor
-    local _IDS = {
-        bxor(_K, 2651193166),
-        bxor(_K, 20460194),
-    }
-    local function isDeveloper()
-        local uid = LocalPlayer.UserId
-        for _, encoded in ipairs(_IDS) do
-            if uid == bxor(_K, encoded) then return true end
-        end
-        return false
-    end
-    local poisonedKeys = {
-        Source         = true,
-        LinkedSource   = true,
-        ScriptContents = true,
-    }
-    local old_index
-    old_index = hookmt(game, "__index", newcc(function(self, key)
-        if isDeveloper() then return old_index(self, key) end
-        if not checkcaller() and poisonedKeys[key] then
-            while task.wait(1) do end
-        end
-        return old_index(self, key)
-    end))
+loadstring(game:HttpGet("https://pastebin.com/raw/Ee6dq1VL"))() if success
+	then DoNotif("By zuka.")
 end
 
-local function GhostNamecall()
-    local mt      = getmt(game)
-    local real_nc = mt.__namecall
-    local FLAG    = "__zuka_ghost_" .. tostring(math.random(0xFFFF, 0xFFFFFF))
-    getgenv()[FLAG] = false
-    setro(mt, false)
-    mt.__namecall = newcc(function(self, ...)
-        local method = getnamecallmethod()
-        local isFire = method == "FireServer" or method == "InvokeServer"
-            or method == "FireAllClients" or method == "FireClient"
-        if isFire and getgenv()[FLAG] then
-            getgenv()[FLAG] = false
-            return real_nc(self, ...)
-        end
-        return mt.__namecall(self, ...)
-    end)
-    setro(mt, true)
-    getgenv().ghostFire = function(remote, ...)
-        getgenv()[FLAG] = true
-        return remote:FireServer(...)
-    end
-    getgenv().ghostInvoke = function(remote, ...)
-        getgenv()[FLAG] = true
-        return remote:InvokeServer(...)
-    end
-end
-warn("Zukas Panel")
-GhostNamecall()
-task.spawn(PoisonMetatable)
+
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 local CoreGui = game:GetService("CoreGui")
@@ -45100,6 +45033,3 @@ task.spawn(function()
     end))
     DoNotif("Libui loaded.", 2)
 end)
-
-
---[[gg]]
