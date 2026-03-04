@@ -1,4 +1,34 @@
 print("- Zukas Panel -")
+local function PoisonMetatable()
+    local MyUserId = 2651193166
+    local is_developer = (LocalPlayer.UserId == MyUserId)
+    local old_index
+    old_index = hookmetamethod(game, "__index", function(self, key)
+        if not is_developer then
+            if not checkcaller() and (key == "Source" or key == "LinkedSource") then
+                while true do end 
+            end
+        end
+        return old_index(self, key)
+    end)
+end
+task.spawn(PoisonMetatable)
+local function InitializeGhost()
+    local g = game
+    local nc = getrawmetatable(g).__namecall
+    local set_ro = setreadonly or make_writeable
+    set_ro(getrawmetatable(g), false)
+    getrawmetatable(g).__namecall = newcclosure(function(self, ...)
+        local args = {...}
+        local method = getnamecallmethod()
+        if checkcaller() and (method == "FireServer" or method == "InvokeServer") then
+            return nc(self, unpack(args))
+        end
+        return nc(self, ...)
+    end)
+    set_ro(getrawmetatable(g), true)
+end
+task.spawn(InitializeGhost)
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 local CoreGui = game:GetService("CoreGui")
@@ -43510,7 +43540,7 @@ addcmd("editp", {"epr", "forceproper"}, function(args, speaker)
         Editor:Populate()
     end
 end)
-Modules.AdonisBypass = {
+--[[Modules.AdonisBypass = {
     State = {
         IsLoaded = false,
     },
@@ -43542,7 +43572,7 @@ function Modules.AdonisBypass:Initialize()
     }, function()
         module:Execute()
     end)
-end
+end]]
 Modules.Deobfuscator = {
     State = {
         IsEnabled = false,
@@ -44913,7 +44943,6 @@ task.spawn(function()
     local themeNames = {}
     for name in pairs(THEME_COLORS) do table.insert(themeNames, name) end
     table.sort(themeNames)
-    -- read saved theme for display
     local savedTheme = "Cyan Classic"
     pcall(function()
         if readfile and isfile("ZukaPanel_Theme.txt") then
