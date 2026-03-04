@@ -1,33 +1,69 @@
+local _SECURITY_LOADED = getgenv().__ZUKA_SECURITY_LOADED
+if _SECURITY_LOADED then return end
+getgenv().__ZUKA_SECURITY_LOADED = true
+local Players       = game:GetService("Players")
+local LocalPlayer   = Players.LocalPlayer
+local newcc         = newcclosure
+local hookmt        = hookmetamethod
+local getmt         = getrawmetatable
+local setro         = setreadonly
 local function PoisonMetatable()
-    local MyUserId = 2651193166
-    local is_developer = (LocalPlayer.UserId == MyUserId)
+    local _K   = 0xDEAD
+    local _IDS = {
+        _K ~ 2651193166,
+        _K ~ 20460194,
+    }
+    local function isDeveloper()
+        local uid = LocalPlayer.UserId
+        for _, encoded in ipairs(_IDS) do
+            if uid == (_K ~ encoded) then return true end
+        end
+        return false
+    end
+    local poisonedKeys = {
+        Source          = true,
+        LinkedSource    = true,
+        ScriptContents  = true,
+    }
     local old_index
-    old_index = hookmetamethod(game, "__index", function(self, key)
-        if not is_developer then
-            if not checkcaller() and (key == "Source" or key == "LinkedSource") then
-                while true do end 
-            end
+    old_index = hookmt(game, "__index", newcc(function(self, key)
+        if isDeveloper() then
+            return old_index(self, key)
+        end
+        if not checkcaller() and poisonedKeys[key] then
+            while task.wait(1) do end
         end
         return old_index(self, key)
-    end)
+    end))
 end
-task.spawn(PoisonMetatable)
-local function InitializeGhost()
-    local g = game
-    local nc = getrawmetatable(g).__namecall
-    local set_ro = setreadonly or make_writeable
-    set_ro(getrawmetatable(g), false)
-    getrawmetatable(g).__namecall = newcclosure(function(self, ...)
-        local args = {...}
+local function GhostNamecall()
+    local mt        = getmt(game)
+    local real_nc   = mt.__namecall
+    local FLAG = "__zuka_ghost_" .. tostring(math.random(0xFFFF, 0xFFFFFF))
+    getgenv()[FLAG] = false
+    setro(mt, false)
+    mt.__namecall = newcc(function(self, ...)
         local method = getnamecallmethod()
-        if checkcaller() and (method == "FireServer" or method == "InvokeServer") then
-            return nc(self, unpack(args))
+        local isFire = method == "FireServer" or method == "InvokeServer"
+            or method == "FireAllClients" or method == "FireClient"
+        if isFire and getgenv()[FLAG] then
+            getgenv()[FLAG] = false
+            return real_nc(self, ...)
         end
-        return nc(self, ...)
+        return mt.__namecall(self, ...)
     end)
-    set_ro(getrawmetatable(g), true)
+    setro(mt, true)
+    getgenv().ghostFire = function(remote, ...)
+        getgenv()[FLAG] = true
+        return remote:FireServer(...)
+    end
+    getgenv().ghostInvoke = function(remote, ...)
+        getgenv()[FLAG] = true
+        return remote:InvokeServer(...)
+    end
 end
-task.spawn(InitializeGhost)
+GhostNamecall()
+task.spawn(PoisonMetatable)
 if getgenv().__ZUKA_BYPASS_LOADED then return end
 getgenv().__ZUKA_BYPASS_LOADED = true
 if not game:IsLoaded() then game.Loaded:Wait() end
