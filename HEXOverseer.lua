@@ -77,8 +77,8 @@ Modules.OverseerCE = {
         WARNING_ORANGE = Color3.fromRGB(255, 165, 0),
 		POISON_PURPLE = Color3.fromRGB(138, 43, 226),
         HEADER_HEIGHT = 24,
-        ROW_HEIGHT = 20,
-        BUTTON_HEIGHT = 23,
+        ROW_HEIGHT = 22,
+        BUTTON_HEIGHT = 25,
         PADDING = 4,
         ANIM_SPEED = 0.15,
         HOVER_BRIGHTNESS = 1.1
@@ -3031,13 +3031,83 @@ function Modules.OverseerCE:CreateUI()
     screenGui.Name = "OverseerCE"
     screenGui.ResetOnSpawn = false
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    -- ── Taskbar (always visible, bottom of screen) ──────────────
+    -- This is how the window reopens after minimize/close.
+    local taskbar = Instance.new("Frame", screenGui)
+    taskbar.Name = "Taskbar"
+    taskbar.Size = UDim2.fromOffset(280, 28)
+    taskbar.Position = UDim2.new(0.5, -140, 1, -32)
+    taskbar.BackgroundColor3 = Color3.fromRGB(192, 192, 192)
+    taskbar.BorderSizePixel = 0
+    taskbar.ZIndex = 200
+    -- Win95 raised border on taskbar
+    local function tbEdge(sz, pos, col)
+        local f = Instance.new("Frame", taskbar)
+        f.Size=sz; f.Position=pos; f.BackgroundColor3=col
+        f.BorderSizePixel=0; f.ZIndex=201
+    end
+    tbEdge(UDim2.new(1,0,0,2), UDim2.new(0,0,0,0),   Color3.fromRGB(255,255,255))
+    tbEdge(UDim2.new(0,2,1,0), UDim2.new(0,0,0,0),   Color3.fromRGB(255,255,255))
+    tbEdge(UDim2.new(1,0,0,2), UDim2.new(0,0,1,-2),  Color3.fromRGB(128,128,128))
+    tbEdge(UDim2.new(0,2,1,0), UDim2.new(1,-2,0,0),  Color3.fromRGB(128,128,128))
+
+    local taskbarBtn = Instance.new("TextButton", taskbar)
+    taskbarBtn.Size = UDim2.new(1, -8, 1, -6)
+    taskbarBtn.Position = UDim2.fromOffset(4, 3)
+    taskbarBtn.BackgroundColor3 = Color3.fromRGB(192, 192, 192)
+    taskbarBtn.BorderSizePixel = 0
+    taskbarBtn.Font = Enum.Font.SourceSansBold
+    taskbarBtn.Text = "🔧  Overseer CE 7.5"
+    taskbarBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    taskbarBtn.TextSize = 12
+    taskbarBtn.TextXAlignment = Enum.TextXAlignment.Left
+    taskbarBtn.ZIndex = 202
+    taskbarBtn.AutoButtonColor = false
+    -- Raised border on the button itself
+    local function tbBtnEdge(sz, pos, col)
+        local f = Instance.new("Frame", taskbarBtn)
+        f.Size=sz; f.Position=pos; f.BackgroundColor3=col
+        f.BorderSizePixel=0; f.ZIndex=203
+    end
+    tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,0,0),  Color3.fromRGB(255,255,255))
+    tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(0,0,0,0),  Color3.fromRGB(255,255,255))
+    tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,1,-1), Color3.fromRGB(128,128,128))
+    tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(1,-1,0,0), Color3.fromRGB(128,128,128))
+
     local main = Instance.new("Frame", screenGui)
-    main.Size = UDim2.fromOffset(1380, 600)
-    main.Position = UDim2.new(0.5, -690, 0.5, -300)
+    main.Size = UDim2.fromOffset(1100, 600)
+    main.Position = UDim2.new(0.5, -550, 0.5, -300)
     main.BackgroundColor3 = self.Config.BG_PANEL
     main.BorderSizePixel = 0
     main.ClipsDescendants = false
     self:_createBorder(main, false)
+
+    -- Taskbar button toggles window visibility
+    local minimized = false
+    taskbarBtn.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        main.Visible = not minimized
+        -- Sunken effect when window is open
+        for _, c in ipairs(taskbarBtn:GetChildren()) do
+            if c:IsA("Frame") then c:Destroy() end
+        end
+        if minimized then
+            -- Raised (window hidden)
+            tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,0,0),  Color3.fromRGB(255,255,255))
+            tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(0,0,0,0),  Color3.fromRGB(255,255,255))
+            tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,1,-1), Color3.fromRGB(128,128,128))
+            tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(1,-1,0,0), Color3.fromRGB(128,128,128))
+        else
+            -- Sunken (window visible)
+            tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,0,0),  Color3.fromRGB(128,128,128))
+            tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(0,0,0,0),  Color3.fromRGB(128,128,128))
+            tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,1,-1), Color3.fromRGB(255,255,255))
+            tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(1,-1,0,0), Color3.fromRGB(255,255,255))
+        end
+    end)
+
+    -- ── Title bar ───────────────────────────────────────────────
     local titleBar = Instance.new("Frame", main)
     titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, -2, 0, 24)
@@ -3047,13 +3117,13 @@ function Modules.OverseerCE:CreateUI()
     titleBar.ZIndex = 2
     local titleGradient = Instance.new("UIGradient", titleBar)
     titleGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(49, 106, 197)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 190, 230))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 168)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(16, 132, 208))
     }
     titleGradient.Rotation = 90
     local titleIcon = Instance.new("TextLabel", titleBar)
     titleIcon.Size = UDim2.fromOffset(20, 20)
-    titleIcon.Position = UDim2.fromOffset(2, 2)
+    titleIcon.Position = UDim2.fromOffset(4, 2)
     titleIcon.BackgroundTransparency = 1
     titleIcon.Text = "🔧"
     titleIcon.TextColor3 = self.Config.BG_WHITE
@@ -3061,24 +3131,45 @@ function Modules.OverseerCE:CreateUI()
     titleIcon.TextSize = 14
     titleIcon.ZIndex = 3
     local title = Instance.new("TextLabel", titleBar)
-    title.Size = UDim2.new(1, -100, 1, 0)
-    title.Position = UDim2.fromOffset(24, 0)
-    title.Text = "Overseer CE 7.5 Enhanced - Module Inspector & Patcher"
+    title.Size = UDim2.new(1, -110, 1, 0)
+    title.Position = UDim2.fromOffset(26, 0)
+    title.Text = "Overseer CE 7.5  —  Module Inspector & Patcher"
     title.TextColor3 = self.Config.BG_WHITE
     title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 12
+    title.TextSize = 13
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.BackgroundTransparency = 1
     title.ZIndex = 3
+
+    -- Close button (hides window, taskbar still visible to reopen)
     local closeBtn = self:_createButton(titleBar, "×", UDim2.fromOffset(20, 20), UDim2.new(1, -22, 0, 2), function()
         main.Visible = false
+        minimized = true
+        -- Flip taskbar to raised
+        for _, c in ipairs(taskbarBtn:GetChildren()) do
+            if c:IsA("Frame") then c:Destroy() end
+        end
+        tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,0,0),  Color3.fromRGB(255,255,255))
+        tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(0,0,0,0),  Color3.fromRGB(255,255,255))
+        tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,1,-1), Color3.fromRGB(128,128,128))
+        tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(1,-1,0,0), Color3.fromRGB(128,128,128))
     end)
     closeBtn.ZIndex = 4
     closeBtn.TextSize = 16
     closeBtn.Font = Enum.Font.SourceSansBold
     closeBtn.BackgroundColor3 = self.Config.BG_LIGHT
+
+    -- Minimize button (same as close, taskbar reopens it)
     local minBtn = self:_createButton(titleBar, "_", UDim2.fromOffset(20, 20), UDim2.new(1, -44, 0, 2), function()
         main.Visible = false
+        minimized = true
+        for _, c in ipairs(taskbarBtn:GetChildren()) do
+            if c:IsA("Frame") then c:Destroy() end
+        end
+        tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,0,0),  Color3.fromRGB(255,255,255))
+        tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(0,0,0,0),  Color3.fromRGB(255,255,255))
+        tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,1,-1), Color3.fromRGB(128,128,128))
+        tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(1,-1,0,0), Color3.fromRGB(128,128,128))
     end)
     minBtn.ZIndex = 4
     minBtn.TextYAlignment = Enum.TextYAlignment.Top
@@ -3119,14 +3210,15 @@ function Modules.OverseerCE:CreateUI()
     menuBar.BackgroundColor3 = self.Config.BG_PANEL
     menuBar.BorderSizePixel = 0
     self:_createBorder(menuBar, false)
-    local menuItems = {"Tools", "Scanner", "Dumper", "Injector", "Anti-Tamper", "Hooks", "Decompiler", "Poisons", "Proto Tree", "Str Grep", "Arg Log", "Bytecode", "UV Diff", "MT Mon", "Env Dump"}
+    local menuItems = {"Tools", "Scanner", "Dumper", "Injector", "Anti-Tamper", "Hooks", "Decompiler", "Poisons", "Proto Tree", "Str Grep", "Arg Log", "Bytecode", "UV Diff", "MT Mon", "Env Dump", "Notepad"}
     local menuX = 4
     for _, menuName in ipairs(menuItems) do
         local menuBtn = self:_createButton(menuBar, menuName, UDim2.fromOffset(75, 18), UDim2.fromOffset(menuX, 2), function()
             self:OpenToolWindow(menuName)
         end)
-        menuBtn.TextSize = 10
-        menuX = menuX + 77
+        menuBtn.TextSize = 12
+        menuBtn.Size = UDim2.fromOffset(82, 20)
+        menuX = menuX + 84
     end
     local modulePanel = self:_createPanel(content, UDim2.fromOffset(4, 26), UDim2.new(0, 280, 1, -30), "Module List")
     local moduleSearch = Instance.new("TextBox", modulePanel)
@@ -3137,7 +3229,7 @@ function Modules.OverseerCE:CreateUI()
     moduleSearch.PlaceholderText = "Search modules..."
     moduleSearch.TextColor3 = self.Config.TEXT_BLACK
     moduleSearch.Font = Enum.Font.SourceSans
-    moduleSearch.TextSize = 11
+    moduleSearch.TextSize = 13
     moduleSearch.TextXAlignment = Enum.TextXAlignment.Left
     moduleSearch.BorderSizePixel = 0
     moduleSearch.ClearTextOnFocus = false
@@ -3156,7 +3248,7 @@ function Modules.OverseerCE:CreateUI()
     self:_createBorder(moduleScroll, true)
     local moduleList = Instance.new("UIListLayout", moduleScroll)
     moduleList.Padding = UDim.new(0, 1)
-    local inspectorPanel = self:_createPanel(content, UDim2.fromOffset(292, 26), UDim2.new(1, -1076, 1, -30), "Table Inspector")
+    local inspectorPanel = self:_createPanel(content, UDim2.fromOffset(292, 26), UDim2.new(1, -836, 1, -30), "Table Inspector")
     local toolbar = Instance.new("Frame", inspectorPanel)
     toolbar.Size = UDim2.new(1, -8, 0, 28)
     toolbar.Position = UDim2.fromOffset(4, 24)
@@ -3176,7 +3268,7 @@ function Modules.OverseerCE:CreateUI()
     pathLabel.Text = "Root"
     pathLabel.TextColor3 = self.Config.TEXT_BLACK
     pathLabel.Font = Enum.Font.Code
-    pathLabel.TextSize = 10
+    pathLabel.TextSize = 12
     pathLabel.TextXAlignment = Enum.TextXAlignment.Left
     pathLabel.TextTruncate = Enum.TextTruncate.AtEnd
     local headerFrame = Instance.new("Frame", inspectorPanel)
@@ -3196,7 +3288,7 @@ function Modules.OverseerCE:CreateUI()
         header.Text = headerText
         header.TextColor3 = self.Config.TEXT_BLACK
         header.Font = Enum.Font.SourceSansBold
-        header.TextSize = 10
+        header.TextSize = 12
         header.TextXAlignment = Enum.TextXAlignment.Left
         local headerPadding = Instance.new("UIPadding", header)
         headerPadding.PaddingLeft = UDim.new(0, 4)
@@ -3214,7 +3306,7 @@ function Modules.OverseerCE:CreateUI()
     self:_createBorder(inspectorScroll, true)
     local inspectorList = Instance.new("UIListLayout", inspectorScroll)
     inspectorList.Padding = UDim.new(0, 0)
-    local patchPanel = self:_createPanel(content, UDim2.new(1, -784, 0, 26), UDim2.new(0, 240, 1, -30), "Active Patches")
+    local patchPanel = self:_createPanel(content, UDim2.new(1, -540, 0, 26), UDim2.new(0, 200, 1, -30), "Active Patches")
     local patchControls = Instance.new("Frame", patchPanel)
     patchControls.Size = UDim2.new(1, -8, 0, 28)
     patchControls.Position = UDim2.fromOffset(4, 24)
@@ -3236,7 +3328,7 @@ function Modules.OverseerCE:CreateUI()
     patchCount.Text = "Patches: 0"
     patchCount.TextColor3 = self.Config.TEXT_BLACK
     patchCount.Font = Enum.Font.SourceSans
-    patchCount.TextSize = 10
+    patchCount.TextSize = 13
     patchCount.TextXAlignment = Enum.TextXAlignment.Left
     local patchHeaderFrame = Instance.new("Frame", patchPanel)
     patchHeaderFrame.Size = UDim2.new(1, -8, 0, self.Config.ROW_HEIGHT)
@@ -3255,7 +3347,7 @@ function Modules.OverseerCE:CreateUI()
         patchHeader.Text = patchHeaderText
         patchHeader.TextColor3 = self.Config.TEXT_BLACK
         patchHeader.Font = Enum.Font.SourceSansBold
-        patchHeader.TextSize = 10
+        patchHeader.TextSize = 12
         patchHeader.TextXAlignment = Enum.TextXAlignment.Left
         local patchHeaderPadding = Instance.new("UIPadding", patchHeader)
         patchHeaderPadding.PaddingLeft = UDim.new(0, 4)
@@ -3290,12 +3382,81 @@ function Modules.OverseerCE:CreateUI()
     -- EXPLORER PANEL (Dex-style game tree, right of patch panel)
     -- ============================================================
     local explorerPanel = self:_createPanel(content,
-        UDim2.new(1, -540, 0, 26),
-        UDim2.new(0, 196, 1, -30),
+        UDim2.new(1, -336, 0, 26),
+        UDim2.new(0, 180, 1, -30),
         "Explorer")
-    explorerPanel.Size = UDim2.fromOffset(196, content.AbsoluteSize.Y - 30)
-    explorerPanel.Position = UDim2.new(1, -540, 0, 26)
+    explorerPanel.Size = UDim2.new(0, 180, 1, -30)
+    explorerPanel.Position = UDim2.new(1, -336, 0, 26)
     explorerPanel.ZIndex = 10
+
+    -- Properties panel sits directly to the right of explorer
+    local propsPanel = self:_createPanel(content,
+        UDim2.new(1, -152, 0, 26),
+        UDim2.new(0, 148, 1, -30),
+        "Properties")
+    propsPanel.Size = UDim2.new(0, 148, 1, -30)
+    propsPanel.Position = UDim2.new(1, -152, 0, 26)
+    propsPanel.ZIndex = 10
+
+    -- Properties instance label
+    local propsInstanceLbl = Instance.new("TextLabel", propsPanel)
+    propsInstanceLbl.Name = "PropsInstanceLabel"
+    propsInstanceLbl.Size = UDim2.new(1, -8, 0, 20)
+    propsInstanceLbl.Position = UDim2.fromOffset(4, 24)
+    propsInstanceLbl.BackgroundColor3 = self.Config.BG_DARK
+    propsInstanceLbl.BorderSizePixel = 0
+    propsInstanceLbl.Font = Enum.Font.SourceSansBold
+    propsInstanceLbl.TextSize = 12
+    propsInstanceLbl.TextColor3 = self.Config.TEXT_BLACK
+    propsInstanceLbl.Text = "  Select an instance"
+    propsInstanceLbl.TextXAlignment = Enum.TextXAlignment.Left
+    propsInstanceLbl.ZIndex = 11
+    self:_createBorder(propsInstanceLbl, true)
+
+    -- Column headers
+    local propsHeader = Instance.new("Frame", propsPanel)
+    propsHeader.Size = UDim2.new(1, -8, 0, 18)
+    propsHeader.Position = UDim2.fromOffset(4, 46)
+    propsHeader.BackgroundColor3 = self.Config.BG_DARK
+    propsHeader.BorderSizePixel = 0
+    propsHeader.ZIndex = 11
+    self:_createBorder(propsHeader, true)
+    local function propsHdrLbl(txt, xScale, wScale)
+        local l = Instance.new("TextLabel", propsHeader)
+        l.Size = UDim2.new(wScale, -2, 1, 0)
+        l.Position = UDim2.new(xScale, 2, 0, 0)
+        l.BackgroundTransparency = 1
+        l.Font = Enum.Font.SourceSansBold
+        l.TextSize = 12
+        l.TextColor3 = self.Config.TEXT_BLACK
+        l.Text = txt
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.ZIndex = 12
+        local p = Instance.new("UIPadding", l); p.PaddingLeft = UDim.new(0, 3)
+    end
+    propsHdrLbl("Property", 0, 0.5)
+    propsHdrLbl("Value", 0.5, 0.5)
+
+    -- Scrollable property list
+    local propsScroll = Instance.new("ScrollingFrame", propsPanel)
+    propsScroll.Name = "PropsScroll"
+    propsScroll.Size = UDim2.new(1, -8, 1, -70)
+    propsScroll.Position = UDim2.fromOffset(4, 66)
+    propsScroll.BackgroundColor3 = self.Config.BG_WHITE
+    propsScroll.BorderSizePixel = 0
+    propsScroll.ScrollBarThickness = 8
+    propsScroll.ScrollBarImageColor3 = self.Config.BG_DARK
+    propsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    propsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    propsScroll.ZIndex = 11
+    self:_createBorder(propsScroll, true)
+    local propsLayout = Instance.new("UIListLayout", propsScroll)
+    propsLayout.Padding = UDim.new(0, 0)
+    propsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    self.State.UI.PropsPanel        = propsPanel
+    self.State.UI.PropsScroll       = propsScroll
+    self.State.UI.PropsInstanceLbl  = propsInstanceLbl
 
     local explorerSearch = Instance.new("TextBox", explorerPanel)
     explorerSearch.Name = "ExplorerSearch"
@@ -3346,190 +3507,13 @@ function Modules.OverseerCE:CreateUI()
     self.State.UI.ExplorerSearch = explorerSearch
     self.State.UI.ExplorerPanel = explorerPanel
     self.State._ExplorerExpanded = {}
+    -- shift notepad placeholder (already removed) — props registered above
 
     -- ============================================================
     -- NOTEPAD PANEL (source viewer / executor, far right)
     -- ============================================================
-    local notepadPanel = self:_createPanel(content,
-        UDim2.new(1, -340, 0, 26),
-        UDim2.new(0, 336, 1, -30),
-        "Notepad")
-    notepadPanel.Size = UDim2.fromOffset(336, content.AbsoluteSize.Y - 30)
-    notepadPanel.Position = UDim2.new(1, -340, 0, 26)
-    notepadPanel.ZIndex = 10
-
-    -- Top toolbar: Copy | Save | Dump Functions
-    local npToolbar = Instance.new("Frame", notepadPanel)
-    npToolbar.Size = UDim2.new(1, -8, 0, 24)
-    npToolbar.Position = UDim2.fromOffset(4, 24)
-    npToolbar.BackgroundColor3 = self.Config.BG_DARK
-    npToolbar.BorderSizePixel = 0
-    npToolbar.ZIndex = 11
-    self:_createBorder(npToolbar, true)
-
-    local npCopyBtn = self:_createButton(npToolbar, "Copy to Clipboard",
-        UDim2.fromOffset(110, 20), UDim2.fromOffset(2, 2), function()
-        local src = self.State.UI.NotepadSource and self.State.UI.NotepadSource.Text or ""
-        if src == "" then
-            self:_showNotification("Nothing to copy", "warning")
-        else
-            local ok = self:_setClipboard(src)
-            self:_showNotification(ok and "Source copied!" or "Clipboard unavailable", ok and "success" or "error")
-        end
-    end)
-    npCopyBtn.ZIndex = 12
-    npCopyBtn.TextSize = 9
-
-    local npSaveBtn = self:_createButton(npToolbar, "Save to File",
-        UDim2.fromOffset(80, 20), UDim2.fromOffset(114, 2), function()
-        local src = self.State.UI.NotepadSource and self.State.UI.NotepadSource.Text or ""
-        local name = (self.State.SelectedModule and self.State.SelectedModule.Name or "source") .. ".lua"
-        if writefile then
-            local ok, err = pcall(writefile, name, src)
-            self:_showNotification(ok and ("Saved: " .. name) or ("Save failed: " .. tostring(err)),
-                ok and "success" or "error")
-        else
-            self:_showNotification("writefile not available in executor", "error")
-        end
-    end)
-    npSaveBtn.ZIndex = 12
-    npSaveBtn.TextSize = 9
-
-    local npDumpBtn = self:_createButton(npToolbar, "Dump Functions",
-        UDim2.fromOffset(90, 20), UDim2.fromOffset(196, 2), function()
-        if not self.State.SelectedModule then
-            self:_showNotification("No module selected", "warning")
-            return
-        end
-        self:_showNotification("Dumping functions...", "info")
-        task.spawn(function()
-            local decomp = self:DecompileModuleScript(self.State.SelectedModule)
-            if decomp then
-                self.State.CurrentModuleDecompiled = decomp
-                self:_NotepadDisplay(decomp.SourceCode, decomp.Name)
-                self:_showNotification("Dumped: " .. decomp.Name, "success")
-            else
-                self:_showNotification("Decompile failed", "error")
-            end
-        end)
-    end)
-    npDumpBtn.ZIndex = 12
-    npDumpBtn.TextSize = 9
-
-    -- Line number gutter + source area side by side
-    local npBody = Instance.new("Frame", notepadPanel)
-    npBody.Name = "NotepadBody"
-    npBody.Size = UDim2.new(1, -8, 1, -80)
-    npBody.Position = UDim2.fromOffset(4, 52)
-    npBody.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    npBody.BorderSizePixel = 0
-    npBody.ClipsDescendants = true
-    npBody.ZIndex = 11
-    self:_createBorder(npBody, true)
-
-    local npGutter = Instance.new("ScrollingFrame", npBody)
-    npGutter.Name = "NotepadGutter"
-    npGutter.Size = UDim2.fromOffset(30, npBody.AbsoluteSize.Y)
-    npGutter.Position = UDim2.new(0, 0, 0, 0)
-    npGutter.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    npGutter.BorderSizePixel = 0
-    npGutter.ScrollBarThickness = 0
-    npGutter.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    npGutter.CanvasSize = UDim2.new(0, 0, 0, 0)
-    npGutter.ScrollingEnabled = false
-    npGutter.ZIndex = 12
-
-    local npSource = Instance.new("TextBox", npBody)
-    npSource.Name = "NotepadSource"
-    npSource.Size = UDim2.new(1, -32, 1, 0)
-    npSource.Position = UDim2.fromOffset(32, 0)
-    npSource.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    npSource.TextColor3 = Color3.fromRGB(220, 220, 220)
-    npSource.Font = Enum.Font.Code
-    npSource.TextSize = 11
-    npSource.TextXAlignment = Enum.TextXAlignment.Left
-    npSource.TextYAlignment = Enum.TextYAlignment.Top
-    npSource.TextWrapped = false
-    npSource.ClearTextOnFocus = false
-    npSource.MultiLine = true
-    npSource.PlaceholderText = "-- Source will appear here after decompile\n-- Select a module, then click Dump Functions"
-    npSource.PlaceholderColor3 = Color3.fromRGB(90, 90, 90)
-    npSource.Text = ""
-    npSource.BorderSizePixel = 0
-    npSource.ZIndex = 12
-    local npSourcePad = Instance.new("UIPadding", npSource)
-    npSourcePad.PaddingLeft = UDim.new(0, 4)
-    npSourcePad.PaddingTop = UDim.new(0, 4)
-
-    -- Sync gutter scroll with source scroll via CanvasPosition
-    npSource:GetPropertyChangedSignal("CursorPosition"):Connect(function()
-        -- rough sync: count lines up to cursor
-        task.defer(function()
-            local txt = npSource.Text
-            local lineH = 14  -- approx px per line at TextSize 11
-            local lines = 0
-            for _ in txt:gmatch("\n") do lines += 1 end
-            npGutter.CanvasSize = UDim2.fromOffset(0, (lines + 1) * lineH)
-        end)
-    end)
-
-    -- Bottom execute bar
-    local npExecBar = Instance.new("Frame", notepadPanel)
-    npExecBar.Size = UDim2.new(1, -8, 0, 24)
-    npExecBar.Position = UDim2.new(0, 4, 1, -28)
-    npExecBar.BackgroundColor3 = self.Config.BG_DARK
-    npExecBar.BorderSizePixel = 0
-    npExecBar.ZIndex = 11
-    self:_createBorder(npExecBar, true)
-
-    -- Small scrollbar toggle for horizontal scroll label
-    local npScrollHint = Instance.new("TextLabel", npExecBar)
-    npScrollHint.Size = UDim2.fromOffset(20, 24)
-    npScrollHint.BackgroundTransparency = 1
-    npScrollHint.Text = "◁"
-    npScrollHint.TextColor3 = self.Config.TEXT_GRAY
-    npScrollHint.Font = Enum.Font.SourceSans
-    npScrollHint.TextSize = 10
-    npScrollHint.ZIndex = 12
-
-    local npExecBtn = self:_createButton(npExecBar, "Execute",
-        UDim2.fromOffset(80, 20), UDim2.new(0.5, -40, 0, 2), function()
-        local code = self.State.UI.NotepadSource and self.State.UI.NotepadSource.Text or ""
-        if code == "" then
-            self:_showNotification("Nothing to execute", "warning")
-            return
-        end
-        local fn, err = loadstring(code)
-        if not fn then
-            self:_showNotification("Compile error: " .. tostring(err), "error")
-            return
-        end
-        local ok, result = pcall(fn)
-        if ok then
-            self:_showNotification("Executed successfully", "success")
-        else
-            self:_showNotification("Runtime error: " .. tostring(result), "error")
-        end
-    end)
-    npExecBtn.ZIndex = 12
-    npExecBtn.TextSize = 10
-
-    local npClearBtn = self:_createButton(npExecBar, "Clear",
-        UDim2.fromOffset(60, 20), UDim2.new(1, -64, 0, 2), function()
-        if self.State.UI.NotepadSource then
-            self.State.UI.NotepadSource.Text = ""
-        end
-        for _, c in ipairs(npGutter:GetChildren()) do
-            if c:IsA("TextLabel") then c:Destroy() end
-        end
-        self:_showNotification("Notepad cleared", "info")
-    end)
-    npClearBtn.ZIndex = 12
-    npClearBtn.TextSize = 10
-
-    self.State.UI.NotepadSource   = npSource
-    self.State.UI.NotepadGutter   = npGutter
-    self.State.UI.NotepadPanel    = notepadPanel
+    -- Notepad is now a menu tab — opened via OpenToolWindow("Notepad")
+    -- State.UI.NotepadSource / NotepadGutter are populated when the window opens
 
     -- Wire refresh button for explorer
     refreshExplorerBtn.MouseButton1Click:Connect(function()
@@ -3585,8 +3569,8 @@ function Modules.OverseerCE:CreateUI()
     UserInputService.InputChanged:Connect(function(input)
         if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
             local delta = input.Position - resizeStart
-            local newWidth = math.max(700, startSize.X.Offset + delta.X)
-            local newHeight = math.max(400, startSize.Y.Offset + delta.Y)
+            local newWidth = math.max(1100, startSize.X.Offset + delta.X)
+            local newHeight = math.max(450, startSize.Y.Offset + delta.Y)
             main.Size = UDim2.fromOffset(newWidth, newHeight)
         end
     end)
@@ -3780,6 +3764,63 @@ end
 function Modules.OverseerCE:AddModuleToList(moduleScript)
     if not moduleScript or not moduleScript.Parent then return end
     if not self.State.UI then return end
+
+    -- Blacklisted base Roblox modules — hide from list
+    local ROBLOX_BLACKLIST = {
+        ["BaseCamera"]               = true,
+        ["MouseLockController"]      = true,
+        ["OrbitalCamera"]            = true,
+        ["ControlModule"]            = true,
+        ["ClickToMoveController"]    = true,
+        ["TouchJump"]                = true,
+        ["Keyboard"]                 = true,
+        ["TouchThumbstick"]          = true,
+        ["VehicleController"]        = true,
+        ["ClickToMoveDisplay"]       = true,
+        ["BaseCharacterController"]  = true,
+        ["Gamepad"]                  = true,
+        ["DynamicThumbstick"]        = true,
+        ["VRNavigation"]             = true,
+        ["PathDisplay"]              = true,
+        ["CharacterUtil"]            = true,
+        ["FlagUtil"]                 = true,
+        ["ConnectionUtil"]           = true,
+        ["ConnectionUtil.spec"]      = true,
+        ["CameraWrapper"]            = true,
+        ["CameraWrapper.spec"]       = true,
+        ["AtomicBinding"]            = true,
+        -- camera system modules
+        ["CameraModule"]              = true,
+        ["ClassicCamera"]             = true,
+        ["VRBaseCamera"]              = true,
+        ["VRCamera"]                  = true,
+        ["VehicleCameraConfig"]       = true,
+        ["VehicleCameraCore"]         = true,
+        ["Popper"]                    = true,
+        ["VRVehicleCamera"]           = true,
+        ["BaseOcclusion"]             = true,
+        ["CameraUI"]                  = true,
+        ["LegacyCamera"]              = true,
+        ["CameraToggleStateController"] = true,
+        -- common additional Roblox internals
+        ["CameraInput"]              = true,
+        ["CameraUtils"]              = true,
+        ["ZoomController"]           = true,
+        ["Poppercam"]                = true,
+        ["TransparencyController"]   = true,
+        ["RootCamera"]               = true,
+        ["PlayerModule"]             = true,
+        ["RigidBodyController"]      = true,
+        ["FollowCamera"]             = true,
+        ["VehicleCamera"]            = true,
+        ["LockFirstPerson"]          = true,
+        ["BaseOcclusionCamera"]      = true,
+        ["EditableCamera"]           = true,
+        ["SmoothLockedFirstPersonCamera"] = true,
+        ["ShiftLockController"]      = true,
+        ["Invisicam"]                = true,
+    }
+    if ROBLOX_BLACKLIST[moduleScript.Name] then return end
     local moduleName = moduleScript.Name
     local modulePath = moduleScript:GetFullName()
     local row = Instance.new("TextButton", self.State.UI.ModuleScroll)
@@ -3795,7 +3836,7 @@ function Modules.OverseerCE:AddModuleToList(moduleScript)
     nameLabel.Text = moduleName
     nameLabel.TextColor3 = self.Config.TEXT_BLACK
     nameLabel.Font = Enum.Font.SourceSans
-    nameLabel.TextSize = 10
+    nameLabel.TextSize = 12
     nameLabel.TextXAlignment = Enum.TextXAlignment.Left
     nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
     row.MouseButton1Click:Connect(function()
@@ -4294,6 +4335,13 @@ function Modules.OverseerCE:OpenToolWindow(toolName)
     title.BackgroundTransparency = 1
     title.ZIndex = 102
     local closeBtn = self:_createButton(titleBar, "×", UDim2.fromOffset(20, 20), UDim2.new(1, -22, 0, 2), function()
+        -- Clear notepad state refs if the notepad window is being closed
+        if toolName == "Notepad" and self.State.UI then
+            self.State.UI.NotepadSource = nil
+            self.State.UI.NotepadGutter = nil
+            self.State.UI.NotepadPanel  = nil
+            self.State.UI.NotepadModLabel = nil
+        end
         popup:Destroy()
     end)
     closeBtn.ZIndex = 103
@@ -4336,6 +4384,11 @@ function Modules.OverseerCE:OpenToolWindow(toolName)
         self:CreateMTMonitorUI(contentArea)
     elseif toolName == "Env Dump" then
         self:CreateEnvDumpUI(contentArea)
+    elseif toolName == "Notepad" then
+        -- Bigger window for the notepad
+        popup.Size = UDim2.fromOffset(860, 620)
+        popup.Position = UDim2.new(0.5, -430, 0.5, -310)
+        self:CreateNotepadUI(contentArea)
     end
     local dragging, dragStart, startPos
     titleBar.InputBegan:Connect(function(input)
@@ -5064,6 +5117,171 @@ function Modules.OverseerCE:_ExplorerIcon(inst)
     return EXPLORER_ICONS[inst.ClassName] or EXPLORER_ICONS.default
 end
 
+function Modules.OverseerCE:_PropertiesPopulate(instance)
+    if not self.State.UI or not self.State.UI.PropsScroll then return end
+    local scroll = self.State.UI.PropsScroll
+    local instLbl = self.State.UI.PropsInstanceLbl
+
+    -- Clear existing rows
+    for _, c in ipairs(scroll:GetChildren()) do
+        if not c:IsA("UIListLayout") then c:Destroy() end
+    end
+
+    if not instance then
+        if instLbl then instLbl.Text = "  Select an instance" end
+        return
+    end
+
+    local className = instance.ClassName
+    local fullName  = instance:GetFullName()
+    if instLbl then
+        instLbl.Text = "  " .. className .. "  —  " .. instance.Name
+    end
+
+    -- Properties to read — try all known readable props via pcall
+    local COMMON_PROPS = {
+        "Name","ClassName","Parent","Archivable",
+        -- BasePart
+        "Position","Rotation","Size","CFrame","Anchored","CanCollide",
+        "CanTouch","CanQuery","Transparency","Color","BrickColor",
+        "Material","CastShadow","Locked","Massless",
+        -- Humanoid
+        "Health","MaxHealth","WalkSpeed","JumpPower","DisplayName",
+        "AutoRotate","AutoJumpEnabled","RigType",
+        -- Model
+        "LevelOfDetail","ModelLod",
+        -- Script/Module
+        "Disabled","LinkedSource",
+        -- GUI
+        "Visible","ZIndex","BackgroundColor3","BackgroundTransparency",
+        "BorderSizePixel","TextColor3","Text","Font","TextSize",
+        -- Light
+        "Brightness","Range","Enabled","Color",
+        -- Sound
+        "SoundId","Volume","Looped","Playing","TimePosition",
+        -- General
+        "Value",
+    }
+
+    local seen = {}
+    local rowCount = 0
+
+    local function addPropRow(propName, value)
+        if seen[propName] then return end
+        seen[propName] = true
+        rowCount = rowCount + 1
+
+        local row = Instance.new("Frame", scroll)
+        row.Size = UDim2.new(1, -2, 0, 18)
+        row.BackgroundColor3 = rowCount % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245, 245, 252)
+        row.BorderSizePixel = 0
+        row.LayoutOrder = rowCount
+        row.ZIndex = 12
+
+        local keyLbl = Instance.new("TextLabel", row)
+        keyLbl.Size = UDim2.new(0.48, -1, 1, 0)
+        keyLbl.BackgroundTransparency = 1
+        keyLbl.Font = Enum.Font.SourceSans
+        keyLbl.TextSize = 11
+        keyLbl.TextColor3 = self.Config.TEXT_BLACK
+        keyLbl.Text = propName
+        keyLbl.TextXAlignment = Enum.TextXAlignment.Left
+        keyLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        keyLbl.ZIndex = 13
+        local kp = Instance.new("UIPadding", keyLbl); kp.PaddingLeft = UDim.new(0, 3)
+
+        -- Divider
+        local div = Instance.new("Frame", row)
+        div.Size = UDim2.new(0, 1, 1, 0)
+        div.Position = UDim2.new(0.48, 0, 0, 0)
+        div.BackgroundColor3 = self.Config.BG_DARK
+        div.BorderSizePixel = 0
+        div.ZIndex = 13
+
+        local valLbl = Instance.new("TextLabel", row)
+        valLbl.Size = UDim2.new(0.52, -2, 1, 0)
+        valLbl.Position = UDim2.new(0.48, 2, 0, 0)
+        valLbl.BackgroundTransparency = 1
+        valLbl.Font = Enum.Font.Code
+        valLbl.TextSize = 11
+        valLbl.TextXAlignment = Enum.TextXAlignment.Left
+        valLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        valLbl.ZIndex = 13
+
+        -- Format value nicely
+        local t = type(value)
+        local displayVal, color
+        if t == "boolean" then
+            displayVal = tostring(value)
+            color = value and self.Config.SUCCESS_GREEN or self.Config.FROZEN_RED
+        elseif t == "number" then
+            displayVal = string.format("%.4g", value)
+            color = Color3.fromRGB(0, 100, 200)
+        elseif t == "string" then
+            displayVal = '"' .. value:sub(1, 40) .. (value:len() > 40 and '…"' or '"')
+            color = Color3.fromRGB(180, 80, 0)
+        elseif t == "userdata" then
+            local s = tostring(value)
+            -- Prettify common Roblox types
+            if value and typeof then
+                local vtype = typeof(value)
+                if vtype == "Vector3" then
+                    displayVal = string.format("(%.2f, %.2f, %.2f)", value.X, value.Y, value.Z)
+                elseif vtype == "Color3" then
+                    displayVal = string.format("rgb(%d,%d,%d)", value.R*255, value.G*255, value.B*255)
+                elseif vtype == "CFrame" then
+                    displayVal = string.format("(%.1f, %.1f, %.1f)", value.X, value.Y, value.Z)
+                elseif vtype == "UDim2" then
+                    displayVal = string.format("{%.0f,%.0f}", value.X.Offset, value.Y.Offset)
+                elseif vtype == "Enum" or vtype == "EnumItem" then
+                    displayVal = tostring(value)
+                elseif vtype == "BrickColor" then
+                    displayVal = value.Name
+                else
+                    displayVal = s:sub(1, 35)
+                end
+            else
+                displayVal = s:sub(1, 35)
+            end
+            color = Color3.fromRGB(100, 60, 160)
+        elseif value == nil then
+            displayVal = "nil"
+            color = self.Config.TEXT_GRAY
+        else
+            displayVal = tostring(value):sub(1, 35)
+            color = self.Config.TEXT_BLACK
+        end
+
+        valLbl.Text = displayVal
+        valLbl.TextColor3 = color or self.Config.TEXT_BLACK
+    end
+
+    -- Read known common properties
+    for _, prop in ipairs(COMMON_PROPS) do
+        local ok, val = pcall(function() return (instance :: any)[prop] end)
+        if ok then
+            addPropRow(prop, val)
+        end
+    end
+
+    -- Also try to read all properties via __index if getproperties is available
+    if getproperties then
+        local ok2, props = pcall(getproperties, instance)
+        if ok2 and type(props) == "table" then
+            for propName, val in pairs(props) do
+                addPropRow(tostring(propName), val)
+            end
+        end
+    end
+
+    -- Fallback: iterate via game descriptor if nothing worked
+    if rowCount == 0 then
+        addPropRow("Name",      instance.Name)
+        addPropRow("ClassName", instance.ClassName)
+        pcall(function() addPropRow("Parent", tostring(instance.Parent)) end)
+    end
+end
+
 function Modules.OverseerCE:_ExplorerPopulate(scroll, filter)
     for _, c in ipairs(scroll:GetChildren()) do
         if not c:IsA("UIListLayout") then c:Destroy() end
@@ -5152,15 +5370,25 @@ function Modules.OverseerCE:_ExplorerPopulate(scroll, filter)
 
         local capturedOrder = order
         row.MouseButton1Click:Connect(function()
-            if className == "ModuleScript" then
-                -- Highlight selected
-                for _, c in ipairs(scroll:GetChildren()) do
-                    if c:IsA("TextButton") then
-                        c.BackgroundColor3 = c.LayoutOrder % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245,245,250)
+            -- Always highlight the clicked row
+            for _, c in ipairs(scroll:GetChildren()) do
+                if c:IsA("TextButton") then
+                    c.BackgroundColor3 = c.LayoutOrder % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245,245,250)
+                    for _, lbl in ipairs(c:GetChildren()) do
+                        if lbl:IsA("TextLabel") and lbl.Name == "" then
+                            lbl.TextColor3 = lbl.Font == Enum.Font.SourceSansBold
+                                and self.Config.ACCENT_BLUE or self.Config.TEXT_BLACK
+                        end
                     end
                 end
-                row.BackgroundColor3 = self.Config.HIGHLIGHT
-                nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+            end
+            row.BackgroundColor3 = self.Config.HIGHLIGHT
+            nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+            -- Always populate properties panel for any selected instance
+            self:_PropertiesPopulate(instance)
+
+            if className == "ModuleScript" then
                 -- Load module into inspector
                 self:LoadModule(instance)
                 -- Decompile + push to notepad
@@ -5215,10 +5443,184 @@ end
 -- NOTEPAD METHODS
 -- ============================================================
 
+function Modules.OverseerCE:CreateNotepadUI(parent)
+    -- Top toolbar
+    local npToolbar = Instance.new("Frame", parent)
+    npToolbar.Size = UDim2.new(1, -8, 0, 28)
+    npToolbar.Position = UDim2.fromOffset(4, 4)
+    npToolbar.BackgroundColor3 = self.Config.BG_DARK
+    npToolbar.BorderSizePixel = 0
+    npToolbar.ZIndex = 101
+    self:_createBorder(npToolbar, true)
+
+    local npCopyBtn = self:_createButton(npToolbar, "Copy to Clipboard",
+        UDim2.fromOffset(120, 22), UDim2.fromOffset(2, 3), function()
+        local txt = self.State.UI.NotepadSource and self.State.UI.NotepadSource.Text or ""
+        if txt == "" then
+            self:_showNotification("Nothing to copy", "warning")
+        else
+            local ok = self:_setClipboard(txt)
+            self:_showNotification(ok and "Source copied!" or "Clipboard unavailable", ok and "success" or "error")
+        end
+    end)
+    npCopyBtn.ZIndex = 102; npCopyBtn.TextSize = 11
+
+    local npSaveBtn = self:_createButton(npToolbar, "Save to File",
+        UDim2.fromOffset(90, 22), UDim2.fromOffset(124, 3), function()
+        local txt = self.State.UI.NotepadSource and self.State.UI.NotepadSource.Text or ""
+        local name = (self.State.SelectedModule and self.State.SelectedModule.Name or "source") .. ".lua"
+        if writefile then
+            local ok, err = pcall(writefile, name, txt)
+            self:_showNotification(ok and ("Saved: " .. name) or ("Save failed: " .. tostring(err)), ok and "success" or "error")
+        else
+            self:_showNotification("writefile not available in executor", "error")
+        end
+    end)
+    npSaveBtn.ZIndex = 102; npSaveBtn.TextSize = 11
+
+    local npDumpBtn = self:_createButton(npToolbar, "Dump Functions",
+        UDim2.fromOffset(100, 22), UDim2.fromOffset(216, 3), function()
+        if not self.State.SelectedModule then
+            self:_showNotification("No module selected", "warning")
+            return
+        end
+        self:_showNotification("Dumping functions...", "info")
+        task.spawn(function()
+            local decomp = self:DecompileModuleScript(self.State.SelectedModule)
+            if decomp then
+                self.State.CurrentModuleDecompiled = decomp
+                self:_NotepadDisplay(decomp.SourceCode, decomp.Name)
+                self:_showNotification("Dumped: " .. decomp.Name, "success")
+            else
+                self:_showNotification("Decompile failed", "error")
+            end
+        end)
+    end)
+    npDumpBtn.ZIndex = 102; npDumpBtn.TextSize = 11
+
+    -- Module name label on the right of toolbar
+    local npModLabel = Instance.new("TextLabel", npToolbar)
+    npModLabel.Name = "NotepadModLabel"
+    npModLabel.Size = UDim2.new(1, -330, 1, 0)
+    npModLabel.Position = UDim2.fromOffset(322, 0)
+    npModLabel.BackgroundTransparency = 1
+    npModLabel.Font = Enum.Font.Code
+    npModLabel.TextSize = 11
+    npModLabel.TextColor3 = self.Config.TEXT_GRAY
+    npModLabel.Text = "No module loaded"
+    npModLabel.TextXAlignment = Enum.TextXAlignment.Left
+    npModLabel.ZIndex = 102
+    self.State.UI.NotepadModLabel = npModLabel
+
+    -- Editor body: gutter + source
+    local npBody = Instance.new("Frame", parent)
+    npBody.Name = "NotepadBody"
+    npBody.Size = UDim2.new(1, -8, 1, -72)
+    npBody.Position = UDim2.fromOffset(4, 36)
+    npBody.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    npBody.BorderSizePixel = 0
+    npBody.ClipsDescendants = true
+    npBody.ZIndex = 101
+    self:_createBorder(npBody, true)
+
+    local npGutter = Instance.new("ScrollingFrame", npBody)
+    npGutter.Name = "NotepadGutter"
+    npGutter.Size = UDim2.new(0, 40, 1, 0)
+    npGutter.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    npGutter.BorderSizePixel = 0
+    npGutter.ScrollBarThickness = 0
+    npGutter.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    npGutter.CanvasSize = UDim2.new(0, 0, 0, 0)
+    npGutter.ScrollingEnabled = false
+    npGutter.ZIndex = 102
+
+    local npSource = Instance.new("TextBox", npBody)
+    npSource.Name = "NotepadSource"
+    npSource.Size = UDim2.new(1, -42, 1, 0)
+    npSource.Position = UDim2.fromOffset(42, 0)
+    npSource.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    npSource.TextColor3 = Color3.fromRGB(220, 220, 220)
+    npSource.Font = Enum.Font.Code
+    npSource.TextSize = 13
+    npSource.TextXAlignment = Enum.TextXAlignment.Left
+    npSource.TextYAlignment = Enum.TextYAlignment.Top
+    npSource.TextWrapped = false
+    npSource.ClearTextOnFocus = false
+    npSource.MultiLine = true
+    npSource.PlaceholderText = "-- Source will appear here after decompile\n-- Select a module from the left panel, then click Dump Functions"
+    npSource.PlaceholderColor3 = Color3.fromRGB(80, 80, 80)
+    npSource.Text = ""
+    npSource.BorderSizePixel = 0
+    npSource.ZIndex = 102
+    local npSourcePad = Instance.new("UIPadding", npSource)
+    npSourcePad.PaddingLeft = UDim.new(0, 6)
+    npSourcePad.PaddingTop = UDim.new(0, 4)
+
+    npSource:GetPropertyChangedSignal("CursorPosition"):Connect(function()
+        task.defer(function()
+            local lines = 0
+            for _ in npSource.Text:gmatch("\n") do lines += 1 end
+            npGutter.CanvasSize = UDim2.fromOffset(0, (lines + 2) * 16)
+        end)
+    end)
+
+    -- Bottom bar: Execute | Clear
+    local npExecBar = Instance.new("Frame", parent)
+    npExecBar.Size = UDim2.new(1, -8, 0, 28)
+    npExecBar.Position = UDim2.new(0, 4, 1, -32)
+    npExecBar.BackgroundColor3 = self.Config.BG_DARK
+    npExecBar.BorderSizePixel = 0
+    npExecBar.ZIndex = 101
+    self:_createBorder(npExecBar, true)
+
+    local npExecBtn = self:_createButton(npExecBar, "Execute",
+        UDim2.fromOffset(90, 22), UDim2.new(0.5, -45, 0, 3), function()
+        local code = self.State.UI.NotepadSource and self.State.UI.NotepadSource.Text or ""
+        if code == "" then self:_showNotification("Nothing to execute", "warning") return end
+        local fn, err = loadstring(code)
+        if not fn then
+            self:_showNotification("Compile error: " .. tostring(err), "error")
+            return
+        end
+        local ok, result = pcall(fn)
+        self:_showNotification(ok and "Executed successfully" or ("Runtime error: " .. tostring(result)), ok and "success" or "error")
+    end)
+    npExecBtn.ZIndex = 102; npExecBtn.TextSize = 12
+
+    local npClearBtn = self:_createButton(npExecBar, "Clear",
+        UDim2.fromOffset(70, 22), UDim2.new(1, -74, 0, 3), function()
+        if self.State.UI.NotepadSource then self.State.UI.NotepadSource.Text = "" end
+        for _, c in ipairs(npGutter:GetChildren()) do
+            if c:IsA("TextLabel") then c:Destroy() end
+        end
+        if self.State.UI.NotepadModLabel then
+            self.State.UI.NotepadModLabel.Text = "No module loaded"
+        end
+        self:_showNotification("Notepad cleared", "info")
+    end)
+    npClearBtn.ZIndex = 102; npClearBtn.TextSize = 12
+
+    -- Register into State.UI so _NotepadDisplay can find them
+    self.State.UI.NotepadSource = npSource
+    self.State.UI.NotepadGutter = npGutter
+    self.State.UI.NotepadPanel  = parent
+end
+
 function Modules.OverseerCE:_NotepadDisplay(source, moduleName)
-    if not self.State.UI or not self.State.UI.NotepadSource then return end
+    -- Auto-open the notepad tool window if it isn't already open
+    if not self.State.UI or not self.State.UI.NotepadSource then
+        self:OpenToolWindow("Notepad")
+        task.defer(function()
+            self:_NotepadDisplay(source, moduleName)
+        end)
+        return
+    end
     source = source or ("-- No source available for: " .. tostring(moduleName))
     self.State.UI.NotepadSource.Text = source
+    -- Update the module name label in the toolbar
+    if self.State.UI.NotepadModLabel then
+        self.State.UI.NotepadModLabel.Text = "  " .. tostring(moduleName or "unknown")
+    end
 
     local gutter = self.State.UI.NotepadGutter
     if not gutter then return end
