@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZukaTech</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/lua/lua.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/addon/comment/comment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/addon/selection/active-line.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:       #060608;
+  --bg1:      #0a0a0e;
+  --bg2:      #0f0f15;
+  --bg3:      #14141c;
+  --line:     #1c1c28;
+  --line2:    #262636;
+  --acc:      #7f5af0;
+  --acc2:     #6246d4;
+  --acc3:     #4d35b8;
+  --acc-glow: rgba(127,90,240,0.18);
+  --acc-glow2:rgba(127,90,240,0.06);
+  --teal:     #2cb67d;
+  --teal-g:   rgba(44,182,125,0.12);
+  --red:      #e05252;
+  --red-g:    rgba(224,82,82,0.1);
+  --amber:    #f0a045;
+  --amber-g:  rgba(240,160,69,0.1);
+  --blue:     #4a9eff;
+  --pink:     #e879f9;
+  --t0:       #f0eeff;
+  --t1:       #a89ec8;
+  --t2:       #5c5578;
+  --t3:       #2e2a42;
+  --mono:     'Space Mono', monospace;
+  --sans:     'Outfit', sans-serif;
+  --radius:   8px;
+  --r-sm:     5px;
+}
+
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--bg);
+  color: var(--t0);
+  font-family: var(--mono);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ─── AMBIENT GRID BACKGROUND ─────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(127,90,240,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(127,90,240,0.025) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 80% 10%, rgba(127,90,240,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 35% at 10% 80%, rgba(44,182,125,0.04) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── CODEMIRROR ───────────────────────────────────────── */
+.CodeMirror {
+  height: 100% !important;
+  background: var(--bg) !important;
+  color: var(--t0) !important;
+  font-family: var(--mono) !important;
+  font-size: 12.5px !important;
+  line-height: 1.8 !important;
+  border: none !important;
+}
+.CodeMirror-gutters  { background: var(--bg) !important; border-right: 1px solid var(--line) !important; }
+.CodeMirror-linenumber { color: var(--t3) !important; font-size: 10.5px !important; padding: 0 12px 0 8px !important; min-width: 34px; }
+.CodeMirror-cursor   { border-left: 2px solid var(--acc) !important; }
+.CodeMirror-activeline-background { background: rgba(127,90,240,0.03) !important; }
+.CodeMirror-selected, .CodeMirror-focused .CodeMirror-selected { background: rgba(127,90,240,0.16) !important; }
+.CodeMirror-matchingbracket { color: var(--teal) !important; text-decoration: none !important; background: rgba(44,182,125,0.08) !important; }
+.CodeMirror-vscrollbar::-webkit-scrollbar,
+.CodeMirror-hscrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+.CodeMirror-vscrollbar::-webkit-scrollbar-track,
+.CodeMirror-hscrollbar::-webkit-scrollbar-track { background: transparent; }
+.CodeMirror-vscrollbar::-webkit-scrollbar-thumb,
+.CodeMirror-hscrollbar::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 99px; }
+
+.cm-keyword    { color: #bf95f5 !important; }
+.cm-string, .cm-string-2 { color: #7de0aa !important; }
+.cm-number     { color: #f0955a !important; }
+.cm-comment    { color: #302d47 !important; font-style: italic !important; }
+.cm-operator   { color: #5acde0 !important; }
+.cm-builtin    { color: var(--blue) !important; }
+.cm-atom       { color: var(--red) !important; }
+.cm-variable   { color: var(--t0) !important; }
+.cm-variable-2,.cm-variable-3 { color: #c4b0f5 !important; }
+.cm-def        { color: #fde97a !important; }
+.cm-property   { color: #5acde0 !important; }
+.cm-bracket    { color: var(--t1) !important; }
+.cm-error      { color: var(--red) !important; background: rgba(224,82,82,0.08); }
+#outputEditor .CodeMirror,
+#outputEditor .CodeMirror-gutters { background: #04040608 !important; }
+#outputEditor .CodeMirror-cursor  { display: none; }
+
+/* ─── SERVER BANNER ───────────────────────────────────── */
+.server-banner {
+  display: none;
+  align-items: center;
+  gap: .75rem;
+  padding: .55rem 1.5rem;
+  background: rgba(20,12,4,.92);
+  border-bottom: 1px solid rgba(240,160,69,.18);
+  font-size: .6rem;
+  color: var(--amber);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 20;
+  letter-spacing: .3px;
+}
+.server-banner.visible { display: flex; }
+.banner-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber);
+  animation: blip 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes blip { 0%,100%{opacity:1}50%{opacity:.3} }
+.server-banner code {
+  background: rgba(40,28,10,.8);
+  padding: .1rem .45rem;
+  border-radius: var(--r-sm);
+  font-family: var(--mono);
+  color: #fcd97a;
+  border: 1px solid rgba(240,160,69,.15);
+}
+
+/* ─── HEADER ──────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  padding: 0 1.4rem;
+  height: 54px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg1);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(127,90,240,.3), transparent);
+}
+
+.logo-wrap { display: flex; align-items: center; gap: .7rem; }
+.logo-icon  { width: 28px; height: 28px; flex-shrink: 0; }
+.logo-icon svg { width: 100%; height: 100%; }
+
+.logo-text  { display: flex; flex-direction: column; gap: 2px; }
+.logo {
+  font-family: var(--sans);
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: -1px;
+  line-height: 1;
+  background: linear-gradient(110deg, #d8ccff 0%, #9d7ff5 45%, var(--blue) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.logo-sub {
+  font-size: .49rem;
+  color: var(--t2);
+  letter-spacing: 3.5px;
+  text-transform: uppercase;
+  font-family: var(--mono);
+}
+
+.vsep { width: 1px; height: 18px; background: var(--line2); }
+
+/* status chip */
+.status-chip {
+  display: flex; align-items: center; gap: .42rem;
+  padding: .2rem .65rem;
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  border-radius: 99px;
+  transition: border-color .3s, background .3s;
+}
+.status-chip.online  { border-color: rgba(44,182,125,.3); background: rgba(44,182,125,.04); }
+.status-chip.offline { border-color: rgba(224,82,82,.3);  background: rgba(224,82,82,.04); }
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--t3); transition: all .3s; flex-shrink: 0;
+}
+.status-dot.online  { background: var(--teal); box-shadow: 0 0 0 2px rgba(44,182,125,.2), 0 0 8px var(--teal); }
+.status-dot.offline { background: var(--red);  box-shadow: 0 0 0 2px rgba(224,82,82,.2),  0 0 8px var(--red); }
+.status-dot.checking { background: var(--amber); animation: blip .9s ease-in-out infinite; }
+.status-label { font-size: .56rem; color: var(--t1); letter-spacing: .5px; white-space: nowrap; }
+
+.header-spacer { flex: 1; }
+
+.hdr-btn {
+  display: flex; align-items: center; gap: .3rem;
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  color: var(--t2);
+  font-family: var(--mono);
+  font-size: .58rem;
+  cursor: pointer;
+  padding: .32rem .75rem;
+  border-radius: var(--r-sm);
+  transition: all .15s;
+  letter-spacing: .3px;
+}
+.hdr-btn:hover { border-color: var(--acc); color: var(--acc); background: var(--acc-glow2); }
+
+/* ─── TOOLBAR ─────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: 0 1.4rem;
+  height: 46px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg1);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 9;
+}
+
+.toolbar-label {
+  font-size: .52rem;
+  color: var(--t2);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* pill group */
+.preset-group {
+  display: flex;
+  gap: .15rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 3px;
+}
+.preset-pill {
+  background: transparent;
+  border: none;
+  color: var(--t2);
+  font-family: var(--mono);
+  font-size: .58rem;
+  cursor: pointer;
+  padding: .22rem .75rem;
+  border-radius: 4px;
+  transition: all .14s;
+  letter-spacing: .3px;
+}
+.preset-pill:hover  { color: var(--t1); background: var(--bg3); }
+.preset-pill.active {
+  background: var(--acc);
+  color: #e9d5ff;
+  box-shadow: 0 0 14px rgba(127,90,240,.4), inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.divider { width: 1px; height: 14px; background: var(--line2); }
+
+/* profile buttons */
+.profile-group { display: flex; gap: .15rem; }
+.profile-btn {
+  display: flex; align-items: center; gap: .3rem;
+  border: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: .58rem;
+  cursor: pointer;
+  padding: .26rem .7rem;
+  border-radius: var(--r-sm);
+  transition: all .16s;
+  background: var(--bg2);
+  color: var(--t2);
+  white-space: nowrap;
+  letter-spacing: .3px;
+}
+.profile-btn:hover { border-color: var(--line2); color: var(--t1); background: var(--bg3); }
+.profile-btn .pdot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; transition: box-shadow .2s; }
+.profile-btn.exec  .pdot { background: var(--amber); }
+.profile-btn.exec:hover, .profile-btn.exec.active  {
+  border-color: rgba(240,160,69,.4); color: var(--amber); background: var(--amber-g);
+}
+.profile-btn.exec.active .pdot { box-shadow: 0 0 0 2px rgba(240,160,69,.2), 0 0 7px var(--amber); }
+.profile-btn.rblx  .pdot { background: var(--blue); }
+.profile-btn.rblx:hover, .profile-btn.rblx.active {
+  border-color: rgba(74,158,255,.4); color: var(--blue); background: rgba(74,158,255,.05);
+}
+.profile-btn.rblx.active .pdot { box-shadow: 0 0 0 2px rgba(74,158,255,.2), 0 0 7px var(--blue); }
+.profile-btn.custom .pdot { background: var(--t2); }
+.profile-btn.custom:hover, .profile-btn.custom.active {
+  border-color: rgba(127,90,240,.4); color: var(--acc); background: var(--acc-glow2);
+}
+.profile-btn.custom.active .pdot { background: var(--acc); box-shadow: 0 0 0 2px rgba(127,90,240,.2), 0 0 7px var(--acc); }
+
+/* opts toggle */
+.opts-toggle {
+  display: flex; align-items: center; gap: .35rem;
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  color: var(--t1);
+  font-family: var(--mono);
+  font-size: .58rem;
+  cursor: pointer;
+  padding: .28rem .75rem;
+  border-radius: var(--r-sm);
+  transition: all .15s;
+  letter-spacing: .3px;
+}
+.opts-toggle:hover { border-color: var(--acc); color: var(--acc); }
+.opts-toggle.active { border-color: var(--acc2); color: var(--acc); background: var(--acc-glow2); }
+.opts-toggle .badge {
+  background: var(--acc2);
+  color: #fff;
+  font-size: .46rem;
+  padding: .06rem .38rem;
+  border-radius: 99px;
+  font-family: var(--sans);
+  font-weight: 700;
+  min-width: 16px;
+  text-align: center;
+  transition: background .2s;
+}
+.opts-toggle .badge.zero { background: var(--t3); color: var(--t2); }
+
+/* ─── RUN BUTTON ───────────────────────────────────────── */
+.run-btn {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--acc) 0%, var(--acc3) 100%);
+  border: 1px solid rgba(191,165,255,.15);
+  color: #eee0ff;
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: .72rem;
+  letter-spacing: 2px;
+  cursor: pointer;
+  padding: .46rem 1.5rem;
+  border-radius: var(--radius);
+  transition: all .18s;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin-left: auto;
+  text-transform: uppercase;
+  box-shadow: 0 0 22px rgba(127,90,240,.28), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.run-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,.07) 0%, transparent 60%);
+  pointer-events: none;
+}
+.run-btn::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.14), transparent);
+  transition: left .5s;
+}
+.run-btn:hover::after  { left: 160%; }
+.run-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 0 32px rgba(127,90,240,.45); }
+.run-btn:active:not(:disabled){ transform: translateY(0); }
+.run-btn:disabled { opacity: .3; cursor: not-allowed; transform: none; box-shadow: none; }
+.run-btn .spinner {
+  width: 10px; height: 10px;
+  border: 2px solid rgba(255,255,255,.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .5s linear infinite;
+  display: none; flex-shrink: 0;
+}
+.run-btn.loading .spinner { display: block; }
+.run-btn.loading .btn-text { opacity: .7; }
+.kbd-hint { font-size: .46rem; color: rgba(238,222,255,.35); margin-left: -.1rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── OPTIONS PANEL ────────────────────────────────────── */
+.options-panel {
+  background: var(--bg1);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height .28s cubic-bezier(.4,0,.2,1), opacity .2s;
+  opacity: 0;
+  position: relative;
+  z-index: 8;
+}
+.options-panel.open { max-height: 270px; opacity: 1; }
+.options-inner {
+  padding: .75rem 1.4rem .9rem;
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: .4rem 1rem;
+}
+
+.opt-section {
+  grid-column: 1/-1;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-top: .35rem;
+}
+.opt-section:first-child { margin-top: 0; }
+.opt-section-label {
+  font-size: .5rem;
+  color: var(--t2);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-family: var(--sans);
+  font-weight: 600;
+}
+.opt-section-line { flex: 1; height: 1px; background: var(--line); }
+
+.opt-row {
+  display: flex; align-items: center; gap: .45rem;
+  cursor: pointer;
+  padding: .3rem .5rem;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  transition: all .14s;
+  user-select: none;
+  position: relative;
+}
+.opt-row:hover         { background: var(--bg3); border-color: var(--line2); }
+.opt-row.danger:hover  { border-color: rgba(224,82,82,.2); background: rgba(224,82,82,.04); }
+.opt-row.on            { background: var(--acc-glow2); border-color: rgba(127,90,240,.2); }
+.opt-row.on.danger     { background: var(--red-g); border-color: rgba(224,82,82,.25); }
+
+.opt-switch {
+  width: 26px; height: 14px;
+  background: var(--line2);
+  border-radius: 7px;
+  position: relative;
+  flex-shrink: 0;
+  transition: background .2s;
+}
+.opt-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--t2);
+  transition: transform .18s, background .18s;
+}
+.opt-row.on        .opt-switch          { background: rgba(127,90,240,.45); }
+.opt-row.on        .opt-switch::after   { transform: translateX(12px); background: var(--acc); }
+.opt-row.on.danger .opt-switch          { background: rgba(224,82,82,.35); }
+.opt-row.on.danger .opt-switch::after   { background: var(--red); }
+
+.opt-info  { flex: 1; min-width: 0; }
+.opt-name  { font-size: .6rem; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opt-row.on        .opt-name { color: var(--t0); }
+.opt-row.on.danger .opt-name { color: var(--red); }
+
+.opt-row .tip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px); left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg3);
+  border: 1px solid var(--line2);
+  color: var(--t1);
+  font-size: .55rem;
+  padding: .4rem .65rem;
+  border-radius: var(--radius);
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,.6), 0 0 0 1px rgba(127,90,240,.08);
+  pointer-events: none;
+  line-height: 1.5;
+  max-width: 220px;
+  white-space: normal;
+  text-align: center;
+}
+.opt-row:hover .tip { display: block; }
+
+.flag-strip {
+  grid-column: 1/-1;
+  display: flex; align-items: center; gap: .5rem;
+  padding: .28rem .55rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  margin-top: .05rem;
+}
+.flag-strip-label { font-size: .5rem; color: var(--t2); letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; }
+.flag-strip-code  { font-size: .58rem; color: var(--teal); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flag-strip-code.empty { color: var(--t3); font-style: italic; }
+
+/* ─── EDITOR LAYOUT ────────────────────────────────────── */
+.editors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+}
+.pane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.pane + .pane { border-left: 1px solid var(--line); }
+
+/* pane header */
+.pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  height: 36px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.pane-title-wrap  { display: flex; align-items: center; gap: .5rem; }
+.pane-badge       { width: 5px; height: 5px; border-radius: 50%; background: var(--t3); flex-shrink: 0; }
+#inputPane  .pane-badge { background: var(--blue); box-shadow: 0 0 6px rgba(74,158,255,.5); }
+#outputPane .pane-badge { background: var(--teal); box-shadow: 0 0 6px rgba(44,182,125,.5); }
+.pane-title {
+  font-family: var(--sans);
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  color: var(--t1);
+  text-transform: uppercase;
+}
+.pane-lang-tag {
+  font-size: .48rem;
+  color: var(--t2);
+  background: var(--bg2);
+  padding: .08rem .38rem;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.pane-actions { display: flex; gap: .3rem; align-items: center; }
+.pane-stat {
+  font-size: .53rem;
+  color: var(--t2);
+  background: var(--bg2);
+  padding: .1rem .45rem;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+}
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--line2);
+  color: var(--t2);
+  font-family: var(--mono);
+  font-size: .56rem;
+  cursor: pointer;
+  padding: .2rem .52rem;
+  border-radius: 4px;
+  transition: all .14s;
+  letter-spacing: .3px;
+}
+.icon-btn:hover { border-color: var(--acc); color: var(--acc); background: var(--acc-glow2); }
+
+.cm-host { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; position: relative; }
+.cm-host .CodeMirror { height: 100%; flex: 1; }
+
+/* ─── DIFF BAR ─────────────────────────────────────────── */
+.diff-bar {
+  display: none;
+  align-items: center;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.diff-bar.visible { display: flex; }
+.diff-item {
+  display: flex; align-items: center; gap: .4rem;
+  padding: .3rem .9rem;
+  border-right: 1px solid var(--line);
+}
+.diff-label { color: var(--t2); font-size: .52rem; letter-spacing: 1px; text-transform: uppercase; }
+.diff-val   { font-weight: 700; font-size: .58rem; font-family: var(--sans); }
+.diff-val.up   { color: var(--red); }
+.diff-val.down { color: var(--teal); }
+.diff-val.same { color: var(--t2); }
+
+/* ─── STATUSBAR ────────────────────────────────────────── */
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: 0 1.4rem;
+  height: 28px;
+  border-top: 1px solid var(--line);
+  background: var(--bg1);
+  flex-shrink: 0;
+  font-size: .56rem;
+  color: var(--t2);
+  position: relative;
+  z-index: 10;
+}
+.statusbar::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(127,90,240,.15), transparent);
+}
+
+.pill {
+  padding: .07rem .48rem;
+  border-radius: 3px;
+  font-size: .48rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  font-family: var(--sans);
+  text-transform: uppercase;
+}
+.pill.success { background: rgba(44,182,125,.1);  color: var(--teal); border: 1px solid rgba(44,182,125,.2); }
+.pill.error   { background: rgba(224,82,82,.1);   color: var(--red);  border: 1px solid rgba(224,82,82,.2); }
+.pill.idle    { background: var(--bg2); color: var(--t2); border: 1px solid var(--line); }
+
+.statusbar-sep { width: 1px; height: 10px; background: var(--line2); }
+#timerStat     { margin-left: auto; color: var(--t1); font-size: .54rem; }
+
+/* ─── ERROR PANEL ──────────────────────────────────────── */
+.error-panel {
+  display: none;
+  background: rgba(40,10,10,.5);
+  border-top: 1px solid rgba(224,82,82,.18);
+  padding: .6rem 1.2rem;
+  font-size: .63rem;
+  color: var(--red);
+  white-space: pre-wrap;
+  max-height: 100px;
+  overflow-y: auto;
+  flex-shrink: 0;
+  font-family: var(--mono);
+  line-height: 1.65;
+}
+.error-panel.visible { display: block; }
+
+/* ─── EMPTY STATE ──────────────────────────────────────── */
+.empty-state {
+  position: absolute; inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .9rem;
+  pointer-events: none;
+  background: var(--bg);
+  z-index: 5;
+}
+.empty-icon-wrap { position: relative; width: 48px; height: 48px; }
+.empty-ring {
+  position: absolute; inset: 0;
+  border: 1px solid var(--line2);
+  border-radius: 50%;
+  animation: ringPulse 3.5s ease-in-out infinite;
+}
+.empty-ring:nth-child(2) { inset: -12px; opacity: .35; animation-delay: 1.2s; }
+@keyframes ringPulse { 0%,100%{opacity:.25;transform:scale(1)}50%{opacity:.5;transform:scale(1.05)} }
+.empty-icon {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; color: var(--line2);
+}
+.empty-text  { color: var(--t3); font-size: .58rem; letter-spacing: 1.5px; text-transform: uppercase; font-family: var(--sans); font-weight: 500; }
+
+/* ─── TOAST ───────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 1.4rem; right: 1.4rem;
+  background: var(--bg3);
+  border: 1px solid var(--line2);
+  color: var(--t0);
+  font-family: var(--mono);
+  font-size: .64rem;
+  padding: .5rem .95rem;
+  border-radius: var(--radius);
+  opacity: 0;
+  transform: translateY(10px) scale(.96);
+  transition: all .22s cubic-bezier(.34,1.56,.64,1);
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 8px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(127,90,240,.1);
+}
+.toast.show { opacity: 1; transform: translateY(0) scale(1); }
+
+/* ─── MISC ────────────────────────────────────────────── */
+.pane.dragover .CodeMirror { box-shadow: inset 0 0 0 2px var(--acc); }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 99px; }
+</style>
+</head>
+<body>
+
+<!-- SERVER BANNER -->
+<div class="server-banner" id="serverBanner">
+  <div class="banner-dot"></div>
+  server.py is not running — open a terminal in your ZukaTech folder and run:
+  <code>python server.py</code>
+  <button class="icon-btn" style="margin-left:auto" onclick="checkServer()">retry</button>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo-wrap">
+    <div class="logo-icon">
+      <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M14 2 L18.5 10 L27 10.5 L21 16 L23 25 L14 20 L5 25 L7 16 L1 10.5 L9.5 10 Z"
+          fill="none" stroke="url(#lg)" stroke-width="1.1" stroke-linejoin="round"/>
+        <circle cx="14" cy="14" r="2.8" fill="url(#lg)" opacity="0.9"/>
+        <defs>
+          <linearGradient id="lg" x1="1" y1="2" x2="27" y2="26" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#c4b0f5"/>
+            <stop offset="0.55" stop-color="#7f5af0"/>
+            <stop offset="1" stop-color="#4a9eff"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <div class="logo">ZukaTech</div>
+      <div class="logo-sub">Lua Obfuscator · Roblox</div>
+    </div>
+  </div>
+
+  <div class="vsep" style="margin:0 .05rem"></div>
+
+  <div class="status-chip" id="statusChip">
+    <div class="status-dot checking" id="statusDot"></div>
+    <span class="status-label" id="statusLabel">connecting...</span>
+  </div>
+
+  <div class="header-spacer"></div>
+
+  <button class="hdr-btn" onclick="importLua()">
+    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+      <path d="M6 1v7M3 5l3 3 3-3M1 10h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    import
+  </button>
+  <button class="hdr-btn" onclick="exportOutput()">
+    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+      <path d="M6 8V1M3 4l3-3 3 3M1 10h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    export
+  </button>
+</header>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <span class="toolbar-label">Preset</span>
+  <div class="preset-group" id="presetGroup">
+    <button class="preset-pill" onclick="setPreset('Minify')">Minify</button>
+    <button class="preset-pill active" onclick="setPreset('Medium')">Medium</button>
+    <button class="preset-pill" onclick="setPreset('Strong')">Strong</button>
+  </div>
+  <div class="divider"></div>
+  <span class="toolbar-label">Version</span>
+  <div class="preset-group" id="versionGroup">
+    <button class="preset-pill active" onclick="setVersion('LuaU')">LuaU</button>
+    <button class="preset-pill" onclick="setVersion('Lua51')">Lua 5.1</button>
+  </div>
+  <div class="divider"></div>
+  <div class="profile-group" id="profileGroup">
+    <button class="profile-btn exec active" onclick="applyProfile('executor')"
+      title="Executor script — disables proxy globals so getgenv/hookfunction etc. are visible">
+      <span class="pdot"></span>Executor
+    </button>
+    <button class="profile-btn rblx" onclick="applyProfile('roblox')"
+      title="Standard Roblox game script — proxy globals on, full Roblox safety flags">
+      <span class="pdot"></span>Roblox
+    </button>
+    <button class="profile-btn custom" onclick="applyProfile('custom')"
+      title="Manual — configure every flag yourself">
+      <span class="pdot"></span>Custom
+    </button>
+  </div>
+  <div class="divider"></div>
+  <button class="opts-toggle" id="optsToggle" onclick="toggleOptions()">
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+      <circle cx="6" cy="6" r="2" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M6 1v1M6 10v1M1 6h1M10 6h1M2.5 2.5l.7.7M8.8 8.8l.7.7M2.5 9.5l.7-.7M8.8 3.2l.7-.7"
+        stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+    </svg>
+    Options
+    <span class="badge zero" id="optsBadge">0</span>
+  </button>
+  <button class="run-btn" id="runBtn" onclick="runObfuscate()">
+    <div class="spinner"></div>
+    <span class="btn-text">Obfuscate</span>
+    <span class="kbd-hint">⌘↵</span>
+  </button>
+</div>
+
+<!-- OPTIONS PANEL -->
+<div class="options-panel" id="optionsPanel">
+  <div class="options-inner">
+
+    <div class="opt-section">
+      <span class="opt-section-label">Obfuscation</span>
+      <div class="opt-section-line"></div>
+    </div>
+
+    <div class="opt-row on" data-flag="--rename-variables" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Rename Variables</div></div>
+      <div class="tip">Renames locals to short garbled names. Safe for Roblox — only affects locals, not Roblox API globals.</div>
+    </div>
+    <div class="opt-row on" data-flag="--encode-strings" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Encode Strings</div></div>
+      <div class="tip">Replaces string literals with numeric escape sequences. Very safe, negligible performance cost.</div>
+    </div>
+    <div class="opt-row on" data-flag="--encrypt-strings" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Encrypt Strings</div></div>
+      <div class="tip">XOR-encrypts strings with a runtime key. Safe in Roblox — no blocked APIs used.</div>
+    </div>
+    <div class="opt-row on" data-flag="--constant-array" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Constant Array</div></div>
+      <div class="tip">Pools all constants into one lookup table. Greatly hinders decompilers. Safe for Roblox.</div>
+    </div>
+    <div class="opt-row" data-flag="--proxy-globals" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Proxy Globals</div></div>
+      <div class="tip">Routes global access through a proxy table. Safe — does not use getfenv/setfenv.</div>
+    </div>
+    <div class="opt-row" data-flag="--number-literals" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Number Literals</div></div>
+      <div class="tip">Replaces number constants with equivalent hex or expression forms. Safe.</div>
+    </div>
+    <div class="opt-row" data-flag="--add-watermark" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Watermark</div></div>
+      <div class="tip">Adds a ZukaTech comment watermark. Disable for clean output.</div>
+    </div>
+    <div class="opt-row" data-flag="--shuffle-local-functions" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Shuffle Functions</div></div>
+      <div class="tip">Randomly reorders local function declarations. Safe — ZukaTech handles dependency ordering.</div>
+    </div>
+
+    <div class="opt-section">
+      <span class="opt-section-label">Roblox Safety</span>
+      <div class="opt-section-line"></div>
+    </div>
+
+    <div class="opt-row on" data-flag="--no-virtualize" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">No Virtualize ✓</div></div>
+      <div class="tip">Disables the VM bytecode layer. KEEP ON for Roblox — the VM uses getfenv/setfenv which do not exist in Luau and will crash.</div>
+    </div>
+    <div class="opt-row on" data-flag="--no-wrap-in-closure" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">No Closure Wrap ✓</div></div>
+      <div class="tip">Prevents wrapping output in a setfenv/getfenv closure. REQUIRED for Roblox — those functions are blocked in Luau.</div>
+    </div>
+    <div class="opt-row on" data-flag="--no-obfuscate-table-keys" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Keep Table Keys ✓</div></div>
+      <div class="tip">Skips obfuscating table key names. Recommended — Roblox API uses string keys like .Name, .Parent, .CFrame.</div>
+    </div>
+    <div class="opt-row on" data-flag="--no-string-encoding-instance-fields" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Skip API Strings ✓</div></div>
+      <div class="tip">Prevents encoding strings that look like Roblox API names. Reduces risk of breaking Instance:FindFirstChild("Name") calls.</div>
+    </div>
+
+    <div class="opt-section">
+      <span class="opt-section-label">Aggressive — likely to break Roblox execution</span>
+      <div class="opt-section-line"></div>
+    </div>
+
+    <div class="opt-row danger" data-flag="--virtualize" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Virtualize ⚠</div></div>
+      <div class="tip">Compiles into a custom VM interpreter. Strongest obfuscation but BREAKS in Roblox — VM requires getfenv/setfenv.</div>
+    </div>
+    <div class="opt-row danger" data-flag="--obfuscate-table-keys" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Obfusc. Table Keys ⚠</div></div>
+      <div class="tip">Renames ALL table keys. Breaks Roblox API string access: .Name, .Parent, :FindFirstChild(), etc.</div>
+    </div>
+    <div class="opt-row danger" data-flag="--max-string-size" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Max String Split ⚠</div></div>
+      <div class="tip">Splits long strings into many fragments. Can exceed Roblox's per-function constant table limit causing load errors.</div>
+    </div>
+    <div class="opt-row danger" data-flag="--wrap-in-closure" onclick="toggleOpt(this)">
+      <div class="opt-switch"></div>
+      <div class="opt-info"><div class="opt-name">Closure Wrap ⚠</div></div>
+      <div class="tip">Wraps output in setfenv/getfenv closure. BREAKS in Roblox — these functions do not exist in Luau.</div>
+    </div>
+
+    <div class="opt-section" style="margin-top:.05rem">
+      <span class="opt-section-label">Generated Flags</span>
+      <div class="opt-section-line"></div>
+    </div>
+    <div class="flag-strip">
+      <span class="flag-strip-label">CLI</span>
+      <span class="flag-strip-code empty" id="flagPreview">no extra flags active</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- EDITORS -->
+<div class="editors">
+  <div class="pane" id="inputPane">
+    <div class="pane-header">
+      <div class="pane-title-wrap">
+        <div class="pane-badge"></div>
+        <span class="pane-title">Input</span>
+        <span class="pane-lang-tag">lua</span>
+      </div>
+      <div class="pane-actions">
+        <span class="pane-stat" id="inputStat">0 lines</span>
+        <button class="icon-btn" onclick="clearInput()">clear</button>
+      </div>
+    </div>
+    <div class="cm-host" id="inputEditor"></div>
+  </div>
+
+  <div class="pane" id="outputPane">
+    <div class="pane-header">
+      <div class="pane-title-wrap">
+        <div class="pane-badge"></div>
+        <span class="pane-title">Output</span>
+        <span class="pane-lang-tag">lua</span>
+      </div>
+      <div class="pane-actions" id="outputActions" style="display:none">
+        <span class="pane-stat" id="outputStat"></span>
+        <button class="icon-btn" onclick="copyOutput()">copy</button>
+        <button class="icon-btn" onclick="exportOutput()">save</button>
+      </div>
+    </div>
+    <div class="diff-bar" id="diffBar">
+      <div class="diff-item"><span class="diff-label">size</span><span class="diff-val" id="diffSize">—</span></div>
+      <div class="diff-item"><span class="diff-label">lines</span><span class="diff-val" id="diffLines">—</span></div>
+      <div class="diff-item"><span class="diff-label">ratio</span><span class="diff-val" id="diffRatio">—</span></div>
+    </div>
+    <div class="cm-host" id="outputEditor" style="position:relative">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon-wrap">
+          <div class="empty-ring"></div>
+          <div class="empty-ring"></div>
+          <div class="empty-icon">◈</div>
+        </div>
+        <span class="empty-text">output will appear here</span>
+      </div>
+    </div>
+    <div class="error-panel" id="errorPanel"></div>
+  </div>
+</div>
+
+<!-- STATUSBAR -->
+<div class="statusbar">
+  <span class="pill idle" id="resultPill">IDLE</span>
+  <div class="statusbar-sep"></div>
+  <span id="statusMsg">waiting for input</span>
+  <span id="timerStat"></span>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="fileInput" accept=".lua,.txt" style="display:none" onchange="handleFileImport(event)">
+
+<script>
+const API = 'http://localhost:5000';
+let selectedPreset = 'Medium';
+let selectedVersion = 'LuaU';
+let serverOnline = false;
+let lastOutput = '';
+let optsPanelOpen = false;
+
+// ── CODEMIRROR ────────────────────────────────────────────────────────
+const cmInput = CodeMirror(document.getElementById('inputEditor'), {
+  mode: 'lua', lineNumbers: true, matchBrackets: true, autoCloseBrackets: true,
+  styleActiveLine: true, indentUnit: 2, tabSize: 2, indentWithTabs: false, lineWrapping: false,
+  extraKeys: {
+    'Tab': cm => cm.execCommand('indentMore'),
+    'Shift-Tab': cm => cm.execCommand('indentLess'),
+    'Ctrl-/': cm => cm.toggleComment(),
+    'Cmd-/': cm => cm.toggleComment(),
+    'Ctrl-Enter': () => runObfuscate(),
+    'Cmd-Enter': () => runObfuscate(),
+  },
+});
+const cmOutput = CodeMirror(document.getElementById('outputEditor'), {
+  mode: 'lua', lineNumbers: true, readOnly: true, lineWrapping: false, value: '',
+});
+function refreshEditors() { cmInput.refresh(); cmOutput.refresh(); }
+window.addEventListener('resize', refreshEditors);
+requestAnimationFrame(() => requestAnimationFrame(refreshEditors));
+cmInput.on('change', () => {
+  const v = cmInput.getValue();
+  const lines = v.split('\n').length;
+  document.getElementById('inputStat').textContent = `${lines} line${lines!==1?'s':''} · ${fmtSize(v.length)}`;
+});
+
+// ── OPTIONS ───────────────────────────────────────────────────────────
+function toggleOptions() {
+  optsPanelOpen = !optsPanelOpen;
+  document.getElementById('optionsPanel').classList.toggle('open', optsPanelOpen);
+  document.getElementById('optsToggle').classList.toggle('active', optsPanelOpen);
+  setTimeout(refreshEditors, 300);
+}
+
+function toggleOpt(row) {
+  row.classList.toggle('on');
+  updateFlagPreview();
+}
+
+function getActiveFlags() {
+  return [...document.querySelectorAll('.opt-row.on')].map(r => r.dataset.flag);
+}
+
+function updateFlagPreview() {
+  const flags = getActiveFlags();
+  const badge = document.getElementById('optsBadge');
+  const preview = document.getElementById('flagPreview');
+  badge.textContent = flags.length;
+  badge.className = 'badge' + (flags.length === 0 ? ' zero' : '');
+  if (flags.length === 0) {
+    preview.textContent = 'no extra flags active';
+    preview.className = 'flag-strip-code empty';
+  } else {
+    preview.textContent = `--${selectedVersion} ` + flags.join(' ');
+    preview.className = 'flag-strip-code';
+  }
+}
+updateFlagPreview();
+
+// ── PROFILES ──────────────────────────────────────────────────────────
+const PROFILES = {
+  executor: {
+    '--rename-variables':                   true,
+    '--encode-strings':                     true,
+    '--encrypt-strings':                    true,
+    '--constant-array':                     true,
+    '--proxy-globals':                      false,
+    '--number-literals':                    false,
+    '--add-watermark':                      false,
+    '--shuffle-local-functions':            true,
+    '--no-virtualize':                      true,
+    '--no-wrap-in-closure':                 true,
+    '--no-obfuscate-table-keys':            true,
+    '--no-string-encoding-instance-fields': true,
+    '--virtualize':                         false,
+    '--obfuscate-table-keys':               false,
+    '--max-string-size':                    false,
+    '--wrap-in-closure':                    false,
+  },
+  roblox: {
+    '--rename-variables':                   true,
+    '--encode-strings':                     true,
+    '--encrypt-strings':                    true,
+    '--constant-array':                     true,
+    '--proxy-globals':                      true,
+    '--number-literals':                    false,
+    '--add-watermark':                      false,
+    '--shuffle-local-functions':            true,
+    '--no-virtualize':                      true,
+    '--no-wrap-in-closure':                 true,
+    '--no-obfuscate-table-keys':            true,
+    '--no-string-encoding-instance-fields': true,
+    '--virtualize':                         false,
+    '--obfuscate-table-keys':               false,
+    '--max-string-size':                    false,
+    '--wrap-in-closure':                    false,
+  },
+};
+
+let activeProfile = 'executor';
+
+function applyProfile(name) {
+  activeProfile = name;
+  document.querySelectorAll('.profile-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.onclick.toString().includes(`'${name}'`)) btn.classList.add('active');
+  });
+  if (name === 'custom') {
+    if (!optsPanelOpen) toggleOptions();
+    toast('custom — configure flags manually');
+    return;
+  }
+  const profile = PROFILES[name];
+  document.querySelectorAll('.opt-row[data-flag]').forEach(row => {
+    const flag = row.dataset.flag;
+    if (flag in profile) {
+      const shouldBeOn = profile[flag];
+      const isOn = row.classList.contains('on');
+      if (shouldBeOn && !isOn) row.classList.add('on');
+      if (!shouldBeOn && isOn) row.classList.remove('on');
+    }
+  });
+  updateFlagPreview();
+  const labels = { executor: 'Executor mode applied', roblox: 'Roblox mode applied' };
+  toast(labels[name] || 'profile applied');
+}
+
+applyProfile('executor');
+
+const _toggleOpt = toggleOpt;
+window.toggleOpt = function(row) {
+  _toggleOpt(row);
+  activeProfile = 'custom';
+  document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.profile-btn.custom').classList.add('active');
+};
+
+// ── SERVER ────────────────────────────────────────────────────────────
+async function checkServer() {
+  setDot('checking', 'connecting...');
+  document.getElementById('statusChip').className = 'status-chip';
+  try {
+    const res = await fetch(`${API}/ping`, { signal: AbortSignal.timeout(3000) });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      setDot('online', `ready · ${data.lua.split(/[/\\]/).pop()}`);
+      document.getElementById('statusChip').className = 'status-chip online';
+      serverOnline = true;
+      document.getElementById('serverBanner').classList.remove('visible');
+    }
+  } catch {
+    setDot('offline', 'server offline');
+    document.getElementById('statusChip').className = 'status-chip offline';
+    serverOnline = false;
+    document.getElementById('serverBanner').classList.add('visible');
+  }
+}
+function setDot(state, label) {
+  document.getElementById('statusDot').className = `status-dot ${state}`;
+  document.getElementById('statusLabel').textContent = label;
+}
+setInterval(checkServer, 5000);
+checkServer();
+
+// ── PRESET / VERSION ──────────────────────────────────────────────────
+function setPreset(p) {
+  selectedPreset = p;
+  document.querySelectorAll('#presetGroup .preset-pill').forEach(el =>
+    el.classList.toggle('active', el.textContent.trim() === p));
+}
+function setVersion(v) {
+  selectedVersion = v;
+  document.querySelectorAll('#versionGroup .preset-pill').forEach(el =>
+    el.classList.toggle('active', el.textContent.trim() === v));
+  updateFlagPreview();
+}
+
+// ── OBFUSCATE ─────────────────────────────────────────────────────────
+async function runObfuscate() {
+  const code = cmInput.getValue().trim();
+  if (!code) { toast('paste some Lua first!'); return; }
+  if (!serverOnline) { toast('server offline — run python server.py first'); return; }
+
+  const btn = document.getElementById('runBtn');
+  btn.classList.add('loading'); btn.disabled = true;
+
+  const optFlags = getActiveFlags();
+  const versionFlag = `--${selectedVersion}`;
+  const extra = [versionFlag, ...optFlags].join(' ');
+
+  const t0 = Date.now();
+  setStatus('obfuscating...');
+  hideError();
+
+  try {
+    const res = await fetch(`${API}/obfuscate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, preset: selectedPreset, extra }),
+      signal: AbortSignal.timeout(35000),
+    });
+    const data = await res.json();
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+    document.getElementById('timerStat').textContent = `${elapsed}s`;
+
+    if (data.success) {
+      showOutput(data.output);
+      showDiff(code, data.output);
+      setStatus(`done in ${elapsed}s · ${selectedPreset} · ${versionFlag}`);
+      setPill('success', 'SUCCESS');
+      lastOutput = data.output;
+    } else {
+      showError(data.error || data.stderr || 'ZukaTech returned an error');
+      setStatus('obfuscation failed — see error panel');
+      setPill('error', 'FAILED');
+    }
+  } catch (err) {
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+    showError(`Request failed after ${elapsed}s:\n${err.message}\n\nMake sure server.py is running.`);
+    setStatus('connection error');
+    setPill('error', 'ERROR');
+    await checkServer();
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────
+function showOutput(text) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('outputActions').style.display = 'flex';
+  cmOutput.setValue(text);
+  requestAnimationFrame(() => requestAnimationFrame(() => cmOutput.refresh()));
+  document.getElementById('outputStat').textContent =
+    `${text.split('\n').length} lines · ${fmtSize(text.length)}`;
+}
+function showDiff(before, after) {
+  document.getElementById('diffBar').classList.add('visible');
+  const sd = document.getElementById('diffSize');
+  const ld = document.getElementById('diffLines');
+  const rd = document.getElementById('diffRatio');
+  const sizeDiff = after.length - before.length;
+  const lineDiff = after.split('\n').length - before.split('\n').length;
+  const ratio = (after.length / before.length * 100).toFixed(1);
+  sd.textContent = (sizeDiff>=0?'+':'')+fmtSize(sizeDiff);
+  sd.className = 'diff-val '+(sizeDiff>0?'up':sizeDiff<0?'down':'same');
+  ld.textContent = (lineDiff>=0?'+':'')+lineDiff;
+  ld.className = 'diff-val '+(lineDiff>0?'up':lineDiff<0?'down':'same');
+  rd.textContent = `${ratio}%`;
+  rd.className = 'diff-val '+(parseFloat(ratio)>100?'up':'down');
+}
+function showError(msg) { const p=document.getElementById('errorPanel'); p.textContent='⚠ '+msg; p.classList.add('visible'); }
+function hideError()    { document.getElementById('errorPanel').classList.remove('visible'); }
+function setStatus(msg) { document.getElementById('statusMsg').textContent = msg; }
+function setPill(type, text) { const p=document.getElementById('resultPill'); p.className=`pill ${type}`; p.textContent=text; }
+function fmtSize(b) { const a=Math.abs(b); return a<1024?`${b}B`:`${(b/1024).toFixed(1)}KB`; }
+function importLua() { document.getElementById('fileInput').click(); }
+function handleFileImport(e) {
+  const file=e.target.files[0]; if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{cmInput.setValue(ev.target.result);toast(`loaded ${file.name}`);};
+  r.readAsText(file); e.target.value='';
+}
+function exportOutput() {
+  if(!lastOutput){toast('nothing to export yet');return;}
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([lastOutput],{type:'text/plain'}));
+  a.download='obfuscated.lua';a.click();toast('saved obfuscated.lua');
+}
+function copyOutput() {
+  if(!lastOutput)return;
+  navigator.clipboard.writeText(lastOutput).then(()=>toast('copied to clipboard'));
+}
+function clearInput() { cmInput.setValue(''); toast('cleared'); }
+
+const inputPane = document.getElementById('inputPane');
+inputPane.addEventListener('dragover', e=>{e.preventDefault();inputPane.classList.add('dragover');});
+inputPane.addEventListener('dragleave', ()=>inputPane.classList.remove('dragover'));
+inputPane.addEventListener('drop', e=>{
+  e.preventDefault();inputPane.classList.remove('dragover');
+  const file=e.dataTransfer.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{cmInput.setValue(ev.target.result);toast(`loaded ${file.name}`);};
+  r.readAsText(file);
+});
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runObfuscate();}
+});
+function toast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t=setTimeout(()=>t.classList.remove('show'),2400);
+}
+</script>
+</body>
+</html>
