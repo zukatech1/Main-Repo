@@ -1,10 +1,9 @@
 print("We're so back.")
-
 loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/notifier.lua"))()
 
 
 
-print("- Zukas Panel -")
+print("Use the removeadonis command if the game you're in uses adonis")
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 local CoreGui = game:GetService("CoreGui")
@@ -43722,6 +43721,512 @@ function Modules.AdonisBypass:Initialize()
         module:Execute()
     end)
 end]]
+RegisterCommand({
+    Name        = "partbring",
+    Aliases     = {"pb", "sendpart"},
+    Description = "WIP Sends unanchored parts to a target",
+    ArgsDesc    = {},
+    Permissions = {},
+}, function(args, speaker)
+    local TweenService = game:GetService("TweenService")
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local Workspace = game:GetService("Workspace")
+    local Debris = game:GetService("Debris")
+    local Camera = Workspace.CurrentCamera
+    local LocalPlayer = Players.LocalPlayer
+    LocalPlayer.ReplicationFocus = Workspace
+    pcall(function()
+    	game:GetService("CoreGui").RobloxGui["CoreScripts/NetworkPause"]:Destroy()
+    end)
+    if not getgenv().Network then
+    	getgenv().Network = { BaseParts = {} }
+    	RunService.Heartbeat:Connect(function()
+    		sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
+    	end)
+    end
+    local CONFIG = {
+    	RADIUS = 500,
+    	UPDATE_INTERVAL = 0.05,
+    }
+    local TARGET_PARTS = {}
+    local CONNECTIONS = {}
+    local sendTarget = nil
+    local blackHoleActive = false
+    local spectateActive = false
+    local targetMode = "Players"
+    local cycleIndex = 1
+    local cycleConnection = nil
+    local spectateMonitorConnection = nil
+    local DescendantAddedConnection = nil
+    local originalCameraType = nil
+    local originalCameraSubject = nil
+    local lastUpdate = 0
+    local Folder = Instance.new("Folder", Workspace)
+    local AnchorPart = Instance.new("Part", Folder)
+    local Attachment1 = Instance.new("Attachment", AnchorPart)
+    AnchorPart.Anchored = true
+    AnchorPart.CanCollide = false
+    AnchorPart.Transparency = 1
+    local overlapParams = OverlapParams.new()
+    overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+    overlapParams.MaxParts = 500
+    local function getPartsInRadius(centerPos, radius)
+    	local char = LocalPlayer.Character
+    	overlapParams.FilterDescendantsInstances = char and { char } or {}
+    	return Workspace:GetPartBoundsInRadius(centerPos, radius, overlapParams)
+    end
+    local function releasePart(part)
+    	local data = TARGET_PARTS[part]
+    	if not data then return end
+    	if data.conn then data.conn:Disconnect() end
+    	pcall(function()
+    		if data.alignPos and data.alignPos.Parent then data.alignPos:Destroy() end
+    		if data.attachment and data.attachment.Parent then data.attachment:Destroy() end
+    		if data.torque and data.torque.Parent then data.torque:Destroy() end
+    	end)
+    	TARGET_PARTS[part] = nil
+    end
+    local function forcePart(part)
+    	if TARGET_PARTS[part] then return end
+    	if part.Anchored then return end
+    	if part.Parent:FindFirstChildOfClass("Humanoid") then return end
+    	if part.Parent:FindFirstChild("Head") then return end
+    	if part.Name == "Handle" then return end
+    	for _, c in ipairs(part:GetChildren()) do
+    		if c:IsA("BodyMover") or c:IsA("RocketPropulsion")
+    			or c:IsA("LinearVelocity") or c:IsA("VectorForce") then
+    			pcall(function() c:Destroy() end)
+    		end
+    	end
+    	if part:FindFirstChild("Attachment") then part:FindFirstChild("Attachment"):Destroy() end
+    	if part:FindFirstChild("AlignPosition") then part:FindFirstChild("AlignPosition"):Destroy() end
+    	if part:FindFirstChild("Torque") then part:FindFirstChild("Torque"):Destroy() end
+    	part.CanCollide = false
+    	local attachment = Instance.new("Attachment", part)
+    	local torque = Instance.new("Torque", part)
+    	torque.Torque = Vector3.new(100000, 100000, 100000)
+    	torque.Attachment0 = attachment
+    	local alignPos = Instance.new("AlignPosition", part)
+    	alignPos.MaxForce = math.huge
+    	alignPos.MaxVelocity = math.huge
+    	alignPos.Responsiveness = 200
+    	alignPos.Attachment0 = attachment
+    	alignPos.Attachment1 = Attachment1
+    	local conn
+    	conn = RunService.Heartbeat:Connect(function()
+    		if not part.Parent or not alignPos.Parent then
+    			releasePart(part)
+    			return
+    		end
+    		if sendTarget then
+    			local targetChar = sendTarget.Character
+    			local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    			if targetRoot and (targetRoot.Position - part.Position).Magnitude < 12 then
+    				pcall(function()
+    					if not targetRoot:FindFirstChild("__flingBV") then
+    						local flingBV = Instance.new("BodyVelocity")
+    						flingBV.Name = "__flingBV"
+    						flingBV.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+    						flingBV.Velocity = (targetRoot.Position - part.Position).Unit * 500
+    						flingBV.Parent = targetRoot
+    						Debris:AddItem(flingBV, 0.15)
+    					end
+    				end)
+    			end
+    		end
+    	end)
+    	TARGET_PARTS[part] = {
+    		attachment = attachment,
+    		alignPos = alignPos,
+    		torque = torque,
+    		conn = conn,
+    	}
+    end
+    local function cleanupStaleParts()
+    	for part in pairs(TARGET_PARTS) do
+    		if not part.Parent then releasePart(part) end
+    	end
+    end
+    local function blackholeLoop()
+    	local now = tick()
+    	if now - lastUpdate < CONFIG.UPDATE_INTERVAL then return end
+    	lastUpdate = now
+    	if not blackHoleActive then return end
+    	local char = LocalPlayer.Character
+    	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    	if not hrp then return end
+    	for _, part in ipairs(getPartsInRadius(hrp.Position, CONFIG.RADIUS)) do
+    		forcePart(part)
+    	end
+    	cleanupStaleParts()
+    	if sendTarget then
+    		local targetChar = sendTarget.Character
+    		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    		if targetRoot then
+    			Attachment1.WorldCFrame = targetRoot.CFrame
+    		end
+    	end
+    end
+    table.insert(CONNECTIONS, RunService.Heartbeat:Connect(blackholeLoop))
+    local function getPlayer(name)
+    	local query = name:lower()
+    	for _, p in ipairs(Players:GetPlayers()) do
+    		if p ~= LocalPlayer then
+    			if p.Name:lower():find(query, 1, true)
+    				or p.DisplayName:lower():find(query, 1, true) then
+    				return p
+    			end
+    		end
+    	end
+    end
+    local function getValidPlayers()
+    	local valid = {}
+    	for _, p in ipairs(Players:GetPlayers()) do
+    		if p ~= LocalPlayer and p.Character
+    			and p.Character:FindFirstChild("HumanoidRootPart") then
+    			table.insert(valid, p)
+    		end
+    	end
+    	return valid
+    end
+    local function isTargetValid(target)
+    	return target
+    		and target.Character
+    		and target.Character:FindFirstChildOfClass("Humanoid")
+    		and target.Character.Humanoid.Health > 0
+    end
+    local function startSpectating()
+    	if not isTargetValid(sendTarget) then return end
+    	local humanoid = sendTarget.Character:FindFirstChildOfClass("Humanoid")
+    	if not humanoid then return end
+    	if not originalCameraType then
+    		originalCameraType = Camera.CameraType
+    		originalCameraSubject = Camera.CameraSubject
+    	end
+    	Camera.CameraType = Enum.CameraType.Custom
+    	Camera.CameraSubject = humanoid
+    end
+    local function stopSpectating()
+    	if originalCameraType and originalCameraSubject then
+    		Camera.CameraType = originalCameraType
+    		Camera.CameraSubject = originalCameraSubject
+    	else
+    		Camera.CameraType = Enum.CameraType.Custom
+    		Camera.CameraSubject = LocalPlayer.Character
+    			and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    	end
+    	originalCameraType = nil
+    	originalCameraSubject = nil
+    end
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "BH_Gui"
+    screenGui.ResetOnSpawn = false
+    screenGui.IgnoreGuiInset = true
+    screenGui.Parent = (pcall(function() return gethui() end) and gethui()) or LocalPlayer.PlayerGui
+    local Main = Instance.new("Frame")
+    Main.Size = UDim2.new(0, 240, 0, 160)
+    Main.Position = UDim2.new(0, 16, 0, 16)
+    Main.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
+    Main.BackgroundTransparency = 0.05
+    Main.BorderSizePixel = 0
+    Main.Active = true
+    Main.Draggable = true
+    Main.Parent = screenGui
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 10)
+    mainCorner.Parent = Main
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(50, 50, 50)
+    mainStroke.Thickness = 1
+    mainStroke.Parent = Main
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0, 28)
+    titleLabel.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+    titleLabel.BackgroundTransparency = 0.1
+    titleLabel.BorderSizePixel = 0
+    titleLabel.Font = Enum.Font.Code
+    titleLabel.Text = "BLACKHOLE"
+    titleLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    titleLabel.TextSize = 12
+    titleLabel.Parent = Main
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 8)
+    titleCorner.Parent = titleLabel
+    local inputBox = Instance.new("TextBox")
+    inputBox.Size = UDim2.new(0, 148, 0, 30)
+    inputBox.Position = UDim2.new(0, 8, 0, 34)
+    inputBox.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+    inputBox.BorderSizePixel = 0
+    inputBox.PlaceholderText = "player name..."
+    inputBox.PlaceholderColor3 = Color3.fromRGB(65, 65, 65)
+    inputBox.Text = ""
+    inputBox.TextColor3 = Color3.fromRGB(210, 210, 210)
+    inputBox.TextSize = 13
+    inputBox.Font = Enum.Font.Code
+    inputBox.ClearTextOnFocus = false
+    inputBox.Parent = Main
+    local inputCorner = Instance.new("UICorner")
+    inputCorner.CornerRadius = UDim.new(0, 6)
+    inputCorner.Parent = inputBox
+    local inputStroke = Instance.new("UIStroke")
+    inputStroke.Color = Color3.fromRGB(45, 45, 45)
+    inputStroke.Thickness = 1
+    inputStroke.Parent = inputBox
+    local modeBtn = Instance.new("TextButton")
+    modeBtn.Size = UDim2.new(0, 72, 0, 30)
+    modeBtn.Position = UDim2.new(0, 162, 0, 34)
+    modeBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    modeBtn.BorderSizePixel = 0
+    modeBtn.Font = Enum.Font.Code
+    modeBtn.Text = "Players"
+    modeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    modeBtn.TextSize = 12
+    modeBtn.Parent = Main
+    local modeBtnCorner = Instance.new("UICorner")
+    modeBtnCorner.CornerRadius = UDim.new(0, 6)
+    modeBtnCorner.Parent = modeBtn
+    local bringBtn = Instance.new("TextButton")
+    bringBtn.Size = UDim2.new(0, 108, 0, 28)
+    bringBtn.Position = UDim2.new(0, 8, 0, 72)
+    bringBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    bringBtn.BorderSizePixel = 0
+    bringBtn.Font = Enum.Font.Code
+    bringBtn.Text = "Bring: Off"
+    bringBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    bringBtn.TextSize = 12
+    bringBtn.Parent = Main
+    local bringBtnCorner = Instance.new("UICorner")
+    bringBtnCorner.CornerRadius = UDim.new(0, 6)
+    bringBtnCorner.Parent = bringBtn
+    local spectateBtn = Instance.new("TextButton")
+    spectateBtn.Size = UDim2.new(0, 108, 0, 28)
+    spectateBtn.Position = UDim2.new(0, 124, 0, 72)
+    spectateBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    spectateBtn.BorderSizePixel = 0
+    spectateBtn.Font = Enum.Font.Code
+    spectateBtn.Text = "Spectate: Off"
+    spectateBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    spectateBtn.TextSize = 12
+    spectateBtn.Parent = Main
+    local spectateBtnCorner = Instance.new("UICorner")
+    spectateBtnCorner.CornerRadius = UDim.new(0, 6)
+    spectateBtnCorner.Parent = spectateBtn
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, -16, 0, 24)
+    statusLabel.Position = UDim2.new(0, 8, 0, 108)
+    statusLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    statusLabel.BackgroundTransparency = 0.1
+    statusLabel.BorderSizePixel = 0
+    statusLabel.Font = Enum.Font.Code
+    statusLabel.Text = "idle"
+    statusLabel.TextColor3 = Color3.fromRGB(80, 80, 80)
+    statusLabel.TextSize = 11
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = Main
+    local statusCorner = Instance.new("UICorner")
+    statusCorner.CornerRadius = UDim.new(0, 6)
+    statusCorner.Parent = statusLabel
+    local statusPadding = Instance.new("UIPadding")
+    statusPadding.PaddingLeft = UDim.new(0, 6)
+    statusPadding.Parent = statusLabel
+    local countLabel = Instance.new("TextLabel")
+    countLabel.Size = UDim2.new(1, -16, 0, 16)
+    countLabel.Position = UDim2.new(0, 8, 0, 136)
+    countLabel.BackgroundTransparency = 1
+    countLabel.Font = Enum.Font.Code
+    countLabel.Text = ""
+    countLabel.TextColor3 = Color3.fromRGB(60, 60, 60)
+    countLabel.TextSize = 10
+    countLabel.TextXAlignment = Enum.TextXAlignment.Left
+    countLabel.Parent = Main
+    local function setStatus(msg, color)
+    	statusLabel.Text = msg
+    	statusLabel.TextColor3 = color or Color3.fromRGB(80, 80, 80)
+    end
+    local function setTarget(player)
+    	sendTarget = player
+    	if player then
+    		setStatus("→ " .. player.Name .. " (" .. player.DisplayName .. ")", Color3.fromRGB(200, 80, 80))
+    	else
+    		setStatus("idle")
+    	end
+    end
+    local function stopBlackhole()
+    	blackHoleActive = false
+    	bringBtn.Text = "Bring: Off"
+    	bringBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    	if DescendantAddedConnection then
+    		DescendantAddedConnection:Disconnect()
+    		DescendantAddedConnection = nil
+    	end
+    	if cycleConnection then
+    		cycleConnection:Disconnect()
+    		cycleConnection = nil
+    	end
+    	for part in pairs(TARGET_PARTS) do releasePart(part) end
+    end
+    local function startBlackhole()
+    	if not sendTarget then return end
+    	blackHoleActive = true
+    	bringBtn.Text = "Bring: On"
+    	bringBtn.BackgroundColor3 = Color3.fromRGB(160, 35, 35)
+    	for _, v in ipairs(Workspace:GetDescendants()) do
+    		forcePart(v)
+    	end
+    	DescendantAddedConnection = Workspace.DescendantAdded:Connect(function(v)
+    		if blackHoleActive then forcePart(v) end
+    	end)
+    	if targetMode == "All" then
+    		cycleConnection = RunService.Heartbeat:Connect(function()
+    			if tick() % 3 < 0.05 then
+    				local players = getValidPlayers()
+    				if #players > 0 then
+    					cycleIndex = (cycleIndex % #players) + 1
+    					setTarget(players[cycleIndex])
+    				end
+    			end
+    		end)
+    	end
+    end
+    local function toggleSpectate()
+    	if not sendTarget then return end
+    	spectateActive = not spectateActive
+    	spectateBtn.Text = spectateActive and "Spectate: On" or "Spectate: Off"
+    	spectateBtn.BackgroundColor3 = spectateActive
+    		and Color3.fromRGB(40, 80, 140)
+    		or Color3.fromRGB(45, 45, 45)
+    	if spectateActive then
+    		startSpectating()
+    		if spectateMonitorConnection then spectateMonitorConnection:Disconnect() end
+    		spectateMonitorConnection = RunService.Heartbeat:Connect(function()
+    			if not spectateActive then
+    				spectateMonitorConnection:Disconnect()
+    				return
+    			end
+    			if not isTargetValid(sendTarget) then
+    				stopSpectating()
+    				spectateActive = false
+    				spectateBtn.Text = "Spectate: Off"
+    				spectateBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    			elseif Camera.CameraSubject
+    				~= sendTarget.Character:FindFirstChildOfClass("Humanoid") then
+    				startSpectating()
+    			end
+    		end)
+    	else
+    		stopSpectating()
+    		if spectateMonitorConnection then
+    			spectateMonitorConnection:Disconnect()
+    			spectateMonitorConnection = nil
+    		end
+    	end
+    end
+    table.insert(CONNECTIONS, RunService.Heartbeat:Connect(function()
+    	if blackHoleActive then
+    		local count = 0
+    		for _ in pairs(TARGET_PARTS) do count += 1 end
+    		countLabel.Text = "parts claimed: " .. count
+    	else
+    		countLabel.Text = ""
+    	end
+    end))
+    bringBtn.MouseButton1Click:Connect(function()
+    	if blackHoleActive then
+    		stopBlackhole()
+    	else
+    		if targetMode == "Players" then
+    			local p = getPlayer(inputBox.Text)
+    			if not p then
+    				setStatus("not found: " .. inputBox.Text, Color3.fromRGB(200, 80, 80))
+    				return
+    			end
+    			setTarget(p)
+    		else
+    			local players = getValidPlayers()
+    			if #players == 0 then
+    				setStatus("no valid players", Color3.fromRGB(200, 80, 80))
+    				return
+    			end
+    			setTarget(players[1])
+    		end
+    		startBlackhole()
+    	end
+    end)
+    spectateBtn.MouseButton1Click:Connect(toggleSpectate)
+    modeBtn.MouseButton1Click:Connect(function()
+    	targetMode = targetMode == "Players" and "All" or "Players"
+    	modeBtn.Text = targetMode
+    	inputBox.Visible = targetMode == "Players"
+    	if blackHoleActive then
+    		stopBlackhole()
+    		if targetMode == "All" then
+    			local players = getValidPlayers()
+    			if #players > 0 then
+    				setTarget(players[1])
+    				startBlackhole()
+    			end
+    		end
+    	end
+    end)
+    inputBox.FocusLost:Connect(function(enterPressed)
+    	if not enterPressed then return end
+    	local p = getPlayer(inputBox.Text)
+    	if p then
+    		inputBox.Text = p.Name
+    		if not blackHoleActive then
+    			setTarget(p)
+    		end
+    	else
+    		setStatus("not found: " .. inputBox.Text, Color3.fromRGB(200, 80, 80))
+    	end
+    end)
+    Players.PlayerRemoving:Connect(function(p)
+    	if p == sendTarget then
+    		if spectateActive then
+    			stopSpectating()
+    			spectateActive = false
+    			spectateBtn.Text = "Spectate: Off"
+    			spectateBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    		end
+    		if blackHoleActive and targetMode == "All" then
+    			local players = getValidPlayers()
+    			if #players > 0 then
+    				setTarget(players[1])
+    			else
+    				stopBlackhole()
+    				setStatus("no players left")
+    			end
+    		elseif blackHoleActive then
+    			stopBlackhole()
+    			setStatus("target left")
+    		else
+    			setTarget(nil)
+    		end
+    	end
+    end)
+    local guiVisible = true
+    UserInputService.InputBegan:Connect(function(input, gpe)
+    	if gpe then return end
+    	if input.KeyCode == Enum.KeyCode.RightControl then
+    		guiVisible = not guiVisible
+    		local t = guiVisible and 0.05 or 1
+    		TweenService:Create(Main, TweenInfo.new(0.25), { BackgroundTransparency = t }):Play()
+    		for _, child in ipairs(Main:GetDescendants()) do
+    			if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+    				TweenService:Create(child, TweenInfo.new(0.25), {
+    					TextTransparency = guiVisible and 0 or 1,
+    					BackgroundTransparency = guiVisible and 0.05 or 1,
+    				}):Play()
+    			end
+    		end
+    		Main.Active = guiVisible
+    		Main.Draggable = guiVisible
+    	end
+    end)
+    setStatus("idle")
+end)
 Modules.Deobfuscator = {
     State = {
         IsEnabled = false,
