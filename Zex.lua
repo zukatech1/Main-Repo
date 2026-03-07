@@ -1735,13 +1735,24 @@ local function main()
 			context:AddRegistered("DUMP_FUNCTIONS", not presentClasses.isViableDecompileScript or env.getupvalues == nil or env.getconstants == nil)
 			context:AddRegistered("SAVE_SCRIPT", not presentClasses.isViableDecompileScript or env.decompile == nil or env.writefile == nil)
 			context:AddRegistered("SAVE_BYTECODE", not presentClasses.isViableDecompileScript or env.getscriptbytecode == nil or env.writefile == nil)
+			context:AddRegistered("RE_CLOSURE_INSPECTOR")
 		end
-		
+
 		if presentClasses["ModuleScript"] then
 			context:AddRegistered("GENERATE_POISON_PATCH")
             context:AddRegistered("GENERATE_POISON_PATCH2")
             context:AddRegistered("GENERATE_UNIVERSAL_POISON")
             context:AddRegistered("DUMP_FUNCTIONS")
+			context:AddRegistered("AUTO_DECOMPILE_MODULE")
+		end
+
+		-- Metatable viewer – available for any instance
+		context:AddRegistered("VIEW_METATABLE")
+
+		-- RE tools
+		context:AddRegistered("RE_SIGNAL_SPY")
+		if presentClasses["RemoteEvent"] or presentClasses["RemoteFunction"] or presentClasses["UnreliableRemoteEvent"] then
+			context:AddRegistered("RE_ARG_CAPTURE")
 		end
 
 		if presentClasses["ScreenGui"] then
@@ -4505,6 +4516,570 @@ end
 				end
 			end
 			if getgenv().DoNotif then getgenv().DoNotif("Script enabled state toggled", 2) end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- AUTO DECOMPILE MODULE
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("AUTO_DECOMPILE_MODULE", {Name = "Auto-Decompile Module", IconMap = Explorer.MiscIcons, Icon = "ViewScript", OnClick = function()
+			local node = selection.List[1]
+			if not node then return end
+			local obj = node.Obj
+			if not obj:IsA("ModuleScript") then return end
+
+			-- Strategy 1: find the loaded closure via getgc + getfenv
+			local found = nil
+			local getgcf = env.getgc or getgc or get_gc_objects
+			local getupvalues = (debug and debug.getupvalues) or getupvalues or getupvals
+			local getfenv_ = getfenv
+
+			if getgcf and getfenv_ then
+				local ok, gc = pcall(getgcf)
+				if ok and gc then
+					for _, fn in pairs(gc) do
+						if type(fn) == "function" then
+							local ok2, fenv = pcall(getfenv_, fn)
+							if ok2 and fenv and rawget(fenv, "script") == obj then
+								found = fn
+								break
+							end
+						end
+					end
+				end
+			end
+
+			local source
+			if found and env.decompile then
+				-- decompile the actual loaded closure
+				local ok, result = pcall(env.decompile, found)
+				if ok and result and #result > 0 then
+					source = "-- [Auto-Decompile] Loaded closure found via GC\n"
+					source = source .. "-- Module: " .. Explorer.GetInstancePath(obj) .. "\n\n"
+					source = source .. result
+				end
+			end
+
+			-- Strategy 2: fall back to decompiling the ModuleScript instance directly
+			if not source and env.decompile then
+				local ok, result = pcall(env.decompile, obj)
+				if ok and result and #result > 0 then
+					source = "-- [Auto-Decompile] Decompiled ModuleScript instance\n"
+					source = source .. "-- Module: " .. Explorer.GetInstancePath(obj) .. "\n\n"
+					source = source .. result
+				end
+			end
+
+			-- Strategy 3: try reading Source property
+			if not source then
+				local ok, src = pcall(function() return obj.Source end)
+				if ok and src and #src > 0 then
+					source = "-- [Auto-Decompile] Source property (may be empty on live games)\n"
+					source = source .. "-- Module: " .. Explorer.GetInstancePath(obj) .. "\n\n"
+					source = source .. src
+				end
+			end
+
+			if not source then
+				source = "-- [Auto-Decompile] Failed: no loaded closure found and decompiler unavailable.\n"
+				source = source .. "-- Module: " .. Explorer.GetInstancePath(obj) .. "\n"
+				source = source .. "-- Tips:\n"
+				source = source .. "--   1. The module must have been required at least once in this session.\n"
+				source = source .. "--   2. Your executor needs 'decompile' + 'getgc' support.\n"
+			end
+
+			ScriptViewer.ViewRaw(source)
+			if getgenv().DoNotif then getgenv().DoNotif("Module decompiled: " .. obj.Name, 3) end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- VIEW METATABLE
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("VIEW_METATABLE", {Name = "View Metatable", IconMap = Explorer.MiscIcons, Icon = "ExploreData", OnClick = function()
+			local node = selection.List[1]
+			if not node then return end
+			local obj = node.Obj
+
+			local getrawmt = getrawmetatable or (debug and debug.getmetatable)
+			if not getrawmt then
+				if getgenv().DoNotif then getgenv().DoNotif("⚠ getrawmetatable not available", 3) end
+				return
+			end
+
+			local mt = getrawmt(obj)
+			if not mt then
+				if getgenv().DoNotif then getgenv().DoNotif("⚠ No metatable on: " .. obj.Name, 3) end
+				return
+			end
+
+			-- Build a human-readable dump
+			local lines = {}
+			local seen = {}
+			local getinfo = (debug and (debug.getinfo or debug.info)) or getinfo
+			local getupvalues = (debug and debug.getupvalues) or getupvalues or getupvals
+
+			local function safeToString(v)
+				local ok, s = pcall(tostring, v)
+				return ok and s or "<?>"
+			end
+
+			local function dumpValue(v, indent, visited)
+				local t = type(v)
+				if t == "function" then
+					local name = "?"
+					if getinfo then
+						local ok2, info = pcall(getinfo, v)
+						if ok2 and info then name = (info.name and info.name ~= "" and info.name) or "anonymous" end
+					end
+					local line = string.rep("  ", indent) .. "[function] " .. name
+					-- show upvalue count if available
+					if getupvalues then
+						local ok3, ups = pcall(getupvalues, v)
+						if ok3 and ups then line = line .. " (" .. #ups .. " upvalues)" end
+					end
+					return line
+				elseif t == "table" then
+					if visited[v] then return string.rep("  ", indent) .. "[table] (circular)" end
+					visited[v] = true
+					local out = string.rep("  ", indent) .. "[table] {"
+					local entries = {}
+					for k, val in pairs(v) do
+						local ks = safeToString(k)
+						local vs = dumpValue(val, 0, visited)
+						table.insert(entries, string.rep("  ", indent+1) .. ks .. " = " .. vs)
+					end
+					if #entries == 0 then
+						out = out .. "}"
+					else
+						out = out .. "\n" .. table.concat(entries, "\n") .. "\n" .. string.rep("  ", indent) .. "}"
+					end
+					visited[v] = nil
+					return out
+				else
+					return string.rep("  ", indent) .. "[" .. t .. "] " .. safeToString(v)
+				end
+			end
+
+			table.insert(lines, "-- Metatable Viewer")
+			table.insert(lines, "-- Object: " .. Explorer.GetInstancePath(obj))
+			table.insert(lines, "-- ClassName: " .. obj.ClassName)
+			table.insert(lines, "")
+
+			local metamethods = {
+				"__index","__newindex","__call","__len","__unm","__add","__sub","__mul","__div","__mod",
+				"__pow","__concat","__eq","__lt","__le","__tostring","__metatable","__mode","__gc","__namecall"
+			}
+
+			local foundAny = false
+			for _, mm in ipairs(metamethods) do
+				local ok, val = pcall(rawget, mt, mm)
+				if ok and val ~= nil then
+					foundAny = true
+					table.insert(lines, mm .. " =")
+					table.insert(lines, dumpValue(val, 1, {}))
+					table.insert(lines, "")
+				end
+			end
+
+			-- Catch any non-standard keys
+			local ok2, customKeys = pcall(function()
+				local keys = {}
+				for k, v in pairs(mt) do
+					if not table.find(metamethods, tostring(k)) then
+						table.insert(keys, {k, v})
+					end
+				end
+				return keys
+			end)
+			if ok2 and customKeys and #customKeys > 0 then
+				table.insert(lines, "-- Custom keys in metatable:")
+				for _, pair in ipairs(customKeys) do
+					foundAny = true
+					local ks = safeToString(pair[1])
+					table.insert(lines, ks .. " =")
+					table.insert(lines, dumpValue(pair[2], 1, {}))
+					table.insert(lines, "")
+				end
+			end
+
+			if not foundAny then
+				table.insert(lines, "-- Metatable exists but is empty or all entries are protected.")
+			end
+
+			ScriptViewer.ViewRaw(table.concat(lines, "\n"))
+			if getgenv().DoNotif then getgenv().DoNotif("Metatable loaded: " .. obj.Name, 3) end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- RE: CLOSURE INSPECTOR
+		-- Full static analysis of every closure belonging to a script:
+		-- function name, source line, upvalue names+values, constants
+		-- ══════════════════════════════════════════════════════════════════
+		context:Register("RE_CLOSURE_INSPECTOR", {Name = "Closure Inspector [RE]", IconMap = Explorer.MiscIcons, Icon = "ExploreData", OnClick = function()
+			local node = selection.List[1]
+			if not node then return end
+			local scr = node.Obj
+			if not scr:IsA("LuaSourceContainer") then return end
+
+			local getgcf      = env.getgc or getgc or get_gc_objects
+			local getupvalues = (debug and debug.getupvalues) or getupvalues or getupvals
+			local getconstants= (debug and debug.getconstants) or getconstants or getconsts
+			local getinfo     = (debug and (debug.getinfo or debug.info)) or getinfo
+			local getfenv_    = getfenv
+
+			if not getgcf then
+				if getgenv().DoNotif then getgenv().DoNotif("⚠ getgc not available", 2) end
+				return
+			end
+
+			local lines = {}
+			local function w(s) table.insert(lines, s) end
+
+			w("-- ╔══════════════════════════════════════════════════╗")
+			w("-- ║           CLOSURE INSPECTOR [RE]                ║")
+			w("-- ╚══════════════════════════════════════════════════╝")
+			w("-- Script: " .. Explorer.GetInstancePath(scr))
+			w("-- Generated: " .. os.date("%Y-%m-%d %H:%M:%S"))
+			w("")
+
+			local ok, gc = pcall(getgcf)
+			if not ok or not gc then
+				w("-- ERROR: getgc() failed: " .. tostring(gc))
+				ScriptViewer.ViewRaw(table.concat(lines, "\n"))
+				return
+			end
+
+			local closures = {}
+			for _, fn in pairs(gc) do
+				if type(fn) == "function" then
+					local ok2, fenv = pcall(getfenv_, fn)
+					if ok2 and fenv and rawget(fenv, "script") == scr then
+						table.insert(closures, fn)
+					end
+				end
+			end
+
+			if #closures == 0 then
+				w("-- No closures found for this script.")
+				w("-- The script may not have been executed yet this session.")
+				ScriptViewer.ViewRaw(table.concat(lines, "\n"))
+				return
+			end
+
+			w("-- Found " .. #closures .. " closure(s)\n")
+
+			local function safeVal(v)
+				local t = type(v)
+				if t == "string"  then return '"' .. v:sub(1,80):gsub('"','\\"'):gsub("\n","\\n") .. (v:len()>80 and '..."' or '"') end
+				if t == "number"  then return tostring(v) end
+				if t == "boolean" then return tostring(v) end
+				if t == "function" then
+					local n = "?"
+					if getinfo then local ok3,i = pcall(getinfo,v) if ok3 and i then n = (i.name ~= "" and i.name) or "anon" end end
+					return "[function:" .. n .. "]"
+				end
+				if t == "table"   then return "[table #" .. tostring(#v) .. "]" end
+				return "[" .. t .. "]"
+			end
+
+			for i, fn in ipairs(closures) do
+				local fnName, fnSrc, fnLine = "anonymous", "?", "?"
+				if getinfo then
+					local ok3, info = pcall(getinfo, fn)
+					if ok3 and info then
+						fnName = (info.name and info.name ~= "" and info.name) or "anonymous"
+						fnSrc  = info.short_src or info.source or "?"
+						fnLine = tostring(info.linedefined or "?")
+					end
+				end
+
+				w(string.rep("─", 60))
+				w("-- [" .. i .. "] " .. fnName)
+				w("--     Source : " .. fnSrc)
+				w("--     Line   : " .. fnLine)
+
+				-- Upvalues
+				if getupvalues then
+					local ok4, ups = pcall(getupvalues, fn)
+					if ok4 and ups then
+						local upCount = 0
+						for _, _ in pairs(ups) do upCount = upCount + 1 end
+						w("--     Upvalues (" .. upCount .. "):")
+						local idx = 0
+						for name, val in pairs(ups) do
+							idx = idx + 1
+							w("--       [" .. idx .. "] " .. tostring(name) .. " = " .. safeVal(val))
+							if idx >= 30 then w("--       ... (truncated)") break end
+						end
+					end
+				end
+
+				-- Constants
+				if getconstants then
+					local ok5, consts = pcall(getconstants, fn)
+					if ok5 and consts then
+						local cCount = 0
+						for _, _ in pairs(consts) do cCount = cCount + 1 end
+						w("--     Constants (" .. cCount .. "):")
+						local idx = 0
+						for k, v in pairs(consts) do
+							idx = idx + 1
+							w("--       [" .. tostring(k) .. "] " .. safeVal(v))
+							if idx >= 40 then w("--       ... (truncated)") break end
+						end
+					end
+				end
+				w("")
+			end
+
+			w(string.rep("─", 60))
+			w("-- END OF CLOSURE INSPECTOR REPORT")
+
+			ScriptViewer.ViewRaw(table.concat(lines, "\n"))
+			if getgenv().DoNotif then getgenv().DoNotif("Closure Inspector: " .. #closures .. " closures found", 3) end
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- RE: SIGNAL SPY
+		-- Hook all RBXScriptSignal connections on the selected instance.
+		-- Logs when they fire, what method triggered them, and the args.
+		-- ══════════════════════════════════════════════════════════════════
+		local _signalSpyConns = {}
+		local _signalSpyActive = {}
+		context:Register("RE_SIGNAL_SPY", {Name = "Signal Spy [RE] (Toggle)", IconMap = Explorer.MiscIcons, Icon = "Reference", OnClick = function()
+			local node = selection.List[1]
+			if not node then return end
+			local obj = node.Obj
+			local key = tostring(obj)
+
+			if _signalSpyActive[key] then
+				-- Stop spying
+				for _, conn in ipairs(_signalSpyConns[key] or {}) do
+					pcall(function() conn:Disconnect() end)
+				end
+				_signalSpyConns[key] = nil
+				_signalSpyActive[key] = nil
+				if getgenv().DoNotif then getgenv().DoNotif("Signal Spy OFF: " .. obj.Name, 2) end
+				return
+			end
+
+			-- Start spying: iterate all API properties looking for RBXScriptSignal
+			local conns = {}
+			local spied = 0
+
+			-- getconnections if available (shows existing connections)
+			local getconns = getconnections or (debug and debug.getconnections)
+
+			local function trySpySignal(signalName)
+				local ok, sig = pcall(function() return obj[signalName] end)
+				if not ok or type(sig) ~= "userdata" then return end
+				-- check it's connectable
+				local ok2, conn = pcall(function()
+					return sig:Connect(function(...)
+						local args = {...}
+						local argStrs = {}
+						for i, a in ipairs(args) do
+							argStrs[i] = tostring(a)
+						end
+						print(string.format("[SIGNAL SPY] %s.%s fired | args: %s",
+							obj.Name, signalName, #argStrs > 0 and table.concat(argStrs, ", ") or "(none)"))
+					end)
+				end)
+				if ok2 and conn then
+					table.insert(conns, conn)
+					spied = spied + 1
+				end
+			end
+
+			-- Spy on common signals plus any we can find via API
+			local commonSignals = {
+				"Changed", "ChildAdded", "ChildRemoved", "DescendantAdded", "DescendantRemoving",
+				"AncestryChanged", "AttributeChanged",
+				-- RemoteEvent / RemoteFunction
+				"OnClientEvent", "OnServerEvent", "OnClientInvoke", "OnServerInvoke",
+				-- BindableEvent/Function
+				"Event",
+				-- UI
+				"MouseButton1Click", "MouseButton2Click", "MouseEnter", "MouseLeave",
+				"InputBegan", "InputEnded", "InputChanged", "Focused", "FocusLost",
+				-- Character/Humanoid
+				"Touched", "TouchEnded", "Died", "FreeFalling", "HealthChanged",
+				"Running", "Swimming", "Climbing", "Jumping",
+				-- Physics
+				"Hit", "LocalSimulationTouched",
+				-- Sound
+				"Played", "Stopped", "Paused", "Resumed",
+				-- Tween
+				"Completed",
+				-- ProximityPrompt
+				"Triggered", "TriggerEnded", "PromptShown", "PromptHidden",
+			}
+
+			-- Also try every property from the API class hierarchy
+			local function tryClass(className)
+				local cls = API and API.Classes and API.Classes[className]
+				if not cls then return end
+				for _, member in ipairs(cls.Members or {}) do
+					if member.MemberType == "Event" then
+						trySpySignal(member.Name)
+					end
+				end
+				if cls.Superclass then tryClass(cls.Superclass) end
+			end
+			tryClass(obj.ClassName)
+
+			-- Fallback: always try the common list
+			for _, sig in ipairs(commonSignals) do trySpySignal(sig) end
+
+			if spied == 0 then
+				if getgenv().DoNotif then getgenv().DoNotif("⚠ No signals found to spy on: " .. obj.Name, 3) end
+				return
+			end
+
+			_signalSpyConns[key] = conns
+			_signalSpyActive[key] = true
+			if getgenv().DoNotif then getgenv().DoNotif("Signal Spy ON: " .. obj.Name .. " (" .. spied .. " signals)", 3) end
+			print(string.format("[SIGNAL SPY] Watching %d signals on %s. Check F9 console.", spied, obj:GetFullName()))
+		end})
+
+		-- ══════════════════════════════════════════════════════════════════
+		-- RE: ARG CAPTURE
+		-- Capture live args from a specific remote's next N firings.
+		-- Opens results in the Notepad as formatted Lua tables.
+		-- ══════════════════════════════════════════════════════════════════
+		local _argCaptureActive = {}
+		context:Register("RE_ARG_CAPTURE", {Name = "Capture Args [RE]", IconMap = Explorer.MiscIcons, Icon = "CallFunction", OnClick = function()
+			local node = selection.List[1]
+			if not node then return end
+			local obj = node.Obj
+			if not (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") or obj:IsA("UnreliableRemoteEvent")) then return end
+
+			local key = tostring(obj)
+			if _argCaptureActive[key] then
+				if getgenv().DoNotif then getgenv().DoNotif("⚠ Already capturing " .. obj.Name, 2) end
+				return
+			end
+
+			if not env.hookmetamethod then
+				if getgenv().DoNotif then getgenv().DoNotif("⚠ hookmetamethod not available", 2) end
+				return
+			end
+
+			_argCaptureActive[key] = true
+			local captureLimit = 10
+			local captured = {}
+			local captureCount = 0
+			local startTick = tick()
+
+			if getgenv().DoNotif then getgenv().DoNotif("Capturing args for: " .. obj.Name .. " (next " .. captureLimit .. " calls)", 3) end
+			print(string.format("[ARG CAPTURE] Watching %s — next %d calls", obj:GetFullName(), captureLimit))
+
+			-- Use a connection on the client-side event if available, else hook namecall
+			local function serializeArg(v, depth)
+				depth = depth or 0
+				if depth > 3 then return '"..."' end
+				local t = typeof(v)
+				if t == "string"  then return '"' .. v:sub(1,120):gsub('"','\\"'):gsub("\n","\\n") .. '"' end
+				if t == "number"  then return tostring(v) end
+				if t == "boolean" then return tostring(v) end
+				if t == "nil"     then return "nil" end
+				if t == "Vector3" then return string.format("Vector3.new(%g, %g, %g)", v.X, v.Y, v.Z) end
+				if t == "Vector2" then return string.format("Vector2.new(%g, %g)", v.X, v.Y) end
+				if t == "CFrame"  then local c={v:GetComponents()} return "CFrame.new("..table.concat(c,",")..")" end
+				if t == "Color3"  then return string.format("Color3.fromRGB(%d,%d,%d)", v.R*255, v.G*255, v.B*255) end
+				if t == "table"   then
+					local parts = {}
+					local i = 0
+					for k, val in pairs(v) do
+						i = i + 1
+						if i > 20 then table.insert(parts, "...") break end
+						local ks = type(k)=="string" and k or ("["..tostring(k).."]")
+						table.insert(parts, ks .. " = " .. serializeArg(val, depth+1))
+					end
+					return "{" .. table.concat(parts, ", ") .. "}"
+				end
+				if t == "Instance" then return '"' .. v:GetFullName() .. '"' end
+				return '"[' .. t .. ']"'
+			end
+
+			local function recordCapture(args, method)
+				captureCount = captureCount + 1
+				local entry = {
+					index = captureCount,
+					method = method,
+					time = string.format("%.3f", tick() - startTick),
+					args = args,
+				}
+				table.insert(captured, entry)
+
+				print(string.format("[ARG CAPTURE #%d] %s:%s | %d args", captureCount, obj.Name, method, #args))
+
+				if captureCount >= captureLimit then
+					_argCaptureActive[key] = nil
+					-- Build report
+					local lines = {}
+					local function w(s) table.insert(lines, s) end
+					w("-- ╔══════════════════════════════════════════════════╗")
+					w("-- ║          ARG CAPTURE REPORT [RE]                ║")
+					w("-- ╚══════════════════════════════════════════════════╝")
+					w("-- Remote : " .. obj:GetFullName())
+					w("-- Class  : " .. obj.ClassName)
+					w("-- Captured: " .. captureCount .. " calls")
+					w("")
+					for _, cap in ipairs(captured) do
+						w(string.rep("─", 50))
+						w("-- Call #" .. cap.index .. "  |  +" .. cap.time .. "s  |  " .. cap.method)
+						w("local args_" .. cap.index .. " = {")
+						for ai, av in ipairs(cap.args) do
+							w("    [" .. ai .. "] = " .. serializeArg(av) .. ",")
+						end
+						w("}")
+						w("")
+						-- Ready-to-fire snippet
+						if obj:IsA("RemoteEvent") or obj:IsA("UnreliableRemoteEvent") then
+							w("-- Fire snippet:")
+							local argList = {}
+							for ai, av in ipairs(cap.args) do argList[ai] = serializeArg(av) end
+							w(obj:GetFullName() .. ":FireServer(" .. table.concat(argList, ", ") .. ")")
+						else
+							w("-- Invoke snippet:")
+							local argList = {}
+							for ai, av in ipairs(cap.args) do argList[ai] = serializeArg(av) end
+							w(obj:GetFullName() .. ":InvokeServer(" .. table.concat(argList, ", ") .. ")")
+						end
+						w("")
+					end
+					w(string.rep("─", 50))
+					w("-- END OF ARG CAPTURE REPORT")
+
+					ScriptViewer.ViewRaw(table.concat(lines, "\n"))
+					if getgenv().DoNotif then getgenv().DoNotif("✓ Arg capture complete: " .. obj.Name, 3) end
+				end
+			end
+
+			-- Primary: connect to OnClientEvent / OnClientInvoke if available
+			local directConn = nil
+			if obj:IsA("RemoteEvent") or obj:IsA("UnreliableRemoteEvent") then
+				local ok, c = pcall(function()
+					return obj.OnClientEvent:Connect(function(...)
+						if not _argCaptureActive[key] then return end
+						recordCapture({...}, "OnClientEvent")
+					end)
+				end)
+				if ok then directConn = c end
+			end
+
+			-- Fallback / supplement: namecall hook for FireServer direction
+			if env.hookmetamethod and env.newcclosure then
+				local oldNamecall; oldNamecall = env.hookmetamethod(game, "__namecall", env.newcclosure(function(self, ...)
+					local method = getnamecallmethod()
+					if _argCaptureActive[key] and self == obj then
+						if method == "FireServer" or method == "InvokeServer" then
+							task.spawn(recordCapture, {...}, method)
+						end
+					end
+					return oldNamecall(self, ...)
+				end))
+			end
 		end})
 
 		Explorer.RightClickContext = context
@@ -15432,23 +16007,110 @@ local function main()
 		end)
 	end
 	
+	-- ViewRaw: display arbitrary text in the Notepad/ScriptViewer without decompiling
+	ScriptViewer.ViewRaw = function(source)
+		codeFrame:SetText(source or "")
+		window:Show()
+	end
+
 	ScriptViewer.ViewScript = function(scr)
 		local oldtick = tick()
 		local s,source = pcall(env.decompile or function() end,scr)
 
 		if not s or not source then
-			PreviousScr = nil
-			dumpbtn.TextColor3 = Color3.new(0.5,0.5,0.5)
-			source = "-- Unable to view source.\n"
-			source = source .. "-- Script Path: "..getPath(scr).."\n"
-			if (scr.ClassName == "Script" and (scr.RunContext == Enum.RunContext.Legacy or scr.RunContext == Enum.RunContext.Server)) or not scr:IsA("LocalScript") then
-				source = source .. "-- Reason: The script is not running on client. (attempt to decompile ServerScript or 'Script' with RunContext Server)\n"
-			elseif not env.decompile then
-				source = source .. "-- Reason: Your executor does not support decompiler. (missing 'decompile' function)\n"
-			else
-				source = source .. "-- Reason: Unknown\n"
+			-- Decompile failed – try reconstructing from constants via GC before giving up
+			local konstSource = nil
+			local getgcf = env.getgc or getgc or get_gc_objects
+			local getconstants = (debug and debug.getconstants) or getconstants or getconsts
+			local getupvalues = (debug and debug.getupvalues) or getupvalues or getupvals
+			local getfenv_ = getfenv
+
+			if getgcf and getconstants and getfenv_ then
+				local ok, gc = pcall(getgcf)
+				if ok and gc then
+					local chunks = {}
+					for _, fn in pairs(gc) do
+						if type(fn) == "function" then
+							local ok2, fenv = pcall(getfenv_, fn)
+							if ok2 and fenv and rawget(fenv, "script") == scr then
+								-- Pull all string constants that look like code
+								local ok3, consts = pcall(getconstants, fn)
+								if ok3 and consts then
+									for _, c in pairs(consts) do
+										if type(c) == "string" and #c > 10 then
+											table.insert(chunks, c)
+										end
+									end
+								end
+								-- Also walk nested functions via upvalues for more constants
+								if getupvalues then
+									local ok4, ups = pcall(getupvalues, fn)
+									if ok4 and ups then
+										for _, up in pairs(ups) do
+											if type(up) == "function" then
+												local ok5, uc = pcall(getconstants, up)
+												if ok5 and uc then
+													for _, c in pairs(uc) do
+														if type(c) == "string" and #c > 10 then
+															table.insert(chunks, c)
+														end
+													end
+												end
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+					if #chunks > 0 then
+						-- Deduplicate
+						local seen = {}
+						local unique = {}
+						for _, c in ipairs(chunks) do
+							if not seen[c] then seen[c] = true table.insert(unique, c) end
+						end
+						konstSource = "-- [Konstant Reconstruction] Decompiler failed; strings rebuilt from getconstants\n"
+						konstSource = konstSource .. "-- Script Path: " .. getPath(scr) .. "\n"
+						konstSource = konstSource .. "-- Note: This is NOT full source. It shows string constants extracted from loaded closures.\n\n"
+						konstSource = konstSource .. table.concat(unique, "\n\n")
+					end
+				end
 			end
-			source = source .. "-- Executor: "..executorName.." ("..executorVersion..")"
+
+			if konstSource then
+				-- We got something useful from constants – show it
+				PreviousScr = scr
+				dumpbtn.TextColor3 = Color3.new(1,1,1)
+				source = konstSource
+			else
+				PreviousScr = nil
+				dumpbtn.TextColor3 = Color3.new(0.5,0.5,0.5)
+				source = "-- Unable to view source.\n"
+				source = source .. "-- Script Path: "..getPath(scr).."\n"
+				-- Fixed: ModuleScript is neither a server Script nor a LocalScript – don't mislead the user
+				-- CoreScripts are Scripts but we still want to attempt bytecode decompile / konstant on them
+				local isCoreScript = false
+				local ok2, fn2 = pcall(function() return scr:GetFullName() end)
+				if ok2 and fn2 then
+					isCoreScript = fn2:match("^game%.CoreGui") ~= nil or fn2:match("^game%.CorePackages") ~= nil
+						or fn2:match("CoreGui") ~= nil or fn2:match("CorePackages") ~= nil
+				end
+				if not isCoreScript and scr.ClassName == "Script" and (scr.RunContext == Enum.RunContext.Legacy or scr.RunContext == Enum.RunContext.Server) then
+					source = source .. "-- Reason: The script is not running on client. (attempt to decompile ServerScript or 'Script' with RunContext Server)\n"
+				elseif scr:IsA("ModuleScript") then
+					source = source .. "-- Reason: Decompiler returned no output for this ModuleScript.\n"
+					source = source .. "-- Try: Right-click → Auto-Decompile Module (requires getgc + decompiler)\n"
+				elseif isCoreScript then
+					source = source .. "-- Reason: CoreScript decompile failed.\n"
+					source = source .. "-- Your executor may not support getscriptbytecode on CoreScripts, or Konstant is unavailable.\n"
+				elseif not env.decompile then
+					source = source .. "-- Reason: Your executor does not support decompiler. (missing 'decompile' function)\n"
+				else
+					source = source .. "-- Reason: Unknown\n"
+				end
+				source = source .. "-- Executor: "..executorName.." ("..executorVersion..")"
+			end
 		else
 			PreviousScr = scr
 			dumpbtn.TextColor3 = Color3.new(1,1,1)
@@ -15888,6 +16550,16 @@ Main = (function()
 				return true
 			elseif obj:IsA("Script") and obj.RunContext == Enum.RunContext.Client then
 				return true
+			end
+			-- CoreScripts: Scripts/LocalScripts/ModuleScripts parented under CoreGui or CorePackages
+			-- getscriptbytecode works on these on supported executors even though they run server-side
+			local ok, fullName = pcall(function() return obj:GetFullName() end)
+			if ok and fullName then
+				if fullName:match("^game%.CoreGui") or fullName:match("^game:GetService%(\"CoreGui\"%)") or
+				   fullName:match("^CoreGui") or fullName:match("^game%.CorePackages") or
+				   fullName:match("^game:GetService%(\"CorePackages\"%)") or fullName:match("^CorePackages") then
+					return true
+				end
 			end
 			return false
 		end
