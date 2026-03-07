@@ -1,9 +1,8 @@
 print("We're so back.")
-loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/notifier.lua"))()
 
 
 
-print("Use the removeadonis command if the game you're in uses adonis")
+
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 local CoreGui = game:GetService("CoreGui")
@@ -45709,5 +45708,5 @@ task.spawn(function()
             end
         end)
     end))
-    DoNotif("Libui loaded.", 2)
+    DoNotif("Use the removeadonis command if the game you're in uses adonis", 2)
 end)
