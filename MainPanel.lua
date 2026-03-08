@@ -1,6 +1,6 @@
 print("We're so back.")
 
---[[Script made by Ove5rZuka]]
+
 
 
 local TweenService = game:GetService("TweenService")
@@ -45918,13 +45918,13 @@ task.spawn(function()
 
     Scripts:CreateSection("Adonis Counter v2")
     local Script1_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/counter.lua"
-    Scripts:CreateInput({ Name = "Run", PlaceholderText = "By OverZuka", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script1_URL = v end }, "luna_script1_url")
-    Scripts:CreateButton({ Name = "Counter", Description = "Executes an anticheat counter for adonis", Callback = function() RunScript(Script1_URL) end })
+    Scripts:CreateInput({ Name = "Credits", PlaceholderText = "OverZuka", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script1_URL = v end }, "luna_script1_url")
+    Scripts:CreateButton({ Name = "Run", Description = "Executes an anticheat counter for adonis", Callback = function() RunScript(Script1_URL) end })
 
-    Scripts:CreateSection("Slot 2")
-    local Script2_URL = ""
-    Scripts:CreateInput({ Name = "Script 2 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script2_URL = v end }, "luna_script2_url")
-    Scripts:CreateButton({ Name = "  Run Script 2", Description = "Executes loadstring on Script 2 URL", Callback = function() RunScript(Script2_URL) end })
+    Scripts:CreateSection("WRD Deobfuscator WIP")
+    local Script2_URL = "https://pastebin.com/raw/7Yw5BCnQ"
+    Scripts:CreateInput({ Name = "Credits", PlaceholderText = "OverZuka", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script2_URL = v end }, "luna_script2_url")
+    Scripts:CreateButton({ Name = "Run", Description = "Loads Zuka's Lifter.'", Callback = function() RunScript(Script2_URL) end })
 
     Scripts:CreateSection("Slot 3")
     local Script3_URL = ""
@@ -46101,4 +46101,3 @@ task.spawn(function()
     DoNotif("Use the removeadonis command if the game you're in uses adonis", 2)
 end)
 loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/notifier.lua"))()
-
