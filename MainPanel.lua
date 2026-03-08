@@ -1,6 +1,6 @@
 print("We're so back.")
 
-
+--[[Script made by Ove5rZuka]]
 
 
 local TweenService = game:GetService("TweenService")
@@ -46101,3 +46101,4 @@ task.spawn(function()
     DoNotif("Use the removeadonis command if the game you're in uses adonis", 2)
 end)
 loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/notifier.lua"))()
+
