@@ -43834,7 +43834,7 @@ RegisterCommand({
     			local bv = Instance.new("BodyVelocity")
     			bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
     			local dir = (targetRoot.Position - part.Position).Unit
-    			bv.Velocity = dir * 500
+    			bv.Velocity = dir * 9990
     			bv.Parent = part
     		end)
     	end
