@@ -16564,9 +16564,9 @@ function Modules.Overseer:CreateUI()
     self:_applyStyle(spyBtn, 2)
     local backBtn = Instance.new("TextButton", header)
     backBtn.Size = UDim2.new(0, 60, 0, 24)
-    backBtn.Position = UDim2.new(1, -510, 0.5, -11)
+    backBtn.Position = UDim2.new(1, -118, 0.5, -12)
     backBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-    backBtn.Text = "< BACK"
+    backBtn.Text = "<"
     backBtn.TextColor3 = Color3.new(1, 1, 1)
     backBtn.Font = Enum.Font.Code
     backBtn.TextSize = 10
@@ -22957,7 +22957,7 @@ function Modules.ApexCounter:Initialize()
     }, function(args)
         module.State.IsEnabled = not module.State.IsEnabled
         if module.State.IsEnabled then
-            DoNotif("⚡ APEX SUITE: INITIALIZING...", 1.5)
+            DoNotif(" APEX SUITE: INITIALIZING...", 1.5)
             task.wait(0.5)
             module:ToggleLagShield(true)
             module:ToggleGhost(true)
@@ -24413,7 +24413,7 @@ function Modules.ScriptExecutor2:CreateUI()
     local iconText = Instance.new("TextLabel", icon)
     iconText.Size = UDim2.new(1, 0, 1, 0)
     iconText.BackgroundTransparency = 1
-    iconText.Text = "⚡"
+    iconText.Text = ""
     iconText.TextColor3 = Color3.fromRGB(255, 165, 0)
     iconText.Font = Enum.Font.SourceSansBold
     iconText.TextSize = 14
@@ -24632,7 +24632,7 @@ function Modules.ScriptExecutor2:CreateUI()
         Name = "ExecuteButton",
         Position = UDim2.new(0, 6, 0, 6),
         Size = UDim2.new(0, 90, 0, 20),
-        Text = "▶ Execute",
+        Text = " Execute",
         TextSize = 11,
         ZIndex = 2,
         Callback = function()
@@ -24781,7 +24781,7 @@ function Modules.ScriptExecutor2:CreateUI()
     end)
     self.State.IsEnabled = true
     statusText.Text = "Script Executor loaded - Ready"
-    DoNotif("⚡ Script Executor opened", 2)
+    DoNotif(" Script Executor opened", 2)
     self:RefreshScriptList()
 end
 function Modules.ScriptExecutor2:Toggle()
@@ -31398,7 +31398,7 @@ Modules.GUICreator.ELEMENT_DEFS = {
     { Group="TEXT",       Name="TextBox",                 Color=Color3.fromRGB(210, 90,150), Icon="I" },
     { Group="IMAGE",      Name="ImageLabel",              Color=Color3.fromRGB(150, 90,220), Icon="🖼" },
     { Group="IMAGE",      Name="ImageButton",             Color=Color3.fromRGB(200, 80,180), Icon="🖱" },
-    { Group="VIDEO",      Name="VideoFrame",              Color=Color3.fromRGB(255,180, 50), Icon="▶" },
+    { Group="VIDEO",      Name="VideoFrame",              Color=Color3.fromRGB(255,180, 50), Icon="" },
     { Group="MODIFIERS",  Name="UICorner",                Color=Color3.fromRGB(100,220,180), Icon="◜", IsModifier=true },
     { Group="MODIFIERS",  Name="UIStroke",                Color=Color3.fromRGB(100,180,255), Icon="⊡", IsModifier=true },
     { Group="MODIFIERS",  Name="UIGradient",              Color=Color3.fromRGB(255,160,100), Icon="≋", IsModifier=true },
@@ -43110,7 +43110,7 @@ function Editor:Populate()
         header.Name               = text .. "Header"
         header.Parent             = propertyList
         header.Size               = UDim2.new(1, 0, 0, 26)
-        header.Text               = ("%s %s"):format(isCollapsed and "▶" or "▼", text)
+        header.Text               = ("%s %s"):format(isCollapsed and "" or "▼", text)
         header.TextColor3         = C.AccentColor
         header.Font               = C.BoldFont
         header.TextSize           = 14
@@ -43692,7 +43692,7 @@ end)
         IsLoaded = false,
     },
     Config = {
-        DelayTime = 25
+        DelayTime = 1
     }
 }
 function Modules.AdonisBypass:Execute()
@@ -43746,8 +43746,8 @@ RegisterCommand({
     	end)
     end
     local CONFIG = {
-    	RADIUS = 500,
-    	UPDATE_INTERVAL = 0.05,
+    	UPDATE_INTERVAL = 0.02,
+    	MAX_PARTS = 800,
     }
     local TARGET_PARTS = {}
     local CONNECTIONS = {}
@@ -43774,13 +43774,27 @@ RegisterCommand({
     local function getPartsInRadius(centerPos, radius)
     	local char = LocalPlayer.Character
     	overlapParams.FilterDescendantsInstances = char and { char } or {}
-    	return Workspace:GetPartBoundsInRadius(centerPos, radius, overlapParams)
+    	local parts = Workspace:GetPartBoundsInRadius(centerPos, radius, overlapParams)
+    	-- also sweep around the target so we grab parts near them too
+    	if sendTarget then
+    		local targetChar = sendTarget.Character
+    		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    		if targetRoot then
+    			local targetParts = Workspace:GetPartBoundsInRadius(targetRoot.Position, CONFIG.RADIUS, overlapParams)
+    			for _, p in ipairs(targetParts) do
+    				table.insert(parts, p)
+    			end
+    		end
+    	end
+    	return parts
     end
     local function releasePart(part)
     	local data = TARGET_PARTS[part]
     	if not data then return end
     	if data.conn then data.conn:Disconnect() end
     	pcall(function()
+    		local bv = part:FindFirstChildOfClass("BodyVelocity")
+    		if bv then bv:Destroy() end
     		if data.alignPos and data.alignPos.Parent then data.alignPos:Destroy() end
     		if data.attachment and data.attachment.Parent then data.attachment:Destroy() end
     		if data.torque and data.torque.Parent then data.torque:Destroy() end
@@ -43788,60 +43802,72 @@ RegisterCommand({
     	TARGET_PARTS[part] = nil
     end
     local function forcePart(part)
+    	if not part:IsA("BasePart") then return end
     	if TARGET_PARTS[part] then return end
     	if part.Anchored then return end
-    	if part.Parent:FindFirstChildOfClass("Humanoid") then return end
-    	if part.Parent:FindFirstChild("Head") then return end
+    	if part.Parent and part.Parent:FindFirstChildOfClass("Humanoid") then return end
+    	if part.Parent and part.Parent:FindFirstChild("Head") then return end
     	if part.Name == "Handle" then return end
-    	for _, c in ipairs(part:GetChildren()) do
-    		if c:IsA("BodyMover") or c:IsA("RocketPropulsion")
-    			or c:IsA("LinearVelocity") or c:IsA("VectorForce") then
-    			pcall(function() c:Destroy() end)
+    	local count = 0
+    	for _ in pairs(TARGET_PARTS) do count += 1 end
+    	if count >= CONFIG.MAX_PARTS then return end
+    	pcall(function()
+    		for _, c in ipairs(part:GetChildren()) do
+    			if c:IsA("BodyMover") or c:IsA("RocketPropulsion")
+    				or c:IsA("LinearVelocity") or c:IsA("VectorForce")
+    				or c:IsA("BodyVelocity") or c:IsA("BodyForce") then
+    				c:Destroy()
+    			end
     		end
-    	end
-    	if part:FindFirstChild("Attachment") then part:FindFirstChild("Attachment"):Destroy() end
-    	if part:FindFirstChild("AlignPosition") then part:FindFirstChild("AlignPosition"):Destroy() end
-    	if part:FindFirstChild("Torque") then part:FindFirstChild("Torque"):Destroy() end
+    	end)
     	part.CanCollide = false
-    	local attachment = Instance.new("Attachment", part)
-    	local torque = Instance.new("Torque", part)
-    	torque.Torque = Vector3.new(100000, 100000, 100000)
-    	torque.Attachment0 = attachment
-    	local alignPos = Instance.new("AlignPosition", part)
-    	alignPos.MaxForce = math.huge
-    	alignPos.MaxVelocity = math.huge
-    	alignPos.Responsiveness = 200
-    	alignPos.Attachment0 = attachment
-    	alignPos.Attachment1 = Attachment1
+    	part.Massless = true
+
+    	-- fire a BodyVelocity directly at the target right now
+    	local function launchAtTarget()
+    		if not sendTarget then return end
+    		local targetChar = sendTarget.Character
+    		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    		if not targetRoot then return end
+    		pcall(function()
+    			-- remove old mover first
+    			local old = part:FindFirstChildOfClass("BodyVelocity")
+    			if old then old:Destroy() end
+    			local bv = Instance.new("BodyVelocity")
+    			bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+    			local dir = (targetRoot.Position - part.Position).Unit
+    			bv.Velocity = dir * 500
+    			bv.Parent = part
+    		end)
+    	end
+
+    	launchAtTarget()
+
     	local conn
     	conn = RunService.Heartbeat:Connect(function()
-    		if not part.Parent or not alignPos.Parent then
+    		if not part.Parent then
+    			releasePart(part)
+    			return
+    		end
+    		if not blackHoleActive then
     			releasePart(part)
     			return
     		end
     		if sendTarget then
     			local targetChar = sendTarget.Character
     			local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    			if targetRoot and (targetRoot.Position - part.Position).Magnitude < 12 then
-    				pcall(function()
-    					if not targetRoot:FindFirstChild("__flingBV") then
-    						local flingBV = Instance.new("BodyVelocity")
-    						flingBV.Name = "__flingBV"
-    						flingBV.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-    						flingBV.Velocity = (targetRoot.Position - part.Position).Unit * 500
-    						flingBV.Parent = targetRoot
-    						Debris:AddItem(flingBV, 0.15)
-    					end
-    				end)
+    			if targetRoot then
+    				-- constantly re-aim the velocity so it tracks them if they move
+    				local bv = part:FindFirstChildOfClass("BodyVelocity")
+    				if bv then
+    					bv.Velocity = (targetRoot.Position - part.Position).Unit * 500
+    				else
+    					launchAtTarget()
+    				end
     			end
     		end
     	end)
-    	TARGET_PARTS[part] = {
-    		attachment = attachment,
-    		alignPos = alignPos,
-    		torque = torque,
-    		conn = conn,
-    	}
+    	TARGET_PARTS[part] = { conn = conn }
     end
     local function cleanupStaleParts()
     	for part in pairs(TARGET_PARTS) do
@@ -43853,20 +43879,7 @@ RegisterCommand({
     	if now - lastUpdate < CONFIG.UPDATE_INTERVAL then return end
     	lastUpdate = now
     	if not blackHoleActive then return end
-    	local char = LocalPlayer.Character
-    	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    	if not hrp then return end
-    	for _, part in ipairs(getPartsInRadius(hrp.Position, CONFIG.RADIUS)) do
-    		forcePart(part)
-    	end
     	cleanupStaleParts()
-    	if sendTarget then
-    		local targetChar = sendTarget.Character
-    		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    		if targetRoot then
-    			Attachment1.WorldCFrame = targetRoot.CFrame
-    		end
-    	end
     end
     table.insert(CONNECTIONS, RunService.Heartbeat:Connect(blackholeLoop))
     local function getPlayer(name)
@@ -44071,11 +44084,21 @@ RegisterCommand({
     	blackHoleActive = true
     	bringBtn.Text = "Bring: On"
     	bringBtn.BackgroundColor3 = Color3.fromRGB(160, 35, 35)
-    	for _, v in ipairs(Workspace:GetDescendants()) do
-    		forcePart(v)
-    	end
+    	-- update Attachment1 to target immediately
+    	local targetChar = sendTarget.Character
+    	local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    	if targetRoot then Attachment1.WorldCFrame = targetRoot.CFrame end
+    	-- grab every single descendant in workspace right now
+    	task.spawn(function()
+    		for _, v in ipairs(Workspace:GetDescendants()) do
+    			forcePart(v)
+    		end
+    	end)
+    	-- also catch anything that spawns in after
     	DescendantAddedConnection = Workspace.DescendantAdded:Connect(function(v)
-    		if blackHoleActive then forcePart(v) end
+    		if blackHoleActive then
+    			task.spawn(function() forcePart(v) end)
+    		end
     	end)
     	if targetMode == "All" then
     		cycleConnection = RunService.Heartbeat:Connect(function()
@@ -44858,13 +44881,254 @@ task.spawn(function()
         return
     end
     local Window = Luna:CreateWindow({
-        Name           = "Zuka Panel",
+        Name           = "Zuka's FunBox.'",
         Subtitle       = "by OverZuka",
         LogoID         = "rbxassetid://7243158473",
-        LoadingEnabled = false,
+        LoadingEnabled = true,
         ConfigSettings = { ConfigFolder = "ZukaPanelLuna" },
         KeySystem      = false,
     })
+    -- ░░ PLAYER TAB ░░
+    local PT = Window:CreateTab({ Name = "Player", Icon = "person", ImageSource = "Material", ShowTitle = true })
+
+    PT:CreateSection("Spectate")
+    PT:CreateLabel({ Text = "Select a player then hit Spectate", Style = 3 })
+    local _spectateTarget = nil
+    local _spectatePlayerOptions = {}
+    local function _refreshSpectateOptions()
+        _spectatePlayerOptions = {}
+        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+            if p ~= LocalPlayer then
+                table.insert(_spectatePlayerOptions, p.Name)
+            end
+        end
+        return _spectatePlayerOptions
+    end
+    _refreshSpectateOptions()
+    local _spectateDropdown = PT:CreateDropdown({
+        Name = "Target Player", Description = "Choose who to spectate",
+        Options = _refreshSpectateOptions(), CurrentOption = {}, MultipleOptions = false,
+        Callback = function(v)
+            _spectateTarget = type(v) == "table" and v[1] or v
+        end
+    }, "luna_spectate_target")
+    PT:CreateButton({ Name = "Spectate", Description = "Lock camera onto selected player",
+        Callback = function()
+            if not _spectateTarget or _spectateTarget == "" then
+                return DoNotif("Select a player first.", 2)
+            end
+            local target = game:GetService("Players"):FindFirstChild(_spectateTarget)
+            if target then
+                Modules.SpectateController:Enable(target)
+            else
+                DoNotif("Player not found — they may have left.", 3)
+            end
+        end })
+    PT:CreateButton({ Name = "Stop Spectating", Description = "Return camera to your own character",
+        Callback = function()
+            Modules.SpectateController:Disable()
+        end })
+    PT:CreateButton({ Name = "Refresh Player List", Description = "Update the dropdown with current players",
+        Callback = function()
+            _refreshSpectateOptions()
+            DoNotif("Player list refreshed.", 2)
+        end })
+
+    PT:CreateDivider()
+    PT:CreateSection("Teleport to Player")
+    PT:CreateLabel({ Text = "Silently teleport behind a target", Style = 3 })
+    local _tpPlayerTarget = nil
+    local _tpPlayerDropdown = PT:CreateDropdown({
+        Name = "Target Player", Description = "Who to teleport to",
+        Options = _refreshSpectateOptions(), CurrentOption = {}, MultipleOptions = false,
+        Callback = function(v)
+            _tpPlayerTarget = type(v) == "table" and v[1] or v
+        end
+    }, "luna_tp_player_target")
+    PT:CreateButton({ Name = "  TP To Player", Description = "Teleport directly behind selected player",
+        Callback = function()
+            if not _tpPlayerTarget or _tpPlayerTarget == "" then
+                return DoNotif("Select a player first.", 2)
+            end
+            local target = game:GetService("Players"):FindFirstChild(_tpPlayerTarget)
+            if not target or not target.Character then
+                return DoNotif("Player or character not found.", 3)
+            end
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local tgtHrp = target.Character:FindFirstChild("HumanoidRootPart")
+            if hrp and tgtHrp then
+                hrp.CFrame = tgtHrp.CFrame * CFrame.new(0, 0, 3)
+                DoNotif("Teleported to " .. target.Name, 2)
+            else
+                DoNotif("Could not find character parts.", 3)
+            end
+        end })
+
+    PT:CreateDivider()
+    PT:CreateSection("Avatar Morph")
+    PT:CreateLabel({ Text = "Copy another player's avatar onto yours", Style = 3 })
+    local _morphInput = ""
+    PT:CreateInput({ Name = "Username or UserID", PlaceholderText = "e.g. Builderman or 156",
+        CurrentValue = "", Numeric = false, Enter = true,
+        Callback = function(v) _morphInput = v end }, "luna_morph_input")
+    PT:CreateButton({ Name = "✦  Apply Morph", Description = "Load that user's avatar onto your character",
+        Callback = function()
+            if not _morphInput or _morphInput == "" then
+                return DoNotif("Enter a username or UserID first.", 2)
+            end
+            Modules.CharacterMorph:Morph(_morphInput)
+        end })
+    PT:CreateButton({ Name = "↺  Revert Avatar", Description = "Restore your original appearance",
+        Callback = function()
+            Modules.CharacterMorph:Revert()
+        end })
+
+    -- ░░ TELEPORT TAB ░░
+    local TP = Window:CreateTab({ Name = "Teleport", Icon = "near_me", ImageSource = "Material", ShowTitle = true })
+
+    TP:CreateSection("Waypoints")
+    TP:CreateLabel({ Text = "Save up to 10 named positions and jump back to them", Style = 3 })
+    local _waypointNameInput = ""
+    TP:CreateInput({ Name = "Waypoint Name", PlaceholderText = "e.g. base, spawn, loot",
+        CurrentValue = "", Numeric = false, Enter = true,
+        Callback = function(v) _waypointNameInput = v end }, "luna_wp_name")
+    TP:CreateButton({ Name = "Save Waypoint", Description = "Save your current position under that name",
+        Callback = function()
+            if not _waypointNameInput or _waypointNameInput == "" then
+                return DoNotif("Enter a waypoint name first.", 2)
+            end
+            Modules.Waypoint:Add(_waypointNameInput)
+        end })
+    TP:CreateButton({ Name = "TP to Waypoint", Description = "Teleport to the named waypoint",
+        Callback = function()
+            if not _waypointNameInput or _waypointNameInput == "" then
+                return DoNotif("Enter a waypoint name first.", 2)
+            end
+            Modules.Waypoint:Teleport(_waypointNameInput)
+        end })
+    TP:CreateButton({ Name = "✕  Delete Waypoint", Description = "Remove that waypoint",
+        Callback = function()
+            if not _waypointNameInput or _waypointNameInput == "" then
+                return DoNotif("Enter a waypoint name first.", 2)
+            end
+            Modules.Waypoint:Remove(_waypointNameInput)
+        end })
+    TP:CreateButton({ Name = "List Waypoints", Description = "See all saved waypoints in a notification",
+        Callback = function() Modules.Waypoint:List() end })
+    TP:CreateButton({ Name = "Clear All Waypoints", Description = "Delete every saved waypoint",
+        Callback = function() Modules.Waypoint:Clear() end })
+
+    TP:CreateDivider()
+    TP:CreateSection("Coordinate Teleport")
+    TP:CreateLabel({ Text = "Jump to exact X, Y, Z coordinates", Style = 3 })
+    local _tpX, _tpY, _tpZ = 0, 5, 0
+    TP:CreateInput({ Name = "X", PlaceholderText = "0", CurrentValue = "0", Numeric = true, Enter = true,
+        Callback = function(v) _tpX = tonumber(v) or 0 end }, "luna_tp_x")
+    TP:CreateInput({ Name = "Y", PlaceholderText = "5", CurrentValue = "5", Numeric = true, Enter = true,
+        Callback = function(v) _tpY = tonumber(v) or 5 end }, "luna_tp_y")
+    TP:CreateInput({ Name = "Z", PlaceholderText = "0", CurrentValue = "0", Numeric = true, Enter = true,
+        Callback = function(v) _tpZ = tonumber(v) or 0 end }, "luna_tp_z")
+    TP:CreateButton({ Name = "Teleport to Coords", Description = "Move your character to the entered XYZ",
+        Callback = function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return DoNotif("No character found.", 3) end
+            hrp.CFrame = CFrame.new(_tpX, _tpY, _tpZ)
+            DoNotif(string.format("Teleported to (%.1f, %.1f, %.1f)", _tpX, _tpY, _tpZ), 2)
+        end })
+    TP:CreateButton({ Name = "Copy Current Coords", Description = "Copy your XYZ to clipboard",
+        Callback = function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return DoNotif("No character found.", 3) end
+            local p = hrp.Position
+            local str = string.format("%.2f, %.2f, %.2f", p.X, p.Y, p.Z)
+            if setclipboard then setclipboard(str) DoNotif("Copied: " .. str, 2)
+            else DoNotif(str, 4) end
+        end })
+
+    TP:CreateDivider()
+    TP:CreateSection("Quick Teleports")
+    TP:CreateButton({ Name = "TP to Spawn", Description = "Teleport to the map's spawn location",
+        Callback = function()
+            local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if spawn and hrp then
+                hrp.CFrame = spawn.CFrame + Vector3.new(0, 4, 0)
+                DoNotif("Teleported to spawn.", 2)
+            else
+                DoNotif("No SpawnLocation found in workspace.", 3)
+            end
+        end })
+    TP:CreateButton({ Name = "TP to Map Center", Description = "Teleport to 0, 100, 0",
+        Callback = function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = CFrame.new(0, 100, 0) DoNotif("Teleported to map center.", 2)
+            else DoNotif("No character found.", 3) end
+        end })
+    TP:CreateButton({ Name = "TP Up (Sky)", Description = "Shoot yourself up 2000 studs",
+        Callback = function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = hrp.CFrame + Vector3.new(0, 2000, 0) DoNotif("Launched upwards.", 2)
+            else DoNotif("No character found.", 3) end
+        end })
+
+    local Anti = Window:CreateTab({ Name = "Anti+", Icon = "shield", ImageSource = "Material", ShowTitle = true })
+
+    Anti:CreateSection("Position & Physics")
+    Anti:CreateToggle({ Name = "Anti Reset",        Description = "Prevent death and void falls",         CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiReset:Enable() else Modules.AntiReset:Disable() end end }, "anti_antireset")
+    Anti:CreateToggle({ Name = "Anti Void",         Description = "Prevent falling into the void",        CurrentValue = false,
+        Callback = function() Modules.AntiVoid:Toggle() end }, "anti_antivoid")
+    Anti:CreateToggle({ Name = "Anti Force-TP",     Description = "Block server CFrame teleports",        CurrentValue = false,
+        Callback = function() Modules.AntiCFrameTeleport:Toggle() end }, "anti_anticframetp")
+    Anti:CreateToggle({ Name = "Anti Trip",         Description = "Block ragdoll / fallingdown states",   CurrentValue = false,
+        Callback = function() Modules.AntiTrip:Toggle() end }, "anti_antitrip")
+    Anti:CreateToggle({ Name = "Anti Anchor",       Description = "Prevent your character being anchored", CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiAnchor:Enable() else Modules.AntiAnchor:Disable() end end }, "anti_antianchor")
+    Anti:CreateToggle({ Name = "Anti Player Physics", Description = "Block physics manipulation by others", CurrentValue = false,
+        Callback = function() Modules.AntiPlayerPhysics:Toggle() end }, "anti_antiphysics")
+    Anti:CreateToggle({ Name = "Knockback Nullifier", Description = "Cancel velocity spikes and knockback", CurrentValue = false,
+        Callback = function() Modules.KnockbackNullifier:Toggle() end }, "anti_knockback")
+
+    Anti:CreateDivider()
+    Anti:CreateSection("Character Integrity")
+    Anti:CreateToggle({ Name = "Anti Kill",         Description = "Keep humanoid health above 0",         CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiKill:Enable() else Modules.AntiKill:Disable() end end }, "anti_antikill")
+    Anti:CreateToggle({ Name = "Anti Sit",          Description = "Prevent being force-seated",           CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiSit:Enable() else Modules.AntiSit:Disable() end end }, "anti_antisit")
+    Anti:CreateToggle({ Name = "Anti Attach",       Description = "Counter players latching onto you",    CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiAttach:Enable() else Modules.AntiAttach:Disable() end end }, "anti_antiattach")
+    Anti:CreateToggle({ Name = "Anti Slap Gear",    Description = "Block slap gear from affecting you",   CurrentValue = false,
+        Callback = function() Modules.AntiSlapGear:Toggle() end }, "anti_antislapgear")
+    Anti:CreateToggle({ Name = "Humanoid Integrity", Description = "Lock humanoid stats against tampering", CurrentValue = false,
+        Callback = function() Modules.HumanoidIntegrity:Toggle() end }, "anti_humintegrity")
+
+    Anti:CreateDivider()
+    Anti:CreateSection("Session")
+    Anti:CreateToggle({ Name = "Anti AFK",          Description = "Prevent idle disconnect",              CurrentValue = false,
+        Callback = function() Modules.InternalAntiAfk:Toggle() end }, "anti_antiafk")
+    Anti:CreateToggle({ Name = "Fling Protection",  Description = "Prevent being flung by other players", CurrentValue = false,
+        Callback = function() Modules.FlingProtection:Toggle() end }, "anti_flingprot")
+
+    Anti:CreateDivider()
+    Anti:CreateButton({ Name = "✦  Enable All Anti", Description = "Turn on every toggle in this tab at once",
+        Callback = function()
+            pcall(function() Modules.AntiReset:Enable() end)
+            pcall(function() Modules.AntiVoid:Toggle() if not Modules.AntiVoid.State.IsEnabled then Modules.AntiVoid:Toggle() end end)
+            pcall(function() if not Modules.AntiCFrameTeleport.State.IsEnabled then Modules.AntiCFrameTeleport:Toggle() end end)
+            pcall(function() if not Modules.AntiTrip.State.IsEnabled then Modules.AntiTrip:Toggle() end end)
+            pcall(function() Modules.AntiAnchor:Enable() end)
+            pcall(function() if not Modules.AntiPlayerPhysics.State.IsEnabled then Modules.AntiPlayerPhysics:Toggle() end end)
+            pcall(function() if not Modules.KnockbackNullifier.State.IsEnabled then Modules.KnockbackNullifier:Toggle() end end)
+            pcall(function() Modules.AntiKill:Enable() end)
+            pcall(function() Modules.AntiSit:Enable() end)
+            pcall(function() Modules.AntiAttach:Enable() end)
+            pcall(function() if not Modules.AntiSlapGear.State.IsEnabled then Modules.AntiSlapGear:Toggle() end end)
+            pcall(function() if not Modules.HumanoidIntegrity.State.IsEnabled then Modules.HumanoidIntegrity:Toggle() end end)
+            pcall(function() if not Modules.InternalAntiAfk.State.IsEnabled then Modules.InternalAntiAfk:Toggle() end end)
+            pcall(function() if not Modules.FlingProtection.State.IsEnabled then Modules.FlingProtection:Toggle() end end)
+            DoNotif("All anti protections enabled.", 3)
+        end })
+
     local Movement = Window:CreateTab({ Name = "Movement", Icon = "directions_run", ImageSource = "Material", ShowTitle = true })
     Movement:CreateToggle({ Name = "Fly",           Description = "Toggle client-sided fly",       CurrentValue = false, Callback = function() Modules.Fly:Toggle() end }, "luna_fly")
     Movement:CreateToggle({ Name = "NoClip",        Description = "Walk through walls",             CurrentValue = false, Callback = function() Modules.NoClip:Toggle() end }, "luna_noclip")
@@ -45638,8 +45902,134 @@ task.spawn(function()
                 DoNotif("Flags reset (" .. #flags .. " entries). Rejoin to apply.", 3)
             end
         end })
-    Settings:CreateButton({ Name = "Test Notification", Description = "Send a test DoNotif",
-        Callback = function() DoNotif("Luna UI is working!", 3) end })
+    Settings:CreateButton({ Name = "Credits", Description = "By @OverZuka",
+        Callback = function() DoNotif("We're so back!'", 3) end })
+    -- ░░ SCRIPTS TAB ░░
+    local Scripts = Window:CreateTab({ Name = "Scripts", Icon = "code", ImageSource = "Material", ShowTitle = true })
+    Scripts:CreateSection("Script Slots")
+    Scripts:CreateLabel({ Text = "Fill in your script URLs below. Each button runs loadstring(game:HttpGet(url))()", Style = 3 })
+    Scripts:CreateDivider()
+
+    local function RunScript(url)
+        if not url or url == "" then DoNotif("No URL set for this slot.", 2) return end
+        local ok, err = pcall(function() loadstring(game:HttpGet(url, true))() end)
+        if not ok then DoNotif("Script error: " .. tostring(err), 3) end
+    end
+
+    Scripts:CreateSection("Adonis Counter v2")
+    local Script1_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/counter.lua"
+    Scripts:CreateInput({ Name = "Run", PlaceholderText = "By OverZuka", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script1_URL = v end }, "luna_script1_url")
+    Scripts:CreateButton({ Name = "Counter", Description = "Executes an anticheat counter for adonis", Callback = function() RunScript(Script1_URL) end })
+
+    Scripts:CreateSection("Slot 2")
+    local Script2_URL = ""
+    Scripts:CreateInput({ Name = "Script 2 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script2_URL = v end }, "luna_script2_url")
+    Scripts:CreateButton({ Name = "  Run Script 2", Description = "Executes loadstring on Script 2 URL", Callback = function() RunScript(Script2_URL) end })
+
+    Scripts:CreateSection("Slot 3")
+    local Script3_URL = ""
+    Scripts:CreateInput({ Name = "Script 3 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script3_URL = v end }, "luna_script3_url")
+    Scripts:CreateButton({ Name = "  Run Script 3", Description = "Executes loadstring on Script 3 URL", Callback = function() RunScript(Script3_URL) end })
+
+    Scripts:CreateSection("Slot 4")
+    local Script4_URL = ""
+    Scripts:CreateInput({ Name = "Script 4 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script4_URL = v end }, "luna_script4_url")
+    Scripts:CreateButton({ Name = "  Run Script 4", Description = "Executes loadstring on Script 4 URL", Callback = function() RunScript(Script4_URL) end })
+
+    Scripts:CreateSection("Slot 5")
+    local Script5_URL = ""
+    Scripts:CreateInput({ Name = "Script 5 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script5_URL = v end }, "luna_script5_url")
+    Scripts:CreateButton({ Name = "  Run Script 5", Description = "Executes loadstring on Script 5 URL", Callback = function() RunScript(Script5_URL) end })
+
+    Scripts:CreateSection("Slot 6")
+    local Script6_URL = ""
+    Scripts:CreateInput({ Name = "Script 6 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script6_URL = v end }, "luna_script6_url")
+    Scripts:CreateButton({ Name = "  Run Script 6", Description = "Executes loadstring on Script 6 URL", Callback = function() RunScript(Script6_URL) end })
+
+    Scripts:CreateSection("Slot 7")
+    local Script7_URL = ""
+    Scripts:CreateInput({ Name = "Script 7 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script7_URL = v end }, "luna_script7_url")
+    Scripts:CreateButton({ Name = "  Run Script 7", Description = "Executes loadstring on Script 7 URL", Callback = function() RunScript(Script7_URL) end })
+
+    Scripts:CreateSection("Slot 8")
+    local Script8_URL = ""
+    Scripts:CreateInput({ Name = "Script 8 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script8_URL = v end }, "luna_script8_url")
+    Scripts:CreateButton({ Name = "  Run Script 8", Description = "Executes loadstring on Script 8 URL", Callback = function() RunScript(Script8_URL) end })
+
+    Scripts:CreateSection("Slot 9")
+    local Script9_URL = ""
+    Scripts:CreateInput({ Name = "Script 9 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script9_URL = v end }, "luna_script9_url")
+    Scripts:CreateButton({ Name = "  Run Script 9", Description = "Executes loadstring on Script 9 URL", Callback = function() RunScript(Script9_URL) end })
+
+    Scripts:CreateSection("Slot 10")
+    local Script10_URL = ""
+    Scripts:CreateInput({ Name = "Script 10 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script10_URL = v end }, "luna_script10_url")
+    Scripts:CreateButton({ Name = "  Run Script 10", Description = "Executes loadstring on Script 10 URL", Callback = function() RunScript(Script10_URL) end })
+
+    Scripts:CreateSection("Slot 11")
+    local Script11_URL = ""
+    Scripts:CreateInput({ Name = "Script 11 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script11_URL = v end }, "luna_script11_url")
+    Scripts:CreateButton({ Name = "  Run Script 11", Description = "Executes loadstring on Script 11 URL", Callback = function() RunScript(Script11_URL) end })
+
+    Scripts:CreateSection("Slot 12")
+    local Script12_URL = ""
+    Scripts:CreateInput({ Name = "Script 12 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script12_URL = v end }, "luna_script12_url")
+    Scripts:CreateButton({ Name = "  Run Script 12", Description = "Executes loadstring on Script 12 URL", Callback = function() RunScript(Script12_URL) end })
+
+    Scripts:CreateSection("Slot 13")
+    local Script13_URL = ""
+    Scripts:CreateInput({ Name = "Script 13 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script13_URL = v end }, "luna_script13_url")
+    Scripts:CreateButton({ Name = "  Run Script 13", Description = "Executes loadstring on Script 13 URL", Callback = function() RunScript(Script13_URL) end })
+
+    Scripts:CreateSection("Slot 14")
+    local Script14_URL = ""
+    Scripts:CreateInput({ Name = "Script 14 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script14_URL = v end }, "luna_script14_url")
+    Scripts:CreateButton({ Name = "  Run Script 14", Description = "Executes loadstring on Script 14 URL", Callback = function() RunScript(Script14_URL) end })
+
+    Scripts:CreateSection("Slot 15")
+    local Script15_URL = ""
+    Scripts:CreateInput({ Name = "Script 15 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script15_URL = v end }, "luna_script15_url")
+    Scripts:CreateButton({ Name = "  Run Script 15", Description = "Executes loadstring on Script 15 URL", Callback = function() RunScript(Script15_URL) end })
+
+    Scripts:CreateSection("Slot 16")
+    local Script16_URL = ""
+    Scripts:CreateInput({ Name = "Script 16 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script16_URL = v end }, "luna_script16_url")
+    Scripts:CreateButton({ Name = "  Run Script 16", Description = "Executes loadstring on Script 16 URL", Callback = function() RunScript(Script16_URL) end })
+
+    Scripts:CreateSection("Slot 17")
+    local Script17_URL = ""
+    Scripts:CreateInput({ Name = "Script 17 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script17_URL = v end }, "luna_script17_url")
+    Scripts:CreateButton({ Name = "  Run Script 17", Description = "Executes loadstring on Script 17 URL", Callback = function() RunScript(Script17_URL) end })
+
+    Scripts:CreateSection("Slot 18")
+    local Script18_URL = ""
+    Scripts:CreateInput({ Name = "Script 18 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script18_URL = v end }, "luna_script18_url")
+    Scripts:CreateButton({ Name = "  Run Script 18", Description = "Executes loadstring on Script 18 URL", Callback = function() RunScript(Script18_URL) end })
+
+    Scripts:CreateSection("Slot 19")
+    local Script19_URL = ""
+    Scripts:CreateInput({ Name = "Script 19 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script19_URL = v end }, "luna_script19_url")
+    Scripts:CreateButton({ Name = "  Run Script 19", Description = "Executes loadstring on Script 19 URL", Callback = function() RunScript(Script19_URL) end })
+
+    Scripts:CreateSection("Slot 20")
+    local Script20_URL = ""
+    Scripts:CreateInput({ Name = "Script 20 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script20_URL = v end }, "luna_script20_url")
+    Scripts:CreateButton({ Name = "Run Script 20", Description = "Executes loadstring on Script 20 URL", Callback = function() RunScript(Script20_URL) end })
+
+    Scripts:CreateDivider()
+    Scripts:CreateButton({ Name = "Run All? Will crash your game", Description = "Runs every slot that has a URL set",
+        Callback = function()
+            local urls = {Script1_URL,Script2_URL,Script3_URL,Script4_URL,Script5_URL,
+                          Script6_URL,Script7_URL,Script8_URL,Script9_URL,Script10_URL,
+                          Script11_URL,Script12_URL,Script13_URL,Script14_URL,Script15_URL,
+                          Script16_URL,Script17_URL,Script18_URL,Script19_URL,Script20_URL}
+            local ran = 0
+            for _, url in ipairs(urls) do
+                if url and url ~= "" then RunScript(url) ran = ran + 1 end
+            end
+            DoNotif("Ran " .. ran .. " script(s).", 2)
+        end })
+
         local RC = Window:CreateTab({ Name = "Reach", Icon = "open_with", ImageSource = "Material", ShowTitle = true })
     RC:CreateSection("Tool Reach")
     RC:CreateLabel({ Text = " Equip a tool first, then apply reach", Style = 3 })
@@ -45710,3 +46100,4 @@ task.spawn(function()
     end))
     DoNotif("Use the removeadonis command if the game you're in uses adonis", 2)
 end)
+loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/notifier.lua"))()
