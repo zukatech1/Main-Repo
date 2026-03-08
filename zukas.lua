@@ -1,10 +1,6 @@
-warn("Zukas Panel")
+print("We're so back.")
 
-loadstring(game:HttpGet("https://pastebin.com/raw/Ee6dq1VL"))() if success
-	then DoNotif("By zuka.")
-end
-
-
+--[[Made By Zuka]]
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 local CoreGui = game:GetService("CoreGui")
@@ -175,9 +171,13 @@ local function dismantle_readonly(target)
         if mt and set_ro then set_ro(mt, false) end
     end)
 end
+
+
 dismantle_readonly(getgenv())
 dismantle_readonly(getrenv())
 dismantle_readonly(getreg())
+
+
 local function protect_interface(instance)
     local protector = (get_hidden_gui or (syn and syn.protect_gui))
     if protector then pcall(protector, instance) end
@@ -11404,351 +11404,520 @@ RegisterCommand({
         tonumber(args[3])
     )
 end)
-Modules.CFrameDesync = {
-    State = {
-        IsEnabled = false,
-        DesyncActive = false,
-        RealCFrame = CFrame.new(),
-        VisualOffset = CFrame.new(),
-        UI = nil,
-        Mode = "position",
-        Increment = 1,
-        Connections = {},
-        FakeCharacter = nil
-    },
-    Config = {
-        HighlightColor = Color3.fromRGB(255, 0, 200),
-        ShowFakeCharacter = true,
-    }
-}
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-local LocalPlayer = Players.LocalPlayer
-local function getChar()
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChild("Humanoid")
-    return char, hrp, hum
-end
-function Modules.CFrameDesync:_createUI()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "CFrameDesync_Architect"
-    screenGui.ResetOnSpawn = false
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-    self.State.UI = screenGui
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.fromOffset(340, 520)
-    mainFrame.Position = UDim2.new(1, -350, 0.5, -260)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Parent = screenGui
-    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
-    local stroke = Instance.new("UIStroke", mainFrame)
-    stroke.Color = self.Config.HighlightColor
-    stroke.Thickness = 2
-    local titleBar = Instance.new("Frame", mainFrame)
-    titleBar.Name = "TitleBar"
-    titleBar.Size = UDim2.new(1, 0, 0, 35)
-    titleBar.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
-    titleBar.BorderSizePixel = 0
-    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
-    local title = Instance.new("TextLabel", titleBar)
-    title.Size = UDim2.new(1, -70, 1, 0)
-    title.Position = UDim2.fromOffset(10, 0)
-    title.BackgroundTransparency = 1
-    title.Font = Enum.Font.Code
-    title.Text = "▸ CFRAME DESYNC // ARCHITECT"
-    title.TextColor3 = self.Config.HighlightColor
-    title.TextSize = 14
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    local statusIndicator = Instance.new("TextLabel", titleBar)
-    statusIndicator.Name = "StatusIndicator"
-    statusIndicator.Size = UDim2.fromOffset(60, 20)
-    statusIndicator.Position = UDim2.new(1, -100, 0.5, -10)
-    statusIndicator.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-    statusIndicator.Font = Enum.Font.GothamBold
-    statusIndicator.Text = "OFF"
-    statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
-    statusIndicator.TextSize = 10
-    Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
-    local dragging, dragInput, dragStart, startPos
-    titleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = mainFrame.Position
-        end
-    end)
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    titleBar.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-    local content = Instance.new("Frame", mainFrame)
-    content.Name = "Content"
-    content.Size = UDim2.new(1, -20, 1, -45)
-    content.Position = UDim2.fromOffset(10, 40)
-    content.BackgroundTransparency = 1
-    local desyncToggle = Instance.new("TextButton", content)
-    desyncToggle.Name = "DesyncToggle"
-    desyncToggle.Size = UDim2.new(1, 0, 0, 45)
-    desyncToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-    desyncToggle.Font = Enum.Font.GothamBold
-    desyncToggle.Text = "ACTIVATE SYSTEM"
-    desyncToggle.TextColor3 = Color3.new(1, 1, 1)
-    desyncToggle.TextSize = 14
-    Instance.new("UICorner", desyncToggle).CornerRadius = UDim.new(0, 6)
-    desyncToggle.MouseButton1Click:Connect(function()
-        self:ToggleDesync()
-    end)
-    local modeLabel = Instance.new("TextLabel", content)
-    modeLabel.Size = UDim2.new(1, 0, 0, 20)
-    modeLabel.Position = UDim2.fromOffset(0, 55)
-    modeLabel.BackgroundTransparency = 1
-    modeLabel.Text = "MANIPULATION MODE:"
-    modeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    modeLabel.Font = Enum.Font.Code
-    modeLabel.TextSize = 12
-    modeLabel.TextXAlignment = Enum.TextXAlignment.Left
-    local modeButtons = {}
-    for i, mode in ipairs({"position", "rotation"}) do
-        local btn = Instance.new("TextButton", content)
-        btn.Size = UDim2.new(0.48, 0, 0, 30)
-        btn.Position = UDim2.fromOffset((i-1) * 165, 80)
-        btn.BackgroundColor3 = mode == self.State.Mode and self.Config.HighlightColor or Color3.fromRGB(30, 30, 35)
-        btn.Text = mode:upper()
-        btn.Font = Enum.Font.GothamBold
-        btn.TextColor3 = Color3.new(1, 1, 1)
-        btn.TextSize = 11
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-        modeButtons[mode] = btn
-        btn.MouseButton1Click:Connect(function()
-            self.State.Mode = mode
-            for m, b in pairs(modeButtons) do
-                b.BackgroundColor3 = m == mode and self.Config.HighlightColor or Color3.fromRGB(30, 30, 35)
-            end
-        end)
-    end
-    local incBox = Instance.new("TextBox", content)
-    incBox.Size = UDim2.new(1, 0, 0, 30)
-    incBox.Position = UDim2.fromOffset(0, 120)
-    incBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    incBox.Text = "Increment: 1"
-    incBox.TextColor3 = Color3.new(1, 1, 1)
-    incBox.Font = Enum.Font.Code
-    incBox.TextSize = 12
-    Instance.new("UICorner", incBox).CornerRadius = UDim.new(0, 4)
-    incBox.FocusLost:Connect(function()
-        local val = tonumber(incBox.Text:match("%d+%.?%d*"))
-        if val then
-            self.State.Increment = val
-            incBox.Text = "Increment: " .. val
-        end
-    end)
-    local controls = {
-        {t = "+X", o = Vector3.new(1, 0, 0), p = {0, 160}},
-        {t = "-X", o = Vector3.new(-1, 0, 0), p = {110, 160}},
-        {t = "+Y", o = Vector3.new(0, 1, 0), p = {0, 195}},
-        {t = "-Y", o = Vector3.new(0, -1, 0), p = {110, 195}},
-        {t = "+Z", o = Vector3.new(0, 0, 1), p = {0, 230}},
-        {t = "-Z", o = Vector3.new(0, 0, -1), p = {110, 230}},
-    }
-    for _, ctrl in ipairs(controls) do
-        local btn = Instance.new("TextButton", content)
-        btn.Size = UDim2.fromOffset(100, 30)
-        btn.Position = UDim2.fromOffset(ctrl.p[1], ctrl.p[2])
-        btn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-        btn.Text = ctrl.t
-        btn.TextColor3 = Color3.new(1, 1, 1)
-        btn.Font = Enum.Font.GothamBold
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-        btn.MouseButton1Click:Connect(function()
-            self:AdjustOffset(ctrl.o)
-        end)
-    end
-    local resetBtn = Instance.new("TextButton", content)
-    resetBtn.Size = UDim2.new(1, 0, 0, 35)
-    resetBtn.Position = UDim2.fromOffset(0, 275)
-    resetBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 40)
-    resetBtn.Text = "RESET OFFSET"
-    resetBtn.Font = Enum.Font.GothamBold
-    resetBtn.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 4)
-    resetBtn.MouseButton1Click:Connect(function() self.State.VisualOffset = CFrame.new() self:UpdateDisplay() end)
-    local infoBox = Instance.new("TextLabel", content)
-    infoBox.Name = "InfoBox"
-    infoBox.Size = UDim2.new(1, 0, 0, 100)
-    infoBox.Position = UDim2.fromOffset(0, 320)
-    infoBox.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
-    infoBox.Font = Enum.Font.Code
-    infoBox.Text = "SYSTEM IDLE"
-    infoBox.TextColor3 = self.Config.HighlightColor
-    infoBox.TextSize = 11
-    infoBox.TextXAlignment = Enum.TextXAlignment.Left
-    infoBox.TextYAlignment = Enum.TextYAlignment.Top
-    Instance.new("UICorner", infoBox).CornerRadius = UDim.new(0, 4)
-    Instance.new("UIPadding", infoBox).PaddingLeft = UDim.new(0, 8)
-    screenGui.Parent = CoreGui
-    return desyncToggle, statusIndicator, infoBox
-end
-function Modules.CFrameDesync:ToggleDesync()
-    if self.State.DesyncActive then
-        self:DeactivateDesync()
-    else
-        self:ActivateDesync()
-    end
-end
-function Modules.CFrameDesync:ActivateDesync()
-    local _, hrp = getChar()
-    if not hrp then return end
-    self.State.DesyncActive = true
-    if self.Config.ShowFakeCharacter then
-        self:CreateFakeCharacter()
-    end
-    self.State.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
-        local _, root = getChar()
-        if root then
-            self.State.RealCFrame = root.CFrame
-            self:UpdateVisuals()
-        end
-    end)
-    local ui = self.State.UI.MainFrame
-    ui.Content.DesyncToggle.Text = "DEACTIVATE SYSTEM"
-    ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(120, 30, 50)
-    ui.TitleBar.StatusIndicator.Text = "ACTIVE"
-    ui.TitleBar.StatusIndicator.BackgroundColor3 = self.Config.HighlightColor
-    self:UpdateDisplay()
-end
-function Modules.CFrameDesync:StartFakeReplication()
-    local _, hrp = getChar()
-    if not hrp then return end
-    local fakePart = Instance.new("Part")
-    fakePart.Name = "DesyncAnchor"
-    fakePart.Size = Vector3.new(0.1, 0.1, 0.1)
-    fakePart.Transparency = 1
-    fakePart.CanCollide = false
-    fakePart.CanTouch = false
-    fakePart.CanQuery = false
-    fakePart.Anchored = false
-    fakePart.CFrame = hrp.CFrame * self.State.VisualOffset
-    fakePart.Parent = workspace
-    fakePart:SetNetworkOwner(LocalPlayer)
-    self.State.FakePart = fakePart
-    self.State.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
-        if fakePart and fakePart.Parent then
-            fakePart.CFrame = self.State.RealCFrame * self.State.VisualOffset
-        end
-    end)
-end
-function Modules.CFrameDesync:DeactivateDesync()
-    self.State.DesyncActive = false
-    for _, conn in pairs(self.State.Connections) do
-        conn:Disconnect()
-    end
-    table.clear(self.State.Connections)
-    if self.State.FakePart then
-        self.State.FakePart:Destroy()
-        self.State.FakePart = nil
-    end
-    if self.State.FakeCharacter then
-        self.State.FakeCharacter:Destroy()
-        self.State.FakeCharacter = nil
-    end
-    local ui = self.State.UI.MainFrame
-    ui.Content.DesyncToggle.Text = "ACTIVATE SYSTEM"
-    ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-    ui.TitleBar.StatusIndicator.Text = "OFF"
-    ui.TitleBar.StatusIndicator.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-    self:UpdateDisplay()
-end
-function Modules.CFrameDesync:CreateFakeCharacter()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local fake = Instance.new("Model")
-    fake.Name = "Desync_Visualizer"
-    for _, part in pairs(char:GetChildren()) do
-        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-            local p = part:Clone()
-            p.CanCollide = false
-            p.CanTouch = false
-            p.CanQuery = false
-            p.Transparency = 0.6
-            p.Material = Enum.Material.ForceField
-            p.Color = self.Config.HighlightColor
-            p.Parent = fake
-            for _, child in pairs(p:GetChildren()) do
-                if not child:IsA("SpecialMesh") then child:Destroy() end
-            end
-        end
-    end
-    fake.Parent = workspace
-    self.State.FakeCharacter = fake
-end
-function Modules.CFrameDesync:UpdateVisuals()
-    local char = LocalPlayer.Character
-    if not char or not self.State.FakeCharacter then return end
-    local targetCFrame = self.State.RealCFrame * self.State.VisualOffset
-    for _, part in pairs(self.State.FakeCharacter:GetChildren()) do
-        local realPart = char:FindFirstChild(part.Name)
-        if realPart then
-            local relative = char.HumanoidRootPart.CFrame:Inverse() * realPart.CFrame
-            part.CFrame = targetCFrame * relative
-        end
-    end
-end
-function Modules.CFrameDesync:AdjustOffset(vec)
-    local inc = self.State.Increment
-    if self.State.Mode == "position" then
-        self.State.VisualOffset = self.State.VisualOffset * CFrame.new(vec * inc)
-    else
-        local r = vec * math.rad(inc * 5)
-        self.State.VisualOffset = self.State.VisualOffset * CFrame.Angles(r.X, r.Y, r.Z)
-    end
-    self:UpdateDisplay()
-end
-function Modules.CFrameDesync:UpdateDisplay()
-    if not self.State.UI then return end
-    local info = self.State.UI.MainFrame.Content.InfoBox
-    if not self.State.DesyncActive then
-        info.Text = "STATUS: INACTIVE\nWAITING FOR PROTOCOL START..."
-        return
-    end
-    local pos = self.State.VisualOffset.Position
-    local x, y, z = self.State.VisualOffset:ToEulerAnglesXYZ()
-    info.Text = string.format(
-        "NETWORK STATUS: DESYNCED\n\nOFFSET POS:\nX: %.2f | Y: %.2f | Z: %.2f\n\nOFFSET ROT:\nX: %.2f | Y: %.2f | Z: %.2f",
-        pos.X, pos.Y, pos.Z,
-        math.deg(x), math.deg(y), math.deg(z)
-    )
-end
-function Modules.CFrameDesync:Enable()
-    if self.State.IsEnabled then return end
-    self.State.IsEnabled = true
-    self:_createUI()
-end
-function Modules.CFrameDesync:Disable()
-    self:DeactivateDesync()
-    if self.State.UI then self.State.UI:Destroy() self.State.UI = nil end
-    self.State.IsEnabled = false
-end
-function Modules.CFrameDesync:Toggle()
-    if self.State.IsEnabled then self:Disable() else self:Enable() end
-end
+-- ── Imported: cframedit  [raw → register] ──────────────────────
+
 RegisterCommand({
-    Name = "csync",
-    Aliases = {"fakepos"},
-    Description = "Opens CFrame desync editor to manipulate your character's visual position."
-}, function()
-    Modules.CFrameDesync:Toggle()
+    Name        = "cframedit",
+    Aliases     = {"cfe"},
+    Description = "Edit your characters location",
+    ArgsDesc    = {},
+    Permissions = {},
+}, function(args, speaker)
+    local CFrameDesync = {
+        State = {
+            IsEnabled      = false,
+            DesyncActive   = false,
+            RealCFrame     = CFrame.new(),
+            VisualOffset   = CFrame.new(),
+            UI             = nil,
+            Mode           = "position",
+            Increment      = 1,
+            Connections    = {},
+            FakeCharacter  = nil,
+            GhostHighlight = nil,
+            PinnedParts    = {},
+        },
+        Config = {
+            HighlightColor    = Color3.fromRGB(255, 0, 200),
+            PinnedColor       = Color3.fromRGB(0, 220, 255),
+            ShowFakeCharacter = true,
+        },
+    }
+    local PART_GROUPS = {
+        { label = "HEAD",      parts = { "Head" } },
+        { label = "TORSO",     parts = { "UpperTorso", "LowerTorso", "Torso" } },
+        { label = "LEFT ARM",  parts = { "LeftUpperArm", "LeftLowerArm", "LeftHand", "Left Arm" } },
+        { label = "RIGHT ARM", parts = { "RightUpperArm", "RightLowerArm", "RightHand", "Right Arm" } },
+        { label = "LEFT LEG",  parts = { "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "Left Leg" } },
+        { label = "RIGHT LEG", parts = { "RightUpperLeg", "RightLowerLeg", "RightFoot", "Right Leg" } },
+    }
+    local RunService       = game:GetService("RunService")
+    local Players          = game:GetService("Players")
+    local CoreGui          = game:GetService("CoreGui")
+    local UserInputService = game:GetService("UserInputService")
+    local LocalPlayer      = Players.LocalPlayer
+    local function getChar()
+        local char = LocalPlayer.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        local hum  = char and char:FindFirstChild("Humanoid")
+        return char, hrp, hum
+    end
+    local function isPinned(self, partName)
+        return self.State.PinnedParts[partName] == true
+    end
+    function CFrameDesync:ActivateDesync()
+        local char, hrp = getChar()
+        if not hrp then warn("[CFrameDesync] No character.") return end
+        self.State.DesyncActive = true
+        self.State.RealCFrame   = hrp.CFrame
+        if self.Config.ShowFakeCharacter then
+            self:CreateFakeCharacter()
+        end
+        self.State.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
+            local _, root = getChar()
+            if not root then return end
+            self.State.RealCFrame = root.CFrame
+            local rotOnly = CFrame.fromMatrix(
+                Vector3.zero,
+                self.State.VisualOffset.RightVector,
+                self.State.VisualOffset.UpVector,
+                -self.State.VisualOffset.LookVector
+            )
+            local spoof = CFrame.new(root.CFrame.Position + self.State.VisualOffset.Position)
+                        * CFrame.fromMatrix(Vector3.zero, root.CFrame.RightVector, root.CFrame.UpVector, -root.CFrame.LookVector)
+                        * rotOnly
+            root.CFrame = spoof
+        end)
+        self.State.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
+            local _, root = getChar()
+            if not root then return end
+            root.CFrame = self.State.RealCFrame
+            self:UpdateVisuals()
+        end)
+        local camera = workspace.CurrentCamera
+        local savedCameraType = camera.CameraType
+        camera.CameraType = Enum.CameraType.Custom
+        self.State.SavedCameraType = savedCameraType
+        local camAnchor = Instance.new("Part")
+        camAnchor.Name        = "DesyncCamAnchor"
+        camAnchor.Size        = Vector3.new(0.1, 0.1, 0.1)
+        camAnchor.Transparency = 1
+        camAnchor.CanCollide  = false
+        camAnchor.CanTouch    = false
+        camAnchor.CanQuery    = false
+        camAnchor.Anchored    = true
+        camAnchor.CFrame      = self.State.RealCFrame
+        camAnchor.Parent      = workspace
+        self.State.CamAnchor  = camAnchor
+        camera.CameraSubject  = camAnchor
+        self.State.Connections.CamAnchor = RunService.RenderStepped:Connect(function()
+            if camAnchor and camAnchor.Parent then
+                camAnchor.CFrame = self.State.RealCFrame
+            end
+        end)
+        local ui = self.State.UI.MainFrame
+        ui.Content.DesyncToggle.Text             = "DEACTIVATE DESYNC"
+        ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(110, 25, 45)
+        ui.TitleBar.StatusIndicator.Text             = "ONLINE"
+        ui.TitleBar.StatusIndicator.BackgroundColor3 = self.Config.HighlightColor
+        ui.TitleBar.StatusIndicator.TextColor3       = Color3.fromRGB(10, 10, 20)
+        self:UpdateDisplay()
+    end
+    function CFrameDesync:DeactivateDesync()
+        self.State.DesyncActive = false
+        for _, conn in pairs(self.State.Connections) do conn:Disconnect() end
+        table.clear(self.State.Connections)
+        if self.State.FakeCharacter then
+            self.State.FakeCharacter:Destroy()
+            self.State.FakeCharacter  = nil
+            self.State.GhostHighlight = nil
+        end
+        local camera = workspace.CurrentCamera
+        local char, hrp = getChar()
+        if hrp then
+            camera.CameraSubject = hrp
+        elseif char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then camera.CameraSubject = hum end
+        end
+        if self.State.CamAnchor then
+            self.State.CamAnchor:Destroy()
+            self.State.CamAnchor = nil
+        end
+        if not self.State.UI then return end
+        local ui = self.State.UI.MainFrame
+        ui.Content.DesyncToggle.Text             = "ACTIVATE DESYNC"
+        ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+        ui.TitleBar.StatusIndicator.Text             = "OFFLINE"
+        ui.TitleBar.StatusIndicator.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+        ui.TitleBar.StatusIndicator.TextColor3       = Color3.fromRGB(160, 160, 160)
+        self:UpdateDisplay()
+    end
+    function CFrameDesync:ToggleDesync()
+        if self.State.DesyncActive then self:DeactivateDesync() else self:ActivateDesync() end
+    end
+    function CFrameDesync:CreateFakeCharacter()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local fake = Instance.new("Model")
+        fake.Name = "Desync_Visualizer"
+        for _, part in pairs(char:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                local p = part:Clone()
+                p.CanCollide  = false
+                p.CanTouch    = false
+                p.CanQuery    = false
+                p.CastShadow  = false
+                p.Material    = Enum.Material.Neon
+                p.Transparency = isPinned(self, part.Name) and 0.45 or 0.2
+                p.Color       = isPinned(self, part.Name)
+                    and self.Config.PinnedColor or self.Config.HighlightColor
+                p.Parent = fake
+                for _, child in pairs(p:GetChildren()) do
+                    if not child:IsA("SpecialMesh") then child:Destroy() end
+                end
+            end
+        end
+        local hl = Instance.new("Highlight", fake)
+        hl.FillColor           = self.Config.HighlightColor
+        hl.OutlineColor        = Color3.new(1, 1, 1)
+        hl.FillTransparency    = 0.4
+        hl.OutlineTransparency = 0.0
+        hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
+        self.State.GhostHighlight = hl
+        fake.Parent = workspace
+        self.State.FakeCharacter = fake
+    end
+    function CFrameDesync:_refreshFakeCharacterColors()
+        if not self.State.FakeCharacter then return end
+        for _, part in pairs(self.State.FakeCharacter:GetChildren()) do
+            if part:IsA("BasePart") then
+                local pinned = isPinned(self, part.Name)
+                part.Color        = pinned and self.Config.PinnedColor or self.Config.HighlightColor
+                part.Transparency = pinned and 0.45 or 0.2
+            end
+        end
+        if self.State.GhostHighlight then
+            self.State.GhostHighlight.FillColor = self.Config.HighlightColor
+        end
+    end
+    function CFrameDesync:UpdateVisuals()
+        local char = LocalPlayer.Character
+        if not char or not self.State.FakeCharacter then return end
+        local realHRP = char:FindFirstChild("HumanoidRootPart")
+        if not realHRP then return end
+        local rotOnly = CFrame.fromMatrix(
+            Vector3.zero,
+            self.State.VisualOffset.RightVector,
+            self.State.VisualOffset.UpVector,
+            -self.State.VisualOffset.LookVector
+        )
+        local spoof = CFrame.new(self.State.RealCFrame.Position + self.State.VisualOffset.Position)
+                    * CFrame.fromMatrix(Vector3.zero,
+                        self.State.RealCFrame.RightVector,
+                        self.State.RealCFrame.UpVector,
+                        -self.State.RealCFrame.LookVector)
+                    * rotOnly
+        for _, part in pairs(self.State.FakeCharacter:GetChildren()) do
+            if part:IsA("BasePart") then
+                local realPart = char:FindFirstChild(part.Name)
+                if realPart then
+                    local relative = realHRP.CFrame:Inverse() * realPart.CFrame
+                    if isPinned(self, part.Name) then
+                        part.CFrame = self.State.RealCFrame * relative
+                    else
+                        part.CFrame = spoof * relative
+                    end
+                end
+            end
+        end
+    end
+    function CFrameDesync:AdjustOffset(vec)
+        local inc = self.State.Increment
+        if self.State.Mode == "position" then
+            local cur = self.State.VisualOffset.Position
+            self.State.VisualOffset = CFrame.new(cur + vec * inc)
+        else
+            local r = vec * math.rad(inc * 5)
+            self.State.VisualOffset = self.State.VisualOffset * CFrame.Angles(r.X, r.Y, r.Z)
+        end
+        self:UpdateDisplay()
+    end
+    function CFrameDesync:UpdateDisplay()
+        if not self.State.UI then return end
+        local info = self.State.UI.MainFrame.Content.InfoBox
+        if not info then return end
+        if not self.State.DesyncActive then
+            info.Text = "STATUS: INACTIVE\nAWAITING ACTIVATION..."
+            return
+        end
+        local pinnedCount = 0
+        for _, v in pairs(self.State.PinnedParts) do if v then pinnedCount += 1 end end
+        local pos = self.State.VisualOffset.Position
+        local rx, ry, rz = self.State.VisualOffset:ToEulerAnglesXYZ()
+        info.Text = string.format(
+            "STATUS: DESYNCED  |  PINNED: %d PARTS\n\nSPOOF OFFSET:\n  X: %.2f  |  Y: %.2f  |  Z: %.2f\n\nROT OFFSET:\n  X: %.1f\xc2\xb0  |  Y: %.1f\xc2\xb0  |  Z: %.1f\xc2\xb0",
+            pinnedCount, pos.X, pos.Y, pos.Z,
+            math.deg(rx), math.deg(ry), math.deg(rz)
+        )
+    end
+    function CFrameDesync:_createUI()
+        local existing = CoreGui:FindFirstChild("CFrameDesync_SA")
+        if existing then existing:Destroy() end
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name           = "CFrameDesync_SA"
+        screenGui.ResetOnSpawn   = false
+        screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+        screenGui.DisplayOrder   = 9999
+        self.State.UI = screenGui
+        local mainFrame = Instance.new("Frame")
+        mainFrame.Name             = "MainFrame"
+        mainFrame.Size             = UDim2.fromOffset(360, 640)
+        mainFrame.Position         = UDim2.new(1, -375, 0.5, -320)
+        mainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
+        mainFrame.BorderSizePixel  = 0
+        mainFrame.ClipsDescendants = false
+        mainFrame.Parent           = screenGui
+        Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
+        local stroke = Instance.new("UIStroke", mainFrame)
+        stroke.Color = self.Config.HighlightColor; stroke.Thickness = 1.5
+        local titleBar = Instance.new("Frame", mainFrame)
+        titleBar.Name = "TitleBar"; titleBar.Size = UDim2.new(1,0,0,38)
+        titleBar.BackgroundColor3 = Color3.fromRGB(8,8,14); titleBar.BorderSizePixel = 0
+        Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0,10)
+        local title = Instance.new("TextLabel", titleBar)
+        title.Size = UDim2.new(1,-110,1,0); title.Position = UDim2.fromOffset(12,0)
+        title.BackgroundTransparency = 1; title.Font = Enum.Font.Code
+        title.Text = "▸ CFRAME DESYNC  //  STANDALONE"
+        title.TextColor3 = self.Config.HighlightColor; title.TextSize = 13
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        local si = Instance.new("TextLabel", titleBar)
+        si.Name = "StatusIndicator"; si.Size = UDim2.fromOffset(70,20)
+        si.Position = UDim2.new(1,-82,0.5,-10)
+        si.BackgroundColor3 = Color3.fromRGB(35,35,42); si.Font = Enum.Font.GothamBold
+        si.Text = "OFFLINE"; si.TextColor3 = Color3.fromRGB(160,160,160); si.TextSize = 10
+        Instance.new("UICorner", si).CornerRadius = UDim.new(0,4)
+        local dragging, dragStart, startPos
+        titleBar.InputBegan:Connect(function(inp)
+            if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = true; dragStart = inp.Position; startPos = mainFrame.Position
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(inp)
+            if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
+                local d = inp.Position - dragStart
+                mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset+d.X, startPos.Y.Scale, startPos.Y.Offset+d.Y)
+            end
+        end)
+        titleBar.InputEnded:Connect(function(inp)
+            if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+        end)
+        local scroll = Instance.new("ScrollingFrame", mainFrame)
+        scroll.Name = "Content"; scroll.Size = UDim2.new(1,-16,1,-48)
+        scroll.Position = UDim2.fromOffset(8,44); scroll.BackgroundTransparency = 1
+        scroll.BorderSizePixel = 0; scroll.ScrollBarThickness = 3
+        scroll.ScrollBarImageColor3 = self.Config.HighlightColor
+        scroll.CanvasSize = UDim2.fromOffset(0,0); scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        local layout = Instance.new("UIListLayout", scroll)
+        layout.Padding = UDim.new(0,8); layout.FillDirection = Enum.FillDirection.Vertical
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        local function sectionLabel(text, order)
+            local l = Instance.new("TextLabel", scroll)
+            l.LayoutOrder = order; l.Size = UDim2.new(1,-8,0,18)
+            l.BackgroundTransparency = 1; l.Text = text
+            l.TextColor3 = Color3.fromRGB(130,130,150); l.Font = Enum.Font.Code
+            l.TextSize = 11; l.TextXAlignment = Enum.TextXAlignment.Left
+        end
+        local function bigBtn(text, color, order, name)
+            local b = Instance.new("TextButton", scroll)
+            b.LayoutOrder = order; b.Size = UDim2.new(1,-8,0,40)
+            b.BackgroundColor3 = color; b.Font = Enum.Font.GothamBold
+            b.Text = text; b.TextColor3 = Color3.new(1,1,1); b.TextSize = 13
+            b.BorderSizePixel = 0; if name then b.Name = name end
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0,6)
+            return b
+        end
+        local tog = bigBtn("ACTIVATE DESYNC", Color3.fromRGB(35,35,50), 10, "DesyncToggle")
+        local ts = Instance.new("UIStroke", tog); ts.Color = self.Config.HighlightColor; ts.Thickness = 1
+        tog.MouseButton1Click:Connect(function() self:ToggleDesync() end)
+        sectionLabel("MANIPULATION MODE", 20)
+        local modeRow = Instance.new("Frame", scroll)
+        modeRow.LayoutOrder = 21; modeRow.Size = UDim2.new(1,-8,0,34); modeRow.BackgroundTransparency = 1
+        local ml = Instance.new("UIListLayout", modeRow); ml.FillDirection = Enum.FillDirection.Horizontal; ml.Padding = UDim.new(0,6)
+        local modeButtons = {}
+        for _, mode in ipairs({"POSITION","ROTATION"}) do
+            local b = Instance.new("TextButton", modeRow)
+            b.Size = UDim2.new(0.5,-3,1,0)
+            b.BackgroundColor3 = (mode:lower()==self.State.Mode) and self.Config.HighlightColor or Color3.fromRGB(28,28,38)
+            b.Font = Enum.Font.GothamBold; b.Text = mode; b.TextColor3 = Color3.new(1,1,1)
+            b.TextSize = 12; b.BorderSizePixel = 0
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0,5)
+            modeButtons[mode:lower()] = b
+            b.MouseButton1Click:Connect(function()
+                self.State.Mode = mode:lower()
+                for m, btn in pairs(modeButtons) do
+                    btn.BackgroundColor3 = m==self.State.Mode and self.Config.HighlightColor or Color3.fromRGB(28,28,38)
+                end
+            end)
+        end
+        sectionLabel("INCREMENT VALUE", 30)
+        local inc = Instance.new("TextBox", scroll)
+        inc.LayoutOrder = 31; inc.Size = UDim2.new(1,-8,0,34)
+        inc.BackgroundColor3 = Color3.fromRGB(18,18,26); inc.Text = "1"
+        inc.TextColor3 = Color3.new(1,1,1); inc.Font = Enum.Font.Code; inc.TextSize = 13
+        inc.PlaceholderText = "Enter increment..."; inc.PlaceholderColor3 = Color3.fromRGB(80,80,100)
+        inc.BorderSizePixel = 0
+        Instance.new("UICorner", inc).CornerRadius = UDim.new(0,5)
+        Instance.new("UIStroke", inc).Color = Color3.fromRGB(40,40,55)
+        inc.FocusLost:Connect(function()
+            local v = tonumber(inc.Text)
+            if v and v > 0 then self.State.Increment = v else inc.Text = tostring(self.State.Increment) end
+        end)
+        sectionLabel("SPOOF OFFSET CONTROLS", 40)
+        local grid = Instance.new("Frame", scroll)
+        grid.LayoutOrder = 41; grid.Size = UDim2.new(1,-8,0,76); grid.BackgroundTransparency = 1
+        local axes = {
+            {t="+X",o=Vector3.new(1,0,0)},{t="-X",o=Vector3.new(-1,0,0)},
+            {t="+Y",o=Vector3.new(0,1,0)},{t="-Y",o=Vector3.new(0,-1,0)},
+            {t="+Z",o=Vector3.new(0,0,1)},{t="-Z",o=Vector3.new(0,0,-1)},
+        }
+        local axColors = {
+            Color3.fromRGB(180,60,60),Color3.fromRGB(130,30,30),
+            Color3.fromRGB(60,180,60),Color3.fromRGB(30,130,30),
+            Color3.fromRGB(60,60,180),Color3.fromRGB(30,30,130),
+        }
+        for i, ax in ipairs(axes) do
+            local c=(i-1)%3; local r=math.floor((i-1)/3)
+            local b = Instance.new("TextButton", grid)
+            b.Size = UDim2.fromOffset(106,34); b.Position = UDim2.fromOffset(c*112, r*40)
+            b.BackgroundColor3 = axColors[i]; b.Font = Enum.Font.GothamBold
+            b.Text = ax.t; b.TextColor3 = Color3.new(1,1,1); b.TextSize = 13; b.BorderSizePixel = 0
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0,5)
+            local vec = ax.o
+            b.MouseButton1Click:Connect(function() self:AdjustOffset(vec) end)
+        end
+        local rst = bigBtn("↺  RESET OFFSET", Color3.fromRGB(70,30,30), 50)
+        rst.MouseButton1Click:Connect(function()
+            self.State.VisualOffset = CFrame.new(); self:UpdateDisplay()
+        end)
+        sectionLabel("PART PIN CONTROL  (CYAN = PINNED / STAYS AT REAL POS IN GHOST)", 60)
+        local pinButtons = {}
+        for gi, group in ipairs(PART_GROUPS) do
+            local row = Instance.new("Frame", scroll)
+            row.LayoutOrder = 60+gi; row.Size = UDim2.new(1,-8,0,34); row.BackgroundTransparency = 1
+            local rl = Instance.new("UIListLayout", row)
+            rl.FillDirection = Enum.FillDirection.Horizontal; rl.Padding = UDim.new(0,6)
+            rl.VerticalAlignment = Enum.VerticalAlignment.Center
+            local lbl = Instance.new("TextLabel", row)
+            lbl.Size = UDim2.new(0.42,0,1,0); lbl.BackgroundTransparency = 1
+            lbl.Text = group.label; lbl.Font = Enum.Font.Code
+            lbl.TextColor3 = Color3.fromRGB(200,200,210); lbl.TextSize = 11
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            local pb = Instance.new("TextButton", row)
+            pb.Size = UDim2.new(0.58,-6,0.9,0); pb.BackgroundColor3 = Color3.fromRGB(28,28,38)
+            pb.Font = Enum.Font.GothamBold; pb.Text = "FREE"
+            pb.TextColor3 = Color3.fromRGB(160,160,170); pb.TextSize = 11; pb.BorderSizePixel = 0
+            Instance.new("UICorner", pb).CornerRadius = UDim.new(0,5)
+            pinButtons[gi] = {btn=pb, group=group}
+            local function refreshBtn(pinned)
+                if pinned then
+                    pb.BackgroundColor3 = self.Config.PinnedColor
+                    pb.TextColor3 = Color3.fromRGB(5,5,15); pb.Text = "PINNED"
+                else
+                    pb.BackgroundColor3 = Color3.fromRGB(28,28,38)
+                    pb.TextColor3 = Color3.fromRGB(160,160,170); pb.Text = "FREE"
+                end
+            end
+            local function groupPinned()
+                for _, p in ipairs(group.parts) do if not self.State.PinnedParts[p] then return false end end
+                return true
+            end
+            refreshBtn(groupPinned())
+            pb.MouseButton1Click:Connect(function()
+                local now = groupPinned()
+                for _, p in ipairs(group.parts) do self.State.PinnedParts[p] = not now end
+                refreshBtn(not now)
+                if self.State.FakeCharacter then self:_refreshFakeCharacterColors() end
+            end)
+        end
+        sectionLabel("QUICK PRESETS", 80)
+        local presetRow = Instance.new("Frame", scroll)
+        presetRow.LayoutOrder = 81; presetRow.Size = UDim2.new(1,-8,0,34); presetRow.BackgroundTransparency = 1
+        local pl = Instance.new("UIListLayout", presetRow); pl.FillDirection = Enum.FillDirection.Horizontal; pl.Padding = UDim.new(0,6)
+        local presets = {
+            {label="PIN ARMS", pinned={["LEFT ARM"]=true,["RIGHT ARM"]=true}},
+            {label="PIN LEGS", pinned={["LEFT LEG"]=true,["RIGHT LEG"]=true}},
+            {label="ALL FREE", pinned={}},
+            {label="ALL PIN",  pinned={["HEAD"]=true,["TORSO"]=true,["LEFT ARM"]=true,["RIGHT ARM"]=true,["LEFT LEG"]=true,["RIGHT LEG"]=true}},
+        }
+        for _, preset in ipairs(presets) do
+            local pb = Instance.new("TextButton", presetRow)
+            pb.Size = UDim2.new(0.25,-5,1,0); pb.BackgroundColor3 = Color3.fromRGB(22,22,32)
+            pb.Font = Enum.Font.GothamBold; pb.Text = preset.label
+            pb.TextColor3 = Color3.fromRGB(180,180,200); pb.TextSize = 9; pb.BorderSizePixel = 0
+            Instance.new("UICorner", pb).CornerRadius = UDim.new(0,5)
+            Instance.new("UIStroke", pb).Color = Color3.fromRGB(50,50,70)
+            local cap = preset.pinned
+            pb.MouseButton1Click:Connect(function()
+                self.State.PinnedParts = {}
+                for _, group in ipairs(PART_GROUPS) do
+                    for _, p in ipairs(group.parts) do
+                        self.State.PinnedParts[p] = cap[group.label] or false
+                    end
+                end
+                for _, info in ipairs(pinButtons) do
+                    local all = true
+                    for _, p in ipairs(info.group.parts) do if not self.State.PinnedParts[p] then all=false; break end end
+                    if all then
+                        info.btn.BackgroundColor3 = self.Config.PinnedColor
+                        info.btn.TextColor3 = Color3.fromRGB(5,5,15); info.btn.Text = "PINNED"
+                    else
+                        info.btn.BackgroundColor3 = Color3.fromRGB(28,28,38)
+                        info.btn.TextColor3 = Color3.fromRGB(160,160,170); info.btn.Text = "FREE"
+                    end
+                end
+                if self.State.FakeCharacter then self:_refreshFakeCharacterColors() end
+            end)
+        end
+        sectionLabel("LIVE STATUS", 90)
+        local infoBox = Instance.new("TextLabel", scroll)
+        infoBox.Name = "InfoBox"; infoBox.LayoutOrder = 91; infoBox.Size = UDim2.new(1,-8,0,110)
+        infoBox.BackgroundColor3 = Color3.fromRGB(8,8,14); infoBox.Font = Enum.Font.Code
+        infoBox.Text = "STATUS: IDLE\nAWAITING ACTIVATION..."
+        infoBox.TextColor3 = self.Config.HighlightColor; infoBox.TextSize = 11
+        infoBox.TextXAlignment = Enum.TextXAlignment.Left; infoBox.TextYAlignment = Enum.TextYAlignment.Top
+        infoBox.BorderSizePixel = 0; infoBox.TextWrapped = true
+        Instance.new("UICorner", infoBox).CornerRadius = UDim.new(0,6)
+        Instance.new("UIStroke", infoBox).Color = Color3.fromRGB(30,30,45)
+        local ip = Instance.new("UIPadding", infoBox)
+        ip.PaddingLeft = UDim.new(0,8); ip.PaddingTop = UDim.new(0,6); ip.PaddingBottom = UDim.new(0,6)
+        local spacer = Instance.new("Frame", scroll)
+        spacer.LayoutOrder = 99; spacer.Size = UDim2.new(1,0,0,6); spacer.BackgroundTransparency = 1
+        screenGui.Parent = CoreGui
+    end
+    function CFrameDesync:Enable()
+        if self.State.IsEnabled then return end
+        self.State.IsEnabled = true
+        self:_createUI()
+    end
+    function CFrameDesync:Disable()
+        self:DeactivateDesync()
+        if self.State.UI then self.State.UI:Destroy(); self.State.UI = nil end
+        self.State.IsEnabled = false
+    end
+    function CFrameDesync:Toggle()
+        if self.State.IsEnabled then self:Disable() else self:Enable() end
+    end
+    CFrameDesync:Enable()
+    return CFrameDesync
+end)
+RegisterCommand({
+    Name        = "instantspawn",
+    Aliases     = {"die"},
+    Description = "attempts instant respawn",
+    ArgsDesc    = {},
+    Permissions = {},
+}, function(args, speaker)
+    local Players = game:GetService("Players")
+    local Player = Players.LocalPlayer
+
+    if not replicatesignal then
+        return warn("Incompatible Executor")
+    end
+
+    replicatesignal(Player.ConnectDiedSignalBackend)
+    task.wait(Players.RespawnTime - .01) -- Change to .1 if it doesn't work the first time
+    replicatesignal(Player.Kill)
 end)
 Modules.OrbitController = {
     State = {
@@ -16393,9 +16562,9 @@ function Modules.Overseer:CreateUI()
     self:_applyStyle(spyBtn, 2)
     local backBtn = Instance.new("TextButton", header)
     backBtn.Size = UDim2.new(0, 60, 0, 24)
-    backBtn.Position = UDim2.new(1, -510, 0.5, -11)
+    backBtn.Position = UDim2.new(1, -118, 0.5, -12)
     backBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-    backBtn.Text = "< BACK"
+    backBtn.Text = "<"
     backBtn.TextColor3 = Color3.new(1, 1, 1)
     backBtn.Font = Enum.Font.Code
     backBtn.TextSize = 10
@@ -22786,7 +22955,7 @@ function Modules.ApexCounter:Initialize()
     }, function(args)
         module.State.IsEnabled = not module.State.IsEnabled
         if module.State.IsEnabled then
-            DoNotif("⚡ APEX SUITE: INITIALIZING...", 1.5)
+            DoNotif(" APEX SUITE: INITIALIZING...", 1.5)
             task.wait(0.5)
             module:ToggleLagShield(true)
             module:ToggleGhost(true)
@@ -24242,7 +24411,7 @@ function Modules.ScriptExecutor2:CreateUI()
     local iconText = Instance.new("TextLabel", icon)
     iconText.Size = UDim2.new(1, 0, 1, 0)
     iconText.BackgroundTransparency = 1
-    iconText.Text = "⚡"
+    iconText.Text = ""
     iconText.TextColor3 = Color3.fromRGB(255, 165, 0)
     iconText.Font = Enum.Font.SourceSansBold
     iconText.TextSize = 14
@@ -24461,7 +24630,7 @@ function Modules.ScriptExecutor2:CreateUI()
         Name = "ExecuteButton",
         Position = UDim2.new(0, 6, 0, 6),
         Size = UDim2.new(0, 90, 0, 20),
-        Text = "▶ Execute",
+        Text = " Execute",
         TextSize = 11,
         ZIndex = 2,
         Callback = function()
@@ -24610,7 +24779,7 @@ function Modules.ScriptExecutor2:CreateUI()
     end)
     self.State.IsEnabled = true
     statusText.Text = "Script Executor loaded - Ready"
-    DoNotif("⚡ Script Executor opened", 2)
+    DoNotif(" Script Executor opened", 2)
     self:RefreshScriptList()
 end
 function Modules.ScriptExecutor2:Toggle()
@@ -31227,7 +31396,7 @@ Modules.GUICreator.ELEMENT_DEFS = {
     { Group="TEXT",       Name="TextBox",                 Color=Color3.fromRGB(210, 90,150), Icon="I" },
     { Group="IMAGE",      Name="ImageLabel",              Color=Color3.fromRGB(150, 90,220), Icon="🖼" },
     { Group="IMAGE",      Name="ImageButton",             Color=Color3.fromRGB(200, 80,180), Icon="🖱" },
-    { Group="VIDEO",      Name="VideoFrame",              Color=Color3.fromRGB(255,180, 50), Icon="▶" },
+    { Group="VIDEO",      Name="VideoFrame",              Color=Color3.fromRGB(255,180, 50), Icon="" },
     { Group="MODIFIERS",  Name="UICorner",                Color=Color3.fromRGB(100,220,180), Icon="◜", IsModifier=true },
     { Group="MODIFIERS",  Name="UIStroke",                Color=Color3.fromRGB(100,180,255), Icon="⊡", IsModifier=true },
     { Group="MODIFIERS",  Name="UIGradient",              Color=Color3.fromRGB(255,160,100), Icon="≋", IsModifier=true },
@@ -36684,7 +36853,7 @@ function Modules.HDAdmin:GivePeriastrons()
     DoNotif("Periastrons: giving all " .. #ids, 2)
 end
 function Modules.HDAdmin:GiveAllGears()
-    local ids = {10468797,10468915,10469910,10472779,10510024,10727852,10730984,10758456,10760425,10831489,10831509,10884288,10910681,11115851,11373617,11377306,11419319,11419882,11450664,11452821,11453385,11563251,11719016,11885154,11895536,11956382,11999235,11999247,11999279,12145515,12187319,12187348,12187431,12504077,12547976,12562390,12562394,12562495,12775410,12848902,12890798,12902404,12909278,13206856,13206887,13206984,13207169,13477890,13477940,13478015,13745494,13838639,13841367,14130887,14131296,14131602,14492601,14516975,14719505,14864611,14876573,15176169,15177716,15179006,15397778,15470183,15470222,15470359,15642486,15668963,15731350,15932306,15970544,15973049,15973059,16200199,16200204,16200373,16200402,16200420,16200508,16201421,16201628,16214845,16216702,16433862,16435306,16435368,16469499,16641274,16688968,16722267,16726030,16726984,16895215,16924676,16951083,16979083,16986649,16986805,16987194,17237662,17237675,17237692,17407931,17527921,17527923,17680660,18010691,18017365,18210455,18268645,18409191,18426536,18446258,18446266,18462637,18466105,18474459,18479357,18479966,18481407,18482562,18482570,18776718,18971349,19111869,19111883,19111894,19328185,19381970,19382057,19395497,19396450,19397135,19399456,19643249,19644347,19703034,19703041,19703046,19703062,19703476,19704064,19704172,20048880,20056642,20064349,20373160,20519646,20577851,20642023,20721924,21064230,21294489,21351465,21392199,21392417,21416138,21420014,21439778,21439893,21439965,21439991,21440056,21440120,21440340,21445765,21754543,21802000,22152171,22152195,22152211,22152234,22158176,22596452,22787168,22787189,22787248,22788064,22788102,22788134,22788972,22920072,22960388,22960435,22969230,22971409,23153735,23153742,23155792,23156134,23306097,23532796,23727705,23922939,24015579,24294377,24294400,24346755,24396804,24419811,24419822,24440014,24659699,24686580,24713330,24785057,24791472,24814192,24839406,24841520,24903431,24903441,24903474,25158998,25162389,25317304,25535467,25545089,25695001,25740034,25741198,25923196,25926517,25974222,25977812,26013203,26014536,26017478,26417031,26419811,26421972,26673760,26774629,26777410,26777502,26945832,27133214,27171403,27245855,27312415,27471379,27474371,27477255,27494652,27848918,27848921,27848937,27849961,27858062,27860496,27902303,27902388,27902398,27902406,28275809,28277195,28277486,28492363,28664212,28671909,28672001,29099749,29100347,29100449,29100543,29345958,29532089,29532111,29532138,29939404,29957963,29959768,29959897,29959911,30392263,30393548,30393653,30649735,30847685,30847733,30847746,30847779,31314849,31314931,31314966,31532496,31839203,31839260,31839337,31839411,32199868,32353654,32355759,32355966,32356064,32858586,32858662,32858699,32858741,33382537,33382711,33383241,33683368,33732371,33866728,33866846,33867016,33867401,33879504,34223662,34247537,34398653,34398938,34399318,34399428,34870758,34898883,34901961,35293856,35366155,35366215,35682284,35683911,35684857,35809502,36042596,36042821,36105781,36107470,36431591,36568384,36568418,36568603,36784258,36913594,36913598,36913601,37347081,37347098,37347141,37694889,37694914,37816777,37821008,37821473,37821996,38326803,38327125,38861951,39258329,39258389,40493542,40493590,40493658,40504724,40811356,40892405,40892781,41457484,41457719,41855117,41855400,41856126,42067245,42200159,42200852,42201538,42321801,42845609,42845684,42845853,42845896,42847923,43245080,43245104,43245530,43567614,43708943,43708954,44084783,44115185,44115926,44116233,44561343,44561400,44561450,45094376,45177979,45201977,45513203,45513247,45754061,45941397,45941451,46132907,46360821,46360870,46360920,46362414,46846024,46846074,46846115,46846246,47262108,47262951,47597760,47597835,47871597,47871615,47871635,47871646,48159648,48159731,48159815,48395736,48596305,48596324,48596336,48847374,49052638,49052686,49052716,49059364,49491716,49491736,49491781,49491808,49929724,49929746,49929767,49929776,50454041,50454086,50937815,50938746,50938765,50938773,51302649,51346271,51346336,51346471,51347716,51757126,51757158,51757162,51760061,52180858,52180863,52180871,52180878,52625728,52625733,52625744,52627419,52938493,53130850,53130867,53130887,53130896,53623248,53623295,53623322,53623350,53917288,54130537,54130543,54130552,54130559,54694311,54694324,54694329,54694334,55028088,55192815,55194474,55301897,55302141,55302225,55642223,55917409,55917420,55917429,55917432,56561570,56561579,56561593,56561607,57229313,57229337,57229357,57229371,57902859,57902997,57983479,57983532,57983650,58364871,58574416,58574431,58574445,58574452,58880579,59175769,59175777,59190534,59190543,59805584,59806354,59848474,59848509,60357959,60357972,60357982,60357989,60678464,60791062,60888200,60888225,60888284,60888308,61459592,61459678,61459706,61459718,61916108,61916132,61916137,61963621,62350846,62350856,62350867,62350883,62803165,62803173,62803186,62809243,62827106,62827121,63253676,63253701,63253706,63253718,63721700,63721711,63721724,63721732,64160538,64160547,64220933,64220952,64372659,64372667,64447616,64647631,64647651,64647666,64735604,64869906,64869947,64870000,64870021,65079090,65079094,65082246,65082275,65469817,65469882,65469908,65545955,65545971,65546284,65554735,65868656,65954788,65969704,65969749,65969758,65979823,66416579,66416590,66416602,66416616,66426103,66426498,66823631,66823689,66896542,66896565,66896601,66896638,67319385,67319408,67319425,67494312,67747860,67747884,67747912,67755182,67755192,67755215,67798397,67998086,68233678,68354832,68354853,68478587,68539623,68603151,68603324,68848741,69209924,69210321,69210407,69499437,69499452,69567827,69567879,69947367,69947379,69964719,70032387,70353298,70476425,70476435,70476446,70476451,71037028,71037056,71037076,71037101,71422327,71422340,71422361,71597027,71597048,71597060,71597072,72069827,72069855,72069888,72318993,72644603,72644629,72644644,72713855,73232786,73232803,73232825,73265108,73799243,73799348,73829193,73829202,73829214,73888479,74385386,74385399,74385418,74385438,74904387,74904396,74904413,74972442,75550883,75550907,75550928,75556791,75906930,75906942,75906973,75941738,76170471,76170515,76170545,76262706,76596269,76596299,76768897,77443436,77443461,77443491,77443704,78005009,78005022,78005082,78026639,78367424,78665196,78665204,78665215,78730532,79446395,79446433,79446454,79446473,79736563,79736586,80576913,80576928,80576952,80576967,80597060,80661504,81154592,81155006,81330766,81847365,81847533,81847570,81847637,82357079,82357101,82357123,82358339,82707568,82707577,82711866,82711870,83021197,83021217,83021236,83021250,83704154,83704165,83704169,83704179,83704190,84012460,84417104,84417281,84418938,84419543,85145626,85145662,85145680,85145730,85145757,85150452,85150872,85150978,85754656,85879435,85879447,85879456,85879465,86492467,86492583,86494893,86494914,86692539,86903805,87361508,87361662,87361806,87361995,88143060,88143074,88143093,88143166,88146486,88146497,88146505,88885268,88885481,88885497,88885506,88885524,88885539,89203876,89203895,89390416,89390459,89487903,89487934,89488524,89491407,90211299,90220371,90220438,90242059,90718350,90718505,90718618,90718686,91294485,91360028,91360052,91360081,91360104,91450692,91517984,91518057,91658290,92142799,92142829,92142841,92142950,92627975,92627988,92628074,92628079,93136666,93136674,93136746,93136802,93528414,93536785,93536827,93536844,93536867,93667422,93709266,93722443,93722515,93725362,93746675,94119269,94233286,94233344,94233367,94233391,94333296,94794774,94794833,94794847,95258660,95354259,95354268,95354288,95354304,95484098,95484354,95951270,95951291,95951330,95951359,96092647,96095042,96493688,96501417,96501454,96669682,96669687,96669697,96669943,97161222,97161241,97161262,97161295,97311482,97712291,97756645,97885289,97885508,97885552,97885572,97886188,97932897,98219158,98253569,98253592,98253626,98253651,98341183,98346415,98411325,98411393,98411436,98970218,99033296,99119158,99119198,99119240,99119261,99130630,99174250,99199463,99206951,99206970,99254164,99254203,99254241,99254358,99254437,99610601,99641902,99797327,99797357,99797381,99797403,100469994,100472063,100472084,101078326,101078350,101078524,101078559,101078911,101078953,101079008,101106419,101106464,101110605,101191388,101715440,101734094,101854599,101854660,102705386,102705402,102705430,102705454,103234296,103234612,103235041,103338520,103358098,103359953,104642522,104642550,104642566,104642700,105179506,105189286,105189783,105289761,105351503,105351545,105351572,105351720,105351748,105430216,106064277,106064315,106064447,106064469,106701564,106701619,106701659,106701702,107458429,107458461,107458483,107458531,108148416,108148449,108148479,108149175,108149201,108153884,108155504,108158379,108158439,108234775,108875151,108875172,108875216,108875237,108899214,109364052,109583771,109583797,109583822,109583846,110204666,110335886,110337782,110337828,110337853,110337884,110337910,110702207,110703943,110704033,110789105,110892267,111518891,111876831,112591865,112591894,112593662,112593687,113299556,113299590,113299620,113299641,113328094,114020480,114020505,114020538,114020557,114491710,114552541,114687223,114687236,114687251,114690870,115377964,116040770,116040789,116040807,116040828,116055112,116693694,116693715,116693735,116693764,117498775,117498793,117498849,117544573,118281463,118281490,118281529,118281609,118650365,119101539,119101595,119101643,119917487,119917513,119917531,119917556,119934168,120307951,120749408,120749452,120749494,120749528,121121915,121385193,121385230,121385262,121385328,121925044,121946387,122278149,122278207,122278276,122278316,122330194,123042140,123134886,123134949,123234510,123234545,123234626,123234673,124126528,124126871,124127383,124128001,124472052,124908320,124908832,125013769,125013799,125013830,125013849,125859385,125859450,125859483,126704033,126710875,126719093,126719120,126719148,127506105,127506257,127506324,127506364,128160832,128160929,128162639,128162713,128209615,128210518,129457095,129471121,129471151,129471170,130112971,130113061,130113146,130167063,130925426,131372632,131592085,132789698,132870835,133315268,134109039,134111541,135472231,135518721,135949859,135949881,136170437,136172718,136213778,138761013,139308319,139574344,139577901,139577956,139577997,139578061,139578136,139578207,139578571,139581823,139586244,139593916,140490812,140821168,141759818,142498104,143517948,143606297,143606363,143606407,144510568,144980658,146026904,146026928,146026944,146047188,146047220,146047247,146057771,146071355,147143821,147143848,147143863,147143881,147937284,147937377,147937415,147937443,147948041,148017553,148521629,148790984,148791372,148791414,148791460,148812192,149222485,149222558,149411775,149612167,149612200,149612243,149638899,150336333,150336402,150363993,150366274,150366320,150366351,150927798,150980377,150980409,150980444,150980471,151291980,151292047,151311761,151777652,152173291,152173304,152173333,152187131,152187198,152233094,152233381,152660131,152660258,152766031,152822815,152822847,152823565,152823669,152824068,152824174,152832328,152971952,153025459,153938986,153939072,153939226,154727201,154727251,154727343,154727487,155414424,155661985,155662051,155662087,155696189,156467855,156467926,156467963,156467990,157205782,157205818,157205831,157205837,158069071,158069110,158069143,158069180,159199204,159199218,159199229,159199263,159229806,159913543,160189476,160189629,160189720,160189871,160198008,160198363,160198658,160199141,161075864,161208517,161211085,161216321,161219921,161219985,161220552,161230469,161282711,162857268,162857316,162857357,162857391,162857422,162979146,162979250,163323379,163348575,163348758,163348987,163350265,163351579,163351966,163352376,163353363,163354553,163355211,163355404,163355764,163488515,163995329,163995460,164015715,164016477,164017027,164174293,164174394,164207580,164207842,164369961,168140516,168140813,168140949,168141301,168141496,168142114,168142394,168142620,168142869,168143042,169602010,169602103,169602388,169669671,170896461,170896571,170896941,170897263,170902990,170903216,170903610,170903868,172246669,172246820,172248941,172249239,172289170,172298750,172921991,172922026,172922089,173751087,173755801,173781053,173812248,174418144,174752186,174752245,174752400,174752553,176087466,176087505,176087556,176087597,176087639,176087640,176219131,178076749,178076831,178076989,178077177,178400986,179369406,179369627,179369752,179369914,179625551,180298135,180298414,180298769,180300142,180313580,180518956,181196009,181245094,181245120,181245141,181245172,181245219,181355844,181356054,181469197,181469279,181550181,182273799,182273893,182273948,183346956,183347165,183355732,183355817,183355892,183355969,183441634,183665171,183665514,183665594,183665698,183704866,183797762,183826384,184757813,184757948,184758255,184758713,184760397,185422055,185422295,185422758,186521342,186867645,186867671,186867693,186868641,186868758,186958653,186959114,187688069,187840979,188643628,188644205,188644771,188853857,188854357,188868661,189756588,189910262,189910707,189910805,190094159,190094270,190094313,190111117,190880295,191261808,191261930,192456288,192537346,193705415,193743245,193769809,193771176,193772607,201756020,201756469,202039834,202083069,204095612,204095670,204095724,204485737,206136361,206136532,206566653,206798405,206799274,208659586,208659734,209290837,209980135,209980247,211944997,212296400,212296936,212500257,212641536,215354986,215355157,215355320,215392741,215448210,217901450,218631022,218631128,218631227,218634097,220288951,220288991,220289039,221173389,221173959,221181437,221241923,221266538,223132403,223132588,223439643,223785065,223785350,223785473,223800426,225921000,225921137,225921650,225921724,226205948,226206253,226206426,226206639,228588531,228588651,228588772,228589017,229909386,229909697,230185510,230516405,230729032,230758501,230758639,232520546,232522034,233519998,233520157,233520257,233520425,233633874,233657188,233660801,236401511,236402747,236403380,236403905,236438668,236440696,236441643,236442380,236443047,241017426,241017568,241511828,241512134,241542047,243007180,243777016,243778818,243788010,243788599,243790334,243790517,243791145,243791329,243890860,244081145,244082303,245617341,248285248,248287898,250407413,250407647,250533235,250534394,252564167,253485047,253518869,253518920,253519495,254608905,255800146,255800577,255800783,257342981,257343434,257343597,257807125,257807712,257810065,257811449,257812862,257813288,257816690,257829534,257837994,257838919,257840933,261439002,261447208,261762082,261826406,261826521,261826683,261827192,262406180,264289990,264290413,264989911,264990158,264990548,264991177,268533320,268533563,268533852,268586231,270560835,270562881,271017031,271017217,271017537,271017937,273795078,273969902,273970482,277954704,277955084,277955605,277956390,277963405,278009025,280661926,280662667,280662903,283754518,283755431,283756680,284135286,286526176,286526788,286527185,286527303,287424278,287424705,287425246,287426148,292044716,292046825,292969139,292969458,292969932,292970740,292971046,294950095,295460073,295460702,295461517,298085284,298087401,300410436,300410799,300436644,302030998,302063713,302280931,302281291,302418416,302502491,304719869,304720206,304720496,304721834,305943571,306163602,306971294,306971449,306971659,313532084,313532207,313532292,313536525,313547087,313547345,314534854,315565799,315573586,315574690,315617026,317592936,317593132,317593302,319106687,319655993,319656339,319656563,321345839,321582427,323192649,323477973,325755895,325758098,327365543,329021694,329021959,329022047,330295904,330296114,330296266,332747438,332747874,332748371,332755212,332774000,334177905,334523653,334620158,334620353,334620605,335085355,335086410,335087161,335132838,336370943,336371164,341108783,341109697,341110180,342869414,343586214,343587237,346685995,346686597,346686979,346687267,346687565,346687946,356212121,356212933,356213216,356213494,357834584,357837444,359178822,359179120,359179463,359244394,361950297,361950795,365631067,365642085,365642352,365674685,368070589,375829909,375832969,379098145,380204314,380210977,382837475,382837631,382837706,382837862,382837983,383608755,383609201,385780758,387285940,387286257,390969719,391005275,392057539,395205750,395205954,395449601,397902579,398122525,398122724,398122908,398675172,398675588,401277404,402304782,402305186,405991634,405996670,406101128,409745306,409746054,410001793,413199938,413200176,416846710,419240423,419241111,420160506,420161128,420178043,424700938,425120575,425121415,427947884,427948872,427949130,430065768,430066424,431038614,431042935,431044405,431045523,431047232,433922317,433923430,434289516,435116454,435116927,439307591,439988813,439989184,444457864,445150567,445151478,450565762,450566409,454733534,454733927,454734258,456221232,456226536,460099901,461488745,461489128,462294549,467109039,467109371,467137230,467138029,467859890,467895641,467935723,471751406,471830826,472607336,472607575,473287763,477910063,477911027,478707595,483308034,483308681,483899693,489196923,489197999,491599826,492670565,492854717,492979024,498752334,498752764,501753915,501755654,501939119,501940219,501941714,501942750,501966315,503955938,503957396,503957703,507797529,507803661,511930668,511931885,512422543,512451831,515687734,515687925,515688182,515688387,515688568,517827255,517827962,521925833,522586178,522587921,527383094,527384527,531702150,532254782,535104095,536288166,537374622,537435862,537436189,537436448,542184488,542755101,548019247,549914420,549914888,549915884,553937189,553939167,561842836,563287969,563288952,566780253,566780416,569676258,569678090,579868200,583007360,583026228,583030187,583157224,583159170,602145262,602146440,608818868,610133129,610133821,621089209,621090617,629893424,629895007,635616686,635636907,638034686,639343572,639345143,658805662,674103772,674104921,675312894,686806111,698862470,709229848,709399046,709400407,718234275,718245473,718258183,718259118,725802037,725802546,728205177,728207067,738924664,738925737,743687369,743691009,743692189,743692715,746686384,746687364,754869699,754871615,782684707,790967234,790968060,790968791,790979662,815545408,820013867,834681176,834681446,835779898,835780770,845518976,845527166,846792499,846794018,858740936,869123788,869125445,880432781,880433057,880448457,880453518,880499904,880506541,891900286,891924036,892001727,892003497,903197575,903199054,904534058,904534702,928794651,928796097,928805891,928806888,928807470,928913996,928914739,936703279,936703828,936704694,939131179,939132399,939160890,945527020,953518028,968188707,972187699,972189904,987005222,987030948,987032734,999861927,999864256,999864737,999865627,999866081,999866560,1001541309,1001649855,1001653705,1016183873,1016496274,1030943683,1033136271,1033137155,1046322934,1046323916,1047877698,1047878121,1060280135,1060282245,1062304136,1074738432,1074742019,1076255449,1076457286,1076467071,1084980039,1088051376,1088051790,1102656209,1103011681,1103012605,1117743696,1117745433,1119904760,1119905177,1119905579,1119906090,1132884456,1132887630,1144705079,1144845319,1145081326,1145358304,1145358579,1149193097,1149193369,1149573271,1149579825,1178843200,1180417820,1180418251,1183006601,1183007014,1183007628,1183008259,1191128759,1191143111,1191149773,1208300505,1208300973,1213388821,1213389922,1215506016,1215515248,1224414225,1227732454,1230024287,1230027322,1230839551,1241156565,1241156683,1241585055,1241585476,1241586091,1241586595,1241587075,1245307956,1245309147,1258015236,1258015943,1304339797,1304344132,1320966419,1320966824,1340206298,1340206957,1360077860,1360078533,1363010936,1363011928,1363019628,1363020083,1363023036,1377984056,1377987605,1380774367,1380788230,1402292509,1402322831,1402445648,1402446243,1402452608,1427401206,1427402900,1466341532,1466353882,1469849512,1469850646,1469987740,1492225511,1492226137,1504917437,1513260464,1513262045,1532311127,1536052210,1536053426,1560398824,1560400932,1560600467,1560608167,1587165780,1587175338,1602503043,1609498185,1645052196,1645056094,1665509807,1665540132,1665541125,1665544157,1678314358,1678349400,1694623317,1694661592,1708354246,1708355542,1748600996,1748602670,1748603889,1748604797,1760404984,1760406591,1789546750,1789547756,1829078563,1829110586,1856115349,1856117810,1868161479,1868405032,1886281601,1903663829,1903666770,1915020448,1929592959,1929597345,1981809272,1981813154,1990279115,2002056831,2008153361,2008153855,2008154280,2008155070,2010630652,2014805757,2014853976,2016188435,2016189421,2045764727,2045767145,2103274863,2103276507,2136389582,2136391608,2136411578,2136443074,2163549594,2163551089,2190016098,2190019650,2221406451,2221408043,2221409781,2222652960,2226815033,2230347432,2230348478,2261167878,2261478942,2274759555,2290921705,2291005315,2316759705,2316760298,2350122208,2385189785,2385192846,2409286506,2409287383,2413687523,2413755690,2435999037,2435999675,2436000243,2445084910,2445089071,2463674178,2463675080,2463683230,2463693263,2470915740,2470977704,2470982537,2470984833,2506347092,2506365260,2530753967,2535102249,2535102910,2535464538,2535472650,2535479252,2544539043,2544539559,2544549379,2544748094,2548989639,2548992615,2548993638,2549005282,2568113462,2569022418,2569028708,2588272910,2605965785,2605966484,2620420065,2620441860,2620451289,2620452349,2620470482,2620521684,2620523077,2620523875,2620524562,2646379006,2646396550,2649068009,2713323785,2804667002,2830533679}
+    local ids = {10468797,10468915,10469910,10472779,10510024,10727852,10730984,10758456,10760425,10831489,10831509,10884288,10910681,11115851,11373617,11377306,11419319,11419882,11450664,11452821,11453385,11563251,11719016,11885154,11895536,11956382,11999235,11999247,11999279,12145515,12187319,12187348,12187431,12504077,12547976,12562390,12562394,12562495,12775410,12848902,12890798,12902404,12909278,13206856,13206887,13206984,13207169,13477890,13477940,13478015,13745494,13838639,13841367,14130887,14131296,14131602,14492601,14516975,14719505,14864611,14876573,15176169,15177716,15179006,15397778,15470183,15470222,15470359,15642486,15668963,15731350,15932306,15970544,15973049,15973059,16200199,16200204,16200373,16200402,16200420,16200508,16201421,16201628,16214845,16216702,16433862,16435306,16435368,16469499,16641274,16688968,16722267,16726030,16726984,16895215,16924676,16951083,16979083,16986649,16986805,16987194,17237662,17237675,17237692,17407931,17527921,17527923,17680660,18010691,18017365,18210455,18268645,18409191,18426536,18446258,18446266,18462637,18466105,18474459,18479357,18479966,18481407,18482562,18482570,18776718,18971349,19111869,19111883}
     for _, id in ipairs(ids) do
         task.spawn(function()
             task.wait(0.1)
@@ -42939,7 +43108,7 @@ function Editor:Populate()
         header.Name               = text .. "Header"
         header.Parent             = propertyList
         header.Size               = UDim2.new(1, 0, 0, 26)
-        header.Text               = ("%s %s"):format(isCollapsed and "▶" or "▼", text)
+        header.Text               = ("%s %s"):format(isCollapsed and "" or "▼", text)
         header.TextColor3         = C.AccentColor
         header.Font               = C.BoldFont
         header.TextSize           = 14
@@ -43521,7 +43690,7 @@ end)
         IsLoaded = false,
     },
     Config = {
-        DelayTime = 15
+        DelayTime = 1
     }
 }
 function Modules.AdonisBypass:Execute()
@@ -43549,6 +43718,535 @@ function Modules.AdonisBypass:Initialize()
         module:Execute()
     end)
 end]]
+RegisterCommand({
+    Name        = "partbring",
+    Aliases     = {"pb", "sendpart"},
+    Description = "WIP Sends unanchored parts to a target",
+    ArgsDesc    = {},
+    Permissions = {},
+}, function(args, speaker)
+    local TweenService = game:GetService("TweenService")
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local Workspace = game:GetService("Workspace")
+    local Debris = game:GetService("Debris")
+    local Camera = Workspace.CurrentCamera
+    local LocalPlayer = Players.LocalPlayer
+    LocalPlayer.ReplicationFocus = Workspace
+    pcall(function()
+    	game:GetService("CoreGui").RobloxGui["CoreScripts/NetworkPause"]:Destroy()
+    end)
+    if not getgenv().Network then
+    	getgenv().Network = { BaseParts = {} }
+    	RunService.Heartbeat:Connect(function()
+    		sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
+    	end)
+    end
+    local CONFIG = {
+    	UPDATE_INTERVAL = 0.01,
+    	MAX_PARTS = 800,
+    }
+    local TARGET_PARTS = {}
+    local CONNECTIONS = {}
+    local sendTarget = nil
+    local blackHoleActive = false
+    local spectateActive = false
+    local targetMode = "Players"
+    local cycleIndex = 1
+    local cycleConnection = nil
+    local spectateMonitorConnection = nil
+    local DescendantAddedConnection = nil
+    local originalCameraType = nil
+    local originalCameraSubject = nil
+    local lastUpdate = 0
+    local Folder = Instance.new("Folder", Workspace)
+    local AnchorPart = Instance.new("Part", Folder)
+    local Attachment1 = Instance.new("Attachment", AnchorPart)
+    AnchorPart.Anchored = false
+    AnchorPart.CanCollide = true
+    AnchorPart.Transparency = 1
+    local overlapParams = OverlapParams.new()
+    overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+    overlapParams.MaxParts = 500
+    local function getPartsInRadius(centerPos, radius)
+    	local char = LocalPlayer.Character
+    	overlapParams.FilterDescendantsInstances = char and { char } or {}
+    	local parts = Workspace:GetPartBoundsInRadius(centerPos, radius, overlapParams)
+    	-- also sweep around the target so we grab parts near them too
+    	if sendTarget then
+    		local targetChar = sendTarget.Character
+    		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    		if targetRoot then
+    			local targetParts = Workspace:GetPartBoundsInRadius(targetRoot.Position, CONFIG.RADIUS, overlapParams)
+    			for _, p in ipairs(targetParts) do
+    				table.insert(parts, p)
+    			end
+    		end
+    	end
+    	return parts
+    end
+    local function releasePart(part)
+    	local data = TARGET_PARTS[part]
+    	if not data then return end
+    	if data.conn then data.conn:Disconnect() end
+    	pcall(function()
+    		local bv = part:FindFirstChildOfClass("BodyVelocity")
+    		if bv then bv:Destroy() end
+    		if data.alignPos and data.alignPos.Parent then data.alignPos:Destroy() end
+    		if data.attachment and data.attachment.Parent then data.attachment:Destroy() end
+    		if data.torque and data.torque.Parent then data.torque:Destroy() end
+    	end)
+    	TARGET_PARTS[part] = nil
+    end
+    local function forcePart(part)
+    	if not part:IsA("BasePart") then return end
+    	if TARGET_PARTS[part] then return end
+    	if part.Anchored then return end
+    	if part.Parent and part.Parent:FindFirstChildOfClass("Humanoid") then return end
+    	if part.Parent and part.Parent:FindFirstChild("Head") then return end
+    	if part.Name == "Handle" then return end
+    	local count = 0
+    	for _ in pairs(TARGET_PARTS) do count += 1 end
+    	if count >= CONFIG.MAX_PARTS then return end
+    	pcall(function()
+    		for _, c in ipairs(part:GetChildren()) do
+    			if c:IsA("BodyMover") or c:IsA("RocketPropulsion")
+    				or c:IsA("LinearVelocity") or c:IsA("VectorForce")
+    				or c:IsA("BodyVelocity") or c:IsA("BodyForce") then
+    				c:Destroy()
+    			end
+    		end
+    	end)
+    	part.CanCollide = true
+    	part.Massless = false
+
+    	-- fire a BodyVelocity directly at the target right now
+    	local function launchAtTarget()
+    		if not sendTarget then return end
+    		local targetChar = sendTarget.Character
+    		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    		if not targetRoot then return end
+    		pcall(function()
+    			-- remove old mover first
+    			local old = part:FindFirstChildOfClass("BodyVelocity")
+    			if old then old:Destroy() end
+    			local bv = Instance.new("BodyVelocity")
+    			bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+    			local dir = (targetRoot.Position - part.Position).Unit
+    			bv.Velocity = dir * 500
+    			bv.Parent = part
+    		end)
+    	end
+
+    	launchAtTarget()
+
+    	local conn
+    	conn = RunService.Heartbeat:Connect(function()
+    		if not part.Parent then
+    			releasePart(part)
+    			return
+    		end
+    		if not blackHoleActive then
+    			releasePart(part)
+    			return
+    		end
+    		if sendTarget then
+    			local targetChar = sendTarget.Character
+    			local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    			if targetRoot then
+    				-- constantly re-aim the velocity so it tracks them if they move
+    				local bv = part:FindFirstChildOfClass("BodyVelocity")
+    				if bv then
+    					bv.Velocity = (targetRoot.Position - part.Position).Unit * 500
+    				else
+    					launchAtTarget()
+    				end
+    			end
+    		end
+    	end)
+    	TARGET_PARTS[part] = { conn = conn }
+    end
+    local function cleanupStaleParts()
+    	for part in pairs(TARGET_PARTS) do
+    		if not part.Parent then releasePart(part) end
+    	end
+    end
+    local function blackholeLoop()
+    	local now = tick()
+    	if now - lastUpdate < CONFIG.UPDATE_INTERVAL then return end
+    	lastUpdate = now
+    	if not blackHoleActive then return end
+    	cleanupStaleParts()
+    end
+    table.insert(CONNECTIONS, RunService.Heartbeat:Connect(blackholeLoop))
+    local function getPlayer(name)
+    	local query = name:lower()
+    	for _, p in ipairs(Players:GetPlayers()) do
+    		if p ~= LocalPlayer then
+    			if p.Name:lower():find(query, 1, true)
+    				or p.DisplayName:lower():find(query, 1, true) then
+    				return p
+    			end
+    		end
+    	end
+    end
+    local function getValidPlayers()
+    	local valid = {}
+    	for _, p in ipairs(Players:GetPlayers()) do
+    		if p ~= LocalPlayer and p.Character
+    			and p.Character:FindFirstChild("HumanoidRootPart") then
+    			table.insert(valid, p)
+    		end
+    	end
+    	return valid
+    end
+    local function isTargetValid(target)
+    	return target
+    		and target.Character
+    		and target.Character:FindFirstChildOfClass("Humanoid")
+    		and target.Character.Humanoid.Health > 0
+    end
+    local function startSpectating()
+    	if not isTargetValid(sendTarget) then return end
+    	local humanoid = sendTarget.Character:FindFirstChildOfClass("Humanoid")
+    	if not humanoid then return end
+    	if not originalCameraType then
+    		originalCameraType = Camera.CameraType
+    		originalCameraSubject = Camera.CameraSubject
+    	end
+    	Camera.CameraType = Enum.CameraType.Custom
+    	Camera.CameraSubject = humanoid
+    end
+    local function stopSpectating()
+    	if originalCameraType and originalCameraSubject then
+    		Camera.CameraType = originalCameraType
+    		Camera.CameraSubject = originalCameraSubject
+    	else
+    		Camera.CameraType = Enum.CameraType.Custom
+    		Camera.CameraSubject = LocalPlayer.Character
+    			and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    	end
+    	originalCameraType = nil
+    	originalCameraSubject = nil
+    end
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "BH_Gui"
+    screenGui.ResetOnSpawn = false
+    screenGui.IgnoreGuiInset = true
+    screenGui.Parent = (pcall(function() return gethui() end) and gethui()) or LocalPlayer.PlayerGui
+    local Main = Instance.new("Frame")
+    Main.Size = UDim2.new(0, 240, 0, 160)
+    Main.Position = UDim2.new(0, 16, 0, 16)
+    Main.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
+    Main.BackgroundTransparency = 0.05
+    Main.BorderSizePixel = 0
+    Main.Active = true
+    Main.Draggable = true
+    Main.Parent = screenGui
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 10)
+    mainCorner.Parent = Main
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(50, 50, 50)
+    mainStroke.Thickness = 1
+    mainStroke.Parent = Main
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0, 28)
+    titleLabel.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+    titleLabel.BackgroundTransparency = 0.1
+    titleLabel.BorderSizePixel = 0
+    titleLabel.Font = Enum.Font.Code
+    titleLabel.Text = "BLACKHOLE"
+    titleLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    titleLabel.TextSize = 12
+    titleLabel.Parent = Main
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 8)
+    titleCorner.Parent = titleLabel
+    local inputBox = Instance.new("TextBox")
+    inputBox.Size = UDim2.new(0, 148, 0, 30)
+    inputBox.Position = UDim2.new(0, 8, 0, 34)
+    inputBox.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+    inputBox.BorderSizePixel = 0
+    inputBox.PlaceholderText = "player name..."
+    inputBox.PlaceholderColor3 = Color3.fromRGB(65, 65, 65)
+    inputBox.Text = ""
+    inputBox.TextColor3 = Color3.fromRGB(210, 210, 210)
+    inputBox.TextSize = 13
+    inputBox.Font = Enum.Font.Code
+    inputBox.ClearTextOnFocus = false
+    inputBox.Parent = Main
+    local inputCorner = Instance.new("UICorner")
+    inputCorner.CornerRadius = UDim.new(0, 6)
+    inputCorner.Parent = inputBox
+    local inputStroke = Instance.new("UIStroke")
+    inputStroke.Color = Color3.fromRGB(45, 45, 45)
+    inputStroke.Thickness = 1
+    inputStroke.Parent = inputBox
+    local modeBtn = Instance.new("TextButton")
+    modeBtn.Size = UDim2.new(0, 72, 0, 30)
+    modeBtn.Position = UDim2.new(0, 162, 0, 34)
+    modeBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    modeBtn.BorderSizePixel = 0
+    modeBtn.Font = Enum.Font.Code
+    modeBtn.Text = "Players"
+    modeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    modeBtn.TextSize = 12
+    modeBtn.Parent = Main
+    local modeBtnCorner = Instance.new("UICorner")
+    modeBtnCorner.CornerRadius = UDim.new(0, 6)
+    modeBtnCorner.Parent = modeBtn
+    local bringBtn = Instance.new("TextButton")
+    bringBtn.Size = UDim2.new(0, 108, 0, 28)
+    bringBtn.Position = UDim2.new(0, 8, 0, 72)
+    bringBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    bringBtn.BorderSizePixel = 0
+    bringBtn.Font = Enum.Font.Code
+    bringBtn.Text = "Bring: Off"
+    bringBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    bringBtn.TextSize = 12
+    bringBtn.Parent = Main
+    local bringBtnCorner = Instance.new("UICorner")
+    bringBtnCorner.CornerRadius = UDim.new(0, 6)
+    bringBtnCorner.Parent = bringBtn
+    local spectateBtn = Instance.new("TextButton")
+    spectateBtn.Size = UDim2.new(0, 108, 0, 28)
+    spectateBtn.Position = UDim2.new(0, 124, 0, 72)
+    spectateBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    spectateBtn.BorderSizePixel = 0
+    spectateBtn.Font = Enum.Font.Code
+    spectateBtn.Text = "Spectate: Off"
+    spectateBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    spectateBtn.TextSize = 12
+    spectateBtn.Parent = Main
+    local spectateBtnCorner = Instance.new("UICorner")
+    spectateBtnCorner.CornerRadius = UDim.new(0, 6)
+    spectateBtnCorner.Parent = spectateBtn
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, -16, 0, 24)
+    statusLabel.Position = UDim2.new(0, 8, 0, 108)
+    statusLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    statusLabel.BackgroundTransparency = 0.1
+    statusLabel.BorderSizePixel = 0
+    statusLabel.Font = Enum.Font.Code
+    statusLabel.Text = "idle"
+    statusLabel.TextColor3 = Color3.fromRGB(80, 80, 80)
+    statusLabel.TextSize = 11
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = Main
+    local statusCorner = Instance.new("UICorner")
+    statusCorner.CornerRadius = UDim.new(0, 6)
+    statusCorner.Parent = statusLabel
+    local statusPadding = Instance.new("UIPadding")
+    statusPadding.PaddingLeft = UDim.new(0, 6)
+    statusPadding.Parent = statusLabel
+    local countLabel = Instance.new("TextLabel")
+    countLabel.Size = UDim2.new(1, -16, 0, 16)
+    countLabel.Position = UDim2.new(0, 8, 0, 136)
+    countLabel.BackgroundTransparency = 1
+    countLabel.Font = Enum.Font.Code
+    countLabel.Text = ""
+    countLabel.TextColor3 = Color3.fromRGB(60, 60, 60)
+    countLabel.TextSize = 10
+    countLabel.TextXAlignment = Enum.TextXAlignment.Left
+    countLabel.Parent = Main
+    local function setStatus(msg, color)
+    	statusLabel.Text = msg
+    	statusLabel.TextColor3 = color or Color3.fromRGB(80, 80, 80)
+    end
+    local function setTarget(player)
+    	sendTarget = player
+    	if player then
+    		setStatus("→ " .. player.Name .. " (" .. player.DisplayName .. ")", Color3.fromRGB(200, 80, 80))
+    	else
+    		setStatus("idle")
+    	end
+    end
+    local function stopBlackhole()
+    	blackHoleActive = false
+    	bringBtn.Text = "Bring: Off"
+    	bringBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    	if DescendantAddedConnection then
+    		DescendantAddedConnection:Disconnect()
+    		DescendantAddedConnection = nil
+    	end
+    	if cycleConnection then
+    		cycleConnection:Disconnect()
+    		cycleConnection = nil
+    	end
+    	for part in pairs(TARGET_PARTS) do releasePart(part) end
+    end
+    local function startBlackhole()
+    	if not sendTarget then return end
+    	blackHoleActive = true
+    	bringBtn.Text = "Bring: On"
+    	bringBtn.BackgroundColor3 = Color3.fromRGB(160, 35, 35)
+    	-- update Attachment1 to target immediately
+    	local targetChar = sendTarget.Character
+    	local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    	if targetRoot then Attachment1.WorldCFrame = targetRoot.CFrame end
+    	-- grab every single descendant in workspace right now
+    	task.spawn(function()
+    		for _, v in ipairs(Workspace:GetDescendants()) do
+    			forcePart(v)
+    		end
+    	end)
+    	-- also catch anything that spawns in after
+    	DescendantAddedConnection = Workspace.DescendantAdded:Connect(function(v)
+    		if blackHoleActive then
+    			task.spawn(function() forcePart(v) end)
+    		end
+    	end)
+    	if targetMode == "All" then
+    		cycleConnection = RunService.Heartbeat:Connect(function()
+    			if tick() % 3 < 0.05 then
+    				local players = getValidPlayers()
+    				if #players > 0 then
+    					cycleIndex = (cycleIndex % #players) + 1
+    					setTarget(players[cycleIndex])
+    				end
+    			end
+    		end)
+    	end
+    end
+    local function toggleSpectate()
+    	if not sendTarget then return end
+    	spectateActive = not spectateActive
+    	spectateBtn.Text = spectateActive and "Spectate: On" or "Spectate: Off"
+    	spectateBtn.BackgroundColor3 = spectateActive
+    		and Color3.fromRGB(40, 80, 140)
+    		or Color3.fromRGB(45, 45, 45)
+    	if spectateActive then
+    		startSpectating()
+    		if spectateMonitorConnection then spectateMonitorConnection:Disconnect() end
+    		spectateMonitorConnection = RunService.Heartbeat:Connect(function()
+    			if not spectateActive then
+    				spectateMonitorConnection:Disconnect()
+    				return
+    			end
+    			if not isTargetValid(sendTarget) then
+    				stopSpectating()
+    				spectateActive = false
+    				spectateBtn.Text = "Spectate: Off"
+    				spectateBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    			elseif Camera.CameraSubject
+    				~= sendTarget.Character:FindFirstChildOfClass("Humanoid") then
+    				startSpectating()
+    			end
+    		end)
+    	else
+    		stopSpectating()
+    		if spectateMonitorConnection then
+    			spectateMonitorConnection:Disconnect()
+    			spectateMonitorConnection = nil
+    		end
+    	end
+    end
+    table.insert(CONNECTIONS, RunService.Heartbeat:Connect(function()
+    	if blackHoleActive then
+    		local count = 0
+    		for _ in pairs(TARGET_PARTS) do count += 1 end
+    		countLabel.Text = "parts claimed: " .. count
+    	else
+    		countLabel.Text = ""
+    	end
+    end))
+    bringBtn.MouseButton1Click:Connect(function()
+    	if blackHoleActive then
+    		stopBlackhole()
+    	else
+    		if targetMode == "Players" then
+    			local p = getPlayer(inputBox.Text)
+    			if not p then
+    				setStatus("not found: " .. inputBox.Text, Color3.fromRGB(200, 80, 80))
+    				return
+    			end
+    			setTarget(p)
+    		else
+    			local players = getValidPlayers()
+    			if #players == 0 then
+    				setStatus("no valid players", Color3.fromRGB(200, 80, 80))
+    				return
+    			end
+    			setTarget(players[1])
+    		end
+    		startBlackhole()
+    	end
+    end)
+    spectateBtn.MouseButton1Click:Connect(toggleSpectate)
+    modeBtn.MouseButton1Click:Connect(function()
+    	targetMode = targetMode == "Players" and "All" or "Players"
+    	modeBtn.Text = targetMode
+    	inputBox.Visible = targetMode == "Players"
+    	if blackHoleActive then
+    		stopBlackhole()
+    		if targetMode == "All" then
+    			local players = getValidPlayers()
+    			if #players > 0 then
+    				setTarget(players[1])
+    				startBlackhole()
+    			end
+    		end
+    	end
+    end)
+    inputBox.FocusLost:Connect(function(enterPressed)
+    	if not enterPressed then return end
+    	local p = getPlayer(inputBox.Text)
+    	if p then
+    		inputBox.Text = p.Name
+    		if not blackHoleActive then
+    			setTarget(p)
+    		end
+    	else
+    		setStatus("not found: " .. inputBox.Text, Color3.fromRGB(200, 80, 80))
+    	end
+    end)
+    Players.PlayerRemoving:Connect(function(p)
+    	if p == sendTarget then
+    		if spectateActive then
+    			stopSpectating()
+    			spectateActive = false
+    			spectateBtn.Text = "Spectate: Off"
+    			spectateBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    		end
+    		if blackHoleActive and targetMode == "All" then
+    			local players = getValidPlayers()
+    			if #players > 0 then
+    				setTarget(players[1])
+    			else
+    				stopBlackhole()
+    				setStatus("no players left")
+    			end
+    		elseif blackHoleActive then
+    			stopBlackhole()
+    			setStatus("target left")
+    		else
+    			setTarget(nil)
+    		end
+    	end
+    end)
+    local guiVisible = true
+    UserInputService.InputBegan:Connect(function(input, gpe)
+    	if gpe then return end
+    	if input.KeyCode == Enum.KeyCode.RightControl then
+    		guiVisible = not guiVisible
+    		local t = guiVisible and 0.05 or 1
+    		TweenService:Create(Main, TweenInfo.new(0.25), { BackgroundTransparency = t }):Play()
+    		for _, child in ipairs(Main:GetDescendants()) do
+    			if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+    				TweenService:Create(child, TweenInfo.new(0.25), {
+    					TextTransparency = guiVisible and 0 or 1,
+    					BackgroundTransparency = guiVisible and 0.05 or 1,
+    				}):Play()
+    			end
+    		end
+    		Main.Active = guiVisible
+    		Main.Draggable = guiVisible
+    	end
+    end)
+    setStatus("idle")
+end)
 Modules.Deobfuscator = {
     State = {
         IsEnabled = false,
@@ -44181,13 +44879,254 @@ task.spawn(function()
         return
     end
     local Window = Luna:CreateWindow({
-        Name           = "Zuka Panel",
+        Name           = "Zuka's FunBox.'",
         Subtitle       = "by OverZuka",
         LogoID         = "rbxassetid://7243158473",
-        LoadingEnabled = false,
+        LoadingEnabled = true,
         ConfigSettings = { ConfigFolder = "ZukaPanelLuna" },
         KeySystem      = false,
     })
+    -- ░░ PLAYER TAB ░░
+    local PT = Window:CreateTab({ Name = "Player", Icon = "person", ImageSource = "Material", ShowTitle = true })
+
+    PT:CreateSection("Spectate")
+    PT:CreateLabel({ Text = "Select a player then hit Spectate", Style = 3 })
+    local _spectateTarget = nil
+    local _spectatePlayerOptions = {}
+    local function _refreshSpectateOptions()
+        _spectatePlayerOptions = {}
+        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+            if p ~= LocalPlayer then
+                table.insert(_spectatePlayerOptions, p.Name)
+            end
+        end
+        return _spectatePlayerOptions
+    end
+    _refreshSpectateOptions()
+    local _spectateDropdown = PT:CreateDropdown({
+        Name = "Target Player", Description = "Choose who to spectate",
+        Options = _refreshSpectateOptions(), CurrentOption = {}, MultipleOptions = false,
+        Callback = function(v)
+            _spectateTarget = type(v) == "table" and v[1] or v
+        end
+    }, "luna_spectate_target")
+    PT:CreateButton({ Name = "Spectate", Description = "Lock camera onto selected player",
+        Callback = function()
+            if not _spectateTarget or _spectateTarget == "" then
+                return DoNotif("Select a player first.", 2)
+            end
+            local target = game:GetService("Players"):FindFirstChild(_spectateTarget)
+            if target then
+                Modules.SpectateController:Enable(target)
+            else
+                DoNotif("Player not found — they may have left.", 3)
+            end
+        end })
+    PT:CreateButton({ Name = "Stop Spectating", Description = "Return camera to your own character",
+        Callback = function()
+            Modules.SpectateController:Disable()
+        end })
+    PT:CreateButton({ Name = "Refresh Player List", Description = "Update the dropdown with current players",
+        Callback = function()
+            _refreshSpectateOptions()
+            DoNotif("Player list refreshed.", 2)
+        end })
+
+    PT:CreateDivider()
+    PT:CreateSection("Teleport to Player")
+    PT:CreateLabel({ Text = "Silently teleport behind a target", Style = 3 })
+    local _tpPlayerTarget = nil
+    local _tpPlayerDropdown = PT:CreateDropdown({
+        Name = "Target Player", Description = "Who to teleport to",
+        Options = _refreshSpectateOptions(), CurrentOption = {}, MultipleOptions = false,
+        Callback = function(v)
+            _tpPlayerTarget = type(v) == "table" and v[1] or v
+        end
+    }, "luna_tp_player_target")
+    PT:CreateButton({ Name = "  TP To Player", Description = "Teleport directly behind selected player",
+        Callback = function()
+            if not _tpPlayerTarget or _tpPlayerTarget == "" then
+                return DoNotif("Select a player first.", 2)
+            end
+            local target = game:GetService("Players"):FindFirstChild(_tpPlayerTarget)
+            if not target or not target.Character then
+                return DoNotif("Player or character not found.", 3)
+            end
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local tgtHrp = target.Character:FindFirstChild("HumanoidRootPart")
+            if hrp and tgtHrp then
+                hrp.CFrame = tgtHrp.CFrame * CFrame.new(0, 0, 3)
+                DoNotif("Teleported to " .. target.Name, 2)
+            else
+                DoNotif("Could not find character parts.", 3)
+            end
+        end })
+
+    PT:CreateDivider()
+    PT:CreateSection("Avatar Morph")
+    PT:CreateLabel({ Text = "Copy another player's avatar onto yours", Style = 3 })
+    local _morphInput = ""
+    PT:CreateInput({ Name = "Username or UserID", PlaceholderText = "e.g. Builderman or 156",
+        CurrentValue = "", Numeric = false, Enter = true,
+        Callback = function(v) _morphInput = v end }, "luna_morph_input")
+    PT:CreateButton({ Name = "✦  Apply Morph", Description = "Load that user's avatar onto your character",
+        Callback = function()
+            if not _morphInput or _morphInput == "" then
+                return DoNotif("Enter a username or UserID first.", 2)
+            end
+            Modules.CharacterMorph:Morph(_morphInput)
+        end })
+    PT:CreateButton({ Name = "↺  Revert Avatar", Description = "Restore your original appearance",
+        Callback = function()
+            Modules.CharacterMorph:Revert()
+        end })
+
+    -- ░░ TELEPORT TAB ░░
+    local TP = Window:CreateTab({ Name = "Teleport", Icon = "near_me", ImageSource = "Material", ShowTitle = true })
+
+    TP:CreateSection("Waypoints")
+    TP:CreateLabel({ Text = "Save up to 10 named positions and jump back to them", Style = 3 })
+    local _waypointNameInput = ""
+    TP:CreateInput({ Name = "Waypoint Name", PlaceholderText = "e.g. base, spawn, loot",
+        CurrentValue = "", Numeric = false, Enter = true,
+        Callback = function(v) _waypointNameInput = v end }, "luna_wp_name")
+    TP:CreateButton({ Name = "Save Waypoint", Description = "Save your current position under that name",
+        Callback = function()
+            if not _waypointNameInput or _waypointNameInput == "" then
+                return DoNotif("Enter a waypoint name first.", 2)
+            end
+            Modules.Waypoint:Add(_waypointNameInput)
+        end })
+    TP:CreateButton({ Name = "TP to Waypoint", Description = "Teleport to the named waypoint",
+        Callback = function()
+            if not _waypointNameInput or _waypointNameInput == "" then
+                return DoNotif("Enter a waypoint name first.", 2)
+            end
+            Modules.Waypoint:Teleport(_waypointNameInput)
+        end })
+    TP:CreateButton({ Name = "✕  Delete Waypoint", Description = "Remove that waypoint",
+        Callback = function()
+            if not _waypointNameInput or _waypointNameInput == "" then
+                return DoNotif("Enter a waypoint name first.", 2)
+            end
+            Modules.Waypoint:Remove(_waypointNameInput)
+        end })
+    TP:CreateButton({ Name = "List Waypoints", Description = "See all saved waypoints in a notification",
+        Callback = function() Modules.Waypoint:List() end })
+    TP:CreateButton({ Name = "Clear All Waypoints", Description = "Delete every saved waypoint",
+        Callback = function() Modules.Waypoint:Clear() end })
+
+    TP:CreateDivider()
+    TP:CreateSection("Coordinate Teleport")
+    TP:CreateLabel({ Text = "Jump to exact X, Y, Z coordinates", Style = 3 })
+    local _tpX, _tpY, _tpZ = 0, 5, 0
+    TP:CreateInput({ Name = "X", PlaceholderText = "0", CurrentValue = "0", Numeric = true, Enter = true,
+        Callback = function(v) _tpX = tonumber(v) or 0 end }, "luna_tp_x")
+    TP:CreateInput({ Name = "Y", PlaceholderText = "5", CurrentValue = "5", Numeric = true, Enter = true,
+        Callback = function(v) _tpY = tonumber(v) or 5 end }, "luna_tp_y")
+    TP:CreateInput({ Name = "Z", PlaceholderText = "0", CurrentValue = "0", Numeric = true, Enter = true,
+        Callback = function(v) _tpZ = tonumber(v) or 0 end }, "luna_tp_z")
+    TP:CreateButton({ Name = "Teleport to Coords", Description = "Move your character to the entered XYZ",
+        Callback = function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return DoNotif("No character found.", 3) end
+            hrp.CFrame = CFrame.new(_tpX, _tpY, _tpZ)
+            DoNotif(string.format("Teleported to (%.1f, %.1f, %.1f)", _tpX, _tpY, _tpZ), 2)
+        end })
+    TP:CreateButton({ Name = "Copy Current Coords", Description = "Copy your XYZ to clipboard",
+        Callback = function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return DoNotif("No character found.", 3) end
+            local p = hrp.Position
+            local str = string.format("%.2f, %.2f, %.2f", p.X, p.Y, p.Z)
+            if setclipboard then setclipboard(str) DoNotif("Copied: " .. str, 2)
+            else DoNotif(str, 4) end
+        end })
+
+    TP:CreateDivider()
+    TP:CreateSection("Quick Teleports")
+    TP:CreateButton({ Name = "TP to Spawn", Description = "Teleport to the map's spawn location",
+        Callback = function()
+            local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if spawn and hrp then
+                hrp.CFrame = spawn.CFrame + Vector3.new(0, 4, 0)
+                DoNotif("Teleported to spawn.", 2)
+            else
+                DoNotif("No SpawnLocation found in workspace.", 3)
+            end
+        end })
+    TP:CreateButton({ Name = "TP to Map Center", Description = "Teleport to 0, 100, 0",
+        Callback = function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = CFrame.new(0, 100, 0) DoNotif("Teleported to map center.", 2)
+            else DoNotif("No character found.", 3) end
+        end })
+    TP:CreateButton({ Name = "TP Up (Sky)", Description = "Shoot yourself up 2000 studs",
+        Callback = function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = hrp.CFrame + Vector3.new(0, 2000, 0) DoNotif("Launched upwards.", 2)
+            else DoNotif("No character found.", 3) end
+        end })
+
+    local Anti = Window:CreateTab({ Name = "Anti+", Icon = "shield", ImageSource = "Material", ShowTitle = true })
+
+    Anti:CreateSection("Position & Physics")
+    Anti:CreateToggle({ Name = "Anti Reset",        Description = "Prevent death and void falls",         CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiReset:Enable() else Modules.AntiReset:Disable() end end }, "anti_antireset")
+    Anti:CreateToggle({ Name = "Anti Void",         Description = "Prevent falling into the void",        CurrentValue = false,
+        Callback = function() Modules.AntiVoid:Toggle() end }, "anti_antivoid")
+    Anti:CreateToggle({ Name = "Anti Force-TP",     Description = "Block server CFrame teleports",        CurrentValue = false,
+        Callback = function() Modules.AntiCFrameTeleport:Toggle() end }, "anti_anticframetp")
+    Anti:CreateToggle({ Name = "Anti Trip",         Description = "Block ragdoll / fallingdown states",   CurrentValue = false,
+        Callback = function() Modules.AntiTrip:Toggle() end }, "anti_antitrip")
+    Anti:CreateToggle({ Name = "Anti Anchor",       Description = "Prevent your character being anchored", CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiAnchor:Enable() else Modules.AntiAnchor:Disable() end end }, "anti_antianchor")
+    Anti:CreateToggle({ Name = "Anti Player Physics", Description = "Block physics manipulation by others", CurrentValue = false,
+        Callback = function() Modules.AntiPlayerPhysics:Toggle() end }, "anti_antiphysics")
+    Anti:CreateToggle({ Name = "Knockback Nullifier", Description = "Cancel velocity spikes and knockback", CurrentValue = false,
+        Callback = function() Modules.KnockbackNullifier:Toggle() end }, "anti_knockback")
+
+    Anti:CreateDivider()
+    Anti:CreateSection("Character Integrity")
+    Anti:CreateToggle({ Name = "Anti Kill",         Description = "Keep humanoid health above 0",         CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiKill:Enable() else Modules.AntiKill:Disable() end end }, "anti_antikill")
+    Anti:CreateToggle({ Name = "Anti Sit",          Description = "Prevent being force-seated",           CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiSit:Enable() else Modules.AntiSit:Disable() end end }, "anti_antisit")
+    Anti:CreateToggle({ Name = "Anti Attach",       Description = "Counter players latching onto you",    CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiAttach:Enable() else Modules.AntiAttach:Disable() end end }, "anti_antiattach")
+    Anti:CreateToggle({ Name = "Anti Slap Gear",    Description = "Block slap gear from affecting you",   CurrentValue = false,
+        Callback = function() Modules.AntiSlapGear:Toggle() end }, "anti_antislapgear")
+    Anti:CreateToggle({ Name = "Humanoid Integrity", Description = "Lock humanoid stats against tampering", CurrentValue = false,
+        Callback = function() Modules.HumanoidIntegrity:Toggle() end }, "anti_humintegrity")
+
+    Anti:CreateDivider()
+    Anti:CreateSection("Session")
+    Anti:CreateToggle({ Name = "Anti AFK",          Description = "Prevent idle disconnect",              CurrentValue = false,
+        Callback = function() Modules.InternalAntiAfk:Toggle() end }, "anti_antiafk")
+    Anti:CreateToggle({ Name = "Fling Protection",  Description = "Prevent being flung by other players", CurrentValue = false,
+        Callback = function() Modules.FlingProtection:Toggle() end }, "anti_flingprot")
+
+    Anti:CreateDivider()
+    Anti:CreateButton({ Name = "✦  Enable All Anti", Description = "Turn on every toggle in this tab at once",
+        Callback = function()
+            pcall(function() Modules.AntiReset:Enable() end)
+            pcall(function() Modules.AntiVoid:Toggle() if not Modules.AntiVoid.State.IsEnabled then Modules.AntiVoid:Toggle() end end)
+            pcall(function() if not Modules.AntiCFrameTeleport.State.IsEnabled then Modules.AntiCFrameTeleport:Toggle() end end)
+            pcall(function() if not Modules.AntiTrip.State.IsEnabled then Modules.AntiTrip:Toggle() end end)
+            pcall(function() Modules.AntiAnchor:Enable() end)
+            pcall(function() if not Modules.AntiPlayerPhysics.State.IsEnabled then Modules.AntiPlayerPhysics:Toggle() end end)
+            pcall(function() if not Modules.KnockbackNullifier.State.IsEnabled then Modules.KnockbackNullifier:Toggle() end end)
+            pcall(function() Modules.AntiKill:Enable() end)
+            pcall(function() Modules.AntiSit:Enable() end)
+            pcall(function() Modules.AntiAttach:Enable() end)
+            pcall(function() if not Modules.AntiSlapGear.State.IsEnabled then Modules.AntiSlapGear:Toggle() end end)
+            pcall(function() if not Modules.HumanoidIntegrity.State.IsEnabled then Modules.HumanoidIntegrity:Toggle() end end)
+            pcall(function() if not Modules.InternalAntiAfk.State.IsEnabled then Modules.InternalAntiAfk:Toggle() end end)
+            pcall(function() if not Modules.FlingProtection.State.IsEnabled then Modules.FlingProtection:Toggle() end end)
+            DoNotif("All anti protections enabled.", 3)
+        end })
+
     local Movement = Window:CreateTab({ Name = "Movement", Icon = "directions_run", ImageSource = "Material", ShowTitle = true })
     Movement:CreateToggle({ Name = "Fly",           Description = "Toggle client-sided fly",       CurrentValue = false, Callback = function() Modules.Fly:Toggle() end }, "luna_fly")
     Movement:CreateToggle({ Name = "NoClip",        Description = "Walk through walls",             CurrentValue = false, Callback = function() Modules.NoClip:Toggle() end }, "luna_noclip")
@@ -44961,8 +45900,69 @@ task.spawn(function()
                 DoNotif("Flags reset (" .. #flags .. " entries). Rejoin to apply.", 3)
             end
         end })
-    Settings:CreateButton({ Name = "Test Notification", Description = "Send a test DoNotif",
-        Callback = function() DoNotif("Luna UI is working!", 3) end })
+    Settings:CreateButton({ Name = "Credits", Description = "By @OverZuka",
+        Callback = function() DoNotif("We're so back!'", 3) end })
+    -- ░░ SCRIPTS TAB ░░
+    local Scripts = Window:CreateTab({ Name = "Scripts", Icon = "code", ImageSource = "Material", ShowTitle = true })
+    Scripts:CreateSection("Script Slots")
+    Scripts:CreateLabel({ Text = "Fill in your script URLs below. Each button runs loadstring(game:HttpGet(url))()", Style = 3 })
+    Scripts:CreateDivider()
+
+    local function RunScript(url)
+        if not url or url == "" then DoNotif("No URL set for this slot.", 2) return end
+        local ok, err = pcall(function() loadstring(game:HttpGet(url, true))() end)
+        if not ok then DoNotif("Script error: " .. tostring(err), 3) end
+    end
+
+    Scripts:CreateSection("Adonis Counter v2")
+    local Script1_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/counter.lua"
+    Scripts:CreateInput({ Name = " ", PlaceholderText = "OverZuka", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script1_URL = v end }, "luna_script1_url")
+    Scripts:CreateButton({ Name = "Execute", Description = "Executes an anticheat counter for adonis", Callback = function() RunScript(Script1_URL) end })
+
+    Scripts:CreateSection("WRD Deobfuscator WIP")
+    local Script2_URL = "https://pastebin.com/raw/7Yw5BCnQ"
+    Scripts:CreateInput({ Name = " ", PlaceholderText = " ", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script2_URL = v end }, "luna_script2_url")
+    Scripts:CreateButton({ Name = "Execute", Description = "Loads Zuka's Lifter.'", Callback = function() RunScript(Script2_URL) end })
+
+    Scripts:CreateSection("Updated SimpleSpy")
+    local Script3_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/executor_scripts/SimpleSpyRework.lua"
+    Scripts:CreateInput({ Name = " ", PlaceholderText = " ", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script3_URL = v end }, "luna_script3_url")
+    Scripts:CreateButton({ Name = "Execute", Description = "Working as of now", Callback = function() RunScript(Script3_URL) end })
+
+    Scripts:CreateSection("Cframe Spoofer")
+    local Script4_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Cframe.lua"
+    Scripts:CreateInput({ Name = " ", PlaceholderText = " ", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script4_URL = v end }, "luna_script4_url")
+    Scripts:CreateButton({ Name = "Execute", Description = "Pretty fun to use.", Callback = function() RunScript(Script4_URL) end })
+
+    Scripts:CreateSection("Slot 5")
+    local Script5_URL = ""
+    Scripts:CreateInput({ Name = "Script 5 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script5_URL = v end }, "luna_script5_url")
+    Scripts:CreateButton({ Name = "  Run Script 5", Description = "Executes loadstring on Script 5 URL", Callback = function() RunScript(Script5_URL) end })
+
+    Scripts:CreateSection("Slot 6")
+    local Script6_URL = ""
+    Scripts:CreateInput({ Name = "Script 6 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script6_URL = v end }, "luna_script6_url")
+    Scripts:CreateButton({ Name = "  Run Script 6", Description = "Executes loadstring on Script 6 URL", Callback = function() RunScript(Script6_URL) end })
+
+    Scripts:CreateSection("Slot 7")
+    local Script7_URL = ""
+    Scripts:CreateInput({ Name = "Script 7 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script7_URL = v end }, "luna_script7_url")
+    Scripts:CreateButton({ Name = "  Run Script 7", Description = "Executes loadstring on Script 7 URL", Callback = function() RunScript(Script7_URL) end })
+
+    Scripts:CreateDivider()
+    Scripts:CreateButton({ Name = "Run All? Will crash your game", Description = "Runs every slot that has a URL set",
+        Callback = function()
+            local urls = {Script1_URL,Script2_URL,Script3_URL,Script4_URL,Script5_URL,
+                          Script6_URL,Script7_URL,Script8_URL,Script9_URL,Script10_URL,
+                          Script11_URL,Script12_URL,Script13_URL,Script14_URL,Script15_URL,
+                          Script16_URL,Script17_URL,Script18_URL,Script19_URL,Script20_URL}
+            local ran = 0
+            for _, url in ipairs(urls) do
+                if url and url ~= "" then RunScript(url) ran = ran + 1 end
+            end
+            DoNotif("Ran " .. ran .. " script(s).", 2)
+        end })
+
         local RC = Window:CreateTab({ Name = "Reach", Icon = "open_with", ImageSource = "Material", ShowTitle = true })
     RC:CreateSection("Tool Reach")
     RC:CreateLabel({ Text = " Equip a tool first, then apply reach", Style = 3 })
@@ -45031,5 +46031,8 @@ task.spawn(function()
             end
         end)
     end))
-    DoNotif("Libui loaded.", 2)
+    DoNotif("Use the removeadonis command if the game you're in uses adonis", 2)
 end)
+loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/notifier.lua"))()
+
+print("I update this pretty often, expect many things to change or be removed.")
