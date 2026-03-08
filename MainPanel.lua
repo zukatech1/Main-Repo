@@ -43746,7 +43746,7 @@ RegisterCommand({
     	end)
     end
     local CONFIG = {
-    	UPDATE_INTERVAL = 0.02,
+    	UPDATE_INTERVAL = 0.01,
     	MAX_PARTS = 800,
     }
     local TARGET_PARTS = {}
@@ -43765,8 +43765,8 @@ RegisterCommand({
     local Folder = Instance.new("Folder", Workspace)
     local AnchorPart = Instance.new("Part", Folder)
     local Attachment1 = Instance.new("Attachment", AnchorPart)
-    AnchorPart.Anchored = true
-    AnchorPart.CanCollide = false
+    AnchorPart.Anchored = false
+    AnchorPart.CanCollide = true
     AnchorPart.Transparency = 1
     local overlapParams = OverlapParams.new()
     overlapParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -43820,8 +43820,8 @@ RegisterCommand({
     			end
     		end
     	end)
-    	part.CanCollide = false
-    	part.Massless = true
+    	part.CanCollide = true
+    	part.Massless = false
 
     	-- fire a BodyVelocity directly at the target right now
     	local function launchAtTarget()
