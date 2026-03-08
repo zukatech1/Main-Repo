@@ -44879,7 +44879,7 @@ task.spawn(function()
         return
     end
     local Window = Luna:CreateWindow({
-        Name           = "Zuka's FunBox.'",
+        Name           = "Zuka's FunBox. v2",
         Subtitle       = "by OverZuka",
         LogoID         = "rbxassetid://7243158473",
         LoadingEnabled = true,
@@ -44969,14 +44969,14 @@ task.spawn(function()
     PT:CreateInput({ Name = "Username or UserID", PlaceholderText = "e.g. Builderman or 156",
         CurrentValue = "", Numeric = false, Enter = true,
         Callback = function(v) _morphInput = v end }, "luna_morph_input")
-    PT:CreateButton({ Name = "✦  Apply Morph", Description = "Load that user's avatar onto your character",
+    PT:CreateButton({ Name = "Apply Morph", Description = "Load that user's avatar onto your character",
         Callback = function()
             if not _morphInput or _morphInput == "" then
                 return DoNotif("Enter a username or UserID first.", 2)
             end
             Modules.CharacterMorph:Morph(_morphInput)
         end })
-    PT:CreateButton({ Name = "↺  Revert Avatar", Description = "Restore your original appearance",
+    PT:CreateButton({ Name = "Revert Avatar", Description = "Restore your original appearance",
         Callback = function()
             Modules.CharacterMorph:Revert()
         end })
@@ -44985,7 +44985,7 @@ task.spawn(function()
     local TP = Window:CreateTab({ Name = "Teleport", Icon = "near_me", ImageSource = "Material", ShowTitle = true })
 
     TP:CreateSection("Waypoints")
-    TP:CreateLabel({ Text = "Save up to 10 named positions and jump back to them", Style = 3 })
+    TP:CreateLabel({ Text = "Save up to 10 named positions and tp back to them", Style = 3 })
     local _waypointNameInput = ""
     TP:CreateInput({ Name = "Waypoint Name", PlaceholderText = "e.g. base, spawn, loot",
         CurrentValue = "", Numeric = false, Enter = true,
@@ -45004,7 +45004,7 @@ task.spawn(function()
             end
             Modules.Waypoint:Teleport(_waypointNameInput)
         end })
-    TP:CreateButton({ Name = "✕  Delete Waypoint", Description = "Remove that waypoint",
+    TP:CreateButton({ Name = "Delete Waypoint", Description = "Remove that waypoint",
         Callback = function()
             if not _waypointNameInput or _waypointNameInput == "" then
                 return DoNotif("Enter a waypoint name first.", 2)
@@ -45904,8 +45904,8 @@ task.spawn(function()
         Callback = function() DoNotif("We're so back!'", 3) end })
     -- ░░ SCRIPTS TAB ░░
     local Scripts = Window:CreateTab({ Name = "Scripts", Icon = "code", ImageSource = "Material", ShowTitle = true })
-    Scripts:CreateSection("Script Slots")
-    Scripts:CreateLabel({ Text = "Fill in your script URLs below. Each button runs loadstring(game:HttpGet(url))()", Style = 3 })
+    Scripts:CreateSection("Extras")
+    Scripts:CreateLabel({ Text = "These will change the most.", Style = 3 })
     Scripts:CreateDivider()
 
     local function RunScript(url)
@@ -45916,35 +45916,35 @@ task.spawn(function()
 
     Scripts:CreateSection("Adonis Counter v2")
     local Script1_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/counter.lua"
-    Scripts:CreateInput({ Name = " ", PlaceholderText = "OverZuka", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script1_URL = v end }, "luna_script1_url")
+    Scripts:CreateInput({ Name = "1", PlaceholderText = "OverZuka", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script1_URL = v end }, "luna_script1_url")
     Scripts:CreateButton({ Name = "Execute", Description = "Executes an anticheat counter for adonis", Callback = function() RunScript(Script1_URL) end })
 
     Scripts:CreateSection("WRD Deobfuscator WIP")
     local Script2_URL = "https://pastebin.com/raw/7Yw5BCnQ"
-    Scripts:CreateInput({ Name = " ", PlaceholderText = " ", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script2_URL = v end }, "luna_script2_url")
+    Scripts:CreateInput({ Name = "2", PlaceholderText = " ", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script2_URL = v end }, "luna_script2_url")
     Scripts:CreateButton({ Name = "Execute", Description = "Loads Zuka's Lifter.'", Callback = function() RunScript(Script2_URL) end })
 
     Scripts:CreateSection("Updated SimpleSpy")
     local Script3_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/executor_scripts/SimpleSpyRework.lua"
-    Scripts:CreateInput({ Name = " ", PlaceholderText = " ", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script3_URL = v end }, "luna_script3_url")
+    Scripts:CreateInput({ Name = "3", PlaceholderText = " ", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script3_URL = v end }, "luna_script3_url")
     Scripts:CreateButton({ Name = "Execute", Description = "Working as of now", Callback = function() RunScript(Script3_URL) end })
 
     Scripts:CreateSection("Cframe Spoofer")
     local Script4_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Cframe.lua"
-    Scripts:CreateInput({ Name = " ", PlaceholderText = " ", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script4_URL = v end }, "luna_script4_url")
+    Scripts:CreateInput({ Name = "4", PlaceholderText = " ", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script4_URL = v end }, "luna_script4_url")
     Scripts:CreateButton({ Name = "Execute", Description = "Pretty fun to use.", Callback = function() RunScript(Script4_URL) end })
 
-    Scripts:CreateSection("Slot 5")
+    Scripts:CreateSection("Placeholder")
     local Script5_URL = ""
     Scripts:CreateInput({ Name = "Script 5 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script5_URL = v end }, "luna_script5_url")
     Scripts:CreateButton({ Name = "  Run Script 5", Description = "Executes loadstring on Script 5 URL", Callback = function() RunScript(Script5_URL) end })
 
-    Scripts:CreateSection("Slot 6")
+    Scripts:CreateSection("Placeholder")
     local Script6_URL = ""
     Scripts:CreateInput({ Name = "Script 6 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script6_URL = v end }, "luna_script6_url")
     Scripts:CreateButton({ Name = "  Run Script 6", Description = "Executes loadstring on Script 6 URL", Callback = function() RunScript(Script6_URL) end })
 
-    Scripts:CreateSection("Slot 7")
+    Scripts:CreateSection("Placeholder")
     local Script7_URL = ""
     Scripts:CreateInput({ Name = "Script 7 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script7_URL = v end }, "luna_script7_url")
     Scripts:CreateButton({ Name = "  Run Script 7", Description = "Executes loadstring on Script 7 URL", Callback = function() RunScript(Script7_URL) end })
