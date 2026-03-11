@@ -2339,7 +2339,7 @@ local function main()
 		end})
 
 local GEMINI_API_KEY: string = "" -- Insert valid API Key
-local GEMINI_MODEL: string = "gemini-1.5-flash"
+local GEMINI_MODEL: string = "gemini-2.5-flash"
 
 local function requestNeuralLink(prompt: string, maxTokens: number): string?
 	local endpoint: string = string.format("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", GEMINI_MODEL, GEMINI_API_KEY)
@@ -2670,7 +2670,7 @@ end
 				if obj:IsA("Tool") then
 					-- Insert animation into tool
 					local anim = Instance.new("Animation")
-					anim.AnimationId = "rbxassetid://0"
+					anim.AnimationId = "rbxassetid://534696152"
 					anim.Parent = obj
 				elseif parent and parent:IsA("Humanoid") then
 					-- Insert animation into humanoid
@@ -3157,13 +3157,13 @@ end
 		if n == "BaseDamage" or lowerN:find("damage") then return 999999
 		elseif n == "HeadshotDamageMultiplier" then return 100
 		elseif n == "FireRate" or n == "BurstRate" then return 0.01 -- CRITICAL FIX: minimum 10ms
-		elseif n == "ReloadTime" or n == "TacticalReloadTime" then return 0.05
+		elseif n == "ReloadTime" or n == "TacticalReloadTime" then return 0
 		elseif n == "EquipTime" or n == "UnequipTime" then return 0.01
 		elseif n == "AmmoPerMag" or n == "MagSize" then return 999999
 		elseif n == "Auto" or n == "Automatic" then return true
 		elseif n == "Recoil" or n == "Spread" or n == "HipFireSpread" then return 0
 		elseif n == "BulletSpeed" or n == "Range" or n == "MaxRange" then return 90000
-		elseif n == "BulletPerShot" then 
+		elseif n == "BulletPerShot" then
 		-- Only boost if it's already > 1 (shotgun detection)
 		return currentVal > 1 and 15 or currentVal 
 		elseif n == "FriendlyFire" then return true
@@ -3850,15 +3850,19 @@ end
 		elseif n == "FlamingBullet" then return true
 		elseif n == "IgniteChance" then return 9999
 		elseif n == "FreezingBullet" then return true
-		elseif n == "HoldDownEnabled" then return false
 		elseif n == "ChargedShotEnabled" then return false
 		elseif n == "ChargingTime" then return 0
 		elseif n == "HoldAndReleaseEnabled" then return false
 		elseif n == "DelayBeforeFiring" then return 0
-		elseif n == "HoldDownEnabled" then return false
-		elseif n == "Auto" then return false
+		elseif n == "Auto" then return true
 		elseif n == "CriticalDamageEnabled" then return 999999
-
+    elseif n == "SilenceEffect" then return true
+    elseif n == "HoldDownEnabled" then return false
+    elseif n == "BulletType" then return Normal
+	  elseif n == "ProjectileType" then return Pumpkin          
+    elseif n == "RicochetAmount" then return 15
+    elseif n == "SuperRicochet" then return true
+    elseif n == "BulletLifetime" then return 10
 		elseif n == "Recoil" or n == "Spread" or n == "Accuracy" then return 0
 		elseif lowerN:find("angle") and (lowerN:find("min") or lowerN:find("max")) then return 0
 		elseif n == "BulletSpeed" or n == "Range" then return 90000
