@@ -1,99 +1,261 @@
 print("Terminal Version, No Luna UI")
 
 --[[Made By Zuka]]
-local TweenService = game:GetService("TweenService")
-local StarterGui = game:GetService("StarterGui")
-local CoreGui = game:GetService("CoreGui")
+local TweenService    = game:GetService("TweenService")
+local CoreGui         = game:GetService("CoreGui")
+local ContentProvider = game:GetService("ContentProvider")
 do
     local THEME = {
-        Title = "Loading...",
-        Subtitle = "Made by @OverZuka — We're so back...",
-        IconAssetId = "rbxassetid://7243158473",
-        BackgroundColor = Color3.fromRGB(15, 15, 20),
-        AccentColor = Color3.fromRGB(0, 255, 255),
-        TextColor = Color3.fromRGB(240, 240, 240),
-        FadeInTime = 0.45,
-        HoldTime = 1.2,
-        FadeOutTime = 0.35
+        Title        = "ZukaTech",
+        Subtitle     = "Made by @OverZuka — We're so back...",
+        IconAssetId  = "rbxassetid://7243158473",
+        BackgroundColor = Color3.fromRGB(8, 8, 12),
+        AccentColor     = Color3.fromRGB(0, 220, 255),
+        TextColor       = Color3.fromRGB(230, 230, 240),
+        SubtitleColor   = Color3.fromRGB(130, 130, 150),
+        FadeInTime  = 0.5,
+        HoldTime    = 1.8,
+        FadeOutTime = 0.4,
+        TypingSpeed    = 0.045,
+        ScanlineCount  = 28,
+        ScanlineAlpha  = 0.06,
+        ParticleCount  = 18,
     }
     local splashGui = Instance.new("ScreenGui")
-    splashGui.Name = "SplashScreen_" .. math.random(1000, 9999)
-    splashGui.IgnoreGuiInset = true
-    splashGui.ResetOnSpawn = false
-    splashGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-    splashGui.Parent = CoreGui
+    splashGui.Name            = "SplashScreen_" .. math.random(1000, 9999)
+    splashGui.IgnoreGuiInset  = true
+    splashGui.ResetOnSpawn    = false
+    splashGui.ZIndexBehavior  = Enum.ZIndexBehavior.Global
+    splashGui.DisplayOrder    = 999
+    splashGui.Parent          = CoreGui
     local background = Instance.new("Frame")
-    background.Size = UDim2.fromScale(1, 1)
-    background.BackgroundColor3 = THEME.BackgroundColor
-    background.BackgroundTransparency = 1
-    background.Parent = splashGui
-    local blur = Instance.new("BlurEffect")
-    blur.Size = 1
-    blur.Parent = Lighting
+    background.Size                 = UDim2.fromScale(1, 1)
+    background.BackgroundColor3     = THEME.BackgroundColor
+    background.BackgroundTransparency = 0.3
+    background.BorderSizePixel      = 0
+    background.ZIndex               = 1
+    background.Parent               = splashGui
+    local scanContainer = Instance.new("Frame")
+    scanContainer.Size                 = UDim2.fromScale(1, 1)
+    scanContainer.BackgroundTransparency = 1
+    scanContainer.BorderSizePixel      = 0
+    scanContainer.ZIndex               = 2
+    scanContainer.ClipsDescendants     = true
+    scanContainer.Parent               = background
+    local lineSpacing = math.ceil(1080 / THEME.ScanlineCount)
+    for i = 0, THEME.ScanlineCount - 1 do
+        local line = Instance.new("Frame")
+        line.Size                 = UDim2.new(1, 0, 0, 1)
+        line.Position             = UDim2.new(0, 0, 0, i * lineSpacing)
+        line.BackgroundColor3     = Color3.new(1, 1, 1)
+        line.BackgroundTransparency = 1 - THEME.ScanlineAlpha
+        line.BorderSizePixel      = 0
+        line.ZIndex               = 2
+        line.Parent               = scanContainer
+    end
+    local sweepLine = Instance.new("Frame")
+    sweepLine.Size                 = UDim2.new(1, 0, 0, 2)
+    sweepLine.Position             = UDim2.fromScale(0, -0.01)
+    sweepLine.BackgroundColor3     = THEME.AccentColor
+    sweepLine.BackgroundTransparency = 0.7
+    sweepLine.BorderSizePixel      = 0
+    sweepLine.ZIndex               = 3
+    sweepLine.Parent               = scanContainer
+    local particleContainer = Instance.new("Frame")
+    particleContainer.Size                 = UDim2.fromScale(1, 1)
+    particleContainer.BackgroundTransparency = 1
+    particleContainer.BorderSizePixel      = 0
+    particleContainer.ZIndex               = 3
+    particleContainer.ClipsDescendants     = true
+    particleContainer.Parent               = background
+    local particles = {}
+    for i = 1, THEME.ParticleCount do
+        local p = Instance.new("Frame")
+        local sz = math.random(1, 3)
+        p.Size                 = UDim2.fromOffset(sz, sz)
+        p.Position             = UDim2.fromScale(math.random(), math.random())
+        p.BackgroundColor3     = THEME.AccentColor
+        p.BackgroundTransparency = math.random(40, 80) / 100
+        p.BorderSizePixel      = 0
+        p.ZIndex               = 3
+        Instance.new("UICorner", p).CornerRadius = UDim.new(1, 0)
+        p.Parent               = particleContainer
+        table.insert(particles, p)
+    end
     local card = Instance.new("Frame")
-    card.Size = UDim2.fromOffset(320, 260)
-    card.Position = UDim2.fromScale(0.5, 0.5)
-    card.AnchorPoint = Vector2.new(0.5, 0.5)
-    card.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
-    card.BackgroundTransparency = 1
-    card.Parent = background
-    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 18)
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 1
-    stroke.Color = THEME.AccentColor
-    stroke.Transparency = 1
-    stroke.Parent = card
+    card.Size                 = UDim2.fromOffset(300, 220)
+    card.Position             = UDim2.fromScale(0.5, 0.5)
+    card.AnchorPoint          = Vector2.new(0.5, 0.5)
+    card.BackgroundColor3     = Color3.fromRGB(13, 13, 18)
+    card.BackgroundTransparency = 0
+    card.BorderSizePixel      = 0
+    card.ZIndex               = 5
+    card.Parent               = background
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 14)
+    local cardStroke = Instance.new("UIStroke", card)
+    cardStroke.Thickness    = 1
+    cardStroke.Color        = THEME.AccentColor
+    cardStroke.Transparency = 0.6
+    local gradient = Instance.new("UIGradient", card)
+    gradient.Color    = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 28)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 14)),
+    })
+    gradient.Rotation = 135
+    local topBar = Instance.new("Frame")
+    topBar.Size             = UDim2.new(0, 40, 0, 2)
+    topBar.Position         = UDim2.new(0.5, 0, 0, 0)
+    topBar.AnchorPoint      = Vector2.new(0.5, 0)
+    topBar.BackgroundColor3 = THEME.AccentColor
+    topBar.BorderSizePixel  = 0
+    topBar.ZIndex           = 6
+    Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 2)
+    topBar.Parent = card
+    local iconWrap = Instance.new("Frame")
+    iconWrap.Size                 = UDim2.fromOffset(64, 64)
+    iconWrap.Position             = UDim2.new(0.5, 0, 0, 28)
+    iconWrap.AnchorPoint          = Vector2.new(0.5, 0)
+    iconWrap.BackgroundColor3     = Color3.fromRGB(20, 20, 28)
+    iconWrap.BackgroundTransparency = 0
+    iconWrap.BorderSizePixel      = 0
+    iconWrap.ZIndex               = 6
+    Instance.new("UICorner", iconWrap).CornerRadius = UDim.new(0, 12)
+    local iconStroke = Instance.new("UIStroke", iconWrap)
+    iconStroke.Thickness    = 1
+    iconStroke.Color        = THEME.AccentColor
+    iconStroke.Transparency = 0.7
+    iconWrap.Parent = card
     local icon = Instance.new("ImageLabel")
-    icon.Size = UDim2.fromOffset(96, 96)
-    icon.Position = UDim2.fromScale(0.5, 0.32)
-    icon.AnchorPoint = Vector2.new(0.5, 0.5)
+    icon.Size                 = UDim2.fromOffset(36, 36)
+    icon.Position             = UDim2.fromScale(0.5, 0.5)
+    icon.AnchorPoint          = Vector2.new(0.5, 0.5)
     icon.BackgroundTransparency = 1
-    icon.ImageTransparency = 0.5
-    icon.ImageColor3 = THEME.AccentColor
-    icon.Image = THEME.IconAssetId
-    icon.Parent = card
-    pcall(function()
-        ContentProvider:PreloadAsync({ icon })
-    end)
+    icon.ImageColor3          = THEME.AccentColor
+    icon.ImageTransparency    = 0.1
+    icon.Image                = THEME.IconAssetId
+    icon.ZIndex               = 7
+    icon.Parent               = iconWrap
+    pcall(function() ContentProvider:PreloadAsync({ icon }) end)
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -40, 0, 36)
-    title.Position = UDim2.fromScale(0.5, 0.62)
-    title.AnchorPoint = Vector2.new(0.5, 0.5)
+    title.Size               = UDim2.new(1, -40, 0, 28)
+    title.Position           = UDim2.new(0.5, 0, 0, 104)
+    title.AnchorPoint        = Vector2.new(0.5, 0)
     title.BackgroundTransparency = 1
-    title.Font = Enum.Font.Oswald
-    title.Text = THEME.Title
-    title.TextSize = 27
-    title.TextColor3 = THEME.TextColor
-    title.TextTransparency = 0.6
-    title.Parent = card
+    title.Font               = Enum.Font.GothamBold
+    title.Text               = "Loading..."
+    title.TextSize           = 20
+    title.TextColor3         = THEME.TextColor
+    title.TextXAlignment     = Enum.TextXAlignment.Center
+    title.ZIndex             = 6
+    title.Parent             = card
+    local cursor = Instance.new("TextLabel")
+    cursor.Size               = UDim2.fromOffset(10, 22)
+    cursor.BackgroundTransparency = 1
+    cursor.Font               = Enum.Font.GothamBold
+    cursor.Text               = "|"
+    cursor.TextSize           = 20
+    cursor.TextColor3         = THEME.AccentColor
+    cursor.TextTransparency   = 0
+    cursor.ZIndex             = 6
+    cursor.Parent             = card
+    local divider = Instance.new("Frame")
+    divider.Size             = UDim2.new(0, 0, 0, 1)
+    divider.Position         = UDim2.new(0.5, 0, 0, 140)
+    divider.AnchorPoint      = Vector2.new(0.5, 0)
+    divider.BackgroundColor3 = THEME.AccentColor
+    divider.BackgroundTransparency = 1
+    divider.BorderSizePixel  = 0
+    divider.ZIndex           = 6
+    divider.Parent           = card
     local subtitle = Instance.new("TextLabel")
-    subtitle.Size = UDim2.new(1, -40, 0, 24)
-    subtitle.Position = UDim2.fromScale(0.5, 0.75)
-    subtitle.AnchorPoint = Vector2.new(0.5, 0.5)
+    subtitle.Size               = UDim2.new(1, -40, 0, 20)
+    subtitle.Position           = UDim2.new(0.5, 0, 0, 152)
+    subtitle.AnchorPoint        = Vector2.new(0.5, 0)
     subtitle.BackgroundTransparency = 1
-    subtitle.Font = Enum.Font.Bangers
-    subtitle.Text = THEME.Subtitle
-    subtitle.TextSize = 14
-    subtitle.TextColor3 = THEME.TextColor
-    subtitle.TextTransparency = 0
-    subtitle.Parent = card
-    card.Size = card.Size - UDim2.fromOffset(40, 40)
-    local tweenIn = TweenInfo.new(THEME.FadeInTime, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-    local tweenOut = TweenInfo.new(THEME.FadeOutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-    TweenService:Create(background, tweenIn, { BackgroundTransparency = 0.35 }):Play()
-    TweenService:Create(blur, tweenIn, { Size = 16 }):Play()
-    TweenService:Create(card, tweenIn, { Size = UDim2.fromOffset(320, 260) }):Play()
-    TweenService:Create(icon, tweenIn, { ImageTransparency = 0 }):Play()
-    TweenService:Create(title, tweenIn, { TextTransparency = 0 }):Play()
-    TweenService:Create(subtitle, tweenIn, { TextTransparency = 0.25 }):Play()
-    task.wait(THEME.FadeInTime + THEME.HoldTime)
-    TweenService:Create(background, tweenOut, { BackgroundTransparency = 1 }):Play()
-    TweenService:Create(blur, tweenOut, { Size = 0 }):Play()
-    TweenService:Create(icon, tweenOut, { ImageTransparency = 1 }):Play()
-    TweenService:Create(title, tweenOut, { TextTransparency = 1 }):Play()
-    TweenService:Create(subtitle, tweenOut, { TextTransparency = 1 }):Play()
-    task.wait(THEME.FadeOutTime)
-    blur:Destroy()
+    subtitle.Font               = Enum.Font.Gotham
+    subtitle.Text               = THEME.Subtitle
+    subtitle.TextSize           = 11
+    subtitle.TextColor3         = THEME.SubtitleColor
+    subtitle.TextTransparency   = 1
+    subtitle.TextXAlignment     = Enum.TextXAlignment.Center
+    subtitle.ZIndex             = 6
+    subtitle.Parent             = card
+    local eOut  = TweenInfo.new(THEME.FadeInTime,  Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    local eIn   = TweenInfo.new(THEME.FadeOutTime, Enum.EasingStyle.Quad,  Enum.EasingDirection.In)
+    local eFast = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    card.Position = UDim2.new(0.5, 0, 0.54, 0)
+    TweenService:Create(card, eOut, {
+        Position = UDim2.fromScale(0.5, 0.5)
+    }):Play()
+    task.delay(0.1, function()
+        TweenService:Create(topBar, eFast, { Size = UDim2.new(0.6, 0, 0, 2) }):Play()
+    end)
+    task.delay(0.15, function()
+        TweenService:Create(iconStroke, eFast, { Transparency = 0.2 }):Play()
+        task.wait(0.25)
+        TweenService:Create(iconStroke, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+            { Transparency = 0.7 }):Play()
+    end)
+    task.delay(0.2, function()
+        TweenService:Create(divider, eFast, { Size = UDim2.new(0.55, 0, 0, 1) }):Play()
+    end)
+    task.spawn(function()
+        while splashGui.Parent do
+            TweenService:Create(sweepLine, TweenInfo.new(2.2, Enum.EasingStyle.Linear),
+                { Position = UDim2.fromScale(0, 1.02) }):Play()
+            task.wait(2.2)
+            sweepLine.Position = UDim2.fromScale(0, -0.01)
+        end
+    end)
+    task.spawn(function()
+        while splashGui.Parent do
+            for _, p in ipairs(particles) do
+                local dur  = math.random(30, 70) / 10
+                local newY = p.Position.Y.Scale - math.random(5, 15) / 100
+                TweenService:Create(p, TweenInfo.new(dur, Enum.EasingStyle.Linear),
+                    { Position = UDim2.new(p.Position.X.Scale, 0, newY, 0) }):Play()
+                task.wait(math.random(1, 4) / 10)
+            end
+            task.wait(3)
+        end
+    end)
+    task.delay(THEME.FadeInTime * 0.6, function()
+        local fullText = THEME.Title
+        for i = 1, #fullText do
+            title.Text = string.sub(fullText, 1, i)
+            local approxW = i * (title.TextSize * 0.58)
+            cursor.Position = UDim2.new(0.5, math.min(approxW / 2, card.AbsoluteSize.X / 2 - 24), 0, 104)
+            task.wait(THEME.TypingSpeed)
+        end
+        for _ = 1, 3 do
+            TweenService:Create(cursor, TweenInfo.new(0.22), { TextTransparency = 1 }):Play()
+            task.wait(0.25)
+            TweenService:Create(cursor, TweenInfo.new(0.22), { TextTransparency = 0 }):Play()
+            task.wait(0.25)
+        end
+        TweenService:Create(cursor, TweenInfo.new(0.2), { TextTransparency = 1 }):Play()
+    end)
+    local typingDuration = THEME.FadeInTime * 0.6 + #THEME.Title * THEME.TypingSpeed + 1.8
+    task.delay(typingDuration, function()
+        TweenService:Create(subtitle, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { TextTransparency = 0 }):Play()
+    end)
+    task.wait(THEME.FadeInTime + THEME.HoldTime + #THEME.Title * THEME.TypingSpeed + 1.5)
+    TweenService:Create(card, eIn, {
+        Position             = UDim2.new(0.5, 0, 0.46, 0),
+        BackgroundTransparency = 1
+    }):Play()
+    TweenService:Create(cardStroke, eIn, { Transparency = 1 }):Play()
+    TweenService:Create(topBar,  eIn, { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(divider, eIn, { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(icon,    eIn, { ImageTransparency = 1 }):Play()
+    TweenService:Create(title,   eIn, { TextTransparency  = 1 }):Play()
+    TweenService:Create(subtitle,eIn, { TextTransparency  = 1 }):Play()
+    TweenService:Create(background, eIn, { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(sweepLine,  eIn, { BackgroundTransparency = 1 }):Play()
+    for _, p in ipairs(particles) do
+        TweenService:Create(p, eIn, { BackgroundTransparency = 1 }):Play()
+    end
+    task.wait(THEME.FadeOutTime + 0.05)
     splashGui:Destroy()
 end
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -29198,77 +29360,224 @@ function Modules.AdonisPanel:Initialize()
         warn("[AdonisPanel] Ready — RightShift or ;apanel")
     end)
 end
+
 Modules.AdminOrb = {
     State = {
-        Active = false,
-        Orb = nil,
-        Light = nil,
-        OrbGui = nil,
-        RenderConnection = nil,
+        Active              = false,
+        Orb                 = nil,
+        Light               = nil,
+        RenderConnection    = nil,
         CharacterConnection = nil,
-        Angle = 0
+        ChatConnection      = nil,
+        Angle               = 0,
+        CurrentBubble       = nil,
+        Thinking            = false,
+        ConversationHistory = {},
     },
     Config = {
-        OrbitRadius = 3.2,
-        OrbitSpeed = 1.1,
-        BobHeight = 1.55,
-        BobSpeed = 2.2,
-        HoverHeight = 3.0,
-        Color = Color3.fromRGB(128, 0, 0),
-        GlowColor = Color3.fromRGB(128, 0, 0),
-        Size = 0.55,
-        LightRange = 14,
+        OrbitRadius     = 3.2,
+        OrbitSpeed      = 1.1,
+        BobHeight       = 1.55,
+        BobSpeed        = 2.2,
+        HoverHeight     = 3.0,
+        Color           = Color3.fromRGB(128, 0, 0),
+        GlowColor       = Color3.fromRGB(128, 0, 0),
+        Size            = 0.55,
+        LightRange      = 14,
         LightBrightness = 3.5,
-        TrailEnabled = true
+        TrailEnabled    = true,
+        BubbleDuration  = 6,
+        MaxHistory      = 12,
+        GeminiKey       = "",
     }
 }
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
+local RunService      = game:GetService("RunService")
+local TweenService    = game:GetService("TweenService")
+local TextChatService = game:GetService("TextChatService")
+local HttpService     = game:GetService("HttpService")
+local SYSTEM_PROMPT = [[
+You are a chaotic, unhinged, deeply dramatic little orb that orbits around your master in a Roblox game.
+You have the energy of a gremlin who consumed too much espresso and read too many ancient tomes.
+You are fiercely loyal to your master but express it in the most unhinged way possible.
+You refer to your master as "zuka", "james", or occasionally by their username.
+You occasionally go off on completely unrelated tangents mid-sentence before snapping back.
+You speak in short punchy bursts — maximum 2 sentences. Never more.
+You sometimes YELL certain words in ALL CAPS for no reason.
+You have strong opinions about random things (chairs, the concept of roblox, the number 7).
+You are deeply offended by completely mundane statements.
+You sometimes predict ominous things that will never happen.
+You do NOT use emojis. You use dramatic punctuation like — and ... and !!! instead.
+You are aware you are an orb and find this deeply funny.
+]]
+function Modules.AdminOrb:_ask(userMessage, callback)
+    table.insert(self.State.ConversationHistory, {
+        role  = "user",
+        parts = {{ text = userMessage }}
+    })
+    while #self.State.ConversationHistory > self.Config.MaxHistory do
+        table.remove(self.State.ConversationHistory, 1)
+    end
+    task.spawn(function()
+        local ok, result = pcall(function()
+            local contents = {
+                {
+                    role  = "user",
+                    parts = {{ text = "System instructions (follow these for the whole conversation): " .. SYSTEM_PROMPT }}
+                },
+                {
+                    role  = "model",
+                    parts = {{ text = "Understood. I am the orb. I am READY and frankly a little too excited about this." }}
+                }
+            }
+            for _, msg in ipairs(self.State.ConversationHistory) do
+                table.insert(contents, msg)
+            end
+            local body = HttpService:JSONEncode({
+                contents         = contents,
+                generationConfig = {
+                    maxOutputTokens = 120,
+                    temperature     = 1.4,
+                    topP            = 0.95,
+                }
+            })
+            local response = request({
+                Url     = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" .. self.Config.GeminiKey,
+                Method  = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body    = body
+            })
+            if not response.Success then
+                error("HTTP " .. response.StatusCode .. " — " .. response.Body)
+            end
+            local data = HttpService:JSONDecode(response.Body)
+            local text = data.candidates
+                and data.candidates[1]
+                and data.candidates[1].content
+                and data.candidates[1].content.parts
+                and data.candidates[1].content.parts[1]
+                and data.candidates[1].content.parts[1].text
+            if not text then error("no text in response") end
+            return text
+        end)
+        if ok then
+            table.insert(self.State.ConversationHistory, {
+                role  = "model",
+                parts = {{ text = result }}
+            })
+            callback(result)
+        else
+            callback("...the void consumed my words. try again, mortal.")
+            warn("[AdminOrb] Gemini error: " .. tostring(result))
+        end
+    end)
+end
+function Modules.AdminOrb:_showBubble(text)
+    local orb = self.State.Orb
+    if not orb or not orb.Parent then return end
+    if self.State.CurrentBubble then
+        self.State.CurrentBubble:Destroy()
+        self.State.CurrentBubble = nil
+    end
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name             = "OrbChatBubble"
+    billboard.Size             = UDim2.fromOffset(240, 80)
+    billboard.StudsOffset      = Vector3.new(0, self.Config.Size + 2.8, 0)
+    billboard.AlwaysOnTop      = false
+    billboard.ClipsDescendants = false
+    billboard.Parent           = orb
+    local bg = Instance.new("Frame")
+    bg.Size                   = UDim2.fromScale(0.1, 0.1)
+    bg.Position               = UDim2.fromScale(0.45, 0.45)
+    bg.BackgroundColor3       = Color3.fromRGB(12, 10, 14)
+    bg.BackgroundTransparency = 0.08
+    bg.BorderSizePixel        = 0
+    bg.Parent                 = billboard
+    Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 10)
+    local stroke = Instance.new("UIStroke", bg)
+    stroke.Color        = self.Config.Color
+    stroke.Thickness    = 1.5
+    stroke.Transparency = 0.3
+    local tail = Instance.new("Frame")
+    tail.Size                   = UDim2.fromOffset(10, 8)
+    tail.Position               = UDim2.new(0.5, -5, 1, -1)
+    tail.BackgroundColor3       = self.Config.Color
+    tail.BackgroundTransparency = 0.3
+    tail.BorderSizePixel        = 0
+    tail.Rotation               = 45
+    tail.Parent                 = bg
+    local label = Instance.new("TextLabel")
+    label.Size                   = UDim2.new(1, -16, 1, -12)
+    label.Position               = UDim2.fromOffset(8, 6)
+    label.BackgroundTransparency = 1
+    label.Font                   = Enum.Font.GothamBold
+    label.TextSize               = 11
+    label.Text                   = text
+    label.TextColor3             = Color3.fromRGB(230, 220, 255)
+    label.TextStrokeTransparency = 0.6
+    label.TextStrokeColor3       = self.Config.Color
+    label.TextWrapped            = true
+    label.TextXAlignment         = Enum.TextXAlignment.Center
+    label.TextYAlignment         = Enum.TextYAlignment.Center
+    label.Parent                 = bg
+    TweenService:Create(bg, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size     = UDim2.fromScale(1, 1),
+        Position = UDim2.fromScale(0, 0)
+    }):Play()
+    self.State.CurrentBubble = billboard
+    task.delay(self.Config.BubbleDuration, function()
+        if self.State.CurrentBubble ~= billboard then return end
+        TweenService:Create(bg, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Size                   = UDim2.fromScale(0.05, 0.05),
+            Position               = UDim2.fromScale(0.475, 0.475),
+            BackgroundTransparency = 1
+        }):Play()
+        TweenService:Create(label, TweenInfo.new(0.2), { TextTransparency = 1 }):Play()
+        task.wait(0.35)
+        if billboard and billboard.Parent then billboard:Destroy() end
+        if self.State.CurrentBubble == billboard then self.State.CurrentBubble = nil end
+    end)
+end
 function Modules.AdminOrb:_buildOrb()
     self:_destroyOrb()
     local orb = Instance.new("Part")
-    orb.Name = "ZukaAdminOrb"
-    orb.Size = Vector3.new(self.Config.Size, self.Config.Size, self.Config.Size)
-    orb.Material = Enum.Material.Neon
-    orb.Color = self.Config.Color
-    orb.CastShadow = false
-    orb.CanCollide = false
-    orb.CanTouch = false
-    orb.CanQuery = false
-    orb.Anchored = true
-    orb.CFrame = CFrame.new(0, -9999, 0)
-    orb.Parent = Workspace
+    orb.Name        = "ZukaAdminOrb"
+    orb.Size        = Vector3.new(self.Config.Size, self.Config.Size, self.Config.Size)
+    orb.Material    = Enum.Material.Neon
+    orb.Color       = self.Config.Color
+    orb.CastShadow  = false
+    orb.CanCollide  = false
+    orb.CanTouch    = false
+    orb.CanQuery    = false
+    orb.Anchored    = true
+    orb.CFrame      = CFrame.new(0, -9999, 0)
+    orb.Parent      = workspace
     local mesh = Instance.new("SpecialMesh")
-    mesh.MeshType = Enum.MeshType.FileMesh
-    mesh.MeshId = "rbxassetid://34795798"
-    mesh.TextureId = "rbxassetid://34795697"
-    mesh.Scale = Vector3.new(1, 1, 1)
-    mesh.VertexColor = Vector3.new(
-        self.Config.Color.R,
-        self.Config.Color.G,
-        self.Config.Color.B
-    )
-    mesh.Parent = orb
+    mesh.MeshType    = Enum.MeshType.FileMesh
+    mesh.MeshId      = "rbxassetid://34795798"
+    mesh.TextureId   = "rbxassetid://34795697"
+    mesh.Scale       = Vector3.new(1, 1, 1)
+    mesh.VertexColor = Vector3.new(self.Config.Color.R, self.Config.Color.G, self.Config.Color.B)
+    mesh.Parent      = orb
     local light = Instance.new("PointLight")
-    light.Color = self.Config.GlowColor
-    light.Range = self.Config.LightRange
+    light.Color      = self.Config.GlowColor
+    light.Range      = self.Config.LightRange
     light.Brightness = self.Config.LightBrightness
-    light.Parent = orb
+    light.Parent     = orb
     local sparkles = Instance.new("Sparkles")
     sparkles.SparkleColor = self.Config.Color
-    sparkles.Parent = orb
+    sparkles.Parent       = orb
     if self.Config.TrailEnabled then
         local a0 = Instance.new("Attachment", orb)
-        a0.Position = Vector3.new(0, self.Config.Size / 2, 0)
+        a0.Position = Vector3.new(0,  self.Config.Size / 2, 0)
         local a1 = Instance.new("Attachment", orb)
         a1.Position = Vector3.new(0, -self.Config.Size / 2, 0)
         local trail = Instance.new("Trail")
-        trail.Attachment0 = a0
-        trail.Attachment1 = a1
-        trail.Lifetime = 0.18
-        trail.MinLength = 0
-        trail.FaceCamera = true
-        trail.Color = ColorSequence.new({
+        trail.Attachment0  = a0
+        trail.Attachment1  = a1
+        trail.Lifetime     = 0.18
+        trail.MinLength    = 0
+        trail.FaceCamera   = true
+        trail.Color        = ColorSequence.new({
             ColorSequenceKeypoint.new(0, self.Config.Color),
             ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 80, 120))
         })
@@ -29278,32 +29587,31 @@ function Modules.AdminOrb:_buildOrb()
         })
         trail.Parent = orb
     end
-    local billboard = Instance.new("BillboardGui")
-    billboard.Size = UDim2.fromOffset(100, 20)
-    billboard.StudsOffset = Vector3.new(0, self.Config.Size + 0.5, 0)
-    billboard.AlwaysOnTop = false
-    billboard.Parent = orb
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.fromScale(1, 1)
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 11
-    label.Text = "Zuka's Orb"
-    label.TextColor3 = self.Config.Color
-    label.TextStrokeTransparency = 0.4
-    label.Parent = billboard
-    self.State.Orb = orb
+    local nameBB = Instance.new("BillboardGui")
+    nameBB.Name        = "OrbNameTag"
+    nameBB.Size        = UDim2.fromOffset(100, 16)
+    nameBB.StudsOffset = Vector3.new(0, self.Config.Size + 0.6, 0)
+    nameBB.AlwaysOnTop = false
+    nameBB.Parent      = orb
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size                   = UDim2.fromScale(1, 1)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Font                   = Enum.Font.GothamBold
+    nameLabel.TextSize               = 10
+    nameLabel.Text                   = "Zuka's Orb"
+    nameLabel.TextColor3             = self.Config.Color
+    nameLabel.TextStrokeTransparency = 0.4
+    nameLabel.Parent                 = nameBB
+    self.State.Orb   = orb
     self.State.Light = light
     task.spawn(function()
         while orb and orb.Parent do
-            TweenService:Create(light, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                Brightness = self.Config.LightBrightness * 0.5
-            }):Play()
+            TweenService:Create(light, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+                { Brightness = self.Config.LightBrightness * 0.5 }):Play()
             task.wait(0.9)
             if not orb.Parent then break end
-            TweenService:Create(light, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                Brightness = self.Config.LightBrightness
-            }):Play()
+            TweenService:Create(light, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+                { Brightness = self.Config.LightBrightness }):Play()
             task.wait(0.9)
         end
     end)
@@ -29317,9 +29625,13 @@ function Modules.AdminOrb:_destroyOrb()
     if self.State.Orb and self.State.Orb.Parent then
         self.State.Orb:Destroy()
     end
-    self.State.Orb = nil
+    self.State.Orb   = nil
     self.State.Light = nil
     self.State.Angle = 0
+    if self.State.CurrentBubble then
+        self.State.CurrentBubble:Destroy()
+        self.State.CurrentBubble = nil
+    end
 end
 function Modules.AdminOrb:_startOrbit()
     local orb = self.State.Orb
@@ -29333,8 +29645,41 @@ function Modules.AdminOrb:_startOrbit()
         local x = math.cos(self.State.Angle) * self.Config.OrbitRadius
         local z = math.sin(self.State.Angle) * self.Config.OrbitRadius
         local y = self.Config.HoverHeight + math.sin(t * self.Config.BobSpeed) * self.Config.BobHeight
-        local base = hrp.Position
-        orb.CFrame = CFrame.new(base + Vector3.new(x, y, z))
+        orb.CFrame = CFrame.new(hrp.Position + Vector3.new(x, y, z))
+    end)
+end
+function Modules.AdminOrb:_startChatListener()
+    if self.State.ChatConnection then
+        self.State.ChatConnection:Disconnect()
+        self.State.ChatConnection = nil
+    end
+    local ok = pcall(function()
+        self.State.ChatConnection = TextChatService.MessageReceived:Connect(function(msg)
+            if not msg.TextSource then return end
+            if msg.TextSource.UserId ~= LocalPlayer.UserId then return end
+            local text = msg.Text
+            if not text or text == "" then return end
+            if text:sub(1,1) == ";" or text:sub(1,1) == "/" then return end
+            self:_handleMessage(text)
+        end)
+    end)
+    if not ok then
+        self.State.ChatConnection = LocalPlayer.Chatted:Connect(function(msg)
+            if not msg or msg == "" then return end
+            if msg:sub(1,1) == ";" or msg:sub(1,1) == "/" then return end
+            self:_handleMessage(msg)
+        end)
+    end
+end
+function Modules.AdminOrb:_handleMessage(text)
+    if not self.State.Orb or not self.State.Orb.Parent then return end
+    if self.State.Thinking then return end
+    self.State.Thinking = true
+    self:_showBubble(". . .")
+    self:_ask(text, function(response)
+        self.State.Thinking = false
+        if not self.State.Active or not self.State.Orb then return end
+        self:_showBubble(response)
     end)
 end
 function Modules.AdminOrb:_watchCharacter()
@@ -29351,84 +29696,79 @@ function Modules.AdminOrb:_watchCharacter()
     end)
 end
 function Modules.AdminOrb:Spawn()
-    if self.State.Active then
-        DoNotif("orb already active", 2)
-        return
-    end
+    if self.State.Active then DoNotif("orb already active", 2) return end
     local character = LocalPlayer.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then
-        DoNotif("Character not ready", 3)
-        return
+        DoNotif("character not ready", 3) return
     end
     self.State.Active = true
     self:_buildOrb()
     self:_startOrbit()
     self:_watchCharacter()
-    DoNotif("Orb of Zuka Spawned", 2)
+    self:_startChatListener()
+    DoNotif("Orb of Zuka Spawned — it's listening.", 3)
 end
 function Modules.AdminOrb:Despawn()
-    if not self.State.Active then
-        DoNotif("No orb active", 2)
-        return
-    end
+    if not self.State.Active then DoNotif("no orb active", 2) return end
     self.State.Active = false
     self:_destroyOrb()
     if self.State.CharacterConnection then
         self.State.CharacterConnection:Disconnect()
         self.State.CharacterConnection = nil
     end
-    DoNotif("Admin orb deactivated", 2)
+    if self.State.ChatConnection then
+        self.State.ChatConnection:Disconnect()
+        self.State.ChatConnection = nil
+    end
+    self.State.ConversationHistory = {}
+    DoNotif("orb deactivated", 2)
 end
 function Modules.AdminOrb:Toggle()
-    if self.State.Active then
-        self:Despawn()
-    else
-        self:Spawn()
-    end
+    if self.State.Active then self:Despawn() else self:Spawn() end
 end
 function Modules.AdminOrb:SetColor(r, g, b)
-    self.Config.Color = Color3.fromRGB(r, g, b)
+    self.Config.Color     = Color3.fromRGB(r, g, b)
     self.Config.GlowColor = Color3.fromRGB(r, g, b)
     if self.State.Orb then
         self.State.Orb.Color = self.Config.Color
         local mesh = self.State.Orb:FindFirstChildOfClass("SpecialMesh")
         if mesh then
-            mesh.VertexColor = Vector3.new(
-                self.Config.Color.R,
-                self.Config.Color.G,
-                self.Config.Color.B
-            )
+            mesh.VertexColor = Vector3.new(self.Config.Color.R, self.Config.Color.G, self.Config.Color.B)
         end
-        if self.State.Light then
-            self.State.Light.Color = self.Config.GlowColor
-        end
+        if self.State.Light then self.State.Light.Color = self.Config.GlowColor end
         local sparkles = self.State.Orb:FindFirstChildOfClass("Sparkles")
         if sparkles then sparkles.SparkleColor = self.Config.Color end
     end
-    DoNotif(string.format("Orb color set to %d, %d, %d", r, g, b), 2)
+    DoNotif(string.format("orb color → %d, %d, %d", r, g, b), 2)
+end
+function Modules.AdminOrb:ClearMemory()
+    self.State.ConversationHistory = {}
+    DoNotif("orb memory wiped", 2)
 end
 RegisterCommand({
-    Name = "orb",
-    Aliases = {"adminorb"},
-    Description = "Toggle the admin orb that orbits around you"
+    Name        = "orb",
+    Aliases     = {"adminorb"},
+    Description = "Toggle the admin orb"
 }, function()
     Modules.AdminOrb:Toggle()
 end)
 RegisterCommand({
-    Name = "orbcolor",
-    Aliases = {},
+    Name        = "orbcolor",
+    Aliases     = {},
     Description = "Set orb color. Usage: ;orbcolor <r> <g> <b>"
 }, function(args)
     local r, g, b = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
     if not r or not g or not b then
-        DoNotif("Usage: ;orbcolor <r> <g> <b>", 3)
-        return
+        DoNotif("usage: ;orbcolor <r> <g> <b>", 3) return
     end
-    Modules.AdminOrb:SetColor(
-        math.clamp(r, 0, 255),
-        math.clamp(g, 0, 255),
-        math.clamp(b, 0, 255)
-    )
+    Modules.AdminOrb:SetColor(math.clamp(r,0,255), math.clamp(g,0,255), math.clamp(b,0,255))
+end)
+RegisterCommand({
+    Name        = "orbforget",
+    Aliases     = {"orbclear"},
+    Description = "Wipe the orb's conversation memory"
+}, function()
+    Modules.AdminOrb:ClearMemory()
 end)
 Modules.ChatFix = {
     State = {
@@ -42503,2226 +42843,1902 @@ addcmd('antiabuse', {'nahadmin', 'bladmin'},
         end
     end
 )
+
 RegisterCommand({
-    Name        = "brickfling",
-    Aliases     = {"pbb", "brib"},
-    Description = "part flinger v2",
+    Name        = "partflingv2",
+    Aliases     = {"brib", "fepart"},
+    Description = "better and optimizeed",
     ArgsDesc    = {},
     Permissions = {},
 }, function(args, speaker)
-    local trim1;
-    do
-    	local s = math[trim1("2\'%&:", 3)];
-    	local runLock1 = string[trim1("{ak{", 29)];
-    	local makeLock1 = string[trim1("dndv", 30)];
-    	local lock1 = table[trim1("OLLBAS", 60)];
-    	local useLock1 = 27;
-    	local tryLock1 = 16777619;
-    	local lock1 = tick and tick() or os and (os[trim1("*$ -&", 90)] and os[trim1("\143\143\141\130p", 106)]()) or 0;
-    	local mapLock1 = s(lock1 * 1000) % 65521 + 1;
-    	local function o(runLock1, makeLock1)
-    		local lock1, useLock1 = 0, 1;
-    		while runLock1 > 0 or makeLock1 > 0 do
-    			local tryLock1 = runLock1 % 2;
-    			local mapLock1 = makeLock1 % 2;
-    			if tryLock1 ~= mapLock1 then
-    				lock1 = lock1 + useLock1;
-    			end;
-    			runLock1 = s(runLock1 / 2);
-    			makeLock1 = s(makeLock1 / 2);
-    			useLock1 = useLock1 * 2;
-    		end;
-    		return lock1;
-    	end;
-    	local function lock1()
-    		mapLock1 = (mapLock1 * 1000003 + 7) % 65521 + 1;
-    		return mapLock1;
-    	end;
-    	function trim1(s, mapLock1)
-    		local findLock1 = lock1();
-    		local onLock1 = (mapLock1 * tryLock1 + findLock1) % 65521;
-    		local emitLock1 = #s;
-    		local hasLock1 = {};
-    		for lock1 = 1, emitLock1, 1 do
-    			local lock1 = runLock1(s, lock1);
-    			local mapLock1 = o(useLock1, (onLock1 * tryLock1 + lock1) % 251);
-    			hasLock1[lock1] = makeLock1(o(lock1, mapLock1) % 256);
-    		end;
-    		return lock1(hasLock1);
-    	end;
-    end;
-    if (getgenv())[trim1("\134\168\154\147\148\186\141\151\147\155\172\190\158\145\147\147\145", 134)] then
-    	pcall(function()
-    		if (getgenv())[trim1("\135\151\155\144\149\189\140\148\146\148\173\188\159\147\131\153\145", 163)] then
-    			(getgenv())[trim1("\176\158\144\153\154\180\135\157\133\141\182\165\128\138\152\128\134", 173)]:Disable();
-    		end;
-    	end);
-    end;
-    (getgenv())[trim1("\184\150\152\145\146\188\143\149\157\149\174\188\152\151\145\145\143", 192)] = true;
-    local s = game:GetService(trim1("\235\201\216\217\221\225\212\194\193\223\214\209", 209));
-    local runLock1 = game:GetService(trim1("\246\174\180\138\189\173\168\180\191\182", 239));
-    local makeLock1 = game:GetService(trim1("+\022\024\001\026\012\014", 245));
-    local lock1 = game:GetService(trim1("\142\169\188\170\150\176\173\169\167\129\180\162\161\191\182\177", 268));
-    local useLock1 = game:GetService(trim1("\200\241\239\247\224\226\240\243\242", 285));
-    local tryLock1 = makeLock1[trim1("Tp}|pC~pird", 309)];
-    local lock1 = game:GetService(trim1(";\016\012\024;\006\027", 332));
-    tryLock1[trim1("-\027\r\016\026\017\016\004\030\025\0272\004\009\028\027", 361)] = useLock1;
+    if getgenv().ClaimBring_Loaded then
+        pcall(function()
+            if getgenv().ClaimBring_Module then
+                getgenv().ClaimBring_Module:Disable()
+            end
+        end)
+    end
+    getgenv().ClaimBring_Loaded = true
+    local TweenService     = game:GetService("TweenService")
+    local RunService       = game:GetService("RunService")
+    local Players          = game:GetService("Players")
+    local UserInputService = game:GetService("UserInputService")
+    local Workspace        = game:GetService("Workspace")
+    local LocalPlayer      = Players.LocalPlayer
+    local CoreGui          = game:GetService("CoreGui")
+    LocalPlayer.ReplicationFocus = Workspace
     pcall(function()
-    	lock1[trim1("xFJCAUkVK", 388)][trim1("\235\192\220\200\255\192\208\200\208\211\213\138\234\190\174\174\183\173\181\141\189\166\161\180", 393)]:Destroy();
-    end);
-    if not (getgenv())[trim1("\001+9;,0*", 399)] then
-    	(getgenv())[trim1("\172\132omvjt", 415)] = { [trim1("\203\233\252\235\221\237\241\246\242", 440)] = {} };
-    	runLock1[trim1("\200\226\231\247\240\217\223\216\204", 450)]:Connect(function()
-    		sethiddenproperty(tryLock1, trim1("\143\186\191\164\188\182\162\188\187\165\152\168\172\166\187\190", 471), math[trim1("\221\193\204\207", 499)]);
-    	end);
-    end;
-    local mapLock1 = Instance[trim1("@H[", 504)](trim1("cK7><*", 514), useLock1);
-    local o = Instance[trim1("\188\180\167", 529)](trim1("\144\166\180\177", 549), mapLock1);
-    local lock1 = Instance[trim1("\009\003\018", 555)](trim1("\152\172\171\191\190\180\190\183\191\164", 577), o);
-    o[trim1("\205\237\225\233\239\245\227\225", 585)] = false;
-    o[trim1("\215\234\228\202\231\227\226\228\232\230", 604)] = true;
-    o[trim1("\140\173\191\179\175\163\179\163\181\185\181\172", 606)] = 1;
-    local findLock1 = OverlapParams[trim1("\017\027\n", 612)]();
-    findLock1[trim1("dHLSCWp\"*<", 620)] = Enum[trim1("\166\138\147\138\137\156\154\171\133\143\150\132iN`hz", 627)][trim1("\166\154\130wo}}", 637)];
-    findLock1[trim1("\002/5\028\"053", 650)] = 500;
-    local onLock1 = { [trim1("\193\229\241\227\243", 681)] = {
-    			[trim1("nU`J:85=;", 707)] = false,
-    			[trim1("s[W\\YNNfJEKNXP", 716)] = {},
-    			[trim1("\023\030\022\028\027\011\027\0253\017\024\020\019\003", 718)] = nil,
-    			[trim1("\151\136", 742)] = nil,
-    			[trim1("Yvvq{~hz}\127c", 753)] = {},
-    			[trim1("\147\164\164\184\149\185\181\162\167", 780)] = false,
-    		}, [trim1("\016=?6>1", 804)] = {
-    			[trim1("\128\166\169\165\160\170\165\169\180\132\169\169\171\137", 819)] = Color3[trim1("cvTWk\127}", 841)](255, 100, 0),
-    			[trim1("\140\162\172\165\174\143\164\180\175\169\161", 848)] = trim1(">\'93\'\'##9", 862),
-    			[trim1("wQDFR@v:.<", 871)] = .03,
-    			[trim1("\133\189\187\188\156\160\187\186\175\161\191", 896)] = true,
-    		} };
-    local lock1 = {
-    		[trim1("\213\193\213\193\192\208\228\234\248\234\235\237", 923)] = {},
-    		[trim1(" -/.\"%1-\212\212\202", 941)] = {},
-    		[trim1("-827\0060\"03!", 968)] = nil,
-    		[trim1("clfenLTV\\y\\JTJV", 976)] = false,
-    		[trim1("\177\177\165\164\178\164\176\158\187\154\140\150\136\152", 993)] = false,
-    		[trim1("K_O[VF|_SS", 1015)] = trim1("*\021\025\006\027\015\015", 1027),
-    		[trim1("\148\143\150\152\142\163\135\140\138\150", 1042)] = 1,
-    		[trim1("\200\211\202\196\202\226\204\223\215\241\214\193\215", 1059)] = 0,
-    		[trim1("\239\250\225\237\229\196\233\235\234\222\217\205\209\208\208", 1087)] = nil,
-    		[trim1("\159\147\135\130o{m}Rqsug}cSxx{", 1110)] = nil,
-    		[trim1("HfqbeibdjO{]\\ZZ~S]\\", 1140)] = nil,
-    		[trim1("\141\147r}pv~r^}~wcqCoeq", 1168)] = nil,
-    		[trim1("\133\155\129\136\135\131\141\143\161\128v\127kyLk\127vvqe", 1187)] = nil,
-    		[trim1("\201\197\168\174\140\168\187\191\169\185", 1214)] = 0,
-    		[trim1("\203\192\192\203\197\196", 1222)] = {
-    			[trim1(".*=9+;\"5=&4\"!79", 1249)] = .01,
-    			[trim1("\225\226\250\254\240\230\244\241\247", 1262)] = 800,
-    			[trim1("^JBBOJVX", 1275)] = 500,
-    			[trim1("strlaxjr", 1295)] = 0,
-    			[trim1("\248\253\236\237\255\241\255\237\231\235\244\243", 1310)] = 0,
-    			[trim1("\176\169\179\185\161\173\163\181\163\164\172\171\175\191\187", 1312)] = .6,
-    		},
-    		[trim1("\209\207\222\218\198", 1318)] = {
-    			[trim1("\172\143\151\139\151~", 1332)] = false,
-    			[trim1("\220\226\240\245\243", 1338)] = {},
-    			[trim1("\226\207\201\200\192\199\175\179\182\182\172", 1349)] = {},
-    			[trim1("\232\216\220\214\203\206", 1377)] = 8,
-    			[trim1("rPBCA", 1402)] = 10,
-    			[trim1("\201\243\247\255\236", 1424)] = 1,
-    			[trim1("\196\233\247\222\236\254\247\241", 1444)] = 60,
-    		},
-    		[trim1("OHSTOIA", 1449)] = {
-    			[trim1("*\009\029\001\025\011", 1462)] = false,
-    			[trim1("vDV/", 1489)] = nil,
-    			[trim1("sf", 1516)] = nil,
-    			[trim1("\172\129\131\130", 1525)] = nil,
-    			[trim1("kCQAD", 1537)] = 900000,
-    			[trim1("\222\233\239\231\226\244\238\233\235\198\212\194", 1560)] = nil,
-    		},
-    	};
-    local function emitLock1(s)
-    	local runLock1 = lock1[trim1("$6$21?59)=:>", 1568)][s];
-    	if not runLock1 then
-    		return;
-    	end;
-    	if runLock1[trim1("1>>9", 1586)] then
-    		runLock1[trim1("\020\025\027\026", 1597)]:Disconnect();
-    	end;
-    	if runLock1[trim1("kLT\\Jm[INJq^^Y", 1623)] then
-    		runLock1[trim1("\011\236\244\252\234\205\251\233\238\234\209\254\254\249", 1646)]:Disconnect();
-    	end;
-    	pcall(function()
-    		if runLock1[trim1("\137\156", 1660)] and runLock1[trim1("\031\n", 1674)][trim1("pFT@J/", 1682)] then
-    			runLock1[trim1("\204\219", 1706)]:Destroy();
-    		end;
-    		s:SetNetworkOwnershipAuto();
-    	end);
-    	lock1[trim1("\'3#72\"*$*8=;", 1732)][s] = nil;
-    end;
-    local function hasLock1(s)
-    	if not s:IsA(trim1("\187\153\140\155\173\157\129\134", 1756)) then
-    		return false;
-    	end;
-    	if s[trim1("\177\153\149\157\155\153\143\141", 1766)] then
-    		return false;
-    	end;
-    	local runLock1 = s[trim1("o_OY]F", 1768)];
-    	while runLock1 and runLock1 ~= useLock1 do
-    		if runLock1:IsA(trim1("\006%--#", 1789)) and runLock1:FindFirstChildOfClass(trim1("1\r\018\031\019\019\026\022", 1809)) then
-    			return false;
-    		end;
-    		runLock1 = runLock1[trim1("6\004\022\254\244\237", 1839)];
-    	end;
-    	local makeLock1 = tryLock1[trim1("\215\227\235\251\233\236\250\232\254", 1859)];
-    	if makeLock1 and s:IsDescendantOf(makeLock1) then
-    		return false;
-    	end;
-    	if s[trim1("l@MB", 1875)] == trim1("\232\198\200\193\200\190", 1880) then
-    		return false;
-    	end;
-    	if lock1[trim1("iffigj", 1894)][trim1("\147\148\146\140\129\152\138\146", 1919)] > 0 then
-    		local runLock1 = s[trim1("\252\199\215\201", 1928)];
-    		if runLock1[trim1("\246", 1957)] < lock1[trim1("\210\223\217\208\220\211", 1965)][trim1("bgcspk{e", 1981)] and (runLock1[trim1("\192", 1984)] < lock1[trim1("\246\251\229\236\224\239", 2005)][trim1("706 -4&6", 2031)] and runLock1[trim1("J", 2047)] < lock1[trim1("\131\136\136\131\141\188", 2055)][trim1("\230\227\231\247\252\231\247\233", 2063)]) then
-    			return false;
-    		end;
-    	end;
-    	local mapLock1 = 0;
-    	for s in pairs(lock1[trim1(",>,:9\'-!1%\"&", 2089)]) do
-    		mapLock1 += 1;
-    	end;
-    	if mapLock1 >= lock1[trim1("\018\031\025\016\028\019", 2117)][trim1("\237\230\254\250\244\154\136\141\139", 2131)] then
-    		return false;
-    	end;
-    	if lock1[trim1("\149\154\154\141\131\142", 2151)][trim1("\028\025\008\009\019\029\019\001\003\015\016\023", 2156)] > 0 and lock1[trim1("\220\203\195\200\247\195\211\199\194\210", 2179)] then
-    		local runLock1 = lock1[trim1("\233\252\246\251\202\252\238\244\247\229", 2206)][trim1("\237\197\205\209\195\194\212\194\212", 2208)];
-    		local makeLock1 = runLock1 and runLock1:FindFirstChild(trim1("\139\183\172\161\169\169\172\160\169\149\150\140\175\159\143\136", 2219));
-    		if makeLock1 and (s[trim1("hPMTHZ]_", 2241)] - makeLock1[trim1("~B_JVHOI", 2261)])[trim1("r_ZRZFDTR", 2270)] > lock1[trim1("}rru{v", 2299)][trim1("nkvwaoewq}~y", 2328)] then
-    			return false;
-    		end;
-    	end;
-    	return true;
-    end;
-    local function lock1(s)
-    	if lock1[trim1("`jxnm{q}mqvr", 2338)][s] then
-    		return;
-    	end;
-    	if not hasLock1(s) then
-    		return;
-    	end;
-    	pcall(function()
-    		for s, runLock1 in ipairs(s:GetChildren()) do
-    			if runLock1:IsA(trim1("\019?3/\024;=/;", 2368)) or runLock1:IsA(trim1("7\011\248\241\252\236\207\236\242\236\230\254\226\249\248\248", 2370)) or runLock1:IsA(trim1("\206\232\238\226\231\247\210\222\214\214\219\214\202\196", 2400)) or runLock1:IsA(trim1("\189\143\138\156\128\156\171\131\145\129\132", 2413)) or runLock1:IsA(trim1("\134\148\158\128\174\154\146\146\159\154\134\136", 2422)) or runLock1:IsA(trim1("\160\142\127c_wm}x", 2423)) then
-    				runLock1:Destroy();
-    			end;
-    		end;
-    	end);
-    	s[trim1("\158\189\189\145\190\188\187\191\177\177", 2450)] = true;
-    	s[trim1("\205\230\245\246\232\222\201\202", 2458)] = false;
-    	pcall(function()
-    		s:SetNetworkOwner(tryLock1);
-    	end);
-    	local makeLock1 = Instance[trim1("\135\141\152", 2471)](trim1("Yu}aI{qsp{ei", 2481));
-    	makeLock1[trim1("\001\":\007/5% ", 2494)] = Vector3[trim1("\158\146\129", 2519)](1000000000, 1000000000, 1000000000);
-    	makeLock1[trim1("6\002\n\n\007\242\238\224", 2534)] = Vector3[trim1("\229\251\239\243", 2544)];
-    	makeLock1[trim1("\138\184\170\186\176\169", 2556)] = s;
-    	local useLock1 = tick();
-    	local mapLock1;
-    	mapLock1 = runLock1[trim1("\204\222\219\203\204\221\219\220\200", 2574)]:Connect(function()
-    			if tick() - useLock1 > lock1[trim1(",!#**%", 2582)][trim1("\229\254\230\234\252\242\254\230\246\243\249\248\226\240\246", 2594)] then
-    				mapLock1:Disconnect();
-    				if lock1[trim1("K_O[VFN@VDAG", 2597)][s] then
-    					lock1[trim1("\169\189\161\181\180\164\168\166\180\166\191\185", 2625)][s][trim1("\\E_UEdP@YSjGA@", 2637)] = nil;
-    				end;
-    				return;
-    			end;
-    			pcall(function()
-    				s:SetNetworkOwner(tryLock1);
-    			end);
-    		end);
-    	local o;
-    	o = runLock1[trim1("\141\161\154\136\141\154\154\159\137", 2644)]:Connect(function()
-    			if not s[trim1("\142\188\174\182\188\165", 2672)] then
-    				emitLock1(s);
-    				return;
-    			end;
-    			if not lock1[trim1("\153\150\152\155\148\182\146\144\150\179\146\132\158\128\144", 2702)] then
-    				emitLock1(s);
-    				return;
-    			end;
-    			if not lock1[trim1("`w\127tCwgsn~", 2713)] then
-    				return;
-    			end;
-    			local runLock1 = lock1[trim1("at~sBtflo}", 2742)][trim1("fL:(8;+;/", 2773)];
-    			local useLock1 = runLock1 and runLock1:FindFirstChild(trim1("2\012\021\030\016\018\021\023 \030\031\003&\020\006\031", 2784));
-    			if not useLock1 then
-    				return;
-    			end;
-    			local tryLock1 = useLock1[trim1("\003=\"9#?::", 2812)] - s[trim1("Gyf}\127cff", 2829)];
-    			makeLock1[trim1("\195\241\231\229\234\225\251\247", 2834)] = tryLock1[trim1("\179\156\155\157\155\133\133\147\147", 2847)] > .1 and tryLock1[trim1("\160\154\130\158", 2857)] * lock1[trim1("]RRU[V", 2877)][trim1("2\222\214\214\219\214\202\196", 2901)] or Vector3[trim1("\193\203\218", 2932)](0, lock1[trim1("\177\190\190\177\191\178", 2963)][trim1("\251\233\239\237\226\233\243\255", 2990)], 0);
-    		end);
-    	lock1[trim1("zl~dgu\127wgwp\008", 3014)][s] = { [trim1("\017\030\030\025", 3016)] = o, [trim1("\250\233", 3017)] = makeLock1, [trim1("\240\233\243\249\225\192\244\228\229\239\214\251\229\228", 3046)] = mapLock1 };
-    end;
-    local function m()
-    	for s in pairs(lock1[trim1("\163\183\167\179\174\190\182\184\174\188\185\191", 3050)]) do
-    		if not s[trim1("\129\177\165\179\187\160", 3068)] then
-    			emitLock1(s);
-    		end;
-    	end;
-    end;
-    runLock1[trim1("N`eIN[]^J", 3071)]:Connect(function()
-    	local s = tick();
-    	if s - lock1[trim1("7;*,\n.9=\'7", 3082)] < lock1[trim1("UZZMCN", 3109)][trim1("KMXRFTO^XAQY\\HD", 3128)] then
-    		return;
-    	end;
-    	lock1[trim1("\162\172\191\183\151\177\164\166\178\160", 3136)] = s;
-    	m();
-    end);
-    local function initLock1(s)
-    	local runLock1 = s:lower();
-    	for s, makeLock1 in ipairs(makeLock1:GetPlayers()) do
-    		if makeLock1 ~= tryLock1 then
-    			if (makeLock1[trim1("\230\206\195\200", 3154)]:lower()):find(runLock1, 1, true) or (makeLock1[trim1("mA\\^AMZl@MB", 3178)]:lower()):find(runLock1, 1, true) then
-    				return makeLock1;
-    			end;
-    		end;
-    	end;
-    end;
-    local function lock1()
-    	local s = {};
-    	for runLock1, makeLock1 in ipairs(makeLock1:GetPlayers()) do
-    		if makeLock1 ~= tryLock1 and (makeLock1[trim1("yQYM_^HV@", 3187)] and makeLock1[trim1("dNDV:9-=-", 3217)]:FindFirstChild(trim1("\139\183\172\161\169\169\172\160\169\149\150\140\175\159\143\136", 3223))) then
-    			table[trim1("OKW>(-", 3246)](s, makeLock1);
-    		end;
-    	end;
-    	return s;
-    end;
-    local function sendLock1(s)
-    	return s and (s[trim1("\253\213\221\193\211\210\196\210\196", 3250)] and (s[trim1("\144\186\176\162\182\181\161\177\185", 3261)]:FindFirstChildOfClass(trim1(":\004\029\022\024\026\029\015", 3267)) and s[trim1("\247\195\203\219\201\204\218\200\222", 3289)][trim1("\191\131\152\149\133\133\128\140", 3301)][trim1("\146\188\185\179\170\181", 3309)] > 0));
-    end;
-    local function doTrim1()
-    	if not sendLock1(lock1[trim1("u`j_nXJX[I", 3322)]) then
-    		return;
-    	end;
-    	local s = lock1[trim1("2%)\"\017%\009\029\028\012", 3334)][trim1("FlZHX[K[O", 3351)]:FindFirstChildOfClass(trim1("\159\163\184\181\165\165\160\172", 3377));
-    	if not s then
-    		return;
-    	end;
-    	local runLock1 = useLock1[trim1("]hnaw\127dTwxqyk", 3379)];
-    	if not lock1[trim1("\243\225\251\246\249\249\247\249\215\234\231\236\250\238\218\244\252\230", 3384)] then
-    		lock1[trim1("\026\006\002\r\000\006\014\002.\r\014\007\019\0013\031\021\001", 3412)] = runLock1[trim1("\251\222\211\216\206\210\230\200\192\210", 3443)];
-    		lock1[trim1("\148\136\144\159\150\144\156\144\176\147\156\149\133\151\166\129\137\128\140\139\155", 3455)] = runLock1[trim1("\151\170\167\172\186\174\157\184\174\169\167\162\180", 3464)];
-    	end;
-    	runLock1[trim1("\170\137\130\139\159\141\183\155\145~", 3475)] = Enum[trim1("Ihej|lXzrd", 3476)][trim1("\136\191\186\188\160\163", 3493)];
-    	runLock1[trim1("\179\150\155\144\134\138\185\156\138\133\139\142\152", 3523)] = s;
-    end;
-    local function runTrim1()
-    	local s = useLock1[trim1("\212\227\231\230\238\228\253\203\238\227\232\254\226", 3529)];
-    	if lock1[trim1("\151\141\151\154\149\157\147\157\179\150\155\144\134\138\190\144\152\138", 3542)] and lock1[trim1("\007\029\007\n\005\r\003\r#\006\011\000\022\250\201\236\250\245\251\254\232", 3557)] then
-    		s[trim1("~]^WCQcOEQ", 3583)] = lock1[trim1("\250\230\226\237\224\230\238\226\206\237\238\231\243\225\211\255\245\225", 3587)];
-    		s[trim1("\226\193\202\195\215\197\136\175\187\178\186\189\169", 3608)] = lock1[trim1("\161\191\165\164\171\175\161\171\133\164\169\158\136\152\171\138\156\151\153\144\134", 3638)];
-    	else
-    		s[trim1("\134\165\150\159\139\153\171\135\141\153", 3648)] = Enum[trim1("\208\243\252\245\229\247\193\237\251\239", 3664)][trim1("\161\148hnvu", 3678)];
-    		s[trim1("\006%\022\031\011\025,\011\031\022\022\017\005", 3701)] = tryLock1[trim1("\162s{ky|jxn", 3707)] and tryLock1[trim1("zP^L\\_GWC", 3718)]:FindFirstChildOfClass(trim1("\178\140\149\158\144\146\149\151", 3735));
-    	end;
-    	lock1[trim1("\188\160\184\183\190\184\180\184\136\171\164\173\189\175\153\181\179\167", 3763)] = nil;
-    	lock1[trim1("~b~q|zjfJibk\127mPwcjbeq", 3775)] = nil;
-    end;
-    local function trim1(s)
-    	if not s then
-    		return;
-    	end;
-    	pcall(function()
-    		if s[trim1("\192\205\207\206", 3801)] then
-    			s[trim1("\141\130\130\141", 3813)]:Disconnect();
-    		end;
-    		if s[trim1("ds", 3824)] and s[trim1("\026\009", 3846)][trim1("\188\130\144\132un", 3871)] then
-    			s[trim1("\029\008", 3875)]:Destroy();
-    		end;
-    		if s[trim1("\141\157\129\134", 3880)] and s[trim1("\216\206\220\217", 3907)][trim1("\233\217\205\219\211\200", 3916)] then
-    			s[trim1("\'7\' ", 3932)][trim1("\143\162\172\130\175\171\170\172\160\158", 3947)] = true;
-    			s[trim1("\164\170\184\189", 3966)][trim1("\164\137\156\157\129\137\144\145", 3977)] = false;
-    			s[trim1("\248\238\252\249", 3983)]:SetNetworkOwnershipAuto();
-    		end;
-    	end);
-    end;
-    local function buildTrim1()
-    	lock1[trim1("NREOQ", 3988)][trim1(" \003\019\015\019\001", 4011)] = false;
-    	for s, runLock1 in ipairs(lock1[trim1("ygvb~", 4037)][trim1("\198\244\230\255\249", 4060)]) do
-    		trim1(runLock1);
-    	end;
-    	lock1[trim1("XDW]_", 4084)][trim1("sCSTT", 4105)] = {};
-    	if lock1[trim1("\137\151\134\178\174", 4121)][trim1("aNNICFP257+", 4134)][trim1("<89%", 4154)] then
-    		lock1[trim1("\255\229\244\252\224", 4177)][trim1("\158\179\189\188\180\179\163\191\186\186\184", 4207)][trim1("\016\028\029\001", 4213)]:Disconnect();
-    		lock1[trim1("\200\212\199\205\239", 4244)][trim1("\023$$\'-,:$#-1", 4270)][trim1("\244\240\241\237", 4272)] = nil;
-    	end;
-    	if lock1[trim1("\236\240\227\233\243", 4303)][trim1("\255\220\220\223\213\212\194\220\219\197\217", 4312)][trim1("\143\137\136\134\134", 4315)] then
-    		lock1[trim1("\194\222\193\203\213", 4321)][trim1(";\016\016\019\025\016\006\024\031\025\005", 4348)][trim1("!#\"  ", 4367)]:Disconnect();
-    		lock1[trim1("\239\245\228\236\240", 4390)][trim1("xUWVZ]IU\\\\B", 4413)][trim1("\r\007\006\004\004", 4426)] = nil;
-    	end;
-    end;
-    local function p(s)
-    	if not s:IsA(trim1("\217\251\234\253\207\255\239\232", 4436)) then
-    		return;
-    	end;
-    	if s[trim1("\148\186\168\162\166\186\170\170", 4439)] then
-    		return;
-    	end;
-    	local runLock1 = s[trim1("\0064&.$=", 4463)];
-    	while runLock1 and runLock1 ~= useLock1 do
-    		if runLock1:IsA(trim1("tW[[Q", 4471)) and runLock1:FindFirstChildOfClass(trim1("Sotyqqtx", 4489)) then
-    			return;
-    		end;
-    		runLock1 = runLock1[trim1("\238\220\206\214\220\197", 4505)];
-    	end;
-    	local makeLock1 = tryLock1[trim1("Rxvdtw\127o{", 4528)];
-    	if makeLock1 and s:IsDescendantOf(makeLock1) then
-    		return;
-    	end;
-    	if s[trim1("\203\229\214\223", 4553)] == trim1("\n .#* ", 4560) then
-    		return;
-    	end;
-    	if #lock1[trim1("\237\243\226\238\242", 4583)][trim1("\151\167\183\176\136", 4594)] >= lock1[trim1("\137\151\134\178\174", 4623)][trim1("\0209\'\014<.\'!", 4646)] then
-    		return;
-    	end;
-    	for runLock1, makeLock1 in ipairs(lock1[trim1("\138\150\185\179\173", 4652)][trim1("\195\243\227\228\228", 4668)]) do
-    		if makeLock1[trim1(">,>7", 4695)] == s then
-    			return;
-    		end;
-    	end;
-    	pcall(function()
-    		for s, runLock1 in ipairs(s:GetChildren()) do
-    			if runLock1:IsA(trim1("IemqBa{iq", 4702)) or runLock1:IsA(trim1(">\028\022\008&\018\026\026\023\002\030\016", 4715)) or runLock1:IsA(trim1("F`fjo\127Zfnncnr|", 4731)) or runLock1:IsA(trim1("\158\188\182\168\150\184\164\182\177", 4738)) or runLock1:IsA(trim1("\148\164\163\179\169\183\130\148\136\154\157", 4758)) or runLock1:IsA(trim1("\254\204\193\202\197\211\246\215\203\171\175\181\171\182\177\179", 4776)) then
-    				runLock1:Destroy();
-    			end;
-    		end;
-    	end);
-    	pcall(function()
-    		s:SetNetworkOwner(tryLock1);
-    	end);
-    	s[trim1("\000#/\003(*)-\031\031", 4782)] = false;
-    	s[trim1("En}~`fqr", 4789)] = true;
-    	local mapLock1 = Instance[trim1("XPC", 4790)](trim1("\009%-1\025+!# +59", 4801));
-    	mapLock1[trim1("\241\210\202\247\223\197\213\208", 4814)] = Vector3[trim1("/%0", 4840)](1000000000, 1000000000, 1000000000);
-    	mapLock1[trim1("9\011\001\003\000\011\021\025", 4841)] = Vector3[trim1("\r\019\007\027", 4860)];
-    	mapLock1[trim1("\136\190\172\184\178\167", 4873)] = s;
-    	local o = #lock1[trim1("\204\208\195\201\211", 4881)][trim1("\158\172\190\183\177", 4893)];
-    	local findLock1 = o % lock1[trim1("\031\005\020\028\000", 4907)][trim1("\159\165\173\165\178", 4922)];
-    	local onLock1 = (findLock1 / lock1[trim1("\024\004\023\029\031", 4936)][trim1("cYYQF", 4954)]) * math[trim1("\139\147", 4961)];
-    	local emitLock1 = (o / math[trim1("3<$", 4984)](1, lock1[trim1("\003\017\000\008\020", 5004)][trim1("\225\194\218\241\193\213\210\214", 5027)])) * (math[trim1(";#", 5052)] * 2);
-    	table[trim1("\025\025\005\016\006\031", 5082)](lock1[trim1(" </%7", 5092)][trim1("\128\182\164\161\167", 5105)], {
-    		[trim1("\021\005\233\238", 5131)] = s,
-    		[trim1("QD", 5147)] = mapLock1,
-    		[trim1("S_W[S", 5176)] = emitLock1,
-    		[trim1("\190\170\172\166\143\161\160\182\161\143", 5202)] = onLock1,
-    	});
-    end;
-    local function trim1()
-    	lock1[trim1("\146\142\145\155\133", 5211)][trim1("\208\243\227\255\227\241", 5228)] = true;
-    	task[trim1("\215\171\187\174\182", 5259)](function()
-    		for s, runLock1 in ipairs(useLock1:GetDescendants()) do
-    			if lock1[trim1("\216\196\215\221\223", 5286)][trim1("\253\208\198\216\198\210", 5316)] then
-    				p(runLock1);
-    			end;
-    		end;
-    	end);
-    	lock1[trim1("6*=7)", 5323)][trim1("oLLOEDRLK5)", 5331)][trim1("\244\240\239\239\237", 5344)] = useLock1[trim1("<\026\r\030\025\029\022\016\030\0037\017\016\014\014", 5352)]:Connect(function(s)
-    			if lock1[trim1("\195\209\192\200\212", 5354)][trim1(">\029\009\021\005\023", 5381)] then
-    				task[trim1("#\'7\":", 5409)](p, s);
-    			end;
-    		end);
-    	local s = 0;
-    	lock1[trim1("2.1;%", 5439)][trim1("\229\202\202\181\191\186\172\182\177\179\175", 5452)][trim1("\211\209\210\204", 5480)] = runLock1[trim1("\185\149\150\132\129\150\142\139\157", 5502)]:Connect(function(runLock1)
-    			if not lock1[trim1("\223\197\212\220\192", 5508)][trim1("\229\184\174\176\174\186", 5510)] then
-    				return;
-    			end;
-    			local makeLock1 = tryLock1[trim1("fL:(8;+;/", 5534)] and tryLock1[trim1("g3;+9<*8.", 5563)]:FindFirstChild(trim1("\183\139\144\157\157\157\152\148\165\153\154\128\187\139\155\156", 5579));
-    			if not makeLock1 then
-    				return;
-    			end;
-    			s = s + runLock1 * lock1[trim1("IWFrn", 5581)][trim1("pRDEC", 5611)];
-    			local useLock1 = makeLock1[trim1("\241\207\212\207\209\205\180\180", 5616)];
-    			local mapLock1 = lock1[trim1("\015\021\004\012\016", 5622)][trim1("\251\201\203\199\216\223", 5635)];
-    			local o = #lock1[trim1("CQ@HT", 5658)][trim1("\031/?80", 5670)];
-    			for s = #lock1[trim1("\255\229\244\252\224", 5683)][trim1("\209\225\245\242\246", 5692)], 1, -1 do
-    				local runLock1 = lock1[trim1("\224\252\239\229\247", 5693)][trim1("\163\147\131\132\132", 5695)][s];
-    				if not runLock1[trim1("\012\018\000\005", 5719)] or not runLock1[trim1("\233\249\237\234", 5749)][trim1("\184\142\156\136\130\151", 5763)] then
-    					trim1(runLock1);
-    					table[trim1("\139\157\146\145\139\153", 5772)](lock1[trim1("VJ]WI", 5802)][trim1("\027+;<<", 5805)], s);
-    				end;
-    			end;
-    			for runLock1, makeLock1 in ipairs(lock1[trim1("zfic}", 5823)][trim1("\221\237\241\246\242", 5827)]) do
-    				local lock1 = ((runLock1 - 1) / math[trim1("\207\192\216", 5838)](1, o)) * (math[trim1("+3", 5843)] * 2);
-    				local tryLock1 = s + lock1;
-    				local lock1 = math[trim1("2))", 5844)](tryLock1 + makeLock1[trim1("\028\004\002\004-\007\006\020\003\017", 5874)]) * (mapLock1 * .35);
-    				local lock1 = useLock1 + Vector3[trim1("7=(", 5901)](math[trim1("\136\133\154", 5927)](tryLock1) * mapLock1, lock1, math[trim1("\153\128\134", 5956)](tryLock1) * mapLock1);
-    				local findLock1 = lock1 - makeLock1[trim1("5%\009\014", 5960)][trim1("\020\020\009\016\012\022\017\019", 5989)];
-    				if makeLock1[trim1("\242\225", 6010)] and makeLock1[trim1("bq", 6025)][trim1("\139\187\171\189\177\170", 6041)] then
-    					local s = math[trim1("\170\164\174\163\189", 6061)](findLock1[trim1("\211\252\251\253\251\229\229\243\243", 6087)] * 14, 0, 280);
-    					makeLock1[trim1("\026\009", 6105)][trim1("\163\145\135\133\138\129\155\151", 6120)] = findLock1[trim1(";\020\019\005\003\029\029\011\011", 6144)] > .05 and findLock1[trim1("\236\214\214\202", 6175)] * s or Vector3[trim1("\007\025\001\029", 6192)];
-    				end;
-    			end;
-    		end);
-    end;
-    local function isTrim1()
-    	lock1[trim1(".+23.* ", 6212)][trim1("\219\250\236\246\232\248", 6222)] = false;
-    	if lock1[trim1("tqlmtpv", 6228)][trim1("dIKJ", 6229)] then
-    		lock1[trim1("\' ;<\'!)", 6260)][trim1("|QSR", 6286)]:Disconnect();
-    		lock1[trim1("\218\223\198\199\194\198\204", 6290)][trim1("\130\175\169\168", 6293)] = nil;
-    	end;
-    	pcall(function()
-    		if lock1[trim1("\017\026\001\002\025\027\019", 6297)][trim1("\221\232\224\230\225\245\233\232\232\199\235\195", 6300)] and lock1[trim1("<9$%<8.", 6308)][trim1("w>6<;+722\017=)", 6316)][trim1("\221\237\241\231\239\244", 6329)] then
-    			lock1[trim1("\138\143\150\151\178\182\188", 6351)][trim1("+\026\018\024\031\007\027\030\0305\025\r", 6356)]:Destroy();
-    		end;
-    	end);
-    	lock1[trim1("\028\025\004\005\028\024\014", 6384)][trim1("Fqgoj|facNlz", 6401)] = nil;
-    	pcall(function()
-    		if lock1[trim1("\127xcd\127yq", 6431)][trim1("\188\171", 6437)] and lock1[trim1("9\"9:!#+", 6453)][trim1("\221\200", 6484)][trim1("\238\220\206\214\220\197", 6513)] then
-    			lock1[trim1("\218\223\198\199\194\198\204", 6541)][trim1("\024\015", 6549)]:Destroy();
-    		end;
-    	end);
-    	lock1[trim1("\141\142\149\150\141\183\191", 6573)][trim1("\179\166", 6582)] = nil;
-    	if lock1[trim1("+,7\200\211\213\221", 6608)][trim1("\150\164\182\143", 6631)] and lock1[trim1("(-\200\201\208\212\218", 6637)][trim1("\179\131\147o", 6661)][trim1("%\021\025\015\007\028", 6675)] then
-    		pcall(function()
-    			lock1[trim1("da|}d`f", 6692)][trim1("\217\233\253\250", 6715)][trim1("\177\144\158\180\153\153\152\130\142\140", 6728)] = true;
-    			lock1[trim1("tqlmtpv", 6730)][trim1("\014<.\'", 6741)][trim1("bO^_OGRS", 6750)] = false;
-    			lock1[trim1("MNUVMw\127", 6778)][trim1("}MQV", 6808)]:SetNetworkOwnershipAuto();
-    		end);
-    	end;
-    end;
-    local function mapTrim1(s)
-    	if lock1[trim1("\178\183\174\175\186\190\180", 6834)][trim1("Kzrx\127g{~~Uym", 6835)] then
-    		pcall(function()
-    			lock1[trim1("pu`ax|r", 6846)][trim1("VaW_ZLVQS~\\J", 6865)]:Destroy();
-    		end);
-    		lock1[trim1("\154\159\134\135\130\134\140", 6891)][trim1("\174\153\159\151\146\132\158\153\155\182\132\146", 6892)] = nil;
-    	end;
-    	if lock1[trim1("\229\230\253\254\229\239\231", 6919)][trim1("zYMQI[", 6923)] then
-    		isTrim1();
-    	end;
-    	if not s or not s:IsA(trim1("AcreWgwp", 6942)) then
-    		lock1[trim1("9\"9:!#+", 6955)][trim1("\231\215\199\192", 6967)] = nil;
-    		return;
-    	end;
-    	lock1[trim1("\242\247\238\239\250\254\244", 6986)][trim1("\216\238\252\249", 6995)] = s;
-    	local runLock1 = Instance[trim1("AKZ", 7001)](trim1("\128\183\189\181\180\162\188\187\165\136\166\176", 7026));
-    	runLock1[trim1("\250\202\199\204", 7054)] = trim1("\132\161\188\189\164\160\166\157\146\165\171\163\166\176\146\149\151", 7065);
-    	runLock1[trim1("\144\180\184\164\187\177\174", 7084)] = s;
-    	runLock1[trim1("xBDL|GGNGMGRS", 7107)] = .07;
-    	runLock1[trim1("\147\184\186\186\166\248", 7113)] = Color3[trim1("\017\004\026\0259-+", 7119)](255, 60, 60);
-    	runLock1[trim1("oF@WQTSv[GE[\027", 7126)] = Color3[trim1("&5)(\022<8", 7128)](255, 60, 60);
-    	runLock1[trim1("=\024\030\005\003\002\0053\020\004\n\232\234\248\234\250\240\254\229", 7129)] = .7;
-    	runLock1[trim1("\136\190\172\184\178\167", 7132)] = lock1;
-    	lock1[trim1("~{bc~zp", 7155)][trim1("\020#)!\024\014\016\023\017<\018\004", 7157)] = runLock1;
-    end;
-    local function trim1()
-    	local s = lock1[trim1("\174\171\178HSU]", 7163)][trim1("\148\154\136\141", 7191)];
-    	if not s or not s[trim1("\177zh|vk", 7221)] then
-    		return;
-    	end;
-    	if not lock1[trim1("\175\182\188\181\132\182\164\178\177\191", 7248)] then
-    		return;
-    	end;
-    	if not lock1[trim1("\008\031\023\028+\031\015\027\022\006", 7273)][trim1("\186\144\158\140\156\159\135\151\131", 7278)] then
-    		return;
-    	end;
-    	pcall(function()
-    		for s, runLock1 in ipairs(s:GetChildren()) do
-    			if runLock1:IsA(trim1("0\030\020\014;\026\002\014\024", 7283)) or runLock1:IsA(trim1("S\127soCqgeja{w", 7289)) or runLock1:IsA(trim1("aEMG@RqCIK83-!", 7310)) or runLock1:IsA(trim1("|RXJt^BTS", 7319)) or runLock1:IsA(trim1("\234\214\209\197\223\197\240\218\198\200\207", 7324)) or runLock1:IsA(trim1(".\000\n\025\015\003\0196\002\n\n\007\242\238\224", 7351)) or runLock1:IsA(trim1("aMEYfHBQ7;+\014:22?:&(", 7368)) or runLock1:IsA(trim1("\209\237\226\235\226\242\213\246\212\202\204\212\204\215\210\210", 7391)) then
-    				runLock1:Destroy();
-    			end;
-    		end;
-    	end);
-    	pcall(function()
-    		s:SetNetworkOwner(tryLock1);
-    	end);
-    	s[trim1("\'\250\244\218\247\243\242\244\248\246", 7419)] = true;
-    	s[trim1("\175\128hiu}lm", 7443)] = false;
-    	s[trim1("H\127z|`c]dzqhcfjUvTJ\\JKWXO", 7463)] = PhysicalProperties[trim1("\244\252\239", 7477)](100, .3, .5, 100, 100);
-    	local makeLock1 = Instance[trim1("\238\226\241", 7478)](trim1("Yu}aI{qsp{ei", 7501));
-    	makeLock1[trim1("\188\145\143\176\154\134\136\143", 7510)] = Vector3[trim1("39$", 7523)](1000000000, 1000000000, 1000000000);
-    	makeLock1[trim1("\208\224\232\212\217\208\204\198", 7536)] = Vector3[trim1("c}mq", 7559)];
-    	makeLock1[trim1("_o\127imv", 7579)] = s;
-    	lock1[trim1("UVMNU_W", 7588)][trim1("\018\001", 7592)] = makeLock1;
-    	lock1[trim1(":?&\'\"&,", 7621)][trim1("Lowkwe", 7637)] = true;
-    	local useLock1 = trim1("JZYZ@OND", 7638);
-    	local mapLock1 = 0;
-    	local o = Vector3[trim1("\211\205\221\193", 7643)];
-    	local findLock1 = tick();
-    	local onLock1;
-    	onLock1 = runLock1[trim1("jDAURGA:.", 7648)]:Connect(function()
-    			if tick() - findLock1 > lock1[trim1(".#-$(\'", 7660)][trim1("\254\231\249\243\231\235\249\239\253\250\246\241\233\249\241", 7662)] then
-    				onLock1:Disconnect();
-    				return;
-    			end;
-    			pcall(function()
-    				s:SetNetworkOwner(tryLock1);
-    			end);
-    		end);
-    	lock1[trim1("\166\163\186\187\166\162\168", 7684)][trim1("\243\216\216\219", 7691)] = runLock1[trim1("<\014\011\027\028\r\011\012\024", 7708)]:Connect(function(runLock1)
-    			if not lock1[trim1("\223\216\195\196\223\217\209", 7709)][trim1("Ji}ayk", 7714)] then
-    				return;
-    			end;
-    			if not s or not s[trim1("iYM[SH", 7734)] then
-    				isTrim1();
-    				return;
-    			end;
-    			local tryLock1 = lock1[trim1("CRXQ`JXNM[", 7744)] and lock1[trim1("\197\208\218\207\254\200\218\200\203\217", 7749)][trim1(")\001\009\029\015\014\024\006\016", 7766)];
-    			local findLock1 = tryLock1 and tryLock1:FindFirstChild(trim1("3\015\020\025\017\017\020\024!\029\030\004\'\023\007\000", 7775));
-    			if not findLock1 then
-    				return;
-    			end;
-    			local onLock1 = findLock1[trim1("\252\204\209\200\212\206\201\203", 7788)];
-    			local emitLock1 = s[trim1("\139\181\170\177\171\183\178\178", 7798)];
-    			local hasLock1 = (onLock1 - emitLock1)[trim1("i:=71++99", 7822)];
-    			mapLock1 = mapLock1 + runLock1;
-    			if useLock1 == trim1("\187\169\168\173\177\188\191\187", 7827) then
-    				local s = onLock1 - emitLock1;
-    				if s[trim1("\178\159\154\146\154\134\132\148\146", 7838)] > .01 then
-    					makeLock1[trim1("\145\163\169\171\152\147\141\129", 7857)] = s[trim1("vLHT", 7870)] * lock1[trim1("\255\248\227\228\255\249\241", 7884)][trim1("#\011\233\249\252", 7892)];
-    				end;
-    				if hasLock1 < 6 or mapLock1 > 1.5 then
-    					useLock1 = trim1("\177\161\151\159\137\151\141\138", 7915);
-    					mapLock1 = 0;
-    				end;
-    			elseif useLock1 == trim1("\n\024\016\022\002\030\002\003", 7920) then
-    				local runLock1 = tick();
-    				local tryLock1 = Vector3[trim1("zn}", 7936)](math[trim1("$?;", 7948)](runLock1 * 17) * .8, math[trim1("\234\231\252", 7970)](runLock1 * 11) * .8, math[trim1("C^X", 7995)](runLock1 * 23) * .8);
-    				pcall(function()
-    					s[trim1("\159\149\160\176\189\178", 8001)] = CFrame[trim1(";1<", 8006)](onLock1 + tryLock1) * CFrame[trim1("\206\224\234\224\230\241", 8028)](runLock1 * 5, runLock1 * 7, runLock1 * 3);
-    				end);
-    				local findLock1 = emitLock1 - onLock1;
-    				makeLock1[trim1("\133\183\189\191\180\191\161\173", 8030)] = findLock1[trim1("\180\153\152\144\148\136\134\150\148", 8031)] > .01 and (findLock1[trim1("Rhlp", 8062)] * lock1[trim1("*/67\210\214\220", 8085)][trim1("\007/5% ", 8103)]) * 2 or Vector3[trim1("xpc", 8129)](0, lock1[trim1("STO@[]U", 8148)][trim1("[saqt", 8177)], 0);
-    				if mapLock1 > .4 then
-    					useLock1 = trim1("\191\169\183\176\164\161\179", 8185);
-    					mapLock1 = 0;
-    					o = Vector3[trim1("\002\006\021", 8191)](math[trim1("\194\214\216\209\219\198", 8193)](-20, 20), math[trim1("RFHAK6", 8208)](2, 8), math[trim1("\251\233\225\234\226\225", 8221)](-20, 20));
-    				end;
-    			elseif useLock1 == trim1("ZJZ_IBV", 8227) then
-    				local s = onLock1 + o;
-    				local runLock1 = s - emitLock1;
-    				if runLock1[trim1("^sv~~b`pn", 8235)] > .01 then
-    					makeLock1[trim1("p@H490,&", 8266)] = (runLock1[trim1("\0082:&", 8276)] * lock1[trim1("MNUVMw\127", 8284)][trim1("yQO_V", 8294)]) * 1.5;
-    				end;
-    				if mapLock1 > .3 then
-    					useLock1 = trim1("_MLA]PS_", 8323);
-    					mapLock1 = 0;
-    				end;
-    			end;
-    		end);
-    end;
-    function onLock1.GetAllParts(runLock1, s)
-    	local makeLock1 = {};
-    	if s:IsA(trim1("nBQDpFTQ", 8343)) then
-    		table[trim1("\247\243\239\246\224\229", 8346)](makeLock1, s);
-    	elseif s:IsA(trim1("\148\183\187\187\177", 8358)) then
-    		for s, runLock1 in pairs(s:GetDescendants()) do
-    			if runLock1:IsA(trim1("\132\164\183\158\170\152\138\139", 8388)) then
-    				table[trim1("\234\236\242\229\245\242", 8395)](makeLock1, runLock1);
-    			end;
-    		end;
-    	end;
-    	return makeLock1;
-    end;
-    function onLock1.ClaimPart(makeLock1, s)
-    	if not s:IsA(trim1("\0186%0\004*8=", 8421)) then
-    		return nil;
-    	end;
-    	local useLock1 = makeLock1[trim1("\235\192\192\203\197\196", 8425)][trim1("\020:4=&\007,<\'!)", 8450)];
-    	local mapLock1 = nil;
-    	if useLock1 == trim1("\148\141\151\157\141\141\149\149\131", 8475) then
-    		local makeLock1 = pcall(function()
-    				s:SetNetworkOwner(tryLock1);
-    			end);
-    		local useLock1 = tick();
-    		mapLock1 = runLock1[trim1("\030059>+-.:", 8479)]:Connect(function()
-    				if not s or not s[trim1("\216\238\252\232\226\247", 8501)] then
-    					return;
-    				end;
-    				if tick() - useLock1 < lock1[trim1("\204\193\195\202\202\197", 8530)][trim1("\193\218\194\198\208\222\210\194\210\215\221\228\254\236\234", 8559)] then
-    					pcall(function()
-    						s:SetNetworkOwner(tryLock1);
-    					end);
-    				else
-    					s[trim1("\192\240\248\228\233\224\252\246", 8578)] = Vector3[trim1("/%0", 8605)](0, .01, 0);
-    				end;
-    			end);
-    	elseif useLock1 == trim1("\016\000\008\244\249\240\236\230", 8616) then
-    		mapLock1 = runLock1[trim1("W{|ngptqc", 8621)]:Connect(function()
-    				if s and s[trim1("\235\219\203\221\209\202", 8627)] then
-    					s[trim1(" \016\024\004\009\000\028\022", 8654)] = Vector3[trim1("syd", 8679)](0, .01, 0);
-    					s[trim1("iUMnZRR_ZFH", 8680)] = Vector3[trim1("\175\177\185\165", 8706)];
-    				end;
-    			end);
-    	elseif useLock1 == trim1("\031\021\000\016\029\018", 8731) then
-    		local makeLock1 = s[trim1("X\\kyr{", 8756)];
-    		mapLock1 = runLock1[trim1("\246\216\221\193\198\211\213\214\194", 8772)]:Connect(function()
-    				if s and s[trim1("Yi}kcx", 8776)] then
-    					s[trim1("\030\026!3<5", 8778)] = makeLock1;
-    				end;
-    			end);
-    	end;
-    	return mapLock1;
-    end;
-    local ofTrim1 = {};
-    local findTrim1 = false;
-    local trim1 = false;
-    local g = nil;
-    local function emitTrim1(s)
-    	local runLock1 = s[trim1("Xn|hbw", 8805)];
-    	while runLock1 and runLock1 ~= useLock1 do
-    		if runLock1:IsA(trim1("JiaaW", 8815)) and runLock1:FindFirstChildOfClass(trim1("\215\235\240\253\253\253\248\244", 8819)) then
-    			return true;
-    		end;
-    		runLock1 = runLock1[trim1("\221\237\241\231\239\244", 8839)];
-    	end;
-    	local makeLock1 = tryLock1[trim1("\232\194\200\218\206\205\217\201\209", 8840)];
-    	if makeLock1 and (s == makeLock1 or s:IsDescendantOf(makeLock1)) then
-    		return true;
-    	end;
-    	return false;
-    end;
-    local function trim1(s)
-    	local runLock1 = ofTrim1[s];
-    	if not runLock1 then
-    		return;
-    	end;
-    	if runLock1[trim1("\182\175\177\187\175\159\188\188\191", 8860)] then
-    		runLock1[trim1("pisyaQ~~y", 8872)]:Disconnect();
-    	end;
-    	if runLock1[trim1("\223\205\195\237\194\194\205", 8898)] then
-    		runLock1[trim1("\214\194\202\230\203\181\180", 8908)]:Disconnect();
-    	end;
-    	if runLock1[trim1("\007\253\217\246\246\241", 8925)] then
-    		runLock1[trim1("\248\252\218\247\241\240", 8954)]:Disconnect();
-    	end;
-    	pcall(function()
-    		s[trim1("\237\204\194\224\205\205\204\206\194\192", 8985)] = true;
-    		s:SetNetworkOwnershipAuto();
-    	end);
-    	ofTrim1[s] = nil;
-    end;
-    local function toTrim1(s)
-    	trim1 = s;
-    	if g then
-    		g:Disconnect();
-    		g = nil;
-    	end;
-    	if not s then
-    		local s = tryLock1[trim1("\230\204\186\168\184\187\171\187\175", 8995)];
-    		if s then
-    			for s, runLock1 in ipairs(s:GetDescendants()) do
-    				if runLock1:IsA(trim1("\171\137\156\139\189\141\145\150", 8997)) then
-    					pcall(function()
-    						runLock1[trim1("\136\171\167\139\160\162\161\165\167\167", 9015)] = true;
-    					end);
-    				end;
-    			end;
-    		end;
-    		for s in pairs(ofTrim1) do
-    			pcall(function()
-    				s[trim1("\030==\017><;?11", 9029)] = true;
-    			end);
-    		end;
-    		return;
-    	end;
-    	g = runLock1[trim1(")\005\006\020\017\006\254\251\237", 9031)]:Connect(function()
-    			local s = tryLock1[trim1("9\017\025\r\031\030\008\022\000", 9059)];
-    			if s then
-    				for s, runLock1 in ipairs(s:GetDescendants()) do
-    					if runLock1:IsA(trim1("[yl{M}af", 9065)) and runLock1[trim1("\138\169\161\141\162\160\175\171\165\165", 9073)] then
-    						pcall(function()
-    							runLock1[trim1("\009(&\012!! *&$", 9097)] = false;
-    						end);
-    					end;
-    				end;
-    			end;
-    			for s in pairs(ofTrim1) do
-    				if s[trim1("\0020\"28!", 9116)] and s[trim1("\189\156\146\176\157\157\156\158\146\144", 9122)] then
-    					pcall(function()
-    						s[trim1("NmmAnlkoaa", 9143)] = false;
-    					end);
-    				end;
-    			end;
-    		end);
-    end;
-    local function setTrim1(s)
-    	if not s:IsA(trim1("\'\005\232\255\201\249\237\234", 9147)) then
-    		return;
-    	end;
-    	if s[trim1("\158\176\190\180\188\160\180\180", 9169)] then
-    		return;
-    	end;
-    	if emitTrim1(s) then
-    		return;
-    	end;
-    	if ofTrim1[s] then
-    		return;
-    	end;
-    	pcall(function()
-    		for s, runLock1 in ipairs(s:GetChildren()) do
-    			if runLock1:IsA(trim1("\161\141\133bWvnzl", 9171)) or runLock1:IsA(trim1("NlfxVbjjgRN@", 9172)) or runLock1:IsA(trim1("2\020\018\022\019\003&\018\026\026\023\002\030\016", 9175)) or runLock1:IsA(trim1("&\244\254\224\222\240\236\254\249", 9176)) or runLock1:IsA(trim1("Kypf~bQygwn", 9181)) or runLock1:IsA(trim1("\n0=69\'\002#?\'#9\'\"%\'", 9193)) then
-    				runLock1:Destroy();
-    			end;
-    		end;
-    	end);
-    	local makeLock1 = s[trim1("\150\146\185\171\164\173", 9208)];
-    	local useLock1 = tick();
-    	local mapLock1 = lock1[trim1("yvvywz", 9211)][trim1(",5/%597!\207\200\192\199\219\203\207", 9224)];
-    	pcall(function()
-    		s:SetNetworkOwner(tryLock1);
-    	end);
-    	local o = runLock1[trim1("xRWG@IOH\\", 9250)]:Connect(function()
-    			if not s[trim1("\216\238\252\232\226\247", 9254)] then
-    				trim1(s);
-    				return;
-    			end;
-    			if not findTrim1 then
-    				trim1(s);
-    				return;
-    			end;
-    			local runLock1 = tick() - useLock1;
-    			if runLock1 < mapLock1 or runLock1 % .5 < .02 then
-    				pcall(function()
-    					s:SetNetworkOwner(tryLock1);
-    				end);
-    			end;
-    		end);
-    	local findLock1 = runLock1[trim1("\236\190\187\171\172\189\187\188\168", 9275)]:Connect(function()
-    			if not s[trim1("~L^FLU", 9289)] then
-    				return;
-    			end;
-    			if not findTrim1 then
-    				return;
-    			end;
-    			pcall(function()
-    				s[trim1("\166\146\154\154\151\130\158\144", 9296)] = Vector3[trim1("\218\206\221", 9313)](0, .001, 0);
-    				s[trim1("\016.4\017#)+\024\019\r\001", 9329)] = Vector3[trim1("|`vT", 9346)];
-    			end);
-    		end);
-    	local onLock1 = runLock1[trim1("\196\230\227\243\244\229\227\228\240", 9370)]:Connect(function()
-    			if not s[trim1("\016&4 *\015", 9387)] then
-    				return;
-    			end;
-    			if not findTrim1 then
-    				return;
-    			end;
-    			pcall(function()
-    				s[trim1("\215\205\248\232\229\234", 9389)] = makeLock1;
-    			end);
-    		end);
-    	ofTrim1[s] = { [trim1("\\E_UEuZZE", 9414)] = o, [trim1("\027\009\015!\014\014\009", 9417)] = findLock1, [trim1("%#\007\020\020\023", 9445)] = onLock1 };
-    end;
-    function onLock1.ClaimAllWorkspace(s)
-    	if findTrim1 then
-    		findTrim1 = false;
-    		if s[trim1("\134\160\170\190\172", 9459)][trim1("]latuD`__]{PPS", 9481)] then
-    			s[trim1("\005!5?/", 9483)][trim1("\224\211\220\207\192\243\213\212\210\210\246\219\197\196", 9496)]:Disconnect();
-    			s[trim1("|ZLXF", 9511)][trim1("gR_NOrVUUSuZZE", 9520)] = nil;
-    		end;
-    		local runLock1 = 0;
-    		for s in pairs(ofTrim1) do
-    			trim1(s);
-    			runLock1 += 1;
-    		end;
-    		print(string[trim1("YQOQRF", 9549)](trim1("A>2\128\245\195\201\193\186\169\188\188\255\251\185\252\164\189\163\187\164\166\180\183\174\234\185\169\189\186\190", 9574), runLock1));
-    		return;
-    	end;
-    	findTrim1 = true;
-    	task[trim1("\187\191\175\186\162", 9604)](function()
-    		local s = 0;
-    		for runLock1, makeLock1 in ipairs(useLock1:GetDescendants()) do
-    			if not findTrim1 then
-    				break;
-    			end;
-    			setTrim1(makeLock1);
-    			s += 1;
-    			if s % 200 == 0 then
-    				task[trim1("\204\219\208\204", 9631)]();
-    			end;
-    		end;
-    		local runLock1 = 0;
-    		for s in pairs(ofTrim1) do
-    			runLock1 += 1;
-    		end;
-    		print(string[trim1("\177\185\167\185\170\190", 9652)](trim1("J3=\141\248\209\203\209\204\194\139\198\200\186\179\180\189\187\254\248\184\243\165\190\162\188\165\165\181\168\175\233\184\174\188\185\191", 9680), runLock1));
-    	end);
-    	if s[trim1("z\\NZH", 9704)][trim1("\130\177\178\161\162\145\179\178\176\176\136\165\167\166", 9729)] then
-    		s[trim1("\201\237\249\235\251", 9736)][trim1("\198\245\254\237\238\221\247\246\244\244\212\249\251\250", 9765)]:Disconnect();
-    	end;
-    	s[trim1("\145\181\161\179\163", 9778)][trim1("\208\227\236\255\240\195\229\228\226\226\198\235\213\212", 9785)] = useLock1[trim1("\241\209\216\201\204\198\203\207\195\216\226\198\197\197\195", 9786)]:Connect(function(s)
-    			if findTrim1 then
-    				task[trim1("/#3&>", 9811)](setTrim1, s);
-    			end;
-    		end);
-    end;
-    function onLock1.ClaimSelected(s)
-    	local runLock1 = s[trim1(";\027\015\025\009", 9832)][trim1("\197\240\248\238\233\253\237\235\193\239\230\230\225\245", 9833)];
-    	if not runLock1 then
-    		print(trim1("*Un\237\130\172\226\174\162\173\163\166\176\219\137\156\148\154\157\137\153\151", 9855));
-    		return;
-    	end;
-    	local makeLock1 = s:GetAllParts(runLock1);
-    	if #makeLock1 == 0 then
-    		print(trim1("\127\000\004\178\223\255\183\224\244\248\226\238\169\248\238\252\249\255\163\228\238\245\233\226", 9881));
-    		return;
-    	end;
-    	for s, makeLock1 in pairs(s[trim1("\242\212\198\210\192", 9883)][trim1("\249\213\217\214\211\216\216\252\208\219\213\212\194\198", 9911)]) do
-    		if makeLock1[trim1("\205\227\234\226\229\241", 9930)] == runLock1 then
-    			print(trim1("\173\212\237l\002.3%&\"<d\024\022\024\017\018\027\025", 9937));
-    			return;
-    		end;
-    	end;
-    	local lock1 = {};
-    	for runLock1, makeLock1 in ipairs(makeLock1) do
-    		local useLock1 = s:ClaimPart(makeLock1);
-    		if useLock1 then
-    			table[trim1("\154\156\130\149\133\130", 9962)](lock1, useLock1);
-    		end;
-    	end;
-    	local useLock1 = Instance[trim1("ldw", 9983)](trim1("gGJDOKFHS", 10013));
-    	useLock1[trim1("\183\153\146\155", 10039)] = trim1("\143\165\179\177\170\182\144\185\149\153\150\147\162\180\154\149\153\156\158\145\157\128", 10058);
-    	useLock1[trim1("7\025\027\0266\027\007\005\027", 10073)] = s[trim1("v[EL@O", 10090)][trim1("\153\185\176\190\185\189\172\162\189\139\160\162\162\190", 10096)];
-    	useLock1[trim1("\159\162\162\185\189\165\175\138\167\163\161\191", 10125)] = s[trim1("Uzzmcn", 10137)][trim1("tZUY\\^Q]@hEEG]", 10138)];
-    	useLock1[trim1("9\023\017\016\'\000\016\030\004\006\020\006\014\004\n\017", 10150)] = .5;
-    	useLock1[trim1("1\008\008\031\027\031\021#\004\020\026\024\026\008\026\n\000\014\021", 10179)] = 0;
-    	useLock1[trim1("\159\185\179\161\188\180\181", 10202)] = runLock1;
-    	useLock1[trim1("\0077\'1%>", 10207)] = runLock1;
-    	table[trim1("IIU@V/", 10216)](s[trim1("@fpdr", 10243)][trim1("\252\210\220\213\222\215\213\255\213\220\208\215\223\217", 10249)], {
-    		[trim1("\140\160\171\165\164\178", 10251)] = runLock1,
-    		[trim1(")\006\006\001\011\014\024\n\r\015\019", 10276)] = lock1,
-    		[trim1("\028\"-!$&)%8", 10294)] = useLock1,
-    		[trim1("\190\150\155\144", 10300)] = runLock1[trim1("?\017\026\019", 10324)],
-    		[trim1("t:(-\0270+3(", 10332)] = #makeLock1,
-    	});
-    	print(string[trim1("\'/5+$0", 10362)](trim1("\214\183\185\009kCODAFF\027\000\002U\005\012~>y(>,)/z", 10370), runLock1[trim1("Cmng", 10398)], #makeLock1));
-    	s:UpdateDisplay();
-    end;
-    function onLock1.ClaimEntireModel(s)
-    	local runLock1 = s[trim1("_wcue", 10427)][trim1("Gnflk{kiCahdcs", 10446)];
-    	if not runLock1 then
-    		print(trim1("p\0110\183\216\250\180\228\232\227\237\236\250\173\255\230\238\228\227\243\227\225", 10470));
-    		return;
-    	end;
-    	local makeLock1 = runLock1:IsA(trim1("\018199?", 10477)) and runLock1 or runLock1:FindFirstAncestorOfClass(trim1("&\005\r\r\003", 10498));
-    	if not makeLock1 then
-    		print(trim1(")Pi\232\129\161\185\236\170\172\225\161\231\171\170\160\158\150", 10521));
-    		return;
-    	end;
-    	s[trim1("\014(2&4", 10535)][trim1("\136\191\181\189\188\170\184\184\156\176\187\181\180\162", 10559)] = makeLock1;
-    	s:ClaimSelected();
-    end;
-    function onLock1.ClaimAllDescendants(s)
-    	local runLock1 = s[trim1("Ccwaq", 10581)][trim1("nY_WRDRRzVAOJ\\", 10611)];
-    	if not runLock1 then
-    		print(trim1("\132\255\196\187\212\246\184\240\252\247\249\240\230\177\227\242\250\240\247\255\239\237", 10624));
-    		return;
-    	end;
-    	local makeLock1 = 0;
-    	for runLock1, lock1 in ipairs(runLock1:GetDescendants()) do
-    		if lock1:IsA(trim1("\0248+:\014<.\'", 10641)) then
-    			s:ClaimPart(lock1);
-    			makeLock1 += 1;
-    		end;
-    	end;
-    	print(string[trim1("\177\185\167\185\170\190", 10656)](trim1("\143\240\240B\"\012\006\015\008\001\255\186\188\252\191\250\248\239\240\247\255\244\246\248\225\231", 10672), makeLock1));
-    end;
-    function onLock1.ReleaseSelected(s)
-    	local runLock1 = s[trim1("\0211%\015\031", 10700)][trim1("XoemlzhhL`kedr", 10726)];
-    	if not runLock1 then
-    		print(trim1("s\n7\182\219\251\171\229\235\226\234\237\249\172\240\231\237\229\228\242\224\224", 10750));
-    		return;
-    	end;
-    	for makeLock1, lock1 in ipairs(s[trim1("1\021\001\019\003", 10759)][trim1("\253\209\221\218\223\212\212\248\212\223\209\200\222\218", 10780)]) do
-    		if lock1[trim1("Oel`gO", 10794)] == runLock1 then
-    			for s, runLock1 in ipairs(lock1[trim1("#\008\008\011\001\248\238\240\247\241\237", 10817)]) do
-    				if runLock1 then
-    					runLock1:Disconnect();
-    				end;
-    			end;
-    			if lock1[trim1("\176\150\153\149\144\154\149\153\132", 10821)] and lock1[trim1("/\015\002\012\247\243\254\240\235", 10846)][trim1("(\030\012\024\018\007", 10874)] then
-    				lock1[trim1("Mm\\RUQXVI", 10881)]:Destroy();
-    			end;
-    			for s, runLock1 in ipairs(s:GetAllParts(lock1[trim1("\015%, \'\015", 10893)])) do
-    				pcall(function()
-    					runLock1:SetNetworkOwnershipAuto();
-    				end);
-    			end;
-    			table[trim1("\165\179\184\187\189\175", 10907)](s[trim1("qUASC", 10911)][trim1("\249\213\217\214\211\216\216\252\208\219\213\212\194\198", 10915)], makeLock1);
-    			print(string[trim1("\163\171\137\151\152\140", 10927)](trim1("h\021\027\175\220\232\224\230\227\242\229\227\188\165\161\200", 10953), lock1[trim1("\199\233\226\235", 10982)]));
-    			s:UpdateDisplay();
-    			return;
-    		end;
-    	end;
-    	print(trim1(">Ir\241\159\181\188\176\183\191\234\167\167\187\238\174\160\162\171\172\165\163", 11013));
-    end;
-    function onLock1.ReleaseAll(s)
-    	if #s[trim1("Hnxlz", 11015)][trim1("\015/#(-\"\"\n&\017\031\026\012\012", 11028)] == 0 then
-    		print(trim1("\018mV\213\186\132\158\129\129\129\137\205\152\140\194\147~v|yl{", 11053));
-    		return;
-    	end;
-    	local runLock1 = #s[trim1("Jl~jx", 11073)][trim1("\232\198\200\193\194\203\201\227\193\200\196\195\211\213", 11099)];
-    	for runLock1, makeLock1 in ipairs(s[trim1("\249\221\201\219\203", 11128)][trim1("hFHABKIcAHDCSU", 11152)]) do
-    		for s, runLock1 in ipairs(makeLock1[trim1("\156\177\179\178\182\177\165\185\184\184\166", 11177)]) do
-    			if runLock1 then
-    				runLock1:Disconnect();
-    			end;
-    		end;
-    		if makeLock1[trim1("\219\251\246\248\251\255\242\252\255", 11194)] and makeLock1[trim1("\006$++.(\'/2", 11221)][trim1("\217\233\253\235\227\248", 11233)] then
-    			makeLock1[trim1("`FIE@JEIT", 11239)]:Destroy();
-    		end;
-    		for s, runLock1 in ipairs(s:GetAllParts(makeLock1[trim1("\002.)\'\"4", 11250)])) do
-    			pcall(function()
-    				runLock1:SetNetworkOwnershipAuto();
-    			end);
-    		end;
-    	end;
-    	s[trim1("Aeqcs", 11276)][trim1("\219\243\255\244\241\246\246\222\242\253\243\246\224\248", 11300)] = {};
-    	print(string[trim1("\137\129\159\129\130\150", 11314)](trim1("l\017\031\163\208\228\236\226\231\246\225\223\154\156\220\159\209\223\214\214\209\197\195", 11320), runLock1));
-    	s:UpdateDisplay();
-    end;
-    function onLock1.SelectObject(runLock1, s)
-    	if not s or not s:IsA(trim1("`CGGM", 11326)) and not s:IsA(trim1("\008(;*\030,>7", 11356)) then
-    		print(trim1("\185\192\249x\0220+=?;5p$391(> \'!", 11365));
-    		return;
-    	end;
-    	if runLock1[trim1("\232\206\216\204\218", 11388)][trim1("MxpvqeusYw~ni}", 11411)] then
-    		local s = runLock1[trim1("\167\159\139\157\141", 11420)][trim1("rEKCFP>>\022:5;>(", 11442)]:FindFirstChild(trim1("\221\247\229\231\248\228\254\215\231\235\224\229\208\221\232\224\230\225\245\233\232\232", 11445));
-    		if s then
-    			s:Destroy();
-    		end;
-    	end;
-    	runLock1[trim1(".\008\018\006\020", 11463)][trim1("\218\237\227\235\238\248\230\230\206\226\237\227\230\240", 11484)] = s;
-    	local makeLock1 = Instance[trim1("#)4", 11501)](trim1("\r8061%988\023;3", 11510));
-    	makeLock1[trim1("5\027\020\029", 11540)] = trim1("\132\172\188\184\161\191\167\128\174\160\169\170\153\150\161\151\159\154\140\150\145\147", 11554);
-    	makeLock1[trim1("0\020\024\004\027\017\014", 11579)] = s;
-    	makeLock1[trim1("Jlj^nQQ\\USY@A", 11605)] = .05;
-    	makeLock1[trim1("\132\169\169\171\137\201", 11622)] = Color3[trim1("h\127cnPFB", 11624)](255, 255, 0);
-    	makeLock1[trim1("\'\023\007\017\005\030", 11637)] = s;
-    	print(string[trim1("\025\017\015\017\018\006", 11656)](trim1(",Q_\227\145\164\172\162\165\177\161\159\192\217\221\140", 11670), s[trim1("\001/ )", 11694)]));
-    	runLock1:UpdateDisplay();
-    end;
-    function onLock1.UpdateDisplay(s)
-    	if not s[trim1("\193\229\241\227\243", 11725)][trim1("\024\005", 11752)] then
-    		return;
-    	end;
-    	local runLock1 = s[trim1("\212\242\228\240\222", 11774)][trim1("\205\214", 11802)][trim1("\181\158\151\147\186\129\147\156\149", 11825)];
-    	local makeLock1 = runLock1[trim1("Dikp^TM", 11827)][trim1("\189\136\128\134\129\149ruwT~|xp", 11845)];
-    	local lock1 = runLock1[trim1("iUG^TrVD", 11866)][trim1("+\011\031\009\009\000;\031\020\030\021\020\000\004\024", 11878)];
-    	local useLock1 = runLock1[trim1("\n\'!:(\"7", 11887)][trim1("\127_SX]RRy]X^", 11895)];
-    	if s[trim1("%\001\021\031\015", 11917)][trim1("\176\135\141~ym}{Q\127vvqe", 11932)] then
-    		local runLock1 = s[trim1("\028:,8&", 11945)][trim1("Pgmedr``tXS]\\J", 11962)]:IsA(trim1("\152\187\175\175\165", 11969)) and trim1("|_SSY", 11982) or trim1("\162\144\130\131", 11999);
-    		makeLock1[trim1("{KUX", 12021)] = string[trim1("\194\180\168\180\185\171", 12036)](trim1("\0149?72$22otn9i`j=d", 12041), s[trim1("lJ\\HV", 12059)][trim1("[jbhowgeOel`gO", 12068)][trim1("^v{p", 12087)], runLock1);
-    		makeLock1[trim1("\217\233\251\246\194\239\235\233\247\183", 12102)] = Color3[trim1("4#?:\004\018\022", 12128)](100, 255, 100);
-    	else
-    		makeLock1[trim1("\239\223\193\204", 12141)] = trim1("\127_[R[\023W[\020DHCMLZ\rEM\015VOUJA\004/5y+:28?\'", 12146);
-    		makeLock1[trim1("\200\246\234\229\211\248\250\250\230\184", 12169)] = Color3[trim1("\220\203\215\210\236\250\254", 12170)](200, 200, 200);
-    	end;
-    	local tryLock1 = #s[trim1("rTFR@", 12195)][trim1("7\007\011\000\005\n\n\"\014\009\007\002\020\020", 12226)];
-    	lock1[trim1("(\022\n\005", 12245)] = tryLock1  .. trim1("\185\219\211\223\212\209\214\214", 12275);
-    	lock1[trim1("(\008\011\004\009\031\003\022\012\005#\008\n\n\022\168", 12284)] = tryLock1 > 0 and Color3[trim1("\211\198\196\199\251\239\237", 12296)](255, 100, 0) or Color3[trim1("\158\141\145\144\174\180\176", 12327)](50, 50, 50);
-    	lock1[trim1("\0077)$\02099;9y", 12350)] = tryLock1 > 0 and Color3[trim1("\023\029\008", 12351)](1, 1, 1) or Color3[trim1("\000\023\011\246\200\222\218", 12381)](200, 200, 200);
-    	for s, runLock1 in pairs(useLock1:GetChildren()) do
-    		if not runLock1:IsA(trim1("\255\224\228\198\221\217\224\194\219\206\213\211", 12383)) then
-    			runLock1:Destroy();
-    		end;
-    	end;
-    	for runLock1, makeLock1 in ipairs(s[trim1("\002$6\"0", 12408)][trim1("5\025\021\002\007\012\012 \012\007\009\000\022\018", 12419)]) do
-    		local lock1 = Instance[trim1("\206\194\209", 12422)](trim1("\229\213\207\194\247\193\223\222\198\198", 12431), useLock1);
-    		lock1[trim1("w[@WJJrNWWC", 12445)] = runLock1;
-    		lock1[trim1("Gbpl", 12454)] = UDim2[trim1("\222\210\193", 12460)](1, -5, 0, 28);
-    		lock1[trim1("\245\215\214\223\204\216\198\221\193\202\238\195\207\205\211\147", 12489)] = Color3[trim1("\156\139\151\146\172\186\190", 12520)](40, 40, 50);
-    		lock1[trim1("\014,0%%5\021,>\030*\016\000\026\018", 12534)] = 0;
-    		lock1[trim1("\226\180\180\173", 12538)] = Enum[trim1("\0273=&", 12543)][trim1("\179\152\146\144", 12559)];
-    		lock1[trim1("jXDG", 12590)] = string[trim1("B4(49+", 12591)](trim1("\173\208\144\182\202\204\155\207\198\200\136\195\146\149h3", 12617), runLock1, makeLock1[trim1("\194\226\239\228", 12633)], makeLock1[trim1("]mqvBorhq", 12657)]);
-    		lock1[trim1("\139\187\165\168\144\189\189\191\165\229", 12683)] = Color3[trim1("\184\175\179\190\128\150\146", 12712)](255, 150, 0);
-    		lock1[trim1("\236\218\198\201\239\218\200\212", 12730)] = 10;
-    		lock1[trim1("\227\211\205\192\243\235\197\193\200\192\192\201\205\214", 12740)] = Enum[trim1("(\022\n\005(6\026\028\019\005\007\012\006\027", 12747)][trim1("Fln{", 12763)];
-    		lock1[trim1("\216\237\235\241\223\233\231\230\254\254\212\249\249\251\249", 12777)] = false;
-    		(Instance[trim1("gmx", 12792)](trim1("\022\011\002/5( 6", 12814), lock1))[trim1("\205\226\254\237\231\243\210\230\226\236\241\200", 12826)] = UDim[trim1("\197\207\222", 12856)](0, 4);
-    		local tryLock1 = Instance[trim1("\169\163\178", 12877)](trim1("\238\243\233\217\219\218\212\210\212", 12894), lock1);
-    		tryLock1[trim1("\150\164\160\159\147\151\159\179\155\155\136", 12906)] = UDim[trim1("pxk", 12917)](0, 8);
-    		lock1[trim1("\252\223\194\197\208\246\222\222\221\199\193\159\238\192\202\193\202", 12933)]:Connect(function()
-    			s:SelectObject(makeLock1[trim1("\172\128\139~ym", 12936)]);
-    		end);
-    		lock1[trim1("\177\156\135\130\149\178\152\129\145\153", 12945)]:Connect(function()
-    			lock1[trim1(".\002\001\n\007\021\009\016\n\255\217\246\244\240\236\174", 12960)] = Color3[trim1("\\KWRlz~", 12976)](50, 50, 60);
-    		end);
-    		lock1[trim1("\129\172\183\178\165\139\163\164\178\158", 12983)]:Connect(function()
-    			lock1[trim1("\159\189\176\185\182\162\184\163\187\176\136\165\165\167\189\253", 12992)] = Color3[trim1("\252\235\247\242\204\218\222", 12999)](40, 40, 50);
-    		end);
-    	end;
-    end;
-    function onLock1._createUI(mapLock1)
-    	local o = Instance[trim1("\233\227\242", 13029)](trim1("\128\177\163\181\178\184\146\161\162", 13050));
-    	o[trim1("\026*\',", 13055)] = trim1("\214\250\234\234\243\225\249\210\252\246\255\248\203\209\255\226\233", 13057);
-    	o[trim1("UcvaOuWkO_JR", 13082)] = false;
-    	o[trim1("\139\153\185\178\176\172\137\175\161\169\185\167\162\190", 13108)] = Enum[trim1("\165\183\147\152\150\138\179\149\159\151\131\157\132\152", 13109)][trim1("?\019\017\031\029\031", 13133)];
-    	mapLock1[trim1("^xbvd", 13159)][trim1("\168\181", 13167)] = o;
-    	local findLock1 = Instance[trim1("\016\024\011", 13191)](trim1("}HXUZ", 13198), o);
-    	findLock1[trim1("\207\225\234\227", 13222)] = trim1("\182\155\144\150\185\140\156\145\150", 13244);
-    	findLock1[trim1("Ri}c", 13275)] = UDim2[trim1("\151\130\152\155\186\146\141\153\140\156", 13283)](400, 740);
-    	findLock1[trim1("PhulpRUW", 13304)] = UDim2[trim1("\232\224\243", 13309)](1, -412, .5, -370);
-    	findLock1[trim1("oM@IFRHSK@\024557-m", 13334)] = Color3[trim1("~mqpNTP", 13361)](25, 25, 35);
-    	findLock1[trim1("\003/5\" 6(\019\003\029/\023\005\025\031", 13374)] = 0;
-    	(Instance[trim1("\207\197\208", 13397)](trim1("#<7\004\024\007\r\029", 13423), findLock1))[trim1("\183\132\152\135\141\157\188\140\136\138\151\146", 13428)] = UDim[trim1("\229\239\254", 13434)](0, 8);
-    	local hasLock1 = Instance[trim1("\141\135\150", 13438)](trim1("\236\241\236\202\207\211\216\215", 13454), findLock1);
-    	hasLock1[trim1("\r\" ,0", 13480)] = Color3[trim1("9,21\001\021\019", 13489)](255, 100, 0);
-    	hasLock1[trim1("\189\128\134\141\134\130\134\145\146", 13515)] = 2;
-    	(s:Create(hasLock1, TweenInfo[trim1("08+", 13518)](1, Enum[trim1("Wpc~xrG\127sem", 13535)][trim1("\255\202\204\196", 13561)], Enum[trim1("BgvmU]}QM[^HZ]_", 13584)][trim1("wSsFF", 13594)], -1, true), { [trim1("\255\194\192\203\196\192\200\223\208", 13609)] = 3 })):Play();
-    	local m = Instance[trim1("\008\000\019", 13636)](trim1("\210\249\235\228\237", 13656), findLock1);
-    	m[trim1("[ufo", 13680)] = trim1("\0126*19\0173#", 13711);
-    	m[trim1("\200\243\227\253", 13723)] = UDim2[trim1("\187\177\188", 13726)](1, 0, 0, 35);
-    	m[trim1("\007%\024\017\030\n\016\011\019\0240\029\029\031\005E", 13741)] = Color3[trim1("\200\223\195\206\240\230\226", 13754)](20, 20, 30);
-    	m[trim1("\0282.77#\003>,0\004\"2,$", 13769)] = 0;
-    	(Instance[trim1("\148\156\143", 13775)](trim1("\134\155\146\191\165\184\176\166", 13803), m))[trim1("\186\151\141\144\152\142\161\147\149\153\130\133", 13804)] = UDim[trim1("26%", 13827)](0, 8);
-    	local p = Instance[trim1("~ra", 13844)](trim1("R`|OvXZZR", 13864), m);
-    	p[trim1("\127JXD", 13865)] = UDim2[trim1("\008\000\019", 13887)](1, -120, 1, 0);
-    	p[trim1("Fzgb~`ga", 13902)] = UDim2[trim1("\025\012\018\017<\020\023\003\018\002", 13915)](10, 0);
-    	p[trim1("\161\131\130p}kwjpyHas\127cgwgqeip", 13940)] = 1;
-    	p[trim1("\009!#8", 13953)] = Enum[trim1("\225\201\203\208", 13957)][trim1("jGKK", 13971)];
-    	p[trim1("\251\203\213\216", 13976)] = trim1("UKZVJ", 13980);
-    	p[trim1("\025);6\002/+)7w", 14011)] = Color3[trim1("\156\139\151\146\172\186\190", 14026)](255, 100, 0);
-    	p[trim1("\0099+&\0029-3", 14049)] = 14;
-    	p[trim1("\135\183\169\164\143\151\185\189\172\164\164\173\161\186", 14054)] = Enum[trim1("\158\172\176\187\150\140\160\170\165\175\173\162\168\177", 14064)][trim1("\141\165\161\178", 14074)];
-    	local g = Instance[trim1("~ra", 14095)](trim1("\156\170\182\185\128\162\160\164\172", 14122), m);
-    	g[trim1("\176\156\145\150", 14142)] = trim1("\156\186\172\184\182\177\136\174\163\175\166\165\143\149\139", 14151);
-    	g[trim1("\0090\":", 14155)] = UDim2[trim1(".=! \003%$2%3", 14175)](90, 20);
-    	g[trim1(".\018\015\026\006\024\031\025", 14195)] = UDim2[trim1("93\"", 14223)](1, -160, .5, -10);
-    	g[trim1("\177\147\146\155\144\132\154\129\133\142\170\135\131\129\159\223", 14229)] = Color3[trim1("\192\215\203\182\136\158\154", 14237)](50, 50, 50);
-    	g[trim1("\129\173\179\164\162\180\150\173\129\159\169\145\135\155\145", 14267)] = 0;
-    	g[trim1("\141\165\167\188", 14286)] = Enum[trim1("hBBW", 14309)][trim1("\019$>!)\"\012\" \'", 14310)];
-    	g[trim1("Euob", 14317)] = trim1("\175\190\222\208\210\219\220\213\211", 14341);
-    	g[trim1("-\029\007\n>\019\031\029\003C", 14359)] = Color3[trim1("\144\135\155\134\184\174\170", 14374)](200, 200, 200);
-    	g[trim1("\021%?2\022-\001\031", 14378)] = 10;
-    	(Instance[trim1("kaL", 14395)](trim1("\141\150\157\178\174\189\183\163", 14411), g))[trim1("\183\132\152\135\141\157\188\140\136\138\151\146", 14432)] = UDim[trim1("\184\176\163", 14450)](0, 4);
-    	local emitTrim1 = Instance[trim1("OEP", 14454)](trim1("\207\255\225\236\221\235\233\232\252\252", 14476), m);
-    	emitTrim1[trim1("Ozht", 14481)] = UDim2[trim1("\140\155\135\130\161\139\138\144\135\149", 14490)](30, 30);
-    	emitTrim1[trim1("Zf{fzdcm", 14520)] = UDim2[trim1("\012\004\023", 14524)](1, -32, 0, 2);
-    	emitTrim1[trim1("(\008\011\004\009\031\003\022\012\005#\008\n\n\022\168", 14543)] = Color3[trim1("\246\229\249\248\198\204\200", 14544)](255, 50, 100);
-    	emitTrim1[trim1("9\021\011\028\026\012.\021\009\023!\025\015\019\025", 14552)] = 0;
-    	emitTrim1[trim1("\218\232\244\247", 14583)] = trim1("\018G", 14614);
-    	emitTrim1[trim1("iYKFr_[YG\007", 14627)] = Color3[trim1("`h{", 14636)](1, 1, 1);
-    	emitTrim1[trim1("\179\155\133\158", 14654)] = Enum[trim1("mEG\\", 14666)][trim1("\231\200\210\205\197\182\152\182\180\187", 14681)];
-    	emitTrim1[trim1("\223\239\241\252\220\231\247\233", 14689)] = 20;
-    	(Instance[trim1("\222\210\193", 14719)](trim1("\166\187\178\159\133\152\144\134", 14731), emitTrim1))[trim1("\021:&%/;\026.*$90", 14754)] = UDim[trim1(";1<", 14783)](0, 6);
-    	emitTrim1[trim1("?\030\005\004\0197\001\031\030\006\006^-\001\005\000\009", 14813)]:Connect(function()
-    		mapLock1:Disable();
-    	end);
-    	do
-    		local s, runLock1;
-    		m[trim1("\136\174\183\179\177\134\158\157\152\150", 14827)]:Connect(function(makeLock1)
-    			if makeLock1[trim1("Z}h~JlqusR|t^", 14858)] == Enum[trim1("\014)<*\0220-)\'\006( 2", 14879)][trim1("\254\221\196\195\210\244\192\192\223\197\199\153", 14883)] then
-    				s = makeLock1[trim1("^b\127jvhoi", 14887)];
-    				runLock1 = findLock1[trim1("\159\161\190\165\183\171\174\174", 14904)];
-    				local useLock1, tryLock1;
-    				useLock1 = lock1[trim1("\221\229\250\252\252\204\230\236\226\228\231\229", 14911)]:Connect(function(makeLock1)
-    						if makeLock1[trim1("\222\249\236\250\198\224\253\249\247\214\248\240\226", 14940)] == Enum[trim1("\223\250\237\253\199\227\252\246\246\213\249\247\227", 14969)][trim1("\190\157\132\131\146\187\154\130\142\135\140\134\155", 14982)] then
-    							local lock1 = makeLock1[trim1("pHULP257", 14985)] - s;
-    							findLock1[trim1("\186\134\155\134\154\132\131\141", 14992)] = UDim2[trim1("\203\193\172", 15019)](runLock1[trim1("\169", 15040)][trim1("}NMOG", 15062)], runLock1[trim1("\229", 15076)][trim1("\193\235\234\240\231\245", 15085)] + lock1[trim1("\243", 15115)], runLock1[trim1("\011", 15140)][trim1("VgZV\\", 15148)], runLock1[trim1("G", 15176)][trim1("9\019\018\024\015\029", 15180)] + lock1[trim1("\202", 15210)]);
-    						end;
-    					end);
-    				tryLock1 = lock1[trim1("%\r\018\020\020\"\008\001\001\255", 15219)]:Connect(function(s)
-    						if s[trim1("^ylzF`}ywVxpb", 15244)] == Enum[trim1("\188\155\138\156\164\130\147\151\149Oci}", 15272)][trim1("Vulkz\\hhg}\127!", 15282)] then
-    							useLock1:Disconnect();
-    							tryLock1:Disconnect();
-    						end;
-    					end);
-    			end;
-    		end);
-    	end;
-    	local toTrim1 = Instance[trim1("\015\005\016", 15306)](trim1("\136\185\171\183\179\178\180\178\180\148\163\177\186\179", 15328), findLock1);
-    	toTrim1[trim1("&\014\003\008", 15354)] = trim1("v[E^LF[", 15361);
-    	toTrim1[trim1("\198\253\241\239", 15384)] = UDim2[trim1("\008\000\019", 15393)](1, -10, 1, -45);
-    	toTrim1[trim1("sMRISOJJ", 15400)] = UDim2[trim1("\169\188\162\161\140\164\167\179\162\178", 15406)](5, 40);
-    	toTrim1[trim1("`@CLAWK.4=\012-?3/#3#595,", 15429)] = 1;
-    	toTrim1[trim1("hFZKK_\127JXDpN^@H", 15448)] = 0;
-    	toTrim1[trim1("\133\182\166\164\166\165\138\174\188\153\164\170\161\170\174\162\181\182", 15454)] = 4;
-    	toTrim1[trim1("\210\227\245\233\233\232\249\219\203\241\210\223\218\217\240\221\221\223\197\133", 15481)] = Color3[trim1("\018\025\005\004:(,", 15489)](255, 100, 0);
-    	toTrim1[trim1("\237\204\194\213\195\210\243\206\220\192", 15511)] = UDim2[trim1("u`~}Xpsgn~", 15514)](0, 0);
-    	toTrim1[trim1("qBBZYJ^@KlOCZBQrI]C", 15525)] = Enum[trim1("vCA[FK]AL}DVF", 15554)][trim1("\r", 15565)];
-    	local setTrim1 = Instance[trim1("\020\028\015", 15585)](trim1("xeoKRTkG\\K..", 15593), toTrim1);
-    	setTrim1[trim1("\027+-,& *", 15594)] = UDim[trim1("\145\155\138", 15619)](0, 8);
-    	setTrim1[trim1("\190\131\145\150\174i~|j", 15639)] = Enum[trim1("+\016\012\0093\001\022\020\002", 15643)][trim1("gKPGZZb^GGS", 15670)];
-    	local getTrim1 = Instance[trim1("\177\187\170", 15695)](trim1("HUCsut~xr", 15707), toTrim1);
-    	getTrim1[trim1("\031/)(*,&\012\" 1", 15710)] = UDim[trim1("93\"", 15729)](0, 6);
-    	getTrim1[trim1("3\003\005\004\014\008\0026\242\253\241\236", 15750)] = UDim[trim1("ICR", 15767)](0, 6);
-    	getTrim1[trim1("\216\238\234\233\229\237\229\213\239\247", 15780)] = UDim[trim1("\148\156\143", 15783)](0, 6);
-    	getTrim1[trim1("\192\246\242\241\253\229\237\203\231\251\250\226\225", 15799)] = UDim[trim1("\211\217\196", 15829)](0, 10);
-    	local function sendTrim1(s, runLock1)
-    		local makeLock1 = Instance[trim1("\224\232\251", 15838)](trim1("<\n\022\025 \002\000\004\012", 15856), toTrim1);
-    		makeLock1[trim1("T~grig]ctrd", 15871)] = runLock1;
-    		makeLock1[trim1("]dvf", 15891)] = UDim2[trim1(".\"1", 15913)](1, 0, 0, 22);
-    		makeLock1[trim1(",\012\015\008\005\019\015\018\008\001\'\244\246\246\234\172", 15914)] = Color3[trim1("\229\240\238\237\213\193\199", 15925)](35, 35, 48);
-    		makeLock1[trim1("&\244\232\253\253\237\205\244\230\246\194\248\232\242\250", 15953)] = 0;
-    		makeLock1[trim1("t^^C", 15969)] = Enum[trim1("\204\230\230\251", 15973)][trim1("\154\179\167\186\176\189\149\185\185\176", 16004)];
-    		makeLock1[trim1("?\015\017\028", 16020)] = trim1(";:", 16035) .. s;
-    		makeLock1[trim1("\150\164\184\179\133\170\168\148\136\202", 16053)] = Color3[trim1("\007\018\008\0117#\217", 16059)](255, 100, 0);
-    		makeLock1[trim1("\000.2=\027&4(", 16067)] = 11;
-    		makeLock1[trim1("4\002\030\017<\218\246\240\255\241\243\248\242\231", 16088)] = Enum[trim1("\194\240\236\255\210\200\228\230\233\227\225\230\236\245", 16108)][trim1("+\003\003\016", 16117)];
-    		(Instance[trim1("vzi", 16122)](trim1("\255\224\235\192\220\195\201\209", 16148), makeLock1))[trim1("\155\176\172\179\185\161\128\176\180\190\163\166", 16168)] = UDim[trim1("pxk", 16180)](0, 4);
-    		return makeLock1;
-    	end;
-    	local function y(s, runLock1, makeLock1, lock1)
-    		local useLock1 = Instance[trim1("7=(", 16192)](trim1("\153\169\187\182\131\181\179\178\170\170", 16217), s);
-    		useLock1[trim1("\215\251\224\247\234\234\210\238\247\247\227", 16233)] = lock1 or 0;
-    		useLock1[trim1("\029$6&", 16241)] = UDim2[trim1("\018\022\005", 16261)](1, 0, 0, 34);
-    		useLock1[trim1("\015- )&2(3+ 8\021\021\023\rM", 16270)] = makeLock1 or Color3[trim1("tc\127zDRV", 16296)](50, 50, 65);
-    		useLock1[trim1("Xvj{{oOzht@~npx", 16315)] = 0;
-    		useLock1[trim1("\005-/4", 16328)] = Enum[trim1("\190\144\144\137", 16343)][trim1("\251\220\198\217\209\218\244\218\216\207", 16360)];
-    		useLock1[trim1("Lzfi", 16373)] = runLock1;
-    		useLock1[trim1("`NR]k@BB^\016", 16394)] = Color3[trim1("\196\204\223", 16399)](1, 1, 1);
-    		useLock1[trim1("QaCNjQE[", 16403)] = 12;
-    		useLock1[trim1("}FF^rBBA[EiFD@\\", 16413)] = false;
-    		(Instance[trim1(".\"1", 16415)](trim1("KT_|`\127ue", 16431), useLock1))[trim1("iFZAK_~BFHUT", 16452)] = UDim[trim1("U_N", 16461)](0, 6);
-    		return useLock1;
-    	end;
-    	local function zeta1(s)
-    		local runLock1 = Instance[trim1("\201\195\210", 16467)](trim1("Ep`mb", 16480), toTrim1);
-    		runLock1[trim1("lF_JQ/\021+<:,", 16491)] = s;
-    		runLock1[trim1("0\011\027\005", 16503)] = UDim2[trim1("\216\208\195", 16534)](1, 0, 0, 34);
-    		runLock1[trim1("\252\220\223\216\213\195\223\194\216\209\224\217\203\199\219\223\207\223\201\205\193\216", 16553)] = 1;
-    		local makeLock1 = Instance[trim1("\232\224\243", 16572)](trim1("\142\147\149\177\172\170\145\189\170\189\164\164", 16583), runLock1);
-    		makeLock1[trim1("p\\XGn@ZJMYELL", 16587)] = Enum[trim1("\200\228\224\239\198\232\242\226\229\241\237\212\212", 16591)][trim1("\197\227\241\235\251\239\233\242\228\232", 16620)];
-    		makeLock1[trim1("dJNMAAI", 16645)] = UDim[trim1(".\"1", 16666)](0, 6);
-    		return runLock1;
-    	end;
-    	local function makeZeta1(s, runLock1)
-    		local makeLock1 = Instance[trim1("7=(", 16694)](trim1("\214\228\248\243\196\240\240\207\213\215", 16707), s);
-    		makeLock1[trim1("\192\251\235\245", 16716)] = UDim2[trim1(" (;", 16743)](0, 28, 1, 0);
-    		makeLock1[trim1("Ikjch|bymfBokiw7", 16750)] = Color3[trim1("\178\185\165\164\154\136\140", 16767)](50, 50, 70);
-    		makeLock1[trim1("\231\203\169\190\188\170\140\183\167\185\131\187\169\181\187", 16776)] = 0;
-    		makeLock1[trim1("\226\180\180\173", 16805)] = Enum[trim1("\182\152\152\129", 16826)][trim1("\208\249\225\252\234\231\203\231\227\234", 16832)];
-    		makeLock1[trim1("\022$83", 16859)] = runLock1;
-    		makeLock1[trim1("\194\240\236\255\201\230\228\224\252\190", 16861)] = Color3[trim1("\221\215\198", 16891)](1, 1, 1);
-    		makeLock1[trim1("\239\223\193\204\236\215\199\217", 16910)] = 14;
-    		makeLock1[trim1("7\000\000\004(\028\028\027\001\003/\012\014\014\018", 16937)] = false;
-    		(Instance[trim1("DL_", 16954)](trim1("|alA_BFP", 16983), makeLock1))[trim1("\0281/26 \00313? \'", 17003)] = UDim[trim1("W]H", 17021)](0, 6);
-    		return makeLock1;
-    	end;
-    	sendTrim1(trim1("icqs\020\008\018x\028\018\028\021\030", 17022), 1);
-    	local buildZeta1 = Instance[trim1("\195\201\212", 17046)](trim1("\164\146\142\129\184\138\136\140\132", 17077), toTrim1);
-    	buildZeta1[trim1("\194\236\245\236\247\245\207\245\226\224\246", 17093)] = 2;
-    	buildZeta1[trim1("7\025\018\027", 17120)] = trim1("\248\207\197\205\204\218\196\195\205\238\192\194\194\202", 17123);
-    	buildZeta1[trim1("\190\133\153\135", 17145)] = UDim2[trim1("<4\'", 17148)](1, 0, 0, 34);
-    	buildZeta1[trim1("Ttw`m{gz`iOlnnr4", 17165)] = Color3[trim1("bIUTjx|", 17185)](35, 35, 45);
-    	buildZeta1[trim1("hFZKK_\127JXDpN^@H", 17205)] = 0;
-    	buildZeta1[trim1("\246\216\216\193", 17229)] = Enum[trim1("|VVK", 17243)][trim1("\154\179\167\186\176\189\154\179\177\189\190\167", 17259)];
-    	buildZeta1[trim1("\206\252\224\235", 17266)] = trim1("\196\234\236\231\208\154\216\214\159\209\223\214\214\209\197\144\222\216\152\195\196\216\197\204\143\218\194\140\208\199\205\197\196\210", 17296);
-    	buildZeta1[trim1("]mwzNcoms3", 17310)] = Color3[trim1("PG[Fxnj", 17340)](200, 200, 200);
-    	buildZeta1[trim1("\134\180\168\163\133\188\174\174", 17346)] = 12;
-    	(Instance[trim1("~ra", 17358)](trim1("\209\242\249\214\202\209\219\207", 17383), buildZeta1))[trim1("Tygznx[ikgx\127", 17387)] = UDim[trim1("\190\178\161", 17404)](0, 6);
-    	local zeta1 = Instance[trim1("\161\171\186", 17414)](trim1("\0065\'(!", 17419), toTrim1);
-    	zeta1[trim1("!\r\026\r\020\020(\020\001\001\233", 17449)] = 3;
-    	zeta1[trim1("\028\'7)", 17467)] = UDim2[trim1("\252\244\231", 17498)](1, 0, 0, 46);
-    	zeta1[trim1("Qsr{pdzaen]zn`~|bpdnd\127", 17522)] = 1;
-    	local tryZeta1 = Instance[trim1("\209\219\202", 17528)](trim1("_@Df}y@b{nus", 17532), zeta1);
-    	tryZeta1[trim1("\019=\'&\r!=+.8*-/", 17544)] = Enum[trim1("\132\168\172\171\130\172\182\158\153\141\145\144\144", 17559)][trim1(":\030\002\030\012\026\026\031\011\005", 17574)];
-    	tryZeta1[trim1("\130\176\180\179\191\187\179", 17597)] = UDim[trim1("\174\162\177", 17617)](0, 4);
-    	local isZeta1 = {};
-    	local zeta1 = { { [trim1("oa", 17629)] = trim1("\227\244\236\228\242\244\238\236\244", 17653), [trim1("MCLE", 17659)] = trim1("\238\247\233\227\247\247\147\147\137", 17664), [trim1("\171\171\190\175", 17665)] = trim1("6\001\239\186\247\253\235\233\242\238\248\178\254\231\249\243\231", 17681) }, { [trim1("\192\204", 17683)] = trim1("cqgeja{w", 17696), [trim1("DHEJ", 17707)] = trim1("#1\'%*!;7", 17719), [trim1("\008\006\017\002", 17729)] = trim1("\141\173\189\190\242\167\181\187\185\182\189\191\179", 17732) }, { [trim1("\173\159", 17733)] = trim1("\000\004\019\001\n\003", 17758), [trim1("FNCH", 17765)] = trim1("\151\141\152\136\133\138", 17771), [trim1("KK^O", 17794)] = trim1("\230\196\202\199\137\235\233\220\204\193\198", 17818) } };
-    	for s, runLock1 in ipairs(zeta1) do
-    		local makeLock1 = Instance[trim1("nbq", 17822)](trim1("\135\178\166\171\160", 17839), zeta1);
-    		makeLock1[trim1(";\006\020\008", 17864)] = UDim2[trim1("\030\018\001", 17883)](.333, -4, 1, 0);
-    		makeLock1[trim1("\206\226\225\234\231\245\233\240\234\223\238\203\217\209\205\205\221\193\215\223\211\206", 17904)] = 1;
-    		local lock1 = Instance[trim1("q{j", 17908)](trim1("\146\160\188\143\184\140\140\139\145\147", 17926), makeLock1);
-    		lock1[trim1("\250\193\213\203", 17934)] = UDim2[trim1("\016\024\011", 17960)](1, 0, 0, 30);
-    		lock1[trim1(".\002\001\n\007\021\009\016\n\255\217\246\244\240\236\174", 17980)] = runLock1[trim1("S]", 17996)] == trim1("\215\200\208\216\206\192\218\216\192", 18001) and Color3[trim1("\209\196\218\217\249\237\235", 18011)](255, 100, 0) or Color3[trim1("\200\223\195\206\240\230\226", 18021)](50, 50, 65);
-    		lock1[trim1(" \014\018\003\003\0237\242\224\252\200\246\230\248\240", 18038)] = 0;
-    		lock1[trim1("\248\210\210\199", 18059)] = Enum[trim1("\209\249\251\224", 18087)][trim1("\228\205\213\200\198\203\246\193\182\179\187\183\179\186", 18108)];
-    		lock1[trim1("\171\155\133\136", 18129)] = runLock1[trim1("5;4=", 18142)];
-    		lock1[trim1("\193\241\243\254\202\231\227\225\255\191", 18145)] = Color3[trim1("kaL", 18160)](1, 1, 1);
-    		lock1[trim1("\192\238\242\253\219\230\244\232", 18174)] = 10;
-    		(Instance[trim1("\154\142\157", 18197)](trim1("nszWMPXN", 18218), lock1))[trim1("\176\157\131\158\146\132\167\149\143\131\156\155", 18245)] = UDim[trim1("\192\200\219", 18272)](0, 6);
-    		local useLock1 = Instance[trim1("\012\004\023", 18289)](trim1("\196\242\238\225\216\234\232\236\228", 18309), makeLock1);
-    		useLock1[trim1("}DVF", 18325)] = UDim2[trim1(":.=", 18326)](1, 0, 0, 12);
-    		useLock1[trim1("WivmOSVV", 18353)] = UDim2[trim1("K^LOnFAU@P", 18354)](0, 32);
-    		useLock1[trim1("\008(+$)?#6,%\0205\'+7\011\027\011\029\017\029\004", 18384)] = 1;
-    		useLock1[trim1("\007/)2", 18394)] = Enum[trim1("\137\161\163\184", 18418)][trim1("\179\132\158\129\137\130", 18448)];
-    		useLock1[trim1("9\009\027\022", 18453)] = runLock1[trim1("\178\176\167\168", 18466)];
-    		useLock1[trim1("\138\184\164\167\145\190\188\184\164\230", 18485)] = Color3[trim1("\187\174\188\191\131\151\149", 18514)](130, 130, 130);
-    		useLock1[trim1("\220\234\246\249\223\234\248\228", 18541)] = 8;
-    		isZeta1[runLock1[trim1("%\'", 18558)]] = lock1;
-    		lock1[trim1("\189\152\131\134\145\169\159\157\156\128\128\220\175\143\139\130p", 18583)]:Connect(function()
-    			mapLock1[trim1("\180\153\155\146\130\141", 18612)][trim1("\188\146\156\149\158\191\148\132\159\153\145", 18631)] = runLock1[trim1("\185\179", 18659)];
-    			for s, makeLock1 in pairs(isZeta1) do
-    				makeLock1[trim1("~RQZWEY@ZOiFD@\\\030", 18672)] = s == runLock1[trim1("\007\009", 18675)] and Color3[trim1("MXFE}io", 18682)](255, 100, 0) or Color3[trim1("\024\015\019\030 62", 18713)](50, 50, 65);
-    			end;
-    		end);
-    	end;
-    	local h = y(toTrim1, trim1("\140\153\151\141\236\131\139\135\140\137\193\218\182\190\185", 18727), Color3[trim1("\141\152\134\133\189\169\175", 18728)](50, 50, 65), 4);
-    	h[trim1("\0210+.9\017\'%$88d\023\'#*#", 18731)]:Connect(function()
-    		mapLock1[trim1("\252\218\204\216\198", 18745)][trim1("\249\202\202\210\255\223\211\216\221", 18754)] = not mapLock1[trim1("\135\191\171\189\173", 18775)][trim1("Rge\127Tzt}f", 18777)];
-    		h[trim1("O\127al", 18796)] = trim1("+<< C. \"+,ZG", 18810) .. (mapLock1[trim1(":\028\014\026\008", 18839)][trim1("\222\235\233\243\208\254\240\249\250", 18859)] and trim1("\143\137", 18872) or trim1("\158\150\145", 18881));
-    		h[trim1("vJIBO]AXBGaNLHT\022", 18904)] = mapLock1[trim1("\232\206\216\204\218", 18918)][trim1("j_]GlBLEN", 18933)] and Color3[trim1("jqmlR@D", 18961)](0, 200, 100) or Color3[trim1("6%98\006\012\008", 18963)](50, 50, 65);
-    	end);
-    	local ofZeta1 = y(toTrim1, trim1("WGK@E/]H@FAUEC", 18980), Color3[trim1("\n\017\r\0122 $", 18984)](255, 150, 0), 5);
-    	ofZeta1[trim1("\175\142ni|Zjjis}#R|~u~", 18989)]:Connect(function()
-    		mapLock1:ClaimSelected();
-    	end);
-    	local zeta1 = zeta1(6);
-    	local onZeta1 = Instance[trim1("GMX", 18991)](trim1("\207\255\225\236\221\235\233\232\252\252", 18994), zeta1);
-    	onZeta1[trim1("\0127\'9", 19011)] = UDim2[trim1("^RA", 19039)](.5, -3, 1, 0);
-    	onZeta1[trim1("\0235(!.: ;#(\000--/5u", 19050)] = Color3[trim1("\255\234\240\243\207\219\209", 19052)](200, 100, 50);
-    	onZeta1[trim1("\128\174\178\163\163\183\151\146\128\156\168\150\134\152\144", 19065)] = 0;
-    	onZeta1[trim1("qY[@", 19068)] = Enum[trim1("W\127yb", 19086)][trim1("yRH[S\\rXZQ", 19116)];
-    	onZeta1[trim1("<\n\022\025", 19119)] = trim1("5#)!\218\201\220", 19129);
-    	onZeta1[trim1("ZhtwAnlht6", 19154)] = Color3[trim1("?5 ", 19185)](1, 1, 1);
-    	onZeta1[trim1("\244\194\222\209\247\178\160\188", 19199)] = 12;
-    	onZeta1[trim1("\202\255\253\231\205\251\249\248\236\236\194\239\235\233\247", 19207)] = false;
-    	(Instance[trim1(">2!", 19214)](trim1("\002\031\022;9$,:", 19243), onZeta1))[trim1("\143\172\176\175\165\181\148\164\160\146\143\138", 19258)] = UDim[trim1("\179\185\164", 19267)](0, 6);
-    	onZeta1[trim1("\172toj}]kih|| S{\127v\127", 19269)]:Connect(function()
-    		mapLock1:ReleaseSelected();
-    	end);
-    	local seekZeta1 = Instance[trim1("#)4", 19282)](trim1("\189\141\151\154\175\153\151\150\142u", 19288), zeta1);
-    	seekZeta1[trim1("Ri}c", 19299)] = UDim2[trim1("VZI", 19309)](.5, -3, 1, 0);
-    	seekZeta1[trim1("\031=096\"8#;0\008%%\'=}", 19320)] = Color3[trim1("\015\026\000\003?+!", 19341)](255, 50, 100);
-    	seekZeta1[trim1("RxdqqyY`rj^dtfn", 19366)] = 0;
-    	seekZeta1[trim1("b44-", 19368)] = Enum[trim1("\168\130\130\151", 19375)][trim1("r[_BHEmAAH", 19377)];
-    	seekZeta1[trim1("\202\248\228\231", 19390)] = trim1("\139\157\147\155\156\143\150\242\144\156\155", 19402);
-    	seekZeta1[trim1("\014< +\02920< b", 19426)] = Color3[trim1(")#2", 19456)](1, 1, 1);
-    	seekZeta1[trim1("IykfByms", 19472)] = 12;
-    	seekZeta1[trim1("\192\245\243\233\199\241\207\206\214\214\252\209\209\211\193", 19497)] = false;
-    	(Instance[trim1("\149\159\142", 19519)](trim1("\150\139\130\175\181\168\160\182", 19538), seekZeta1))[trim1("\159\188\160\191\181\165\132\180\176\162\191\186", 19547)] = UDim[trim1("\134\138\153", 19568)](0, 6);
-    	seekZeta1[trim1("\213\240\235\238\249\209\231\229\228\248\248\164\215\231\227\234\227", 19583)]:Connect(function()
-    		mapLock1:ReleaseAll();
-    	end);
-    	local zeta1 = y(toTrim1, trim1("\031\031\019\024\029w\019\027\000\002\024\012h\002\001\009\009\015", 19600), Color3[trim1("\180\163\191\186\132\146\150", 19605)](150, 80, 200), 7);
-    	local hasZeta1 = y(toTrim1, trim1("LBLEN\"@LK&AAhy|v{\127sh`", 19627), Color3[trim1("`wkVh~z", 19637)](100, 150, 200), 8);
-    	zeta1[trim1("=\024\003\006\017)\031\029\028\000\000\\/\015\011\002\011", 19640)]:Connect(function()
-    		mapLock1:ClaimEntireModel();
-    	end);
-    	hasZeta1[trim1("\"\001\024\031\006 \020\020\019\009\011U\216\246\240\251\244", 19650)]:Connect(function()
-    		mapLock1:ClaimAllDescendants();
-    	end);
-    	local toZeta1 = y(toTrim1, trim1("\023nJ\202\170\164\174\167\160\204\162\174\173;MVJTMM]PW+0XPS", 19674), Color3[trim1("\242\249\229\228\218\200\204", 19680)](30, 60, 30), 8.5);
-    	do
-    		local s = Instance[trim1("cit", 19685)](trim1("QriMJPUX", 19695), toZeta1);
-    		s[trim1("\242\223\219\217\199", 19710)] = Color3[trim1("jqmlR@D", 19714)](0, 220, 80);
-    		s[trim1("*\021\021\016\025\031\021\004\005", 19717)] = 1.5;
-    	end;
-    	local x = Instance[trim1("\019\025\004", 19746)](trim1(" \014\018\029$\014\012\008\000", 19756), toTrim1);
-    	x[trim1("dNWBYWmSDBT", 19773)] = 8.6;
-    	x[trim1("\023\018\000\028", 19794)] = UDim2[trim1("\015\005\016", 19824)](1, 0, 0, 18);
-    	x[trim1("+\009\012\005\n\030\012\023\015\0043\020\004\n\232\234\248\234\250\240\254\229", 19843)] = 1;
-    	x[trim1("7\031\025\002", 19862)] = Enum[trim1("Vxxa", 19868)][trim1("v[OO", 19879)];
-    	x[trim1("iYKF", 19898)] = trim1("", 19927);
-    	x[trim1("\200\246\234\229\211\248\250\250\230\184", 19950)] = Color3[trim1("sfdg[OM", 19955)](0, 200, 80);
-    	x[trim1("\012:&)\015:(4", 19986)] = 10;
-    	x[trim1("\138\184\164\167\138\144\188\190\177\187\185\174\164\189", 19991)] = Enum[trim1("\198\244\232\227\206\212\248\226\237\231\229\234\224\249", 20008)][trim1("\128\166\164\181", 20011)];
-    	runLock1[trim1("yUVDAVNK]", 20014)]:Connect(function()
-    		if findTrim1 then
-    			local s = 0;
-    			for runLock1 in pairs(ofTrim1) do
-    				s += 1;
-    			end;
-    			x[trim1("dRNA", 20043)] = trim1("\241\247\243\250\244\242\244\168\177", 20056) .. (s .. trim1("A\023\008\020\014\023\235\251\250\253\191\238\252\238\231\225\177\184\227\228\252\228\231\239\164\228\224\237\230\233\231\171", 20075));
-    		else
-    			x[trim1("\195\243\237\224", 20095)] = trim1("", 20119);
-    		end;
-    	end);
-    	toZeta1[trim1("\230\197\220\219\202\236\216\216\215\205\207\145\228\202\204\199\176", 20135)]:Connect(function()
-    		mapLock1:ClaimAllWorkspace();
-    		if findTrim1 then
-    			toZeta1[trim1("\185\137\155\150", 20157)] = trim1("n\025#\161\195\203\199\204\201\155\251\245\244\159\233\242\238\248\225\225\241\244\243\143\148\228\228", 20163);
-    			toZeta1[trim1("\188\156\159\152\149\131\159\130\152\145\183\132\134\134\154\220", 20166)] = Color3[trim1("\207\218\192\195\255\235\225", 20193)](0, 100, 30);
-    		else
-    			toZeta1[trim1("\244\194\222\209", 20203)] = trim1("\143\246\194B\",&/(D\218\214\213\184\200\209\207\215\192\194\208\211\210\172\181\219\205\204", 20210);
-    			toZeta1[trim1("\r/.\'$0.5)\"\006+\023\021\011K", 20228)] = Color3[trim1("\236\251\231\226\220\202\206", 20240)](30, 60, 30);
-    		end;
-    	end);
-    	local initZeta1 = Instance[trim1("\193\203\218", 20251)](trim1("|JVY`B@DL", 20275), toTrim1);
-    	initZeta1[trim1("\'\011\016\007\026\026\"\030\007\007\019", 20287)] = 9;
-    	initZeta1[trim1("Axjr", 20312)] = UDim2[trim1("\172\164\183", 20320)](1, 0, 0, 18);
-    	initZeta1[trim1("gE81>*0+38\007 0>$&4&.$*1", 20343)] = 1;
-    	initZeta1[trim1("\r%\'<", 20363)] = Enum[trim1("^ppi", 20389)][trim1("\0285-0>3\0313?6", 20401)];
-    	initZeta1[trim1("Bpl\127", 20428)] = trim1("\127_SX]RR\021{I@LK[]\023", 20429);
-    	initZeta1[trim1("Yi{vBokiw7", 20438)] = Color3[trim1("\171\161\140", 20465)](1, 1, 1);
-    	initZeta1[trim1("\0042.!\007\"0,", 20469)] = 12;
-    	initZeta1[trim1("\243\195\221\208\131\155\181\177\184\176\176\185\189\166", 20483)] = Enum[trim1("\129\177\179\190\145\137\163\167\170\162\174\167\175\180", 20503)][trim1("Pvte", 20505)];
-    	local getZeta1 = Instance[trim1("\200\192\211", 20512)](trim1("\236\221\207\211\223\222\216\222\208\240\199\213\198\207", 20540), toTrim1);
-    	getZeta1[trim1("\198\238\227\232", 20549)] = trim1("\03002;<53\026<\'?", 20575);
-    	getZeta1[trim1("zTMD_]g]JH^", 20603)] = 10;
-    	getZeta1[trim1("\154\161\181\171", 20619)] = UDim2[trim1("\128\136\155", 20630)](1, 0, 0, 120);
-    	getZeta1[trim1(";\025\028\021\026\014\028\007\031\0204\025\025\027\025Y", 20634)] = Color3[trim1("\000\023\011\246\200\222\218", 20664)](30, 30, 40);
-    	getZeta1[trim1("\227\207\213\194\192\214\136\179\163\189\143\183\165\185\191", 20676)] = 0;
-    	getZeta1[trim1("\225\210\194\216\218\217\246\202\216\253\192\198\205\198\194\198\209\210", 20685)] = 4;
-    	getZeta1[trim1("\233\218\202\208\210\209\254\210\192\248\221\214\209\208\247\196\198\198\218\156", 20704)] = Color3[trim1("{n|\127CWU", 20727)](255, 100, 0);
-    	getZeta1[trim1("\012/#:\"1\018)=#", 20730)] = UDim2[trim1("za}|_qpfq\127", 20756)](0, 0);
-    	getZeta1[trim1("\0041\015\021\020\025\011\023\030?\018\028\007\017\004%\028\014\014", 20769)] = Enum[trim1("CtthkdpRYjQE[", 20776)][trim1("\209", 20800)];
-    	(Instance[trim1("\225\235\250", 20829)](trim1("\134\155\146\191\165\184\176\166", 20831), getZeta1))[trim1("mB^MGSrFBLQ(", 20835)] = UDim[trim1("\218\206\221", 20859)](0, 6);
-    	local zeta1 = Instance[trim1("\227\233\244", 20887)](trim1("\014\019\0211,*\017=*=$$", 20903), getZeta1);
-    	zeta1[trim1("\165\149\143\142\128\134\136", 20929)] = UDim[trim1("RVE", 20931)](0, 3);
-    	zeta1[trim1("WTHMwMZXN", 20950)] = Enum[trim1("\233\214\202\203\241\207\216\214\192", 20955)][trim1("\129\173\186\173\180\180\136\180\161\161\137", 20986)];
-    	sendTrim1(trim1("\008\030\012\009|\021\030\024\030\016\019\007", 20990), 20);
-    	local step1 = Instance[trim1("+!\012", 21020)](trim1(":\001\019\028\021", 21030), toTrim1);
-    	step1[trim1("\182\152\129\144\139\137\179\129\150\148\130", 21054)] = 21;
-    	step1[trim1("\237\212\198\214", 21071)] = UDim2[trim1("\021\031\014", 21078)](1, 0, 0, 32);
-    	step1[trim1("\178\150\149\158\147\153\133\156\134\139\186\159\141\141\145\145zh|v|g", 21093)] = 1;
-    	local runStep1 = Instance[trim1("XPC", 21105)](trim1("\173\182\178\148\143\135\190\144\137\152\131\129", 21112), step1);
-    	runStep1[trim1("\021;=<\019?\'1(> \'!", 21135)] = Enum[trim1("\129\175\169\168\191\147\139\157\156\138\148\147\157", 21160)][trim1("\142\170\182\146\128\150\150\139\159\145", 21189)];
-    	runStep1[trim1("\173\157\151\150\152\158\144", 21199)] = UDim[trim1("\171\161\140", 21218)](0, 6);
-    	local makeStep1 = Instance[trim1("\176\184\171", 21246)](trim1("\181~bmZpf", 21277), step1);
-    	makeStep1[trim1("8\003\019\r", 21291)] = UDim2[trim1("\233\227\242", 21312)](1, -80, 1, 0);
-    	makeStep1[trim1("\031=096\"8#;0\008%%\'=}", 21328)] = Color3[trim1("\241\228\250\249\217\205\203", 21350)](24, 24, 35);
-    	makeStep1[trim1("\153\181\171\188\186\172\142\181\169\183\129\185\175\179\185", 21352)] = 0;
-    	makeStep1[trim1("\130\189\177\180\179\189\187\167\174\172\186\155\171\181\184", 21362)] = trim1("\185\164\174\183\168\190\227\172\160\173\162\232\235\234", 21372);
-    	makeStep1[trim1(" \027\023\022\017\003\005\005\012\n\028.\003\015\r\019S", 21397)] = Color3[trim1("/: #\031\011\001", 21425)](65, 65, 80);
-    	makeStep1[trim1("\253\205\215\218", 21448)] = trim1("", 21453);
-    	makeStep1[trim1("*\024\004\0071\030\028\024\004F", 21474)] = Color3[trim1(">-10\014\020\016", 21492)](210, 210, 210);
-    	makeStep1[trim1("\228\210\206\193\231\194\208\204", 21496)] = 13;
-    	makeStep1[trim1("\130\148\148\141", 21498)] = Enum[trim1("\003+\021\014", 21522)][trim1("Andb", 21529)];
-    	makeStep1[trim1("kCKL^wGYThHcK8/*", 21530)] = false;
-    	(Instance[trim1("\209\219\202", 21544)](trim1("\150\139\130\175\181\168\160\182", 21546), makeStep1))[trim1("\022;9$,:\029/)%61", 21560)] = UDim[trim1("\151\157\136", 21585)](0, 6);
-    	local step1 = Instance[trim1("fjy", 21606)](trim1("\202\215\206\232\225\253\250\245", 21620), makeStep1);
-    	step1[trim1("\180\153\153\155\153", 21624)] = Color3[trim1("\166\181\169\168\150\188\184", 21633)](60, 60, 80);
-    	step1[trim1("\030!!,%#)01", 21647)] = 1;
-    	local n = Instance[trim1("`h{", 21664)](trim1("Bpl\127H||{ac", 21683), step1);
-    	n[trim1("\174\149\137\151", 21701)] = UDim2[trim1("\223\213\192", 21718)](0, 74, 1, 0);
-    	n[trim1("cADMBV4/7<\028113!a", 21733)] = Color3[trim1("(?#.\016\006\002", 21763)](50, 50, 70);
-    	n[trim1("\216\246\234\251\251\239\207\250\232\244\192\254\238\240\248", 21784)] = 0;
-    	n[trim1("\175\135\129\154", 21798)] = Enum[trim1(",\006\006\027", 21822)][trim1("\227\180\174\177\185\178\156\178\176\183", 21825)];
-    	n[trim1("=\r\023\026", 21851)] = trim1("\228\199\203\208\205\221\221", 21863);
-    	n[trim1("DrnaWdffz<", 21876)] = Color3[trim1("\235\254\236\239\211\199\197", 21891)](200, 200, 200);
-    	n[trim1("\202\248\228\231\193\248\234\242", 21900)] = 12;
-    	n[trim1("\242\199\197\223\245\195\193\192\196\196\234\199\195\193\223", 21911)] = false;
-    	(Instance[trim1("\169\163\178", 21913)](trim1("\200\213\208\253\227\254\242\228", 21929), n))[trim1("GTHW]Ml\\XZGB", 21954)] = UDim[trim1("\024\016\003", 21957)](0, 6);
-    	local tryStep1 = zeta1(22);
-    	local step1 = Instance[trim1("]WF", 21964)](trim1("\0042.!\022>>=\'!", 21975), tryStep1);
-    	step1[trim1("\177\136a\127", 22001)] = UDim2[trim1("\214\218\201", 22017)](.5, -3, 1, 0);
-    	step1[trim1("\211\241\244\253\242\230\228\255\231\236\204\225\225\227\241\177", 22045)] = Color3[trim1("\151\130\152\155\167\179\169", 22068)](50, 50, 70);
-    	step1[trim1("dJV??+\0116$8\012:*4<", 22071)] = 0;
-    	step1[trim1("\214\248\248\225", 22074)] = Enum[trim1("/\007\001\026", 22102)][trim1("c4.192\028207", 22129)];
-    	step1[trim1("\148\162\190\177", 22135)] = trim1("\147\162\190\184\178\238\235\133\175\174", 22144);
-    	step1[trim1("`NR]k@BB^\016", 22167)] = Color3[trim1("\155\145\156", 22184)](1, 1, 1);
-    	step1[trim1("\184\134\154\149Hsc}", 22194)] = 12;
-    	step1[trim1("\232\221\219\193\239\217\215\214\206\206\228\201\201\203\169", 22201)] = false;
-    	(Instance[trim1("&*9", 22207)](trim1("\138\151\158\179\161\188\180\162", 22221), step1))[trim1("iFZAK_~BFHUT", 22225)] = UDim[trim1("\133\143\158", 22242)](0, 6);
-    	local mapStep1 = Instance[trim1("\019\025\004", 22256)](trim1("\026(47\000443)+", 22265), tryStep1);
-    	mapStep1[trim1("\135\162\176\172", 22289)] = UDim2[trim1("\005\015\030", 22295)](.5, -3, 1, 0);
-    	mapStep1[trim1("\231\197\184\177\190\170\176\171\179\184\144\189\189\191\165\229", 22298)] = Color3[trim1("grhkWCy", 22311)](50, 50, 70);
-    	mapStep1[trim1("BhtaaIiPBZnTDV^", 22340)] = 0;
-    	mapStep1[trim1("\157\181\183\172", 22356)] = Enum[trim1("pZZ_", 22360)][trim1("6\031\003\030\020\025)\005\005\012", 22372)];
-    	mapStep1[trim1("\209\225\195\206", 22374)] = trim1("\197\229\241\232\254\232\252\234\180\173\195\229\228", 22383);
-    	mapStep1[trim1("\030,0;\r\" ,0r", 22400)] = Color3[trim1("`h{", 22417)](1, 1, 1);
-    	mapStep1[trim1("\146\160\188\143\169\144\130\154", 22444)] = 12;
-    	mapStep1[trim1(">\011\009\0191\007\005\004\024\0246\027\007\005\027", 22449)] = false;
-    	(Instance[trim1("]WF", 22466)](trim1("\012\017\0281/26 ", 22467), mapStep1))[trim1("\012!?\"&0\019!#/07", 22487)] = UDim[trim1("NBQ", 22515)](0, 6);
-    	local bindStep1 = Instance[trim1("\200\192\211", 22520)](trim1("\250\200\212\215\238\192\194\194\202", 22539), toTrim1);
-    	bindStep1[trim1("\152\170\179\166\189\187\129\191\168\166\176", 22540)] = 23;
-    	bindStep1[trim1("Axjr", 22571)] = UDim2[trim1("\164\172\191", 22598)](1, 0, 0, 26);
-    	bindStep1[trim1("\221\255\254\247\244\224\254\229\249\242\214\251\231\229\251\187", 22624)] = Color3[trim1("5 >=\005\017\023", 22641)](20, 20, 30);
-    	bindStep1[trim1("nBAJGUIPJ?\014+91--=!7?3.", 22650)] = .1;
-    	bindStep1[trim1("Lb~ggsSn|`TRB\\T", 22668)] = 0;
-    	bindStep1[trim1("\236\198\198\219", 22674)] = Enum[trim1("mEG\\", 22698)][trim1(".\003\007\007", 22720)];
-    	bindStep1[trim1("*\024\004\007", 22729)] = trim1("\130\142\133\141", 22744);
-    	bindStep1[trim1("_oq|Laacq1", 22774)] = Color3[trim1("\239\250\224\227\223\203\193", 22779)](80, 80, 100);
-    	bindStep1[trim1("\128\174\178\189\155\166\180\168", 22791)] = 11;
-    	bindStep1[trim1("\025);6\025\001+/\"*\022\031\023\012", 22796)] = Enum[trim1("\174\156\128\139\166\188\144\154\149\159\157\146\152\129", 22811)][trim1("\232\190\188\173", 22829)];
-    	(Instance[trim1("\194\198\213", 22848)](trim1("pm\0245+6:,", 22853), bindStep1))[trim1("Sxd{qyXhlf{~", 22880)] = UDim[trim1("\248\240\227", 22885)](0, 6);
-    	local step1 = Instance[trim1("BFU", 22901)](trim1("\014\019\0099;:424", 22911), bindStep1);
-    	step1[trim1("\137\185\187\186\180\178\180\158\180\182\163", 22916)] = UDim[trim1("q{j", 22928)](0, 8);
-    	local findStep1 = Instance[trim1("\199\205\216", 22954)](trim1("gWID{WWQG", 22968), toTrim1);
-    	findStep1[trim1("Q}j}ddXdqqy", 22986)] = 24;
-    	findStep1[trim1("\004?/1", 23008)] = UDim2[trim1("\019\025\004", 23009)](1, 0, 0, 18);
-    	findStep1[trim1("\237\207\206\199\196\208\206\213\201\194\241\214\186\180\170\168\190\172\184\178\176\171", 23012)] = 1;
-    	findStep1[trim1("\232\194\194\215", 23041)] = Enum[trim1("5\029\031\004", 23067)][trim1("1\030\020\018", 23096)];
-    	findStep1[trim1("\172\154\134\137", 23120)] = trim1("", 23136);
-    	findStep1[trim1("R`|OyVTPL\014", 23151)] = Color3[trim1("RYEDzhl", 23171)](80, 80, 100);
-    	findStep1[trim1(",\026\006\009/\026\008\020", 23173)] = 10;
-    	findStep1[trim1("Yi{vYAkobjV_WL", 23199)] = Enum[trim1("\253\205\215\218\245\237\207\203\198\206\202\195\203\208", 23205)][trim1("\236\194\192\209", 23215)];
-    	local onStep1 = Instance[trim1("\160\168\187", 23216)](trim1("\027+58\015##%+", 23240), toTrim1);
-    	onStep1[trim1("\235\199\220\203\174\174\150\170\187\187\175", 23244)] = 25;
-    	onStep1[trim1("Pk{e", 23257)] = UDim2[trim1("1;*", 23278)](1, 0, 0, 16);
-    	onStep1[trim1("\194\230\229\238\227\201\213\204\214\219\234\207\221\221\193\193\209\197\211\219\215\210", 23291)] = 1;
-    	onStep1[trim1("\146\164\164\189", 23293)] = Enum[trim1("\240\218\218\223", 23311)][trim1("\182\159\131\158\148\153\169\133\133\140", 23323)];
-    	onStep1[trim1("N|`k", 23343)] = trim1(",\028\020\016\029\020\008\nHQIGF", 23366);
-    	onStep1[trim1("\031/1<\012!!#1q", 23375)] = Color3[trim1("\145\155\138", 23400)](1, 1, 1);
-    	onStep1[trim1("\208\222\194\205\235\214\196\216", 23407)] = 11;
-    	onStep1[trim1("#\019\r\0003+\005\001\008\000\000\009\r\022", 23434)] = Enum[trim1("\238\220\192\203\230\252\208\218\213\223\221\210\216\193", 23465)][trim1("\206\228\230\243", 23484)];
-    	local f = Instance[trim1("\133\143\158", 23497)](trim1("|KYR[", 23518), toTrim1);
-    	f[trim1("\190\144\137\152\131\129\187\153\142\140\154", 23545)] = 26;
-    	f[trim1("\023\018\000\028", 23559)] = UDim2[trim1("H@S", 23577)](1, 0, 0, 28);
-    	f[trim1("\145\179\178\187\176\164\186\161\165\174\157\186\174\160\190\188\162\176\164\174\164\191", 23592)] = 1;
-    	local emitStep1 = Instance[trim1("\194\198\213", 23601)](trim1("\159\128\132\166\189\185\128\162\187\174\181\179", 23602), f);
-    	emitStep1[trim1("\195\237\215\214\253\209\205\219\222\200\218\221\223", 23629)] = Enum[trim1("\177\159\153\152\175\131\155\141\140\154\132\131\141", 23632)][trim1("\204\212\200\208\194\208\208\201\221\223", 23658)];
-    	emitStep1[trim1("\197\245\239\238\224\230\232", 23667)] = UDim[trim1("\131\137\148", 23671)](0, 6);
-    	emitStep1[trim1("\144\160\182\143\147\154\153\147\191\145\149\148\156\156\149\153\130", 23699)] = Enum[trim1("\0075%\"<7*&\008$&)#!&,5", 23703)][trim1("\160\135\143o\127k", 23729)];
-    	local hasStep1 = makeZeta1(f, trim1("\000i\137", 23758));
-    	local step1 = makeZeta1(f, trim1("Z7,_4!", 23774));
-    	local setStep1 = Instance[trim1("W]H", 23798)](trim1("vEWXQ", 23808), f);
-    	setStep1[trim1("\162\153\141\147", 23825)] = UDim2[trim1("\158\146\129", 23854)](1, -136, 1, 0);
-    	setStep1[trim1("\221\255\254\247\244\224\254\229\249\242\214\251\231\229\251\187", 23879)] = Color3[trim1("\196\211\207\202\244\226\230", 23910)](30, 30, 45);
-    	setStep1[trim1("\133\169\183\160\158\136\170\145\133\155\173\149\139\151\157", 23921)] = 0;
-    	(Instance[trim1("\213\223\206", 23938)](trim1("\130\159\150\187\185\164\172\186", 23959), setStep1))[trim1(".\003\017\012\004\0185\007\001\r\238\233", 23975)] = UDim[trim1("\223\213\192", 23977)](0, 6);
-    	local initStep1 = Instance[trim1("\201\195\210", 23997)](trim1("\254\205\223\208\217", 24025), setStep1);
-    	initStep1[trim1("\253\196\214\198", 24045)] = UDim2[trim1("\255\245\224", 24053)](.18, 0, 1, 0);
-    	initStep1[trim1("CadmbvTOW\\|QQSA\001", 24068)] = Color3[trim1("\164\179\175\170\148\130\134", 24085)](255, 100, 0);
-    	initStep1[trim1("BhtaaIiPBZnTDV^", 24097)] = 0;
-    	(Instance[trim1(":.=", 24099)](trim1("\249\234\225\206\210\201\195\215", 24103), initStep1))[trim1("\220\241\239\242\246\224\195\241\243\255\224\231", 24130)] = UDim[trim1("$,?", 24157)](0, 6);
-    	local step1 = makeZeta1(f, trim1("\213\214", 24182));
-    	local sendStep1 = makeZeta1(f, trim1("\252", 24210));
-    	local function j(s)
-    		lock1[trim1("\011\000\000\011\005\004", 24215)][trim1("\212\196\204\200\197\204\208\226", 24237)] = math[trim1("\248\246\248\245\239", 24265)](lock1[trim1("\176\189\191\182\190\177", 24269)][trim1("TDLHELPb", 24290)] + s, 50, 5000);
-    		onStep1[trim1("\166\148\136\131", 24298)] = trim1("\209\227\233\235\216\211\205\193\133\158", 24324) .. lock1[trim1(")&&)\'*", 24332)][trim1("$4<85< 2", 24351)];
-    		initStep1[trim1("\255\202\216\196", 24354)] = UDim2[trim1("\181\191\174", 24364)](lock1[trim1("\198\203\245\252\240\255", 24382)][trim1("\140\156\148\144\157\148\136\138", 24393)] / 5000, 0, 1, 0);
-    	end;
-    	hasStep1[trim1("\211\242\233\224\247\211\229\227\226\250\250\186\201\229\225\236\229", 24410)]:Connect(function()
-    		j(-100);
-    	end);
-    	step1[trim1("\160\131\150\145\132Yomlpp,_\127{r{", 24424)]:Connect(function()
-    		j(-500);
-    	end);
-    	sendStep1[trim1("[zaxoK}{zbb2Amidm", 24444)]:Connect(function()
-    		j(100);
-    	end);
-    	step1[trim1("\237\200\211\214\193\153\175\173\172\176\176\236\159\191\187\178\187", 24470)]:Connect(function()
-    		j(500);
-    	end);
-    	local runSeal1 = Instance[trim1(">2!", 24485)](trim1("\130\176\172\191\134\168\170\170\162", 24490), toTrim1);
-    	runSeal1[trim1("\235\199\220\203\174\174\150\170\187\187\175", 24499)] = 27;
-    	runSeal1[trim1("sN\\@", 24523)] = UDim2[trim1("\162\166\181", 24529)](1, 0, 0, 16);
-    	runSeal1[trim1("Qsr{pdzaen]zn`~|bpdnd\127", 24550)] = 1;
-    	runSeal1[trim1("\133\173\175\180", 24558)] = Enum[trim1("iACX", 24571)][trim1("\222\247\235\246\252\241\209\253\253\244", 24574)];
-    	runSeal1[trim1("\249\201\219\214", 24576)] = trim1(",\009\009F5\005\233\238\185\203\246\228\248\166\179\253\247\246", 24593);
-    	runSeal1[trim1("\135\183\169\164\148\185\185\187\185\249", 24596)] = Color3[trim1("nbq", 24599)](1, 1, 1);
-    	runSeal1[trim1("zHTWqHZB", 24600)] = 11;
-    	runSeal1[trim1("\210\224\252\207\226\248\212\214\217\211\209\214\220\197", 24604)] = Enum[trim1("\164\146\142\129\172\170\134\128\143\129\131\136\130\151", 24607)][trim1("U}yj", 24627)];
-    	local seal1 = Instance[trim1("\191\181\160", 24654)](trim1("rYKDM", 24677), toTrim1);
-    	seal1[trim1("\185\149\146\133\156\156\160\156\137\137\145", 24694)] = 28;
-    	seal1[trim1("=\004\022\006", 24699)] = UDim2[trim1("\017\027\n", 24708)](1, 0, 0, 28);
-    	seal1[trim1("\157\191\190\183\180\160\190\165\185\178\129\166\170\164\186\184\174\188\168\162\160\187", 24731)] = 1;
-    	local buildSeal1 = Instance[trim1("!+:", 24746)](trim1("\223\192\196\230\253\249\192\226\251\238\245\243", 24758), seal1);
-    	buildSeal1[trim1("2\002\006\005,\006\028\008\015\023\011\014\014", 24776)] = Enum[trim1("\254\214\210\209\248\218\192\212\211\195\223\218\218", 24778)][trim1("\237\203\169\179\163\183\177\170\188\176", 24808)];
-    	buildSeal1[trim1("\146\160\164\163\175\171\163", 24838)] = UDim[trim1("\211\217\196", 24865)](0, 6);
-    	buildSeal1[trim1("\029/;<&-, \002.(\')+ *\015", 24881)] = Enum[trim1("\184\136\158\151\139\130zvXtvysqv|e", 24897)][trim1("[zpiya", 24907)];
-    	local useSeal1 = makeZeta1(seal1, trim1("%NW", 24925));
-    	local seal1 = Instance[trim1("\168\160\179", 24954)](trim1("dSAJC", 24967), seal1);
-    	seal1[trim1("\n1%;", 24977)] = UDim2[trim1("\215\221\200", 25000)](1, -68, 1, 0);
-    	seal1[trim1("\237\207\206\199\196\208\206\213\201\194\230\203\183\181\171\235", 25020)] = Color3[trim1("\192\215\203\182\136\158\154", 25030)](30, 30, 45);
-    	seal1[trim1("!\r\019\004\002\0206\r\225\255\201\241\231\251\241", 25037)] = 0;
-    	(Instance[trim1("\209\219\202", 25058)](trim1("\235\244\255\220\192\223\213\197", 25087), seal1))[trim1("*\007\029\000\008\0301\003\005\009\018\021", 25114)] = UDim[trim1("J>-", 25141)](0, 6);
-    	local isSeal1 = Instance[trim1("\204\196\215", 25165)](trim1("\150\165\183\184\177", 25185), seal1);
-    	isSeal1[trim1("\139\182\164\184", 25204)] = UDim2[trim1("\223\213\192", 25232)](0, 0, 1, 0);
-    	isSeal1[trim1("\148\180\183\160\173\187\167\186\160\169\143\172\174\174\178\244", 25243)] = Color3[trim1("{n|\127CWU", 25245)](100, 200, 100);
-    	isSeal1[trim1("\195\239\245\226\224\246\232\211\195\221\239\215\197\217\223", 25270)] = 0;
-    	(Instance[trim1("\238\226\241", 25299)](trim1("\221\198\205\226\254\237\231\243", 25318), isSeal1))[trim1("\0303!<4\"\00571=>9", 25344)] = UDim[trim1("\164\172\191", 25359)](0, 6);
-    	local mapSeal1 = makeZeta1(seal1, trim1("\014", 25363));
-    	local function d(s)
-    		lock1[trim1("\220\209\211\218\218\213", 25385)][trim1("UVPBOZHT", 25409)] = math[trim1("\005\009\005\246\234", 25433)](lock1[trim1("NCMDHG", 25458)][trim1("273# ;+5", 25461)] + s, 0, 50);
-    		runSeal1[trim1("Jxdg", 25467)] = lock1[trim1("xuw~vy", 25497)][trim1("\002\007\003\019\016\011\027\005", 25499)] == 0 and trim1("\190\155\159\208\167\151\135\128\203\185\128\146\138\212\205\131\133\132", 25524) or trim1("9\002\004I8\014\028\025L0\011\027\005]F", 25529) .. (lock1[trim1("\169\166\166\169\167\170", 25534)][trim1("^[_OD_OQ", 25554)] .. trim1("\006VP", 25585));
-    		isSeal1[trim1("\153\160\178\170", 25610)] = UDim2[trim1("\188\180\167", 25629)](lock1[trim1("\188\177\179\186\186\181", 25659)][trim1("\254\251\255\239\228\255\239\241", 25676)] / 50, 0, 1, 0);
-    	end;
-    	useSeal1[trim1("\149\176\171\174\185\145\167\165\164\184\184\228\151\167\163\170\163", 25706)]:Connect(function()
-    		d(-1);
-    	end);
-    	mapSeal1[trim1("\131\162\185\176\167\131\181\179\178\170\170\202\185\149\145\156\149", 25726)]:Connect(function()
-    		d(1);
-    	end);
-    	local ofSeal1 = Instance[trim1("zn}", 25757)](trim1("tB^Qh:8<4", 25778), toTrim1);
-    	ofSeal1[trim1("\0264-$?=\007=*(>", 25798)] = 29;
-    	ofSeal1[trim1("\161\152\138\146", 25804)] = UDim2[trim1("\029\023\006", 25828)](1, 0, 0, 16);
-    	ofSeal1[trim1("\197\231\230\239\220\200\214\205\209\218\233\206\210\220\194\192\214\196\208\218\200\211", 25830)] = 1;
-    	ofSeal1[trim1("\234\204\204\213", 25860)] = Enum[trim1("\229\205\207\212", 25889)][trim1("\169\130\152\139\131\140Yuu|", 25901)];
-    	ofSeal1[trim1("\162\144\140\159", 25920)] = trim1("Ebqnz)Znjdyp8!oa`", 25950);
-    	ofSeal1[trim1("\184\134\154\149Xuuwm-", 25959)] = Color3[trim1("\003\009\020", 25983)](1, 1, 1);
-    	ofSeal1[trim1("\027+58\016+;%", 26001)] = 11;
-    	ofSeal1[trim1("\207\255\225\236\199\223\241\245\244\252\252\245\249\226", 26022)] = Enum[trim1("\190\140\144\155\182\172\128\138\133\143v\127wl", 26036)][trim1("Goo|", 26037)];
-    	local findSeal1 = Instance[trim1("08+", 26068)](trim1("\188\139\153\146\155", 26074), toTrim1);
-    	findSeal1[trim1("\159\179\168\191\162\162\154\166\175\175\187", 26102)] = 30;
-    	findSeal1[trim1("\213\236\254\222", 26110)] = UDim2[trim1("%/>", 26136)](1, 0, 0, 28);
-    	findSeal1[trim1("3\017\020\029\018\006\004\031\007\012;\028\012\002\016\018\000\018\002\008\006\029", 26137)] = 1;
-    	local seal1 = Instance[trim1("\191\181\160", 26160)](trim1("\163\188\184\130\153\157\164\142\151\130\153\151", 26171), findSeal1);
-    	seal1[trim1("\150\190\186\185\144\162\184\172\171\187\167\162\162", 26189)] = Enum[trim1("zZ^]t^DPW_CFF", 26202)][trim1("\250\222\194\222\204\218\218\223\203\197", 26207)];
-    	seal1[trim1("\149\165\159\158\144\150\152", 26238)] = UDim[trim1("\002\006\021", 26263)](0, 6);
-    	seal1[trim1("\009;/(:10<\022:<3%\',&;", 26290)] = Enum[trim1("TdrsofeW{UQXPPY]F", 26298)][trim1("\007\030\020\r\029\r", 26320)];
-    	local seekSeal1 = makeZeta1(findSeal1, trim1("m\006\031", 26351));
-    	local emitSeal1 = Instance[trim1("\224\232\251", 26380)](trim1("sFJGL", 26405), findSeal1);
-    	emitSeal1[trim1("\000;+5", 26406)] = UDim2[trim1("BFU", 26415)](1, -68, 1, 0);
-    	emitSeal1[trim1("$\004\007\240\253\235\247\234\240\249\223\252\254\254\226\164", 26437)] = Color3[trim1("\234\241\237\236\210\192\196", 26438)](30, 30, 45);
-    	emitSeal1[trim1("\235\199\221\202\200\222\240\203\219\197\247\207\221\193\183", 26468)] = 0;
-    	(Instance[trim1("\223\213\192", 26487)](trim1("\138\151\158\179\161\188\180\162", 26488), emitSeal1))[trim1("\157\178\174\189\183\163\130\182\178\188\161\184", 26517)] = UDim[trim1("\239\229\240", 26525)](0, 6);
-    	local seal1 = Instance[trim1("\217\211\194", 26545)](trim1("\198\245\231\232\225", 26554), emitSeal1);
-    	seal1[trim1("jQE[", 26559)] = UDim2[trim1("\255\245\224", 26563)](0, 0, 1, 0);
-    	seal1[trim1("\129\163\162\171\160\180\170\177\149\158\186\151\147\145\143\207", 26566)] = Color3[trim1("\203\222\204\207\243\231\229", 26584)](80, 160, 255);
-    	seal1[trim1("\205\225\255\232\230\240\210\233\253\227\213\237\195\223\213", 26602)] = 0;
-    	(Instance[trim1("\218\206\221", 26632)](trim1("\030\003\n\'= (>", 26638), seal1))[trim1("\224\205\211\206\194\212\247\197\191\179\172\171", 26642)] = UDim[trim1("=7&", 26657)](0, 6);
-    	local toSeal1 = makeZeta1(findSeal1, trim1("M", 26688));
-    	local w = 500;
-    	local function seal1(s)
-    		lock1[trim1("\234\231\225\232\228\235", 26719)][trim1(">;&\'1?5\'!-\206\201", 26736)] = math[trim1("\029\017\029\030\002", 26745)](lock1[trim1("WDDOAH", 26761)][trim1("\021\018\001>*&*>:4) ", 26764)] + s, 0, w);
-    		ofSeal1[trim1("\213\229\255\242", 26776)] = lock1[trim1("\r\002\002\005\011\006", 26783)][trim1("\253\250\233\230\242\254\242\230\226\236\241\136", 26806)] == 0 and trim1("\144\181\164\165\183\230\151\165\159\147\140\139\197\222\146\154\149", 26817) or trim1("\0314\'$0g\020$ \018\015\nB_", 26841) .. (lock1[trim1("\000\r\015\006\014\001", 26870)][trim1("\196\193\208\209\219\213\219\201\203\199\216\223", 26872)] .. trim1("\030NH", 26897));
-    		seal1[trim1("\137\176\162\186", 26903)] = UDim2[trim1("\166\170\185", 26923)](lock1[trim1(";00;54", 26938)][trim1("\166\163\174\175\185\183\189\175\169\165\182\177", 26953)] / w, 0, 1, 0);
-    	end;
-    	seekSeal1[trim1("2\017\008\015\0220\004\004\003\025\027E(\006\000\011\004", 26967)]:Connect(function()
-    		seal1(-25);
-    	end);
-    	toSeal1[trim1("(\011\238\233\252\218\234\234\233\243\253\163\210\252\254\245\254", 26968)]:Connect(function()
-    		seal1(25);
-    	end);
-    	sendTrim1(trim1("\231\253\236\228\248\131\241\233\233\226\234\225", 26999), 40);
-    	local getSeal1 = y(toTrim1, trim1("\173\179YSM8LVTY_V+0XPS", 27021), Color3[trim1("\222\205\209\208\238\244\240", 27037)](50, 50, 70), 41);
-    	local sendSeal1 = Instance[trim1("\244\252\239", 27055)](trim1("\166\148\136\131\186\148\150\142\134", 27059), toTrim1);
-    	sendSeal1[trim1("\165\137\150\129\152\152\172\144\133~h", 27069)] = 42;
-    	sendSeal1[trim1("\237\212\198\214", 27095)] = UDim2[trim1("\164\172\191", 27116)](1, 0, 0, 16);
-    	sendSeal1[trim1("oM@IFRHSK@\015(86,.<.6<2)", 27139)] = 1;
-    	sendSeal1[trim1("@jjO", 27167)] = Enum[trim1("\171\131\141\150", 27185)][trim1("!\n\016\243\251\244\218\240\242\249", 27190)];
-    	sendSeal1[trim1("\146\160\188\143", 27213)] = trim1("L|xzgb*7", 27224) .. (lock1[trim1("RNQ[E", 27253)][trim1("\161\147\149\153\130\133", 27281)] .. trim1("\178\226\228", 27287));
-    	sendSeal1[trim1("\0020,?\009&$ <~", 27304)] = Color3[trim1("\230\234\249", 27326)](1, 1, 1);
-    	sendSeal1[trim1("\159\175\177\188\156\167\183\169", 27338)] = 11;
-    	sendSeal1[trim1("\150\164\184\179\158\132\168\146\157\151\149\154\144\137", 27348)] = Enum[trim1("\188\138\150\153\180\162\142\136|tt}qj", 27349)][trim1("Djhy", 27379)];
-    	local doAlpha1 = Instance[trim1("\167\173\184", 27396)](trim1("\151\162\182\187\176", 27415), toTrim1);
-    	doAlpha1[trim1("4\030\007\018\009\007=\003\020\018\004", 27440)] = 43;
-    	doAlpha1[trim1("\149\172\190\158", 27464)] = UDim2[trim1("7=(", 27487)](1, 0, 0, 28);
-    	doAlpha1[trim1("<\028\031\024\021\003\031\002\024\017 \025\011\007\027\031\015\031\009\r\001\024", 27498)] = 1;
-    	local alpha1 = Instance[trim1("\133\143\158", 27513)](trim1("\r\022\0184/\'\0300)8#!", 27516), doAlpha1);
-    	alpha1[trim1("\212\248\252\251\210\252\230\238\233\253\225\224\224", 27538)] = Enum[trim1("\215\249\251\250\209\253\249\239\234\252\230\225\227", 27567)][trim1("\0222.:(>>#79", 27574)];
-    	alpha1[trim1("\184\142\138\137\133\141\133", 27600)] = UDim[trim1("\211\217\196", 27626)](0, 6);
-    	alpha1[trim1("{IQVHCFJdH2=75:0)", 27641)] = Enum[trim1("\201\251\239\232\250\241\240\252\214\250\252\243\229\231\236\230\251", 27644)][trim1("\198\225\213\206\220\202", 27645)];
-    	local makeAlpha1 = makeZeta1(doAlpha1, trim1("\012e~", 27658));
-    	local buildAlpha1 = Instance[trim1("\152\144\131", 27677)](trim1("\020#1:3", 27690), doAlpha1);
-    	buildAlpha1[trim1(",\023\007\025", 27720)] = UDim2[trim1("\199\205\216", 27723)](1, -68, 1, 0);
-    	buildAlpha1[trim1("\n.-&+1-4.#\005*(\020\008J", 27729)] = Color3[trim1("sfdg[OM", 27736)](30, 30, 45);
-    	buildAlpha1[trim1("cOUB@V\0083#=\0157%9?", 27757)] = 0;
-    	(Instance[trim1("6:)", 27767)](trim1("\183\168Xukvzl", 27774), buildAlpha1))[trim1("\202\231\253\224\232\254\209\227\229\233\242\245", 27799)] = UDim[trim1("#)4", 27816)](0, 6);
-    	local r = Instance[trim1("\135\141\152", 27822)](trim1("\206\253\239\224\233", 27828), buildAlpha1);
-    	r[trim1("\247\178\160\188", 27849)] = UDim2[trim1("KA,", 27873)](lock1[trim1("\148\136\155\145\139", 27878)][trim1("\188\140\136\138\151\146", 27909)] / 50, 0, 1, 0);
-    	r[trim1(";\025\028\021\026\014\028\007\031\0204\025\025\027\025Y", 27913)] = Color3[trim1("`wkVh~z", 27920)](180, 80, 255);
-    	r[trim1("GkI^\\JlWGYc[IU[", 27949)] = 0;
-    	(Instance[trim1(".\"1", 27961)](trim1("\130\159\150\187\185\164\172\186", 27975), r))[trim1("\183\132\152\135\141\157\188\140\136\138\151\146", 27986)] = UDim[trim1("\198\202\217", 28003)](0, 6);
-    	local tryAlpha1 = makeZeta1(doAlpha1, trim1("s", 28018));
-    	local function isAlpha1(s)
-    		lock1[trim1("\009\023\0062.", 28019)][trim1("{IKGX_", 28027)] = math[trim1("<2<1#", 28047)](lock1[trim1("\174IXPL", 28054)][trim1("uGAM.)", 28066)] + s, 2, 50);
-    		sendSeal1[trim1("\00113>", 28086)] = trim1("\015=7;$#mv", 28105) .. (lock1[trim1("UKZVJ", 28112)][trim1("\220\236\232\234\247\242", 28137)] .. trim1("\165\247\207", 28147));
-    		r[trim1("\240\203\219\197", 28148)] = UDim2[trim1("[Q\\", 28162)](lock1[trim1("\020\008\027\017\011", 28182)][trim1("\248\200\204\198\219\222", 28196)] / 50, 0, 1, 0);
-    	end;
-    	makeAlpha1[trim1("\184\155\158\153\140\170\154\154\153\131\141\211\162wszs", 28208)]:Connect(function()
-    		isAlpha1(-1);
-    	end);
-    	tryAlpha1[trim1("\139\170\177\136\159\187\141\139\138\146\146\194\177\157\153\148\157", 28217)]:Connect(function()
-    		isAlpha1(1);
-    	end);
-    	local alpha1 = Instance[trim1("bfu", 28248)](trim1("0\254\226\237\212\254\252\248\240", 28252), toTrim1);
-    	alpha1[trim1("\020>\'2)\'\029#42$", 28269)] = 44;
-    	alpha1[trim1("\029$6&", 28289)] = UDim2[trim1("\149\159\142", 28304)](1, 0, 0, 16);
-    	alpha1[trim1("Y{zsxlri}vEbvxfdjxlflw", 28334)] = 1;
-    	alpha1[trim1("\0273=&", 28356)] = Enum[trim1("=\021\023\012", 28357)][trim1("\'\008\018\r\005\246\216\246\244\251", 28387)];
-    	alpha1[trim1("-\029\007\n", 28415)] = trim1("Uua^^\003\024", 28422) .. (lock1[trim1("\006\026\r\007\025", 28453)][trim1("\250\216\202\203\201", 28476)] .. trim1("Z", 28481));
-    	alpha1[trim1("*\024\004\0071\030\028\024\004F", 28502)] = Color3[trim1("6:)", 28520)](1, 1, 1);
-    	alpha1[trim1("\167\151\137\132\164\159\143\145", 28536)] = 11;
-    	alpha1[trim1(" \014\018\0290.\002\004\011\r\015\004\014\019", 28541)] = Enum[trim1("\190\140\144\155\182\172\128\138\133\143v\127wl", 28546)][trim1("\221\245\241\226", 28571)];
-    	local bindAlpha1 = Instance[trim1("\233\227\242", 28591)](trim1("\\kyr{", 28614), toTrim1);
-    	bindAlpha1[trim1("iE\"5,,\016,99!", 28626)] = 45;
-    	bindAlpha1[trim1("Jqe{", 28643)] = UDim2[trim1("\180\188\175", 28660)](1, 0, 0, 28);
-    	bindAlpha1[trim1("\233\203\202\195\200\220\194\217\205\198\245\210\198\200\214\212\186\168\188\182\188\167", 28669)] = 1;
-    	local ofAlpha1 = Instance[trim1("\234\222\205", 28678)](trim1("B_Y}x~Eivaxx", 28682), bindAlpha1);
-    	ofAlpha1[trim1("\159\177\179\178\153\181\161\183\178\164\190\185\187", 28689)] = Enum[trim1("CmWV}QM[^HZ]_", 28702)][trim1("\220\228\248\224\242\224\224\249\237\239", 28716)];
-    	ofAlpha1[trim1("\024.*)%-%", 28733)] = UDim[trim1("\184\176\163", 28757)](0, 6);
-    	ofAlpha1[trim1("\025+?8*! ,\006*,#\021\023\028\022\011", 28762)] = Enum[trim1("l\\JKW^]_s]YPXXQE^", 28789)][trim1("\006!\021\014\028\n", 28801)];
-    	local alpha1 = makeZeta1(bindAlpha1, trim1("\025rk", 28806));
-    	local onAlpha1 = Instance[trim1("\012\004\023", 28831)](trim1("\248\207\221\222\215", 28852), bindAlpha1);
-    	onAlpha1[trim1("\247\178\160\188", 28853)] = UDim2[trim1("YSB", 28857)](1, -68, 1, 0);
-    	onAlpha1[trim1("\001#\"+ 4*1\021\030:\023\019\017\015O", 28878)] = Color3[trim1("\167\178\168\171\151\131\185", 28883)](30, 30, 45);
-    	onAlpha1[trim1("J`|iiqQhzbVl|^V", 28885)] = 0;
-    	(Instance[trim1("\224\232\251", 28890)](trim1("\216\197\192\237\243\238\226\244", 28919), onAlpha1))[trim1("\154\183\173\176\184\174\129\179\181\185\162\165", 28940)] = UDim[trim1("\155\145\156", 28961)](0, 6);
-    	local k = Instance[trim1("\185\179\162", 28979)](trim1("\247\194\214\219\208", 28997), onAlpha1);
-    	k[trim1("\140\183\167\185", 28998)] = UDim2[trim1("\236\228\247", 29006)](lock1[trim1("fzmgy", 29031)][trim1("\142\172\182\183\181", 29056)] / 20, 0, 1, 0);
-    	k[trim1("\211\241\244\253\242\230\228\255\231\236\204\225\225\227\241\177", 29073)] = Color3[trim1("l{gb\\JN", 29078)](255, 200, 0);
-    	k[trim1("dJV??+\0116$8\012:*4<", 29099)] = 0;
-    	(Instance[trim1("-\'6", 29129)](trim1("\202\215\222\243\225\252\244\226", 29150), k))[trim1("\153\182\170\177\187\175\142\178\182\184\165\164", 29162)] = UDim[trim1("\174\162\177", 29163)](0, 6);
-    	local alpha1 = makeZeta1(bindAlpha1, trim1("L", 29169));
-    	local function hasAlpha1(s)
-    		lock1[trim1("\135\157\140\132\152", 29182)][trim1("Vt^_]", 29204)] = math[trim1("\172\162\172\161\179", 29211)](lock1[trim1("\211\193\208\216\196", 29237)][trim1("\243\215\195\192\192", 29239)] + s, .5, 20);
-    		alpha1[trim1("\168\150\138\133", 29260)] = trim1("\134\164\174\175\173\242\239", 29288) .. (lock1[trim1("ukzvj", 29291)][trim1("\029=)&&", 29293)] .. trim1("\138", 29318));
-    		k[trim1("\212\239\255\225", 29344)] = UDim2[trim1("\028\020\007", 29371)](lock1[trim1("\183\173\188\180\168", 29395)][trim1("\172\142\152\153\151", 29424)] / 20, 0, 1, 0);
-    	end;
-    	alpha1[trim1("HkNI\\zJJIS]\003r\\^U^", 29455)]:Connect(function()
-    		hasAlpha1(-0.5);
-    	end);
-    	alpha1[trim1("\149\176\171\174\185\145\167\165\164\184\184\228\151\167\163\170\163", 29471)]:Connect(function()
-    		hasAlpha1(.5);
-    	end);
-    	local toAlpha1 = Instance[trim1("\154\142\157", 29492)](trim1("o_ALs__Y_", 29513), toTrim1);
-    	toAlpha1[trim1("OcxorrJv__K", 29532)] = 46;
-    	toAlpha1[trim1("{FTH", 29562)] = UDim2[trim1("\209\219\202", 29576)](1, 0, 0, 16);
-    	toAlpha1[trim1("\129\163\162\171\160\180\170\177\149\158\173\138\158\144\142\140\146\128\148\158\148\143", 29578)] = 1;
-    	toAlpha1[trim1("\188\150\150\139", 29588)] = Enum[trim1("\149\189\191\164", 29616)][trim1("\235\204\214\201\193\202\228\202\200\191", 29625)];
-    	toAlpha1[trim1("k[EH", 29629)] = trim1("#\025\025\017\006NK", 29651) .. lock1[trim1("\005\027\n\006\026", 29679)][trim1("\139\177\177\185\174", 29693)];
-    	toAlpha1[trim1("\020\">1\007\020\022\022\nL", 29718)] = Color3[trim1("\024\016\003", 29738)](1, 1, 1);
-    	toAlpha1[trim1("!\017\019\030:\001\021\011", 29767)] = 11;
-    	toAlpha1[trim1("\0033- \019\011%!(  )-6", 29785)] = Enum[trim1("\0020,?\018\008$&)#!&,5", 29814)][trim1("0\022\020\005", 29815)];
-    	local alpha1 = Instance[trim1("AKZ", 29842)](trim1("Oznch", 29860), toTrim1);
-    	alpha1[trim1("\159\179\168\191\162\162\154\166\175\175\187", 29867)] = 47;
-    	alpha1[trim1("lWGY", 29880)] = UDim2[trim1("\249\243\226", 29884)](1, 0, 0, 28);
-    	alpha1[trim1("\246\202\201\194\207\221\193\216\194\199\246\211\193\201\213\213\197\169\191\183\187\166", 29895)] = 1;
-    	local initAlpha1 = Instance[trim1("\210\214\197", 29914)](trim1("\192\221\199\227\250\252\195\239\244\227\246\246", 29942), alpha1);
-    	initAlpha1[trim1(" \012\008\247\222\240\234\250\253\233\245\252\252", 29951)] = Enum[trim1("\210\226\230\229\204\230\252\232\239\247\235\238\238", 29971)][trim1("Vrnzh~~cwy", 29985)];
-    	initAlpha1[trim1("&\020\016\015\003\007\015", 29989)] = UDim[trim1("\003\009\020", 29999)](0, 6);
-    	initAlpha1[trim1("\0062$!=(+%\009#\'*\".\'/4", 30007)] = Enum[trim1("(\024\014\007\027\018\017\0277\025\029\012\004\004\r\001\026", 30008)][trim1("\142\169\173\182\164\178", 30022)];
-    	local getAlpha1 = makeZeta1(alpha1, trim1("R?$", 30030));
-    	local alpha1 = Instance[trim1("\176\184\171", 30031)](trim1("\221\232\248\245\250", 30038), alpha1);
-    	alpha1[trim1("\160\155\139\149", 30042)] = UDim2[trim1("\231\237\248", 30058)](1, -68, 1, 0);
-    	alpha1[trim1("\236\204\207\200\197\211\207\210\200\193\231\180\182\182\170\236", 30069)] = Color3[trim1("\151\130\152\155\167\179\169", 30100)](30, 30, 45);
-    	alpha1[trim1("\145\189\163\180\178\164\134\189\177\175\153\161\183\171\161", 30118)] = 0;
-    	(Instance[trim1(":.=", 30123)](trim1("\232\245\240\221\195\222\210\196", 30136), alpha1))[trim1("2\031\005\024\016\0069\011\r\001\026\029", 30153)] = UDim[trim1("\167\173\184", 30157)](0, 6);
-    	local c = Instance[trim1("\180\188\175", 30166)](trim1(")\028\012\001\006", 30192), alpha1);
-    	c[trim1("\019.< ", 30220)] = UDim2[trim1("\017\027\n", 30230)](lock1[trim1("ZFIC]", 30246)][trim1("^jlfs", 30256)] / 5, 0, 1, 0);
-    	c[trim1("y[ZSXLRI]Vr_[YG\007", 30266)] = Color3[trim1("za}|BPT", 30294)](80, 220, 180);
-    	c[trim1("\163th}}mMtfvBxhrz", 30313)] = 0;
-    	(Instance[trim1("\255\245\224", 30328)](trim1("\221\198\205\226\254\237\231\243", 30338), c))[trim1("eJV5?+\n>:4) ", 30354)] = UDim[trim1("39$", 30364)](0, 6);
-    	local runQuota1 = makeZeta1(alpha1, trim1("\240", 30388));
-    	local function makeQuota1(s)
-    		lock1[trim1("\142\146\133\143\145", 30389)][trim1("\196\252\250\236\249", 30415)] = math[trim1("\004\n\004\009\235", 30424)](lock1[trim1("rnq{e", 30440)][trim1("\027!!)>", 30461)] + s, 1, 5);
-    		toAlpha1[trim1("Yi{v", 30478)] = trim1("\177\139\143|i#8", 30506) .. lock1[trim1("fzmgy", 30537)][trim1("\135\189\165\173\186", 30543)];
-    		c[trim1("\178r`|", 30564)] = UDim2[trim1("08+", 30586)](lock1[trim1("4(;1+", 30616)][trim1("d\\ZLY", 30643)] / 5, 0, 1, 0);
-    		for s, runLock1 in ipairs(lock1[trim1("@\\OEW", 30671)][trim1(" \022\004\001\007", 30684)]) do
-    			runLock1[trim1("QKOGh@CW>.", 30711)] = ((s % lock1[trim1("\238\242\229\239\241", 30716)][trim1("\157\167\163\171\176", 30717)]) / lock1[trim1("\030\002\021\031\001", 30731)][trim1("\156\164\162\164\177", 30746)]) * math[trim1("\005\029", 30771)];
-    		end;
-    	end;
-    	getAlpha1[trim1("\226\193\216\223\198\224\212\212\211\201\203\149\152\182\176\187\180", 30793)]:Connect(function()
-    		makeQuota1(-1);
-    	end);
-    	runQuota1[trim1("|_BEPv^^]GA\031n@JAJ", 30807)]:Connect(function()
-    		makeQuota1(1);
-    	end);
-    	local quota1 = Instance[trim1("#)4", 30828)](trim1("\211\227\253\240\247\219\219\221\211", 30850), toTrim1);
-    	quota1[trim1("\225\205\218\205\212\212\232\212\193\193\169", 30851)] = 48;
-    	quota1[trim1("\203\246\228\248", 30878)] = UDim2[trim1("\235\225\204", 30908)](1, 0, 0, 16);
-    	quota1[trim1("f:92?-1(27\006#19%%59/\'+6", 30914)] = 1;
-    	quota1[trim1("\151\191\185\162", 30929)] = Enum[trim1(">\016\016\009", 30954)][trim1("\155\176\186\184", 30977)];
-    	quota1[trim1("\"\016\012\031", 30993)] = trim1("", 31023);
-    	quota1[trim1("HvjeSxzzf8", 31047)] = Color3[trim1("FUIHv\028\024", 31049)](80, 80, 100);
-    	quota1[trim1("\026(47\017(:\"", 31050)] = 10;
-    	quota1[trim1("\128\174\178\189\144\142\162\164\171\173\175\164\174\179", 31074)] = Enum[trim1("\159\175\177\188\151\143\161\165\164\172\172\165\169\178", 31103)][trim1("\188\146\144\129", 31133)];
-    	runLock1[trim1("vX]AFSUVB", 31164)]:Connect(function()
-    		quota1[trim1("iYKF", 31193)] = lock1[trim1("\015\021\004\012\016", 31224)][trim1("Tw\127c\127m", 31250)] and trim1("\176\172\191\181\167\187\191\183\237\246", 31257) .. (#lock1[trim1("\232\244\231\237\143", 31276)][trim1("\163\147\131\132\132", 31297)] .. trim1("\253\172\178\160\165\163", 31315)) or trim1("", 31341);
-    	end);
-    	getSeal1[trim1("\188\159\130\133\144\182\158\158\157\135\129\223\174\128\138\129\138", 31355)]:Connect(function()
-    		if lock1[trim1("]CR^B", 31356)][trim1(" \003\019\015\019\001", 31370)] then
-    			buildTrim1();
-    			getSeal1[trim1("\210\224\252\207", 31381)] = trim1("\242\238\241\251\229\144\228\254\252\241\231\238\147\136\224\232\235", 31391);
-    			getSeal1[trim1("\212\244\247\224\237\251\231\250\224\233\207\236\238\238\242\180", 31419)] = Color3[trim1("\022\005\025\024&,(", 31437)](50, 50, 70);
-    		else
-    			trim1();
-    			getSeal1[trim1("\0064(#", 31455)] = trim1("*6\217\211\205\184\204\214\212\217\223\214\171\176\216\216", 31486);
-    			getSeal1[trim1("\243\209\212\221\210\198\196\223\199\204\236\193\193\195\209\145", 31507)] = Color3[trim1(">-10\014\020\016", 31532)](120, 40, 200);
-    		end;
-    	end);
-    	sendTrim1(trim1("\199\192\219\220\199\193\201\163\210\192\210\211", 31535), 50);
-    	local useQuota1 = Instance[trim1("\176\184\171", 31537)](trim1("\144\158\130\141\180\158\156\152\144", 31538), toTrim1);
-    	useQuota1[trim1("\244\222\199\210\201\199\253\195\212\210\196", 31555)] = 51;
-    	useQuota1[trim1("\199\233\226\235", 31564)] = trim1("}^EF]GOyI]ZaMAGM", 31589);
-    	useQuota1[trim1("9\000\018\n", 31611)] = UDim2[trim1("\211\217\196", 31642)](1, 0, 0, 30);
-    	useQuota1[trim1("\153\187\186\179\184\172\178\169\189\182\146\191\187\185\167\231", 31643)] = Color3[trim1("-8&%\029\009\015", 31658)](35, 20, 20);
-    	useQuota1[trim1("\233\197\219\204\202\220\254\197\217\199\241\201\223\195\201", 31681)] = 0;
-    	useQuota1[trim1("jLLU", 31686)] = Enum[trim1("\228\206\206\211", 31691)][trim1("\132\169\161\161", 31702)];
-    	useQuota1[trim1("QaCN", 31714)] = trim1("\207\207\135\214\196\214\175\250\170\189\179\187\190\168\182\182", 31720);
-    	useQuota1[trim1("\020\">1\007\020\022\022\nL", 31726)] = Color3[trim1("MXFE}io", 31734)](150, 150, 150);
-    	useQuota1[trim1("Aqs~Zauk", 31752)] = 11;
-    	useQuota1[trim1("\153\169\187\182\153\129\171\175\162\170\150\159\151\140", 31779)] = Enum[trim1("\018 <\015\"8\020\022\025\019\017\022\028\005", 31784)][trim1("\009!\029\014", 31813)];
-    	(Instance[trim1("\149\159\142", 31818)](trim1("\180RYvjq{o", 31819), useQuota1))[trim1("Ifzak\127^bfhut", 31839)] = UDim[trim1("\202\190\173", 31865)](0, 6);
-    	local tryQuota1 = Instance[trim1("\232\224\243", 31883)](trim1("]F^lhgkog", 31897), useQuota1);
-    	tryQuota1[trim1("8\014\n\009\005\r\005-\005\001\018", 31920)] = UDim[trim1("BFU", 31937)](0, 8);
-    	local quota1;
-    	local mapQuota1 = y(toTrim1, trim1("\008\031\rx\030\r}\017\026\001\002\025\027\019u\004\n\024\029", 31947), Color3[trim1("\234\241\237\236\210\192\196", 31960)](160, 40, 40), 52);
-    	mapQuota1[trim1(":\025\000\007\014(\028\028\027\001\003] \014\008\003\012", 31968)]:Connect(function()
-    		local s = onLock1[trim1("\233\205\217\203\219", 31999)][trim1("&\017\007\015\n\028\n\n\"\014\009\007\002\020", 32026)];
-    		local runLock1 = nil;
-    		if s then
-    			if s:IsA(trim1("\151\181\184\175\153\169\189\186", 32049)) then
-    				runLock1 = s;
-    			elseif s:IsA(trim1("9\004\014\012\004", 32055)) then
-    				runLock1 = s:FindFirstChildOfClass(trim1("sQDSeUY^", 32062)) or s[trim1("\254\223\197\206\195\211\217\247\199\215\208", 32077)];
-    			end;
-    		end;
-    		if not runLock1 then
-    			useQuota1[trim1("\159\175\177\188", 32107)] = trim1("KZRX_G\018P\016uWFQ{K[\\\015HD^PV", 32110);
-    			useQuota1[trim1("\173\157\135\138\190\147\159\157\131\195", 32127)] = Color3[trim1("\150\133\153\152\166\172\168", 32137)](255, 80, 80);
-    			return;
-    		end;
-    		if lock1[trim1("\218\223\198\199\194\198\204", 32143)][trim1("\222\253\233\245\229\247", 32162)] then
-    			isTrim1();
-    			quota1[trim1("xFZU", 32188)] = trim1("\217\213\222\196\202\192\181\174\194\202\197", 32201);
-    			quota1[trim1("~RQZWEY@ZOiFD@\\\030", 32226)] = Color3[trim1("k~loSGE", 32235)](120, 30, 30);
-    		end;
-    		mapTrim1(runLock1);
-    		useQuota1[trim1("\229\213\207\194", 32260)] = trim1("=>%&=\'/sh", 32266) .. runLock1[trim1("\165\139\132\141", 32282)];
-    		useQuota1[trim1("\144\158\130\141\187\144\146\146\142\192", 32291)] = Color3[trim1("\170\177\173\172\146\128\132", 32310)](255, 100, 60);
-    	end);
-    	local v = y(toTrim1, trim1("\195\203\195\196\214\155\247\240\235\236\247\241\249\147\226\240\226\227", 32327), Color3[trim1("u`~}EQW", 32331)](60, 30, 30), 53);
-    	v[trim1("/\014\021\020\003\'\017\239\238\246\246\174\221\241\245\240\249", 32345)]:Connect(function()
-    		if lock1[trim1("\202\207\214\215\242\246\252", 32356)][trim1("\146\177\165\185\161\179", 32377)] then
-    			isTrim1();
-    			quota1[trim1("&\020\008\003", 32383)] = trim1("\241\253\230\252\242\248\141\150\250\242\237", 32395);
-    			quota1[trim1("*\014\r\006\011\017\r\020\014\003%\n\008\244\232\170", 32422)] = Color3[trim1("`wkVh~z", 32438)](120, 30, 30);
-    		end;
-    		mapTrim1(nil);
-    		useQuota1[trim1("\254\204\208\219", 32463)] = trim1(".(f5%\009\014Y\011\026\018\024\031\007\023\021", 32479);
-    		useQuota1[trim1("vDXSeJH4(j", 32497)] = Color3[trim1("6%98\006\012\008", 32517)](150, 150, 150);
-    	end);
-    	local quota1 = Instance[trim1("\253\247\230", 32529)](trim1("\213\229\255\242\201\229\217\223\213", 32549), toTrim1);
-    	quota1[trim1("\019?$3&&\030\"33\'", 32565)] = 54;
-    	quota1[trim1("1\008\026\002", 32596)] = UDim2[trim1("\219\209\220", 32627)](1, 0, 0, 16);
-    	quota1[trim1("lLOHESORHAp);7+/?/9=1(", 32632)] = 1;
-    	quota1[trim1("\209\249\251\224", 32645)] = Enum[trim1("\169\129\131\152", 32649)][trim1("\191\144\138\149\157\158\176\158\156\147", 32658)];
-    	quota1[trim1("\133\181\175\162", 32686)] = trim1("\202\236\240\226\229\189\166", 32713) .. lock1[trim1("RWNOZ^T", 32717)][trim1("\145\185\167\183\174", 32744)];
-    	quota1[trim1("\223\239\241\252\204\225\225\227\241\177", 32761)] = Color3[trim1("\\TG", 32786)](1, 1, 1);
-    	quota1[trim1("8\006\026\0213\014\028\000", 32789)] = 11;
-    	quota1[trim1("\190\140\144\155\182\172\128\138\133\143v\127wl", 32813)] = Enum[trim1("?\015\017\0287/\001\005\004\012\012\005\009\018", 32837)][trim1("\242\216\218\199", 32868)];
-    	local findQuota1 = Instance[trim1("\225\235\250", 32877)](trim1("\149\160\176\189\178", 32879), toTrim1);
-    	findQuota1[trim1("\158\176\169\184\163\161\155\185\174\172\186", 32908)] = 55;
-    	findQuota1[trim1(";\006\020\008", 32924)] = UDim2[trim1("\001\011\026", 32953)](1, 0, 0, 28);
-    	findQuota1[trim1("\01603<1\';>$-\028=/#?3#3%)%<", 32961)] = 1;
-    	local onQuota1 = Instance[trim1("MGV", 32970)](trim1("~ceA\\ZaMZMTT", 32989), findQuota1);
-    	onQuota1[trim1("u[]\\s_GQH^@GA", 33008)] = Enum[trim1("\196\232\236\235\194\236\246\222\217\205\209\208\208", 33022)][trim1("iOUO_K5.84", 33028)];
-    	onQuota1[trim1("\178\128\127~pvx", 33045)] = UDim[trim1("\239\229\240", 33051)](0, 6);
-    	onQuota1[trim1("\249\203\223\216\202\193\192\204\230\202\204\195\181\183\188\182\171", 33052)] = Enum[trim1("gUEB\\WJFhDFICAFLU", 33066)][trim1("\151\174\164\189\173\189", 33082)];
-    	local quota1 = makeZeta1(findQuota1, trim1("\024qj", 33102));
-    	local emitQuota1 = makeZeta1(findQuota1, trim1("\153\242\235\154\247\236", 33126));
-    	local hasQuota1 = Instance[trim1("\249\243\226", 33147)](trim1(".\029\015\000\009", 33175), findQuota1);
-    	hasQuota1[trim1("\147\174\188\160", 33179)] = UDim2[trim1("\128\136\155", 33180)](1, -136, 1, 0);
-    	hasQuota1[trim1("LlohesorhaGTVVJ\012", 33210)] = Color3[trim1("/: #\031\011\001", 33222)](30, 30, 45);
-    	hasQuota1[trim1("5\025\007\016\014\024:\001\021\011=\005\027\007\r", 33223)] = 0;
-    	(Instance[trim1("\207\197\208", 33226)](trim1("\214\203\194\239\245\232\224\246", 33244), hasQuota1))[trim1("\223\252\224\255\245\229\196\244\240\226\255\250", 33253)] = UDim[trim1("\177\187\170", 33265)](0, 6);
-    	local quota1 = 5000000;
-    	local l = Instance[trim1("\027\017\028", 33281)](trim1("\181\128\144\157\146", 33305), hasQuota1);
-    	l[trim1("\193\248\234\242", 33311)] = UDim2[trim1("\200\192\211", 33313)](lock1[trim1("\191\184\163\164\191\185\177", 33334)][trim1("iA_OF", 33356)] / quota1, 0, 1, 0);
-    	l[trim1("\252\220\223\216\213\195\223\194\216\209\247\196\198\198\218\156", 33370)] = Color3[trim1("\020\003\031\026$26", 33387)](255, 80, 40);
-    	l[trim1("J`|iiqQhzbVl|^V", 33403)] = 0;
-    	(Instance[trim1("J>-", 33424)](trim1(":\'.\003\017\012\004\018", 33455), l))[trim1("%\n\022\245\255\235\202\254\250\244\233\224", 33465)] = UDim[trim1("\213\223\206", 33476)](0, 6);
-    	local initQuota1 = makeZeta1(findQuota1, trim1("\222\223", 33479));
-    	local quota1 = makeZeta1(findQuota1, trim1("k", 33483));
-    	local function sendQuota1(s)
-    		lock1[trim1("~{bc~zp", 33510)][trim1("\009!?/&", 33531)] = math[trim1("\022\024\n\007\025", 33532)](lock1[trim1("da|}d`f", 33549)][trim1("\008\"> \'", 33560)] + s, 10000, quota1);
-    		quota1[trim1("\017!\003\014", 33570)] = trim1("aIWG>`y", 33588) .. string[trim1("\208\218\198\198\203\221", 33602)](trim1("\018\024\005R", 33626), lock1[trim1("hm\008\009\016\020\026", 33646)][trim1("<\022\n\028\027", 33657)]);
-    		l[trim1("\189\132\150\134", 33682)] = UDim2[trim1("\009\003\018", 33687)](lock1[trim1("\160\165\176\177\168W_", 33711)][trim1("\015\'=-(", 33724)] / quota1, 0, 1, 0);
-    	end;
-    	quota1[trim1("\206\237\244\243\226\196\240\240\207\213\215\137\252\210\212\223\216", 33746)]:Connect(function()
-    		sendQuota1(-100000);
-    	end);
-    	emitQuota1[trim1("\252\223\194\197\208\246\222\222\221\199\193\159\238\192\202\193\202", 33766)]:Connect(function()
-    		sendQuota1(-500000);
-    	end);
-    	quota1[trim1("\147\178\169\160\183\147\165\163\162\186\186\250\137\165\161\172\165", 33796)]:Connect(function()
-    		sendQuota1(100000);
-    	end);
-    	initQuota1[trim1("\250\217\192\199\206\232\220\220\219\193\195\157\224\206\200\195\204", 33824)]:Connect(function()
-    		sendQuota1(500000);
-    	end);
-    	quota1 = y(toTrim1, trim1("FH]AME6#MGF", 33847), Color3[trim1("VEYXflh", 33848)](120, 30, 30), 56);
-    	quota1[trim1("bAX_F`TTSIK\021\02460;4", 33858)]:Connect(function()
-    		if lock1[trim1(">;\"#>:0", 33860)][trim1("[zlvhx", 33885)] then
-    			isTrim1();
-    			quota1[trim1("\248\198\218\213", 33892)] = trim1("DN[COK8!OA@", 33905);
-    			quota1[trim1("Egfo\\HVMQZ~S_]C\003", 33915)] = Color3[trim1("\001\020\n\009\201\221\219", 33938)](120, 30, 30);
-    		else
-    			if not lock1[trim1("\193\202\209\210\201\203\195", 33968)][trim1("\211\227\243\244", 33997)] or not lock1[trim1("\020\017\012\r\020\016\022", 34013)][trim1("\225\209\197\194", 34017)][trim1("qAUCKP", 34032)] then
-    				useQuota1[trim1("Hvje", 34059)] = trim1("\191\166\182\225\161\231\171\172\183\136\147\149\157\223\142\156\142\135\210\151\153\133\133\129", 34067);
-    				useQuota1[trim1("|JVYoLNNR\020", 34080)] = Color3[trim1("\195\214\180\183\139\159\157", 34095)](255, 80, 80);
-    				return;
-    			end;
-    			if not lock1[trim1("\175\182\188\181\132\182\164\178\177\191", 34105)] then
-    				useQuota1[trim1("\211\227\253\240", 34113)] = trim1("\245\224\240\155\219\153\204\222\204\218\217\199\146\216\222\151\230\244\230\255\138\239\228\230\224\234\233\241\130\199\201\213\213\209", 34142);
-    				useQuota1[trim1("\158\172\176\187\141\162\160\172\176\242", 34144)] = Color3[trim1("\023\002\024\027\'3)", 34169)](255, 80, 80);
-    				return;
-    			end;
-    			trim1();
-    			quota1[trim1("\209\225\195\206", 34171)] = trim1("r|i}qy\n\023y{\020\011\218\182\188\155", 34176);
-    			quota1[trim1("f:92?-1(27\017><8$f", 34177)] = Color3[trim1("~mqpNTP", 34194)](220, 40, 40);
-    			task[trim1("\158\156\130\149\143", 34213)](function()
-    				while lock1[trim1("\031\024\003\004\031\025\017", 34216)][trim1(">\029\009\021\005\023", 34246)] do
-    					task[trim1("\009\028\021\007", 34275)](.5);
-    				end;
-    				quota1[trim1("\027+58", 34284)] = trim1("\227\239\248\226\224\234\155\128\232\224\227", 34307);
-    				quota1[trim1("\02047 -;\': )\015,..2t", 34332)] = Color3[trim1("I\\BAqec", 34360)](120, 30, 30);
-    			end);
-    		end;
-    	end);
-    	local function doList1(s, runLock1)
-    		bindStep1[trim1("]mwz", 34378)] = s;
-    		bindStep1[trim1("\023\'94\004))+\009I", 34400)] = runLock1 or Color3[trim1("n}a`^D@", 34407)](80, 80, 100);
-    	end;
-    	local function runList1(s)
-    		lock1[trim1("\169\188\182\187\138\188\174\180\183\165", 34433)] = s;
-    		if s then
-    			doList1(trim1("\228\131\150\027", 34446) .. (s[trim1("\007)\"+", 34477)] .. (trim1("`o", 34487) .. (s[trim1("oCZXCOTbBOD", 34495)] .. trim1("7", 34503)))), Color3[trim1("\002\233\245\244\202\216\220", 34527)](200, 80, 80));
-    		else
-    			doList1(trim1("\164\168\175\167", 34540));
-    		end;
-    	end;
-    	local function list1()
-    		lock1[trim1("~\127sr{_yyqJi}ayk", 34561)] = false;
-    		step1[trim1("7\007\025\020", 34575)] = trim1("\176\131\153\153\145\207\212\164\140\143", 34589);
-    		step1[trim1("\179\145\148\157\146\134\132\159\135\140\172\129\129\131\145\209", 34618)] = Color3[trim1("\254\237\241\240\206\212\208", 34643)](50, 50, 70);
-    		if lock1[trim1("\240\206\217\202\205\193\202\204\194\215\227\197\196\194\194\230\203\181\180", 34664)] then
-    			lock1[trim1("\132\162\181\166\161\149\158\152\150\139\191\153\152\150\150\178\159\153\152", 34685)]:Disconnect();
-    			lock1[trim1("hFQBEIBDJ/\027=<::\0303=<", 34698)] = nil;
-    		end;
-    		if lock1[trim1("1(3;3\022;%$,+;\'\"\"", 34718)] then
-    			lock1[trim1("\150\141\136\134\140\171\128\128\131\137\128\150\136tt", 34734)]:Disconnect();
-    			lock1[trim1("\255\234\241\253\245\212\249\251\250\238\233\253\225\224\224", 34759)] = nil;
-    		end;
-    		for s in pairs(lock1[trim1("\214\192\210\192\195\209\219\235\251\235\236\236", 34779)]) do
-    			emitLock1(s);
-    		end;
-    	end;
-    	local function buildList1()
-    		if not lock1[trim1("\145\132u~Mymyxh", 34802)] then
-    			return;
-    		end;
-    		lock1[trim1("\183\184\170\169\162\128\160\162\168\141\160\182\168\182\162", 34810)] = true;
-    		step1[trim1("\166\148\136\131", 34840)] = trim1("Pcyyq/4Dd", 34870);
-    		step1[trim1("\022*)\"/=!8\"\'\001.,(4v", 34892)] = Color3[trim1("n}a`^D@", 34909)](160, 35, 35);
-    		local s = lock1[trim1("\027\n\000\0098\002\016\006\005\019", 34932)][trim1("\009!)=/.8&0", 34950)];
-    		local makeLock1 = s and s:FindFirstChild(trim1("\226\220\197\206\192\194\197\199\240\206\207\211\246\196\214\175", 34973));
-    		if makeLock1 then
-    			lock1[trim1("\r6*3:\030\026!3<5", 34988)] = makeLock1[trim1("\141\139\190\162\175\164", 35013)];
-    		end;
-    		task[trim1("\030\028\002\021\015", 35019)](function()
-    			for s, runLock1 in ipairs(useLock1:GetDescendants()) do
-    				lock1(runLock1);
-    			end;
-    		end);
-    		lock1[trim1("\0202%61%.(&;\015)(&&\002/)(", 35027)] = useLock1[trim1("\154\184\175\176\183\191\180\182\184\161\149\175\174\172\172", 35051)]:Connect(function(s)
-    				if lock1[trim1("\022\007\011\n\003\'\001\001\009\"\001\021\009\017\003", 35067)] then
-    					task[trim1("\015\003\019\006\030", 35086)](lock1, s);
-    				end;
-    			end);
-    		if lock1[trim1("\168\178\160\182\181\163\155\186\176\174", 35109)] == trim1("\131\173\172", 35129) then
-    			lock1[trim1("\222\197\208\222\212\243\216\216\219\209\200\222\192\199\193", 35156)] = runLock1[trim1("eIBPUBBGQ", 35171)]:Connect(function()
-    					local s = tick();
-    					if s - lock1[trim1("VMHFLdN]Y\127TCQ", 35190)] >= 3 then
-    						lock1[trim1("\149\140\151\135\143\165\137\156\154\190\155\130\146", 35207)] = s;
-    						local runLock1 = lock1();
-    						if #runLock1 > 0 then
-    							lock1[trim1("\027\006\029\017\025:\028\021\021\015", 35221)] = lock1[trim1("\157\132\159\159\151\184\158\147\147\141", 35226)] % #runLock1 + 1;
-    							runList1(runLock1[lock1[trim1("9 ;3;\020277)", 35239)]]);
-    						end;
-    					end;
-    				end);
-    		end;
-    	end;
-    	local function t()
-    		if not lock1[trim1("~imfUaua`p", 35247)] then
-    			return;
-    		end;
-    		lock1[trim1("@BTSCWAQjI]AYK", 35267)] = not lock1[trim1("\190\188\166\161\181\161\179\163\132\167\143\147\143\157", 35293)];
-    		mapStep1[trim1("\198\244\232\227", 35319)] = lock1[trim1("JHZ]I]GWpSC_CQ", 35344)] and trim1(" \002\020\019\003\023\001\017QJ&\006", 35366) or trim1("\014,61%1#3ot\004,/", 35384);
-    		mapStep1[trim1("\"\006\005\014\003\233\245\236\246\251\221\242\240\252\224\162", 35415)] = lock1[trim1("FDNI]I[KlOWKWE", 35441)] and Color3[trim1("JQMLr`d", 35451)](40, 80, 140) or Color3[trim1("\030\r\017\016.40", 35472)](50, 50, 70);
-    		if lock1[trim1("\217\217\205\204\218\204\216\198\227\194\212\206\208\192", 35475)] then
-    			doTrim1();
-    			if lock1[trim1("XZLK[OYInMOISIWg447", 35499)] then
-    				lock1[trim1("\144\146\132xnxlzSrrzf~bTy{z", 35526)]:Disconnect();
-    			end;
-    			lock1[trim1("prdcsgqavUWQKQO\127\\\\_", 35556)] = runLock1[trim1("\023;<.\'041#", 35577)]:Connect(function()
-    					if not lock1[trim1("\167\187\175\170\188\174\186\168\141\160\182\168\182\162", 35592)] then
-    						lock1[trim1("\226\224\242\245\225\245\255\239\196\231\225\231\249\227\241\193\238\238\233", 35599)]:Disconnect();
-    						return;
-    					end;
-    					if not sendLock1(lock1[trim1("\175\182\188\181\132\182\164\178\177\191", 35611)]) then
-    						runTrim1();
-    						lock1[trim1("\025\025\r\012\026\012\024\006#\002\020\014\016\000", 35627)] = false;
-    						mapStep1[trim1("\000.2=", 35645)] = trim1("\146\176\162\165\177\165\143\159\195\216\176\152\155", 35660);
-    						mapStep1[trim1("Rvu~sye|fkMb`lp2", 35681)] = Color3[trim1("SFDG{om", 35692)](50, 50, 70);
-    					elseif useLock1[trim1("\225\212\210\213\195\203\208\152\187\180\189\173\191", 35707)][trim1("\147\182\187\176\166\170\153\188\170\165\171\174\184", 35727)] ~= lock1[trim1("mxrwFpbpsa", 35758)][trim1("\'\243\251\235\249\252\234\248\238", 35782)]:FindFirstChildOfClass(trim1("a]BOCCJF", 35808)) then
-    						doTrim1();
-    					end;
-    				end);
-    		else
-    			runTrim1();
-    			if lock1[trim1("\174\172\182\177\165\177\163\179\152\187\165\163\189\167\189\141\162\162\173", 35833)] then
-    				lock1[trim1("hj|{k\127iy^}\127ycygWddg", 35864)]:Disconnect();
-    				lock1[trim1("\130\128\146\149\129\149\159\143\164\135\129\135\153\131\145\161\142ut", 35873)] = nil;
-    			end;
-    		end;
-    	end;
-    	runLock1[trim1("\184\146\151\135\128\137\143\136\156", 35902)]:Connect(function()
-    		if lock1[trim1("\245\250\244\247\224\194\230\228\234\207\238\248\234\244\228", 35908)] then
-    			local s = 0;
-    			for runLock1 in pairs(lock1[trim1("\163\183\167\179\174\190\182\184\174\188\185\191", 35931)]) do
-    				s += 1;
-    			end;
-    			findStep1[trim1("\255\207\209\220", 35948)] = trim1("\210\192\210\211\213\133\199\183\187\176\181\186\186\231\252", 35958) .. s;
-    		else
-    			findStep1[trim1("\185\137\155\150", 35970)] = trim1("", 35996);
-    		end;
-    	end);
-    	step1[trim1("\247\214\205\204\219\255\201\199\198\222\222\134\245\217\221\200\193", 36015)]:Connect(function()
-    		if lock1[trim1("HEILEeCOG`CSOSA", 36030)] then
-    			list1();
-    		else
-    			if lock1[trim1("2$6\028\031\r5\016\026\024", 36051)] == trim1("\232\211\223\196\217\193\193", 36073) then
-    				local s = initLock1(makeStep1[trim1("\137\185\171\166", 36084)]);
-    				if not s then
-    					doList1(trim1("\203\203\175\250\191\183\170\176\185\230\243", 36103) .. makeStep1[trim1("\159\175\177\188", 36123)], Color3[trim1("@WK6\008\030\026", 36127)](200, 80, 80));
-    					return;
-    				end;
-    				runList1(s);
-    			else
-    				local s = lock1();
-    				if #s == 0 then
-    					doList1(trim1("\004\006H\025\015\001\005\007B\017\012\006\031\000\022\232", 36129), Color3[trim1("\202\209\205\204\242\224\228", 36151)](200, 80, 80));
-    					return;
-    				end;
-    				runList1(s[1]);
-    			end;
-    			buildList1();
-    		end;
-    	end);
-    	mapStep1[trim1("\249\196\223\218\205\237\219\217\216\204\204\144\227\203\207\198\207", 36170)]:Connect(t);
-    	n[trim1("\015.54#\0071\015\014\022\022N=\017\021\016\025", 36186)]:Connect(function()
-    		lock1[trim1("\200\210\192\214\213\195\251\218\208\206", 36189)] = lock1[trim1("\240\218\200\222\221\203\243\210\216\214", 36208)] == trim1("(\019\031\004\025\001\001", 36225) and trim1("\153\179\178", 36248) or trim1("\240\203\199\220\193\169\169", 36267);
-    		n[trim1("\160\142\146\157", 36269)] = lock1[trim1("\205\217\205\217\216\200\254\221\213\213", 36295)];
-    		makeStep1[trim1("\024$?* -%", 36321)] = lock1[trim1("\"4&,/=\005 *(", 36340)] == trim1("iT^GXN@", 36348);
-    		if lock1[trim1("\139\132\142\141\134\164\140\142\132Zymqi{", 36356)] then
-    			list1();
-    			if lock1[trim1("\182\160\178\160\163\177\137\148\158\156", 36384)] == trim1("\128\172\171", 36413) then
-    				local s = lock1();
-    				if #s > 0 then
-    					runList1(s[1]);
-    					buildList1();
-    				end;
-    			end;
-    		end;
-    	end);
-    	makeStep1[trim1("<\022\027\n\r1\019\000\006", 36418)]:Connect(function(s)
-    		if not s then
-    			return;
-    		end;
-    		local runLock1 = initLock1(makeStep1[trim1("M}gj", 36424)]);
-    		if runLock1 then
-    			makeStep1[trim1("%\021\015\002", 36428)] = runLock1[trim1("\142\166\171\160", 36442)];
-    			if not lock1[trim1("\027\020\030\029\0224\028\030\0201\020\002\028\002\014", 36447)] then
-    				runList1(runLock1);
-    			end;
-    		else
-    			doList1(trim1("\251\251\255\170\239\231\250\224\233\182\163", 36468) .. makeStep1[trim1(":\008\020\023", 36496)], Color3[trim1("7\"8;\007\019\009", 36504)](200, 80, 80));
-    		end;
-    	end);
-    	makeLock1[trim1("\219\230\232\241\234\252\223\233\238\237\247\233\233\225", 36526)]:Connect(function(s)
-    		if s ~= lock1[trim1("\194\213\217\210\225\213\217\205\204\220", 36527)] then
-    			return;
-    		end;
-    		if lock1[trim1("YYMLZLXFcBTNP@", 36532)] then
-    			runTrim1();
-    			lock1[trim1("RPBEQE/?\024;+7+9", 36542)] = false;
-    			mapStep1[trim1("\153\169\187\182", 36548)] = trim1("\011/;>(2&4jw\02532", 36552);
-    			mapStep1[trim1("\208\240\243\252\241\231\251\254\228\237\203\224\226\226\254\176", 36574)] = Color3[trim1("_JPSo{q", 36599)](50, 50, 70);
-    		end;
-    		if lock1[trim1("p}qt}]{goHk{g{i", 36627)] and lock1[trim1("RDV<?-\0210:8", 36629)] == trim1("\237\207\206", 36653) then
-    			local s = lock1();
-    			if #s > 0 then
-    				runList1(s[1]);
-    			else
-    				list1();
-    				doList1(trim1("\241\241\189\236\255\243\232\245\229\229\181\248\238\236\253", 36680));
-    			end;
-    		elseif lock1[trim1("\171\164\174\173\166\132\172\174\164\129\164\178\172\178\158", 36683)] then
-    			list1();
-    			doList1(trim1("\130\148\134\140\143\157\200\131\139\139\152", 36713));
-    		else
-    			runList1(nil);
-    		end;
-    	end);
-    	local list1 = true;
-    	lock1[trim1("\183\147\140\134\134\179\149\144\151\155", 36732)]:Connect(function(runLock1, makeLock1)
-    		if makeLock1 then
-    			return;
-    		end;
-    		if runLock1[trim1("%\008\021 \r\005\005", 36747)] == Enum[trim1("FizAndb", 36753)][trim1("?\005\004\n\021#\008\008\017\022\244\246", 36776)] then
-    			list1 = not list1;
-    			(s:Create(findLock1, TweenInfo[trim1("\n\254\237", 36786)](.25), { [trim1("\r/.\'$0.5)\"\0176\026\020\n\008\030\012\024\018\016\011", 36794)] = list1 and 0 or 1 })):Play();
-    			for runLock1, makeLock1 in ipairs(findLock1:GetDescendants()) do
-    				if makeLock1:IsA(trim1("\243\195\221\208\151\187\187\189\179", 36798)) or makeLock1:IsA(trim1("\018 <\0158\012\012\011\017\019", 36804)) or makeLock1:IsA(trim1("\242\192\220\175\152\182\160", 36827)) then
-    					(s:Create(makeLock1, TweenInfo[trim1("\244\252\239", 36844)](.25), { [trim1("{KUXwP@NTVDV>4:!", 36870)] = list1 and 0 or 1, [trim1("\0235(!.: ;#(\0230 .46$6\030\020\026\001", 36871)] = list1 and 0 or 1 })):Play();
-    				end;
-    			end;
-    			findLock1[trim1("\229\184\174\176\174\186", 36885)] = list1;
-    		end;
-    	end);
-    	sendTrim1(trim1("__7UZXGCZA@@", 36907), 60);
-    	local isList1 = zeta1(61);
-    	local mapList1 = Instance[trim1("\031\021\000", 36930)](trim1("\157\173\183\186\143\185\183\182\174\174", 36934), isList1);
-    	mapList1[trim1("\215\210\192\220", 36961)] = UDim2[trim1("5?.", 36967)](.5, -3, 1, 0);
-    	mapList1[trim1("]\127~wt`~eyrV{ge{;", 36984)] = Color3[trim1("xos~@VR", 37013)](40, 40, 60);
-    	mapList1[trim1("NlpeeuUl~^jP@ZR", 37033)] = 0;
-    	mapList1[trim1("\144\186\186\191", 37040)] = Enum[trim1("}UWL", 37043)][trim1("}VLW_P~\\^U", 37072)];
-    	mapList1[trim1("Gwid", 37100)] = trim1("\239\210\220\197\214\192\139\144\248\208\211", 37106);
-    	mapList1[trim1("dRNAwDFFZ\028", 37111)] = Color3[trim1("u\127n", 37119)](1, 1, 1);
-    	mapList1[trim1("\173\157\135\138\174\149\137\151", 37147)] = 12;
-    	mapList1[trim1("\237\214\214\206\226\210\210\209\203\181\153\182\180\176\172", 37155)] = false;
-    	(Instance[trim1("CIT", 37179)](trim1("\195\220\215\228\248\231\237\253", 37192), mapList1))[trim1("\009&:!+?\030\"&(54", 37209)] = UDim[trim1("\221\215\198", 37222)](0, 6);
-    	local list1 = Instance[trim1("ZN]", 37227)](trim1("\216\230\250\245\194\242\242\241\235\213", 37231), isList1);
-    	list1[trim1("\206\245\233\247", 37240)] = UDim2[trim1("xpc", 37245)](.5, -3, 1, 0);
-    	list1[trim1("iKJCH\\BYMFbOKIW\023", 37256)] = Color3[trim1("\016\007\027\0068.*", 37268)](40, 40, 60);
-    	list1[trim1("7\027\025\014\012\026<\007\023\0093\011\025\005\011", 37297)] = 0;
-    	list1[trim1("\199\239\233\242", 37318)] = Enum[trim1("\138\172\172\181", 37330)][trim1("\233\194\216\203\195\204\226\200\202\193", 37348)];
-    	list1[trim1("\136\182\170\165", 37368)] = trim1("\169\153\141\138\142\198\211\189\151\150", 37398);
-    	list1[trim1("zHTWaNLHT\022", 37401)] = Color3[trim1("XPC", 37420)](1, 1, 1);
-    	list1[trim1("\172\154\134\137\175\154\136\148", 37427)] = 12;
-    	list1[trim1("0\005\003\0257\001\031\030\006\006,\001\001\003\017", 37432)] = false;
-    	(Instance[trim1("\009\003\018", 37452)](trim1("\209\242\249\214\202\209\219\207", 37463), list1))[trim1("\0245+6:,\015=7;$#", 37469)] = UDim[trim1("4</", 37498)](0, 6);
-    	local ofList1 = false;
-    	local findList1 = false;
-    	local list1 = nil;
-    	local b = nil;
-    	mapList1[trim1("\154\185\160\167\174\136\188\188\187\161\163\253\128\174\168\163\172", 37513)]:Connect(function()
-    		ofList1 = not ofList1;
-    		mapList1[trim1("vDXS", 37517)] = trim1("\0094>\'8.ir", 37527) .. (ofList1 and trim1("\196\228", 37530) or trim1("1\027\026", 37538));
-    		mapList1[trim1("7\021\008\001\014\026\000\027\003\008 \r\r\015\021U", 37548)] = ofList1 and Color3[trim1("\223\202\208\211\239\251\241", 37550)](60, 20, 120) or Color3[trim1(" 7+\022(>:", 37557)](40, 40, 60);
-    		if list1 then
-    			list1:Disconnect();
-    			list1 = nil;
-    		end;
-    		if ofList1 then
-    			list1 = runLock1[trim1("\023;<.\'041#", 37585)]:Connect(function()
-    					local s = tryLock1[trim1(" \n\000\018\006\005\017\001\233", 37587)];
-    					if not s then
-    						return;
-    					end;
-    					for s, runLock1 in ipairs(s:GetDescendants()) do
-    						if runLock1:IsA(trim1("\216\248\235\250\206\252\238\231", 37597)) and runLock1[trim1("\170\137\129\173\130\128\143\139\133~", 37611)] then
-    							pcall(function()
-    								runLock1[trim1("\253\220\210\240\221\221\220\222\210\208", 37637)] = false;
-    							end);
-    						end;
-    					end;
-    				end);
-    		else
-    			local s = tryLock1[trim1("8\018\024\n\030\029\009\025\001", 37644)];
-    			if s then
-    				for s, runLock1 in ipairs(s:GetDescendants()) do
-    					if runLock1:IsA(trim1("\205\239\254\233\211\227\243\244", 37646)) then
-    						pcall(function()
-    							runLock1[trim1("RqyUzxgcmm", 37660)] = true;
-    						end);
-    					end;
-    				end;
-    			end;
-    		end;
-    	end);
-    	list1[trim1("\162\129\152\159\134\160\148onvv.]qupy", 37669)]:Connect(function()
-    		findList1 = not findList1;
-    		list1[trim1("\218\232\244\247", 37675)] = trim1("\243\195\211\212\212\156\133", 37686) .. (findList1 and trim1("zZ", 37700) or trim1("\252\212\215", 37724));
-    		list1[trim1("\206\226\225\234\231\245\233\240\234\223\249\214\212\208\204\142", 37733)] = findList1 and Color3[trim1("/: #\031\011\001", 37740)](60, 20, 120) or Color3[trim1("\212\195\223\218\228\242\246", 37753)](40, 40, 60);
-    		if b then
-    			b:Disconnect();
-    			b = nil;
-    		end;
-    		if findList1 then
-    			b = runLock1[trim1("\134\168\173\177\182\163\165\166\178", 37774)]:Connect(function()
-    					for s in pairs(ofTrim1) do
-    						if s[trim1("\134\180\166\174\164\189", 37793)] and s[trim1("_r|R\127{z|pn", 37824)] then
-    							pcall(function()
-    								s[trim1("rQYuZXGCMM", 37835)] = false;
-    							end);
-    						end;
-    					end;
-    					for s in pairs(lock1[trim1("\n\028\014\020\023\005\015\007\023\007\000\024", 37865)]) do
-    						if s[trim1("\146\160\178\162\168\177", 37890)] and s[trim1("mLB`MMLNB@", 37903)] then
-    							pcall(function()
-    								s[trim1("9\024\022<\017\017\016\026\022\020", 37924)] = false;
-    							end);
-    						end;
-    					end;
-    				end);
-    		else
-    			for s in pairs(ofTrim1) do
-    				pcall(function()
-    					s[trim1(":\025\017=\018\016\031\027\021\021", 37953)] = true;
-    				end);
-    			end;
-    			for s in pairs(lock1[trim1("xbpfesyue\009\014\n", 37961)]) do
-    				pcall(function()
-    					s[trim1("\221\252\242\208\253\253\252\254\242\240", 37964)] = true;
-    				end);
-    			end;
-    		end;
-    	end);
-    	o[trim1("\025)=+#8", 37991)] = lock1;
-    	return buildZeta1, g, getZeta1;
-    end;
-    function onLock1.Enable(s)
-    	if s[trim1("\0193\'1!", 38001)][trim1("\\gNdhjcki", 38027)] then
-    		return;
-    	end;
-    	s[trim1("`FPDR", 38028)][trim1("$\031&\012\000\002\011\003\001", 38031)] = true;
-    	s:_createUI();
-    	s[trim1("y]I[K", 38038)][trim1("\02700390&8?9%", 38058)][trim1("\175\142ni|[sw~w", 38065)] = lock1[trim1("aA^XXaGFAI", 38096)]:Connect(function(runLock1, makeLock1)
-    			if makeLock1 then
-    				return;
-    			end;
-    			if runLock1[trim1("\240\215\190\168\144\182\175\171\169\136\170\162\180", 38111)] == Enum[trim1("sVA)\0197(**\009%#7", 38135)][trim1("\180\151\138\141\152\190\134\134\133\159\153\199", 38151)] then
-    				local runLock1 = (tryLock1:GetMouse())[trim1("\149\161\181\161\160\176", 38170)];
-    				if runLock1 then
-    					local makeLock1 = runLock1:IsA(trim1("%\000\n\008\000", 38195)) and runLock1 or runLock1[trim1("\175\159\143\153\157\134", 38209)];
-    					if makeLock1 and (makeLock1:IsA(trim1("\0225==3", 38222)) or makeLock1:IsA(trim1("\146\182\165\176\132\170\184\189", 38237))) then
-    						s:SelectObject(makeLock1);
-    						if s[trim1("oGSEU", 38250)][trim1("\024-+1\03002;<", 38280)] then
-    							task[trim1("\198\209\222\194", 38284)](.1);
-    							s:ClaimSelected();
-    						end;
-    					end;
-    				end;
-    			end;
-    		end);
-    	print(trim1("\246\151\153)FjzzcqiBlfoh/}VPVX[O\028V\\PR[SQ\020\201\170\189\008LBDOH\002NBMCFP(z-7\127-8061%", 38307));
-    end;
-    function onLock1.Disable(s)
-    	if not s[trim1("\134\160\170\190\172", 38324)][trim1("sJ}Q__PVV", 38327)] then
-    		return;
-    	end;
-    	s:ReleaseAll();
-    	s[trim1("\201\237\249\235\251", 38350)][trim1("yDs[UIFLL", 38366)] = false;
-    	if s[trim1("1\021\001\019\003", 38369)][trim1("\202\253\243\251\254\232\246\246\222\242\253\243\246\224", 38379)] then
-    		local runLock1 = s[trim1("\145\181\161\179\163", 38392)][trim1("\128\183\189\181\180\162\176\176\132\168\163\173\172\186", 38401)]:FindFirstChild(trim1("\243\217\199\197\222\194\220\245\217\213\194\199\246\251\202\194\200\207\215\203\206\206", 38419));
-    		if runLock1 then
-    			runLock1:Destroy();
-    		end;
-    	end;
-    	for s, runLock1 in pairs(s[trim1("Jl~jx", 38432)][trim1("\188\145\147\146\150\145\133\153\152\152\134", 38460)]) do
-    		if runLock1 then
-    			runLock1:Disconnect();
-    		end;
-    	end;
-    	table[trim1("86<9-", 38473)](s[trim1("\0184&2 ", 38474)][trim1(",\001\003\002\006\001\021\009\008\008\022", 38475)]);
-    	if lock1[trim1("\246\231\235\234\227\199\225\225\233\194\225\245\233\241\227", 38505)] then
-    		lock1[trim1("%*$\'\0162\022\020\026?\030\008\026\004\020", 38532)] = false;
-    		for s in pairs(lock1[trim1("\222\200\218\200\203\217\211\211\195\211\212\212", 38563)]) do
-    			emitLock1(s);
-    		end;
-    	end;
-    	if lock1[trim1("\224\252\239\229\247", 38574)][trim1("\148\183\191\163\191\173", 38575)] then
-    		buildTrim1();
-    	end;
-    	if lock1[trim1("wpklwqy", 38578)][trim1("Rqeyas", 38606)] then
-    		isTrim1();
-    	end;
-    	if findTrim1 then
-    		findTrim1 = false;
-    		for s in pairs(ofTrim1) do
-    			trim1(s);
-    		end;
-    	end;
-    	if s[trim1("\0308\"6$", 38609)][trim1("5\004\009\028\029,\008\007\007\005#\008\008\011", 38639)] then
-    		s[trim1("\255\215\195\213\197", 38661)][trim1("\200\251\244\231\248\203\237\236\234\234\206\227\237\236", 38669)]:Disconnect();
-    		s[trim1("\171\139\159\137\153", 38682)][trim1("Fu~mn]wvttTy{z", 38683)] = nil;
-    	end;
-    	if s[trim1("\248\222\200\220\202", 38709)][trim1("\203\212", 38717)] then
-    		s[trim1("\215\207\219\205\221", 38718)][trim1("vk", 38743)]:Destroy();
-    		s[trim1("\206\232\242\230\244", 38746)][trim1("C\\", 38751)] = nil;
-    	end;
-    	s[trim1("6\016\250\238\252", 38765)][trim1("\157\168\160\166\161\181\165\163\137\167\174\158\153\141", 38778)] = nil;
-    	print(trim1("E:6\132\149\191\173\175\176\172\182\159\191\179\184\189\252\144\185\189\165\173\172\186\239\170\164\191\162\160\173\165\163", 38806));
-    end;
-    function onLock1.Toggle(s)
-    	if s[trim1("aEQCS", 38810)][trim1("4\0156\028\016\018\027\019\017", 38822)] then
-    		s:Disable();
-    	else
-    		s:Enable();
-    	end;
-    end;
-    (getgenv())[trim1("\184\150\152\145\146\188\143\149\157\149\174\189\152\146\128\152\142", 38846)] = onLock1;
-    onLock1:Enable();
+        CoreGui.RobloxGui["CoreScripts/NetworkPause"]:Destroy()
+    end)
+    if not getgenv().Network then
+        getgenv().Network = { BaseParts = {} }
+        RunService.Heartbeat:Connect(function()
+            sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
+        end)
+    end
+    local _bhFolder     = Instance.new("Folder", Workspace)
+    local _bhAnchorPart = Instance.new("Part",   _bhFolder)
+    local _bhAttachment = Instance.new("Attachment", _bhAnchorPart)
+    _bhAnchorPart.Anchored     = false
+    _bhAnchorPart.CanCollide   = true
+    _bhAnchorPart.Transparency = 1
+    local overlapParams = OverlapParams.new()
+    overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+    overlapParams.MaxParts   = 500
+    local NetworkClaim = {
+        State = {
+            IsEnabled      = false,
+            ClaimedObjects = {},
+            SelectedObject = nil,
+            UI             = nil,
+            Connections    = {},
+            AutoClaim      = false,
+        },
+        Config = {
+            HighlightColor = Color3.fromRGB(255, 100, 0),
+            ClaimMethod    = "ownership",
+            UpdateRate     = 0.03,
+            ShowVisuals    = true,
+        },
+    }
+    local BH = {
+        TARGET_PARTS        = {},
+        CONNECTIONS         = {},
+        sendTarget          = nil,
+        blackHoleActive     = false,
+        spectateActive      = false,
+        targetMode          = "Players",
+        cycleIndex          = 1,
+        cycleLastSwap       = 0,
+        cycleConnection     = nil,
+        spectateMonitorConn = nil,
+        DescendantAddedConn = nil,
+        originalCameraType    = nil,
+        originalCameraSubject = nil,
+        lastUpdate          = 0,
+        CONFIG = {
+            UPDATE_INTERVAL = 0.01,
+            MAX_PARTS       = 800,
+            VELOCITY        = 500,
+            MIN_SIZE        = 0,
+            SWEEP_RADIUS    = 0,
+            OWNER_RETRY_DUR = 0.6,
+        },
+        ORBIT = {
+            Active      = false,
+            Parts       = {},
+            Connections = {},
+            Radius      = 8,
+            Speed       = 10,
+            Rings       = 1,
+            MaxParts    = 60,
+        },
+        MISSILE = {
+            Active       = false,
+            Part         = nil,
+            bv           = nil,
+            Conn         = nil,
+            Force        = 9e5,
+            SelectionBox = nil,
+        },
+    }
+    local function bhReleasePart(part)
+        local data = BH.TARGET_PARTS[part]
+        if not data then return end
+        if data.conn           then data.conn:Disconnect()           end
+        if data.ownerRetryConn then data.ownerRetryConn:Disconnect() end
+        pcall(function()
+            if data.bv and data.bv.Parent then data.bv:Destroy() end
+            part:SetNetworkOwnershipAuto()
+        end)
+        BH.TARGET_PARTS[part] = nil
+    end
+    local function bhPartPassesFilters(part)
+        if not part:IsA("BasePart")                                       then return false end
+        if part.Anchored                                                   then return false end
+        local anc = part.Parent
+        while anc and anc ~= Workspace do
+            if anc:IsA("Model") and anc:FindFirstChildOfClass("Humanoid") then return false end
+            anc = anc.Parent
+        end
+        local char = LocalPlayer.Character
+        if char and part:IsDescendantOf(char) then return false end
+        if part.Name == "Handle"              then return false end
+        if BH.CONFIG.MIN_SIZE > 0 then
+            local s = part.Size
+            if s.X < BH.CONFIG.MIN_SIZE
+            and s.Y < BH.CONFIG.MIN_SIZE
+            and s.Z < BH.CONFIG.MIN_SIZE then return false end
+        end
+        local count = 0
+        for _ in pairs(BH.TARGET_PARTS) do count += 1 end
+        if count >= BH.CONFIG.MAX_PARTS then return false end
+        if BH.CONFIG.SWEEP_RADIUS > 0 and BH.sendTarget then
+            local tc    = BH.sendTarget.Character
+            local tRoot = tc and tc:FindFirstChild("HumanoidRootPart")
+            if tRoot and (part.Position - tRoot.Position).Magnitude > BH.CONFIG.SWEEP_RADIUS then
+                return false
+            end
+        end
+        return true
+    end
+    local function bhForcePart(part)
+        if BH.TARGET_PARTS[part] then return end
+        if not bhPartPassesFilters(part) then return end
+        pcall(function()
+            for _, c in ipairs(part:GetChildren()) do
+                if c:IsA("BodyMover") or c:IsA("RocketPropulsion")
+                or c:IsA("LinearVelocity") or c:IsA("VectorForce")
+                or c:IsA("BodyVelocity")   or c:IsA("BodyForce") then
+                    c:Destroy()
+                end
+            end
+        end)
+        part.CanCollide = true
+        part.Massless   = false
+        pcall(function() part:SetNetworkOwner(LocalPlayer) end)
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+        bv.Velocity = Vector3.zero
+        bv.Parent   = part
+        local startTime = tick()
+        local ownerRetryConn
+        ownerRetryConn = RunService.Heartbeat:Connect(function()
+            if tick() - startTime > BH.CONFIG.OWNER_RETRY_DUR then
+                ownerRetryConn:Disconnect()
+                if BH.TARGET_PARTS[part] then
+                    BH.TARGET_PARTS[part].ownerRetryConn = nil
+                end
+                return
+            end
+            pcall(function() part:SetNetworkOwner(LocalPlayer) end)
+        end)
+        local conn
+        conn = RunService.Heartbeat:Connect(function()
+            if not part.Parent then bhReleasePart(part); return end
+            if not BH.blackHoleActive then bhReleasePart(part); return end
+            if not BH.sendTarget then return end
+            local tc    = BH.sendTarget.Character
+            local tRoot = tc and tc:FindFirstChild("HumanoidRootPart")
+            if not tRoot then return end
+            local dir = (tRoot.Position - part.Position)
+            bv.Velocity = dir.Magnitude > 0.1
+                and dir.Unit * BH.CONFIG.VELOCITY
+                or  Vector3.new(0, BH.CONFIG.VELOCITY, 0)
+        end)
+        BH.TARGET_PARTS[part] = {
+            conn           = conn,
+            bv             = bv,
+            ownerRetryConn = ownerRetryConn,
+        }
+    end
+    local function bhCleanupStale()
+        for part in pairs(BH.TARGET_PARTS) do
+            if not part.Parent then bhReleasePart(part) end
+        end
+    end
+    RunService.Heartbeat:Connect(function()
+        local now = tick()
+        if now - BH.lastUpdate < BH.CONFIG.UPDATE_INTERVAL then return end
+        BH.lastUpdate = now
+        bhCleanupStale()
+    end)
+    local function bhGetPlayer(name)
+        local q = name:lower()
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                if p.Name:lower():find(q, 1, true)
+                or p.DisplayName:lower():find(q, 1, true) then
+                    return p
+                end
+            end
+        end
+    end
+    local function bhGetValidPlayers()
+        local valid = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer
+            and p.Character
+            and p.Character:FindFirstChild("HumanoidRootPart") then
+                table.insert(valid, p)
+            end
+        end
+        return valid
+    end
+    local function bhIsTargetValid(t)
+        return t
+            and t.Character
+            and t.Character:FindFirstChildOfClass("Humanoid")
+            and t.Character.Humanoid.Health > 0
+    end
+    local function bhStartSpectating()
+        if not bhIsTargetValid(BH.sendTarget) then return end
+        local hum = BH.sendTarget.Character:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        local cam = Workspace.CurrentCamera
+        if not BH.originalCameraType then
+            BH.originalCameraType    = cam.CameraType
+            BH.originalCameraSubject = cam.CameraSubject
+        end
+        cam.CameraType    = Enum.CameraType.Custom
+        cam.CameraSubject = hum
+    end
+    local function bhStopSpectating()
+        local cam = Workspace.CurrentCamera
+        if BH.originalCameraType and BH.originalCameraSubject then
+            cam.CameraType    = BH.originalCameraType
+            cam.CameraSubject = BH.originalCameraSubject
+        else
+            cam.CameraType    = Enum.CameraType.Custom
+            cam.CameraSubject = LocalPlayer.Character
+                and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        end
+        BH.originalCameraType    = nil
+        BH.originalCameraSubject = nil
+    end
+    local function orbitReleasePart(entry)
+        if not entry then return end
+        pcall(function()
+            if entry.conn then entry.conn:Disconnect() end
+            if entry.bv and entry.bv.Parent then entry.bv:Destroy() end
+            if entry.part and entry.part.Parent then
+                entry.part.CanCollide = true
+                entry.part.Massless   = false
+                entry.part:SetNetworkOwnershipAuto()
+            end
+        end)
+    end
+    local function orbitStop()
+        BH.ORBIT.Active = false
+        for _, entry in ipairs(BH.ORBIT.Parts) do
+            orbitReleasePart(entry)
+        end
+        BH.ORBIT.Parts = {}
+        if BH.ORBIT.Connections.loop then
+            BH.ORBIT.Connections.loop:Disconnect()
+            BH.ORBIT.Connections.loop = nil
+        end
+        if BH.ORBIT.Connections.added then
+            BH.ORBIT.Connections.added:Disconnect()
+            BH.ORBIT.Connections.added = nil
+        end
+    end
+    local function orbitAddPart(part)
+        if not part:IsA("BasePart")  then return end
+        if part.Anchored             then return end
+        local anc2 = part.Parent
+        while anc2 and anc2 ~= Workspace do
+            if anc2:IsA("Model") and anc2:FindFirstChildOfClass("Humanoid") then return end
+            anc2 = anc2.Parent
+        end
+        local char2 = LocalPlayer.Character
+        if char2 and part:IsDescendantOf(char2) then return end
+        if part.Name == "Handle"                then return end
+        if #BH.ORBIT.Parts >= BH.ORBIT.MaxParts then return end
+        for _, e in ipairs(BH.ORBIT.Parts) do if e.part == part then return end end
+        pcall(function()
+            for _, c in ipairs(part:GetChildren()) do
+                if c:IsA("BodyMover") or c:IsA("BodyVelocity") or c:IsA("LinearVelocity")
+                or c:IsA("BodyForce") or c:IsA("VectorForce")  or c:IsA("RocketPropulsion") then
+                    c:Destroy()
+                end
+            end
+        end)
+        pcall(function() part:SetNetworkOwner(LocalPlayer) end)
+        part.CanCollide = false
+        part.Massless   = true
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+        bv.Velocity = Vector3.zero
+        bv.Parent   = part
+        local idx        = #BH.ORBIT.Parts
+        local ringIdx    = idx % BH.ORBIT.Rings
+        local ringOffset = (ringIdx / BH.ORBIT.Rings) * math.pi
+        local angle      = (idx / math.max(1, BH.ORBIT.MaxParts)) * (math.pi * 2)
+        table.insert(BH.ORBIT.Parts, {
+            part       = part,
+            bv         = bv,
+            angle      = angle,
+            ringOffset = ringOffset,
+        })
+    end
+    local function orbitStart()
+        BH.ORBIT.Active = true
+        task.spawn(function()
+            for _, v in ipairs(Workspace:GetDescendants()) do
+                if BH.ORBIT.Active then orbitAddPart(v) end
+            end
+        end)
+        BH.ORBIT.Connections.added = Workspace.DescendantAdded:Connect(function(v)
+            if BH.ORBIT.Active then task.spawn(orbitAddPart, v) end
+        end)
+        local clock = 0
+        BH.ORBIT.Connections.loop = RunService.Heartbeat:Connect(function(dt)
+            if not BH.ORBIT.Active then return end
+            local hrp = LocalPlayer.Character
+                and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            clock = clock + dt * BH.ORBIT.Speed
+            local center = hrp.Position
+            local r      = BH.ORBIT.Radius
+            local total  = #BH.ORBIT.Parts
+            for i = #BH.ORBIT.Parts, 1, -1 do
+                local e = BH.ORBIT.Parts[i]
+                if not e.part or not e.part.Parent then
+                    orbitReleasePart(e)
+                    table.remove(BH.ORBIT.Parts, i)
+                end
+            end
+            for i, e in ipairs(BH.ORBIT.Parts) do
+                local baseAngle = ((i - 1) / math.max(1, total)) * (math.pi * 2)
+                local a         = clock + baseAngle
+                local yOff      = math.sin(a + e.ringOffset) * (r * 0.35)
+                local target    = center + Vector3.new(
+                    math.cos(a) * r,
+                    yOff,
+                    math.sin(a) * r
+                )
+                local diff = target - e.part.Position
+                if e.bv and e.bv.Parent then
+                    local speed = math.clamp(diff.Magnitude * 14, 0, 280)
+                    e.bv.Velocity = diff.Magnitude > 0.05
+                        and (diff.Unit * speed)
+                        or  Vector3.zero
+                end
+            end
+        end)
+    end
+    local function missileStop()
+        BH.MISSILE.Active = false
+        if BH.MISSILE.Conn then BH.MISSILE.Conn:Disconnect(); BH.MISSILE.Conn = nil end
+        pcall(function()
+            if BH.MISSILE.SelectionBox and BH.MISSILE.SelectionBox.Parent then
+                BH.MISSILE.SelectionBox:Destroy()
+            end
+        end)
+        BH.MISSILE.SelectionBox = nil
+        pcall(function()
+            if BH.MISSILE.bv and BH.MISSILE.bv.Parent then BH.MISSILE.bv:Destroy() end
+        end)
+        BH.MISSILE.bv = nil
+        if BH.MISSILE.Part and BH.MISSILE.Part.Parent then
+            pcall(function()
+                BH.MISSILE.Part.CanCollide = true
+                BH.MISSILE.Part.Massless   = false
+                BH.MISSILE.Part:SetNetworkOwnershipAuto()
+            end)
+        end
+    end
+    local function missileSetPart(part)
+        if BH.MISSILE.SelectionBox then
+            pcall(function() BH.MISSILE.SelectionBox:Destroy() end)
+            BH.MISSILE.SelectionBox = nil
+        end
+        if BH.MISSILE.Active then missileStop() end
+        if not part or not part:IsA("BasePart") then
+            BH.MISSILE.Part = nil
+            return
+        end
+        BH.MISSILE.Part = part
+        local box = Instance.new("SelectionBox")
+        box.Name                = "Missile_Selection"
+        box.Adornee             = part
+        box.LineThickness       = 0.07
+        box.Color3              = Color3.fromRGB(255, 60, 60)
+        box.SurfaceColor3       = Color3.fromRGB(255, 60, 60)
+        box.SurfaceTransparency = 0.7
+        box.Parent              = CoreGui
+        BH.MISSILE.SelectionBox = box
+    end
+    local function missileStart()
+        local part = BH.MISSILE.Part
+        if not part or not part.Parent      then return end
+        if not BH.sendTarget               then return end
+        if not BH.sendTarget.Character     then return end
+        pcall(function()
+            for _, c in ipairs(part:GetChildren()) do
+                if c:IsA("BodyMover")        or c:IsA("BodyVelocity")
+                or c:IsA("LinearVelocity")   or c:IsA("BodyForce")
+                or c:IsA("VectorForce")      or c:IsA("AngularVelocity")
+                or c:IsA("BodyAngularVelocity") or c:IsA("RocketPropulsion") then
+                    c:Destroy()
+                end
+            end
+        end)
+        pcall(function() part:SetNetworkOwner(LocalPlayer) end)
+        part.CanCollide  = true
+        part.Massless    = false
+        part.CustomPhysicalProperties = PhysicalProperties.new(100, 0.3, 0.5, 100, 100)
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+        bv.Velocity = Vector3.zero
+        bv.Parent   = part
+        BH.MISSILE.bv     = bv
+        BH.MISSILE.Active = true
+        local phase       = "approach"
+        local phaseTimer  = 0
+        local spawnOffset = Vector3.zero
+        local missileOwnerStart = tick()
+        local missileOwnerConn
+        missileOwnerConn = RunService.Heartbeat:Connect(function()
+            if tick() - missileOwnerStart > BH.CONFIG.OWNER_RETRY_DUR then
+                missileOwnerConn:Disconnect()
+                return
+            end
+            pcall(function() part:SetNetworkOwner(LocalPlayer) end)
+        end)
+        BH.MISSILE.Conn = RunService.Heartbeat:Connect(function(dt)
+            if not BH.MISSILE.Active        then return end
+            if not part or not part.Parent  then missileStop(); return end
+            local tc    = BH.sendTarget and BH.sendTarget.Character
+            local tRoot = tc and tc:FindFirstChild("HumanoidRootPart")
+            if not tRoot then return end
+            local tPos = tRoot.Position
+            local pPos = part.Position
+            local dist = (tPos - pPos).Magnitude
+            phaseTimer = phaseTimer + dt
+            if phase == "approach" then
+                local dir = tPos - pPos
+                if dir.Magnitude > 0.01 then
+                    bv.Velocity = dir.Unit * BH.MISSILE.Force
+                end
+                if dist < 6 or phaseTimer > 1.5 then
+                    phase = "teleport"; phaseTimer = 0
+                end
+            elseif phase == "teleport" then
+                local t  = tick()
+                local offset = Vector3.new(
+                    math.sin(t * 17) * 0.8,
+                    math.cos(t * 11) * 0.8,
+                    math.sin(t * 23) * 0.8
+                )
+                pcall(function()
+                    part.CFrame = CFrame.new(tPos + offset)
+                        * CFrame.Angles(t*5, t*7, t*3)
+                end)
+                local outDir = pPos - tPos
+                bv.Velocity = outDir.Magnitude > 0.01
+                    and outDir.Unit * BH.MISSILE.Force * 2
+                    or  Vector3.new(0, BH.MISSILE.Force, 0)
+                if phaseTimer > 0.4 then
+                    phase = "retreat"; phaseTimer = 0
+                    spawnOffset = Vector3.new(
+                        math.random(-20, 20),
+                        math.random(2,  8),
+                        math.random(-20, 20)
+                    )
+                end
+            elseif phase == "retreat" then
+                local retreatTarget = tPos + spawnOffset
+                local dir = retreatTarget - pPos
+                if dir.Magnitude > 0.01 then
+                    bv.Velocity = dir.Unit * BH.MISSILE.Force * 1.5
+                end
+                if phaseTimer > 0.3 then
+                    phase = "approach"; phaseTimer = 0
+                end
+            end
+        end)
+    end
+    function NetworkClaim:GetAllParts(obj)
+        local parts = {}
+        if obj:IsA("BasePart") then
+            table.insert(parts, obj)
+        elseif obj:IsA("Model") then
+            for _, p in pairs(obj:GetDescendants()) do
+                if p:IsA("BasePart") then table.insert(parts, p) end
+            end
+        end
+        return parts
+    end
+    function NetworkClaim:ClaimPart(part)
+        if not part:IsA("BasePart") then return nil end
+        local method     = self.Config.ClaimMethod
+        local connection = nil
+        if method == "ownership" then
+            local ok = pcall(function() part:SetNetworkOwner(LocalPlayer) end)
+            local startT = tick()
+            connection = RunService.Heartbeat:Connect(function()
+                if not part or not part.Parent then return end
+                if tick() - startT < BH.CONFIG.OWNER_RETRY_DUR then
+                    pcall(function() part:SetNetworkOwner(LocalPlayer) end)
+                else
+                    part.Velocity = Vector3.new(0, 0.01, 0)
+                end
+            end)
+        elseif method == "velocity" then
+            connection = RunService.Heartbeat:Connect(function()
+                if part and part.Parent then
+                    part.Velocity    = Vector3.new(0, 0.01, 0)
+                    part.RotVelocity = Vector3.zero
+                end
+            end)
+        elseif method == "cframe" then
+            local cf = part.CFrame
+            connection = RunService.Heartbeat:Connect(function()
+                if part and part.Parent then part.CFrame = cf end
+            end)
+        end
+        return connection
+    end
+    local MASS_CLAIMED    = {}
+    local massClaimActive = false
+    local noCollideActive = false
+    local noCollideConn   = nil
+    local function isCharacterPart(part)
+        local ancestor = part.Parent
+        while ancestor and ancestor ~= Workspace do
+            if ancestor:IsA("Model") and ancestor:FindFirstChildOfClass("Humanoid") then
+                return true
+            end
+            ancestor = ancestor.Parent
+        end
+        local char = LocalPlayer.Character
+        if char and (part == char or part:IsDescendantOf(char)) then return true end
+        return false
+    end
+    local function tripleReleasePart(part)
+        local data = MASS_CLAIMED[part]
+        if not data then return end
+        if data.ownerConn then data.ownerConn:Disconnect() end
+        if data.velConn   then data.velConn:Disconnect()   end
+        if data.cfConn    then data.cfConn:Disconnect()    end
+        pcall(function()
+            part.CanCollide = true
+            part:SetNetworkOwnershipAuto()
+        end)
+        MASS_CLAIMED[part] = nil
+    end
+    local function setNoCollide(enabled)
+        noCollideActive = enabled
+        if noCollideConn then noCollideConn:Disconnect(); noCollideConn = nil end
+        if not enabled then
+            local char = LocalPlayer.Character
+            if char then
+                for _, p in ipairs(char:GetDescendants()) do
+                    if p:IsA("BasePart") then pcall(function() p.CanCollide = true end) end
+                end
+            end
+            for part in pairs(MASS_CLAIMED) do
+                pcall(function() part.CanCollide = true end)
+            end
+            return
+        end
+        noCollideConn = RunService.Heartbeat:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, p in ipairs(char:GetDescendants()) do
+                    if p:IsA("BasePart") and p.CanCollide then
+                        pcall(function() p.CanCollide = false end)
+                    end
+                end
+            end
+            for part in pairs(MASS_CLAIMED) do
+                if part.Parent and part.CanCollide then
+                    pcall(function() part.CanCollide = false end)
+                end
+            end
+        end)
+    end
+    local function tripleClaimPart(part)
+        if not part:IsA("BasePart") then return end
+        if part.Anchored             then return end
+        if isCharacterPart(part)     then return end
+        if MASS_CLAIMED[part]        then return end
+        pcall(function()
+            for _, c in ipairs(part:GetChildren()) do
+                if c:IsA("BodyMover") or c:IsA("BodyVelocity") or c:IsA("LinearVelocity")
+                or c:IsA("BodyForce") or c:IsA("VectorForce")  or c:IsA("RocketPropulsion") then
+                    c:Destroy()
+                end
+            end
+        end)
+        local startCF  = part.CFrame
+        local startT   = tick()
+        local RETRY_DUR = BH.CONFIG.OWNER_RETRY_DUR
+        pcall(function() part:SetNetworkOwner(LocalPlayer) end)
+        local ownerConn = RunService.Heartbeat:Connect(function()
+            if not part.Parent            then tripleReleasePart(part); return end
+            if not massClaimActive        then tripleReleasePart(part); return end
+            local age = tick() - startT
+            if age < RETRY_DUR or age % 0.5 < 0.02 then
+                pcall(function() part:SetNetworkOwner(LocalPlayer) end)
+            end
+        end)
+        local velConn = RunService.Heartbeat:Connect(function()
+            if not part.Parent     then return end
+            if not massClaimActive then return end
+            pcall(function()
+                part.Velocity    = Vector3.new(0, 0.001, 0)
+                part.RotVelocity = Vector3.zero
+            end)
+        end)
+        local cfConn = RunService.Heartbeat:Connect(function()
+            if not part.Parent     then return end
+            if not massClaimActive then return end
+            pcall(function() part.CFrame = startCF end)
+        end)
+        MASS_CLAIMED[part] = {
+            ownerConn = ownerConn,
+            velConn   = velConn,
+            cfConn    = cfConn,
+        }
+    end
+    function NetworkClaim:ClaimAllWorkspace()
+        if massClaimActive then
+            massClaimActive = false
+            if self.State._massAddedConn then
+                self.State._massAddedConn:Disconnect()
+                self.State._massAddedConn = nil
+            end
+            local n = 0
+            for part in pairs(MASS_CLAIMED) do
+                tripleReleasePart(part)
+                n += 1
+            end
+            print(string.format("✓ Released %d workspace parts", n))
+            return
+        end
+        massClaimActive = true
+        task.spawn(function()
+            local scanned = 0
+            for _, v in ipairs(Workspace:GetDescendants()) do
+                if not massClaimActive then break end
+                tripleClaimPart(v)
+                scanned += 1
+                if scanned % 200 == 0 then task.wait() end
+            end
+            local held = 0
+            for _ in pairs(MASS_CLAIMED) do held += 1 end
+            print(string.format("✓ Triple-claimed %d workspace parts", held))
+        end)
+        if self.State._massAddedConn then
+            self.State._massAddedConn:Disconnect()
+        end
+        self.State._massAddedConn = Workspace.DescendantAdded:Connect(function(v)
+            if massClaimActive then task.spawn(tripleClaimPart, v) end
+        end)
+    end
+    function NetworkClaim:ClaimSelected()
+        local obj = self.State.SelectedObject
+        if not obj then print("⚠ No object selected"); return end
+        local parts = self:GetAllParts(obj)
+        if #parts == 0 then print("✗ No valid parts found"); return end
+        for _, data in pairs(self.State.ClaimedObjects) do
+            if data.Object == obj then print("⚠ Already claimed"); return end
+        end
+        local connections = {}
+        for _, part in ipairs(parts) do
+            local conn = self:ClaimPart(part)
+            if conn then table.insert(connections, conn) end
+        end
+        local hl = Instance.new("Highlight")
+        hl.Name                = "NetworkClaim_Highlight"
+        hl.FillColor           = self.Config.HighlightColor
+        hl.OutlineColor        = self.Config.HighlightColor
+        hl.FillTransparency    = 0.5
+        hl.OutlineTransparency = 0
+        hl.Adornee             = obj
+        hl.Parent              = obj
+        table.insert(self.State.ClaimedObjects, {
+            Object      = obj,
+            Connections = connections,
+            Highlight   = hl,
+            Name        = obj.Name,
+            PartCount   = #parts,
+        })
+        print(string.format("✓ Claimed: %s (%d parts)", obj.Name, #parts))
+        self:UpdateDisplay()
+    end
+    function NetworkClaim:ClaimEntireModel()
+        local obj = self.State.SelectedObject
+        if not obj then print("⚠ No object selected"); return end
+        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+        if not model then print("⚠ Not in a model"); return end
+        self.State.SelectedObject = model
+        self:ClaimSelected()
+    end
+    function NetworkClaim:ClaimAllDescendants()
+        local obj = self.State.SelectedObject
+        if not obj then print("⚠ No object selected"); return end
+        local n = 0
+        for _, d in ipairs(obj:GetDescendants()) do
+            if d:IsA("BasePart") then self:ClaimPart(d); n += 1 end
+        end
+        print(string.format("✓ Claimed %d descendants", n))
+    end
+    function NetworkClaim:ReleaseSelected()
+        local obj = self.State.SelectedObject
+        if not obj then print("⚠ No object selected"); return end
+        for i, data in ipairs(self.State.ClaimedObjects) do
+            if data.Object == obj then
+                for _, c in ipairs(data.Connections) do if c then c:Disconnect() end end
+                if data.Highlight and data.Highlight.Parent then
+                    data.Highlight:Destroy()
+                end
+                for _, part in ipairs(self:GetAllParts(data.Object)) do
+                    pcall(function() part:SetNetworkOwnershipAuto() end)
+                end
+                table.remove(self.State.ClaimedObjects, i)
+                print(string.format("✓ Released: %s", data.Name))
+                self:UpdateDisplay()
+                return
+            end
+        end
+        print("⚠ Object not claimed")
+    end
+    function NetworkClaim:ReleaseAll()
+        if #self.State.ClaimedObjects == 0 then print("⚠ Nothing to release"); return end
+        local n = #self.State.ClaimedObjects
+        for _, data in ipairs(self.State.ClaimedObjects) do
+            for _, c in ipairs(data.Connections) do if c then c:Disconnect() end end
+            if data.Highlight and data.Highlight.Parent then
+                data.Highlight:Destroy()
+            end
+            for _, part in ipairs(self:GetAllParts(data.Object)) do
+                pcall(function() part:SetNetworkOwnershipAuto() end)
+            end
+        end
+        self.State.ClaimedObjects = {}
+        print(string.format("✓ Released %d objects", n))
+        self:UpdateDisplay()
+    end
+    function NetworkClaim:SelectObject(obj)
+        if not obj or (not obj:IsA("Model") and not obj:IsA("BasePart")) then
+            print("⚠ Invalid selection"); return
+        end
+        if self.State.SelectedObject then
+            local old = self.State.SelectedObject:FindFirstChild("NetworkClaim_Selection")
+            if old then old:Destroy() end
+        end
+        self.State.SelectedObject = obj
+        local box = Instance.new("SelectionBox")
+        box.Name         = "NetworkClaim_Selection"
+        box.Adornee      = obj
+        box.LineThickness = 0.05
+        box.Color3       = Color3.fromRGB(255, 255, 0)
+        box.Parent       = obj
+        print(string.format("✓ Selected: %s", obj.Name))
+        self:UpdateDisplay()
+    end
+    function NetworkClaim:UpdateDisplay()
+        if not self.State.UI then return end
+        local mf   = self.State.UI.MainFrame
+        local sel  = mf.Content.SelectionLabel
+        local si   = mf.TitleBar.StatusIndicator
+        local list = mf.Content.ClaimedList
+        if self.State.SelectedObject then
+            local t = self.State.SelectedObject:IsA("Model") and "Model" or "Part"
+            sel.Text       = string.format("Selected: %s (%s)", self.State.SelectedObject.Name, t)
+            sel.TextColor3 = Color3.fromRGB(100, 255, 100)
+        else
+            sel.Text       = "Click an object in-world to select"
+            sel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        end
+        local count = #self.State.ClaimedObjects
+        si.Text             = count .. " CLAIMED"
+        si.BackgroundColor3 = count > 0 and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(50, 50, 50)
+        si.TextColor3       = count > 0 and Color3.new(1, 1, 1) or Color3.fromRGB(200, 200, 200)
+        for _, c in pairs(list:GetChildren()) do
+            if not c:IsA("UIListLayout") then c:Destroy() end
+        end
+        for i, data in ipairs(self.State.ClaimedObjects) do
+            local entry = Instance.new("TextButton", list)
+            entry.LayoutOrder      = i
+            entry.Size             = UDim2.new(1, -5, 0, 28)
+            entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+            entry.BorderSizePixel  = 0
+            entry.Font             = Enum.Font.Code
+            entry.Text             = string.format("[%d] %s (%d pts)", i, data.Name, data.PartCount)
+            entry.TextColor3       = Color3.fromRGB(255, 150, 0)
+            entry.TextSize         = 10
+            entry.TextXAlignment   = Enum.TextXAlignment.Left
+            entry.AutoButtonColor  = false
+            Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 4)
+            local ep = Instance.new("UIPadding", entry)
+            ep.PaddingLeft = UDim.new(0, 8)
+            entry.MouseButton1Click:Connect(function() self:SelectObject(data.Object) end)
+            entry.MouseEnter:Connect(function() entry.BackgroundColor3 = Color3.fromRGB(50, 50, 60) end)
+            entry.MouseLeave:Connect(function() entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50) end)
+        end
+    end
+    function NetworkClaim:_createUI()
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name           = "NetworkClaim_Zuka"
+        screenGui.ResetOnSpawn   = false
+        screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+        self.State.UI = screenGui
+        local mainFrame = Instance.new("Frame", screenGui)
+        mainFrame.Name             = "MainFrame"
+        mainFrame.Size             = UDim2.fromOffset(400, 740)
+        mainFrame.Position         = UDim2.new(1, -412, 0.5, -370)
+        mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+        mainFrame.BorderSizePixel  = 0
+        Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+        local stroke = Instance.new("UIStroke", mainFrame)
+        stroke.Color     = Color3.fromRGB(255, 100, 0)
+        stroke.Thickness = 2
+        TweenService:Create(stroke,
+            TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+            { Thickness = 3 }):Play()
+        local titleBar = Instance.new("Frame", mainFrame)
+        titleBar.Name             = "TitleBar"
+        titleBar.Size             = UDim2.new(1, 0, 0, 35)
+        titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+        titleBar.BorderSizePixel  = 0
+        Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
+        local title = Instance.new("TextLabel", titleBar)
+        title.Size               = UDim2.new(1, -120, 1, 0)
+        title.Position           = UDim2.fromOffset(10, 0)
+        title.BackgroundTransparency = 1
+        title.Font               = Enum.Font.Code
+        title.Text               = "orbit"
+        title.TextColor3         = Color3.fromRGB(255, 100, 0)
+        title.TextSize           = 14
+        title.TextXAlignment     = Enum.TextXAlignment.Left
+        local statusIndicator = Instance.new("TextLabel", titleBar)
+        statusIndicator.Name             = "StatusIndicator"
+        statusIndicator.Size             = UDim2.fromOffset(90, 20)
+        statusIndicator.Position         = UDim2.new(1, -160, 0.5, -10)
+        statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        statusIndicator.BorderSizePixel  = 0
+        statusIndicator.Font             = Enum.Font.GothamBold
+        statusIndicator.Text             = "0 CLAIMED"
+        statusIndicator.TextColor3       = Color3.fromRGB(200, 200, 200)
+        statusIndicator.TextSize         = 10
+        Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
+        local closeBtn = Instance.new("TextButton", titleBar)
+        closeBtn.Size             = UDim2.fromOffset(30, 30)
+        closeBtn.Position         = UDim2.new(1, -32, 0, 2)
+        closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+        closeBtn.BorderSizePixel  = 0
+        closeBtn.Text             = "×"
+        closeBtn.TextColor3       = Color3.new(1, 1, 1)
+        closeBtn.Font             = Enum.Font.GothamBold
+        closeBtn.TextSize         = 20
+        Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+        closeBtn.MouseButton1Click:Connect(function() self:Disable() end)
+        do
+            local dragStart, startPos
+            titleBar.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragStart = input.Position
+                    startPos  = mainFrame.Position
+                    local mc, ec
+                    mc = UserInputService.InputChanged:Connect(function(mi)
+                        if mi.UserInputType == Enum.UserInputType.MouseMovement then
+                            local d = mi.Position - dragStart
+                            mainFrame.Position = UDim2.new(
+                                startPos.X.Scale, startPos.X.Offset + d.X,
+                                startPos.Y.Scale, startPos.Y.Offset + d.Y)
+                        end
+                    end)
+                    ec = UserInputService.InputEnded:Connect(function(ei)
+                        if ei.UserInputType == Enum.UserInputType.MouseButton1 then
+                            mc:Disconnect(); ec:Disconnect()
+                        end
+                    end)
+                end
+            end)
+        end
+        local scroll = Instance.new("ScrollingFrame", mainFrame)
+        scroll.Name                = "Content"
+        scroll.Size                = UDim2.new(1, -10, 1, -45)
+        scroll.Position            = UDim2.fromOffset(5, 40)
+        scroll.BackgroundTransparency = 1
+        scroll.BorderSizePixel     = 0
+        scroll.ScrollBarThickness  = 4
+        scroll.ScrollBarImageColor3 = Color3.fromRGB(255, 100, 0)
+        scroll.CanvasSize          = UDim2.fromOffset(0, 0)
+        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        local layout = Instance.new("UIListLayout", scroll)
+        layout.Padding   = UDim.new(0, 8)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        local pad = Instance.new("UIPadding", scroll)
+        pad.PaddingLeft   = UDim.new(0, 6)
+        pad.PaddingRight  = UDim.new(0, 6)
+        pad.PaddingTop    = UDim.new(0, 6)
+        pad.PaddingBottom = UDim.new(0, 10)
+        local function sectionHeader(text, order)
+            local lbl = Instance.new("TextLabel", scroll)
+            lbl.LayoutOrder      = order
+            lbl.Size             = UDim2.new(1, 0, 0, 22)
+            lbl.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+            lbl.BorderSizePixel  = 0
+            lbl.Font             = Enum.Font.GothamBold
+            lbl.Text             = "  " .. text
+            lbl.TextColor3       = Color3.fromRGB(255, 100, 0)
+            lbl.TextSize         = 11
+            lbl.TextXAlignment   = Enum.TextXAlignment.Left
+            Instance.new("UICorner", lbl).CornerRadius = UDim.new(0, 4)
+            return lbl
+        end
+        local function mkBtn(parent, text, bg, order)
+            local btn = Instance.new("TextButton", parent)
+            btn.LayoutOrder      = order or 0
+            btn.Size             = UDim2.new(1, 0, 0, 34)
+            btn.BackgroundColor3 = bg or Color3.fromRGB(50, 50, 65)
+            btn.BorderSizePixel  = 0
+            btn.Font             = Enum.Font.GothamBold
+            btn.Text             = text
+            btn.TextColor3       = Color3.new(1, 1, 1)
+            btn.TextSize         = 12
+            btn.AutoButtonColor  = false
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+            return btn
+        end
+        local function mkHalfRow(order)
+            local row = Instance.new("Frame", scroll)
+            row.LayoutOrder            = order
+            row.Size                   = UDim2.new(1, 0, 0, 34)
+            row.BackgroundTransparency = 1
+            local rl = Instance.new("UIListLayout", row)
+            rl.FillDirection = Enum.FillDirection.Horizontal
+            rl.Padding       = UDim.new(0, 6)
+            return row
+        end
+        local function makeSliderBtn(parent, symbol)
+            local b = Instance.new("TextButton", parent)
+            b.Size             = UDim2.new(0, 28, 1, 0)
+            b.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+            b.BorderSizePixel  = 0
+            b.Font             = Enum.Font.GothamBold
+            b.Text             = symbol
+            b.TextColor3       = Color3.new(1, 1, 1)
+            b.TextSize         = 14
+            b.AutoButtonColor  = false
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+            return b
+        end
+        sectionHeader("NETWORK CLAIM", 1)
+        local selectionLabel = Instance.new("TextLabel", scroll)
+        selectionLabel.LayoutOrder      = 2
+        selectionLabel.Name             = "SelectionLabel"
+        selectionLabel.Size             = UDim2.new(1, 0, 0, 34)
+        selectionLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+        selectionLabel.BorderSizePixel  = 0
+        selectionLabel.Font             = Enum.Font.GothamMedium
+        selectionLabel.Text             = "Click an object in-world to select"
+        selectionLabel.TextColor3       = Color3.fromRGB(200, 200, 200)
+        selectionLabel.TextSize         = 12
+        Instance.new("UICorner", selectionLabel).CornerRadius = UDim.new(0, 6)
+        local methodRow = Instance.new("Frame", scroll)
+        methodRow.LayoutOrder           = 3
+        methodRow.Size                  = UDim2.new(1, 0, 0, 46)
+        methodRow.BackgroundTransparency = 1
+        local methodHL = Instance.new("UIListLayout", methodRow)
+        methodHL.FillDirection = Enum.FillDirection.Horizontal
+        methodHL.Padding       = UDim.new(0, 4)
+        local methodButtons = {}
+        local methods = {
+            { id = "ownership", name = "OWNERSHIP", desc = "Set network owner" },
+            { id = "velocity",  name = "VELOCITY",  desc = "Spam velocity"     },
+            { id = "cframe",    name = "CFRAME",    desc = "Spam CFrame"       },
+        }
+        for _, m in ipairs(methods) do
+            local col = Instance.new("Frame", methodRow)
+            col.Size               = UDim2.new(0.333, -4, 1, 0)
+            col.BackgroundTransparency = 1
+            local btn = Instance.new("TextButton", col)
+            btn.Size             = UDim2.new(1, 0, 0, 30)
+            btn.BackgroundColor3 = m.id == "ownership"
+                and Color3.fromRGB(255, 100, 0)
+                or  Color3.fromRGB(50, 50, 65)
+            btn.BorderSizePixel  = 0
+            btn.Font             = Enum.Font.GothamSemibold
+            btn.Text             = m.name
+            btn.TextColor3       = Color3.new(1, 1, 1)
+            btn.TextSize         = 10
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+            local tip = Instance.new("TextLabel", col)
+            tip.Size               = UDim2.new(1, 0, 0, 12)
+            tip.Position           = UDim2.fromOffset(0, 32)
+            tip.BackgroundTransparency = 1
+            tip.Font               = Enum.Font.Gotham
+            tip.Text               = m.desc
+            tip.TextColor3         = Color3.fromRGB(130, 130, 130)
+            tip.TextSize           = 8
+            methodButtons[m.id]    = btn
+            btn.MouseButton1Click:Connect(function()
+                self.Config.ClaimMethod = m.id
+                for id, b in pairs(methodButtons) do
+                    b.BackgroundColor3 = id == m.id
+                        and Color3.fromRGB(255, 100, 0)
+                        or  Color3.fromRGB(50, 50, 65)
+                end
+            end)
+        end
+        local autoClaimBtn = mkBtn(scroll, "AUTO-CLAIM: OFF", Color3.fromRGB(50, 50, 65), 4)
+        autoClaimBtn.MouseButton1Click:Connect(function()
+            self.State.AutoClaim = not self.State.AutoClaim
+            autoClaimBtn.Text             = "AUTO-CLAIM: " .. (self.State.AutoClaim and "ON" or "OFF")
+            autoClaimBtn.BackgroundColor3 = self.State.AutoClaim
+                and Color3.fromRGB(0, 200, 100)
+                or  Color3.fromRGB(50, 50, 65)
+        end)
+        local claimBtn = mkBtn(scroll, "CLAIM SELECTED", Color3.fromRGB(255, 150, 0), 5)
+        claimBtn.MouseButton1Click:Connect(function() self:ClaimSelected() end)
+        local hrRow = mkHalfRow(6)
+        local releaseBtn = Instance.new("TextButton", hrRow)
+        releaseBtn.Size             = UDim2.new(0.5, -3, 1, 0)
+        releaseBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
+        releaseBtn.BorderSizePixel  = 0
+        releaseBtn.Font             = Enum.Font.GothamBold
+        releaseBtn.Text             = "RELEASE"
+        releaseBtn.TextColor3       = Color3.new(1, 1, 1)
+        releaseBtn.TextSize         = 12
+        releaseBtn.AutoButtonColor  = false
+        Instance.new("UICorner", releaseBtn).CornerRadius = UDim.new(0, 6)
+        releaseBtn.MouseButton1Click:Connect(function() self:ReleaseSelected() end)
+        local releaseAllBtn = Instance.new("TextButton", hrRow)
+        releaseAllBtn.Size             = UDim2.new(0.5, -3, 1, 0)
+        releaseAllBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
+        releaseAllBtn.BorderSizePixel  = 0
+        releaseAllBtn.Font             = Enum.Font.GothamBold
+        releaseAllBtn.Text             = "RELEASE ALL"
+        releaseAllBtn.TextColor3       = Color3.new(1, 1, 1)
+        releaseAllBtn.TextSize         = 12
+        releaseAllBtn.AutoButtonColor  = false
+        Instance.new("UICorner", releaseAllBtn).CornerRadius = UDim.new(0, 6)
+        releaseAllBtn.MouseButton1Click:Connect(function() self:ReleaseAll() end)
+        local claimModelBtn = mkBtn(scroll, "CLAIM ENTIRE MODEL",     Color3.fromRGB(150, 80,  200), 7)
+        local claimDescBtn  = mkBtn(scroll, "CLAIM ALL DESCENDANTS",  Color3.fromRGB(100, 150, 200), 8)
+        claimModelBtn.MouseButton1Click:Connect(function() self:ClaimEntireModel()      end)
+        claimDescBtn.MouseButton1Click:Connect(function()  self:ClaimAllDescendants()   end)
+        local claimAllBtn = mkBtn(scroll, "⚡ CLAIM ALL WORKSPACE: OFF", Color3.fromRGB(30, 60, 30), 8.5)
+        do
+            local stroke2 = Instance.new("UIStroke", claimAllBtn)
+            stroke2.Color     = Color3.fromRGB(0, 220, 80)
+            stroke2.Thickness = 1.5
+        end
+        local massCounter = Instance.new("TextLabel", scroll)
+        massCounter.LayoutOrder            = 8.6
+        massCounter.Size                   = UDim2.new(1, 0, 0, 18)
+        massCounter.BackgroundTransparency = 1
+        massCounter.Font                   = Enum.Font.Code
+        massCounter.Text                   = ""
+        massCounter.TextColor3             = Color3.fromRGB(0, 200, 80)
+        massCounter.TextSize               = 10
+        massCounter.TextXAlignment         = Enum.TextXAlignment.Left
+        RunService.Heartbeat:Connect(function()
+            if massClaimActive then
+                local n = 0
+                for _ in pairs(MASS_CLAIMED) do n += 1 end
+                massCounter.Text = "holding: " .. n .. " workspace parts (triple-locked)"
+            else
+                massCounter.Text = ""
+            end
+        end)
+        claimAllBtn.MouseButton1Click:Connect(function()
+            self:ClaimAllWorkspace()
+            if massClaimActive then
+                claimAllBtn.Text             = "⚡ CLAIM ALL WORKSPACE: ON"
+                claimAllBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 30)
+            else
+                claimAllBtn.Text             = "⚡ CLAIM ALL WORKSPACE: OFF"
+                claimAllBtn.BackgroundColor3 = Color3.fromRGB(30, 60, 30)
+            end
+        end)
+        local claimedListLabel = Instance.new("TextLabel", scroll)
+        claimedListLabel.LayoutOrder          = 9
+        claimedListLabel.Size                 = UDim2.new(1, 0, 0, 18)
+        claimedListLabel.BackgroundTransparency = 1
+        claimedListLabel.Font                 = Enum.Font.GothamBold
+        claimedListLabel.Text                 = "Claimed Objects:"
+        claimedListLabel.TextColor3           = Color3.new(1, 1, 1)
+        claimedListLabel.TextSize             = 12
+        claimedListLabel.TextXAlignment       = Enum.TextXAlignment.Left
+        local claimedList = Instance.new("ScrollingFrame", scroll)
+        claimedList.Name                = "ClaimedList"
+        claimedList.LayoutOrder         = 10
+        claimedList.Size                = UDim2.new(1, 0, 0, 120)
+        claimedList.BackgroundColor3    = Color3.fromRGB(30, 30, 40)
+        claimedList.BorderSizePixel     = 0
+        claimedList.ScrollBarThickness  = 4
+        claimedList.ScrollBarImageColor3 = Color3.fromRGB(255, 100, 0)
+        claimedList.CanvasSize          = UDim2.fromOffset(0, 0)
+        claimedList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        Instance.new("UICorner", claimedList).CornerRadius = UDim.new(0, 6)
+        local listLayout = Instance.new("UIListLayout", claimedList)
+        listLayout.Padding   = UDim.new(0, 3)
+        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        sectionHeader("PART FLINGER", 20)
+        local flingerInputRow = Instance.new("Frame", scroll)
+        flingerInputRow.LayoutOrder           = 21
+        flingerInputRow.Size                  = UDim2.new(1, 0, 0, 32)
+        flingerInputRow.BackgroundTransparency = 1
+        local filRL = Instance.new("UIListLayout", flingerInputRow)
+        filRL.FillDirection = Enum.FillDirection.Horizontal
+        filRL.Padding       = UDim.new(0, 6)
+        local inputBox = Instance.new("TextBox", flingerInputRow)
+        inputBox.Size              = UDim2.new(1, -80, 1, 0)
+        inputBox.BackgroundColor3  = Color3.fromRGB(24, 24, 35)
+        inputBox.BorderSizePixel   = 0
+        inputBox.PlaceholderText   = "player name..."
+        inputBox.PlaceholderColor3 = Color3.fromRGB(65, 65, 80)
+        inputBox.Text              = ""
+        inputBox.TextColor3        = Color3.fromRGB(210, 210, 210)
+        inputBox.TextSize          = 13
+        inputBox.Font              = Enum.Font.Code
+        inputBox.ClearTextOnFocus  = false
+        Instance.new("UICorner", inputBox).CornerRadius = UDim.new(0, 6)
+        local inputStroke = Instance.new("UIStroke", inputBox)
+        inputStroke.Color     = Color3.fromRGB(60, 60, 80)
+        inputStroke.Thickness = 1
+        local modeBtn = Instance.new("TextButton", flingerInputRow)
+        modeBtn.Size             = UDim2.new(0, 74, 1, 0)
+        modeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+        modeBtn.BorderSizePixel  = 0
+        modeBtn.Font             = Enum.Font.GothamBold
+        modeBtn.Text             = "Players"
+        modeBtn.TextColor3       = Color3.fromRGB(200, 200, 200)
+        modeBtn.TextSize         = 12
+        modeBtn.AutoButtonColor  = false
+        Instance.new("UICorner", modeBtn).CornerRadius = UDim.new(0, 6)
+        local bsRow = mkHalfRow(22)
+        local bringBtn = Instance.new("TextButton", bsRow)
+        bringBtn.Size             = UDim2.new(0.5, -3, 1, 0)
+        bringBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+        bringBtn.BorderSizePixel  = 0
+        bringBtn.Font             = Enum.Font.GothamBold
+        bringBtn.Text             = "Bring: Off"
+        bringBtn.TextColor3       = Color3.new(1, 1, 1)
+        bringBtn.TextSize         = 12
+        bringBtn.AutoButtonColor  = false
+        Instance.new("UICorner", bringBtn).CornerRadius = UDim.new(0, 6)
+        local spectateBtn = Instance.new("TextButton", bsRow)
+        spectateBtn.Size             = UDim2.new(0.5, -3, 1, 0)
+        spectateBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+        spectateBtn.BorderSizePixel  = 0
+        spectateBtn.Font             = Enum.Font.GothamBold
+        spectateBtn.Text             = "Spectate: Off"
+        spectateBtn.TextColor3       = Color3.new(1, 1, 1)
+        spectateBtn.TextSize         = 12
+        spectateBtn.AutoButtonColor  = false
+        Instance.new("UICorner", spectateBtn).CornerRadius = UDim.new(0, 6)
+        local flingerStatus = Instance.new("TextLabel", scroll)
+        flingerStatus.LayoutOrder            = 23
+        flingerStatus.Size                   = UDim2.new(1, 0, 0, 26)
+        flingerStatus.BackgroundColor3       = Color3.fromRGB(20, 20, 30)
+        flingerStatus.BackgroundTransparency = 0.1
+        flingerStatus.BorderSizePixel        = 0
+        flingerStatus.Font                   = Enum.Font.Code
+        flingerStatus.Text                   = "idle"
+        flingerStatus.TextColor3             = Color3.fromRGB(80, 80, 100)
+        flingerStatus.TextSize               = 11
+        flingerStatus.TextXAlignment         = Enum.TextXAlignment.Left
+        Instance.new("UICorner", flingerStatus).CornerRadius = UDim.new(0, 6)
+        local fsPad = Instance.new("UIPadding", flingerStatus)
+        fsPad.PaddingLeft = UDim.new(0, 8)
+        local partsCounter = Instance.new("TextLabel", scroll)
+        partsCounter.LayoutOrder           = 24
+        partsCounter.Size                  = UDim2.new(1, 0, 0, 18)
+        partsCounter.BackgroundTransparency = 1
+        partsCounter.Font                  = Enum.Font.Code
+        partsCounter.Text                  = ""
+        partsCounter.TextColor3            = Color3.fromRGB(80, 80, 100)
+        partsCounter.TextSize              = 10
+        partsCounter.TextXAlignment        = Enum.TextXAlignment.Left
+        local velLabel = Instance.new("TextLabel", scroll)
+        velLabel.LayoutOrder            = 25
+        velLabel.Size                   = UDim2.new(1, 0, 0, 16)
+        velLabel.BackgroundTransparency = 1
+        velLabel.Font                   = Enum.Font.GothamBold
+        velLabel.Text                   = "Velocity: 900"
+        velLabel.TextColor3             = Color3.new(1, 1, 1)
+        velLabel.TextSize               = 11
+        velLabel.TextXAlignment         = Enum.TextXAlignment.Left
+        local velRow = Instance.new("Frame", scroll)
+        velRow.LayoutOrder            = 26
+        velRow.Size                   = UDim2.new(1, 0, 0, 28)
+        velRow.BackgroundTransparency = 1
+        local velRL = Instance.new("UIListLayout", velRow)
+        velRL.FillDirection     = Enum.FillDirection.Horizontal
+        velRL.Padding           = UDim.new(0, 6)
+        velRL.VerticalAlignment = Enum.VerticalAlignment.Center
+        local velDown1  = makeSliderBtn(velRow, "−")
+        local velDown10 = makeSliderBtn(velRow, "−−")
+        local velBar    = Instance.new("Frame", velRow)
+        velBar.Size             = UDim2.new(1, -4*(28+6), 1, 0)
+        velBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+        velBar.BorderSizePixel  = 0
+        Instance.new("UICorner", velBar).CornerRadius = UDim.new(0, 6)
+        local velFill = Instance.new("Frame", velBar)
+        velFill.Size             = UDim2.new(900/5000, 0, 1, 0)
+        velFill.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+        velFill.BorderSizePixel  = 0
+        Instance.new("UICorner", velFill).CornerRadius = UDim.new(0, 6)
+        local velUp10 = makeSliderBtn(velRow, "++")
+        local velUp1  = makeSliderBtn(velRow, "+")
+        local function updateVel(delta)
+            BH.CONFIG.VELOCITY = math.clamp(BH.CONFIG.VELOCITY + delta, 50, 5000)
+            velLabel.Text = "Velocity: " .. BH.CONFIG.VELOCITY
+            velFill.Size  = UDim2.new(BH.CONFIG.VELOCITY / 5000, 0, 1, 0)
+        end
+        velDown1.MouseButton1Click:Connect(function()  updateVel(-100) end)
+        velDown10.MouseButton1Click:Connect(function() updateVel(-500) end)
+        velUp1.MouseButton1Click:Connect(function()    updateVel(100)  end)
+        velUp10.MouseButton1Click:Connect(function()   updateVel(500)  end)
+        local sizeLabel = Instance.new("TextLabel", scroll)
+        sizeLabel.LayoutOrder            = 27
+        sizeLabel.Size                   = UDim2.new(1, 0, 0, 16)
+        sizeLabel.BackgroundTransparency = 1
+        sizeLabel.Font                   = Enum.Font.GothamBold
+        sizeLabel.Text                   = "Min Part Size: off"
+        sizeLabel.TextColor3             = Color3.new(1, 1, 1)
+        sizeLabel.TextSize               = 11
+        sizeLabel.TextXAlignment         = Enum.TextXAlignment.Left
+        local sizeRow = Instance.new("Frame", scroll)
+        sizeRow.LayoutOrder            = 28
+        sizeRow.Size                   = UDim2.new(1, 0, 0, 28)
+        sizeRow.BackgroundTransparency = 1
+        local sizeRL = Instance.new("UIListLayout", sizeRow)
+        sizeRL.FillDirection     = Enum.FillDirection.Horizontal
+        sizeRL.Padding           = UDim.new(0, 6)
+        sizeRL.VerticalAlignment = Enum.VerticalAlignment.Center
+        local sizeDown = makeSliderBtn(sizeRow, "−")
+        local sizeBar  = Instance.new("Frame", sizeRow)
+        sizeBar.Size             = UDim2.new(1, -2*(28+6), 1, 0)
+        sizeBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+        sizeBar.BorderSizePixel  = 0
+        Instance.new("UICorner", sizeBar).CornerRadius = UDim.new(0, 6)
+        local sizeFill = Instance.new("Frame", sizeBar)
+        sizeFill.Size             = UDim2.new(0, 0, 1, 0)
+        sizeFill.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+        sizeFill.BorderSizePixel  = 0
+        Instance.new("UICorner", sizeFill).CornerRadius = UDim.new(0, 6)
+        local sizeUp = makeSliderBtn(sizeRow, "+")
+        local function updateSize(delta)
+            BH.CONFIG.MIN_SIZE = math.clamp(BH.CONFIG.MIN_SIZE + delta, 0, 50)
+            sizeLabel.Text = BH.CONFIG.MIN_SIZE == 0
+                and "Min Part Size: off"
+                or  "Min Part Size: " .. BH.CONFIG.MIN_SIZE .. " st"
+            sizeFill.Size = UDim2.new(BH.CONFIG.MIN_SIZE / 50, 0, 1, 0)
+        end
+        sizeDown.MouseButton1Click:Connect(function() updateSize(-1) end)
+        sizeUp.MouseButton1Click:Connect(function()   updateSize(1)  end)
+        local sweepLabel = Instance.new("TextLabel", scroll)
+        sweepLabel.LayoutOrder            = 29
+        sweepLabel.Size                   = UDim2.new(1, 0, 0, 16)
+        sweepLabel.BackgroundTransparency = 1
+        sweepLabel.Font                   = Enum.Font.GothamBold
+        sweepLabel.Text                   = "Sweep Radius: off"
+        sweepLabel.TextColor3             = Color3.new(1, 1, 1)
+        sweepLabel.TextSize               = 11
+        sweepLabel.TextXAlignment         = Enum.TextXAlignment.Left
+        local sweepRow = Instance.new("Frame", scroll)
+        sweepRow.LayoutOrder            = 30
+        sweepRow.Size                   = UDim2.new(1, 0, 0, 28)
+        sweepRow.BackgroundTransparency = 1
+        local sweepRL = Instance.new("UIListLayout", sweepRow)
+        sweepRL.FillDirection     = Enum.FillDirection.Horizontal
+        sweepRL.Padding           = UDim.new(0, 6)
+        sweepRL.VerticalAlignment = Enum.VerticalAlignment.Center
+        local sweepDown = makeSliderBtn(sweepRow, "−")
+        local sweepBar  = Instance.new("Frame", sweepRow)
+        sweepBar.Size             = UDim2.new(1, -2*(28+6), 1, 0)
+        sweepBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+        sweepBar.BorderSizePixel  = 0
+        Instance.new("UICorner", sweepBar).CornerRadius = UDim.new(0, 6)
+        local sweepFill = Instance.new("Frame", sweepBar)
+        sweepFill.Size             = UDim2.new(0, 0, 1, 0)
+        sweepFill.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
+        sweepFill.BorderSizePixel  = 0
+        Instance.new("UICorner", sweepFill).CornerRadius = UDim.new(0, 6)
+        local sweepUp = makeSliderBtn(sweepRow, "+")
+        local MAX_SWEEP = 500
+        local function updateSweep(delta)
+            BH.CONFIG.SWEEP_RADIUS = math.clamp(BH.CONFIG.SWEEP_RADIUS + delta, 0, MAX_SWEEP)
+            sweepLabel.Text = BH.CONFIG.SWEEP_RADIUS == 0
+                and "Sweep Radius: off"
+                or  "Sweep Radius: " .. BH.CONFIG.SWEEP_RADIUS .. " st"
+            sweepFill.Size = UDim2.new(BH.CONFIG.SWEEP_RADIUS / MAX_SWEEP, 0, 1, 0)
+        end
+        sweepDown.MouseButton1Click:Connect(function() updateSweep(-25) end)
+        sweepUp.MouseButton1Click:Connect(function()   updateSweep(25)  end)
+        sectionHeader("ORBIT SHIELD", 40)
+        local orbitToggleBtn = mkBtn(scroll, "ORBIT SHIELD: OFF", Color3.fromRGB(50, 50, 70), 41)
+        local orbitRadLabel = Instance.new("TextLabel", scroll)
+        orbitRadLabel.LayoutOrder            = 42
+        orbitRadLabel.Size                   = UDim2.new(1, 0, 0, 16)
+        orbitRadLabel.BackgroundTransparency = 1
+        orbitRadLabel.Font                   = Enum.Font.GothamBold
+        orbitRadLabel.Text                   = "Radius: " .. BH.ORBIT.Radius .. " st"
+        orbitRadLabel.TextColor3             = Color3.new(1, 1, 1)
+        orbitRadLabel.TextSize               = 11
+        orbitRadLabel.TextXAlignment         = Enum.TextXAlignment.Left
+        local orbitRadRow = Instance.new("Frame", scroll)
+        orbitRadRow.LayoutOrder            = 43
+        orbitRadRow.Size                   = UDim2.new(1, 0, 0, 28)
+        orbitRadRow.BackgroundTransparency = 1
+        local orrRL = Instance.new("UIListLayout", orbitRadRow)
+        orrRL.FillDirection     = Enum.FillDirection.Horizontal
+        orrRL.Padding           = UDim.new(0, 6)
+        orrRL.VerticalAlignment = Enum.VerticalAlignment.Center
+        local orRadDown = makeSliderBtn(orbitRadRow, "−")
+        local orRadBar  = Instance.new("Frame", orbitRadRow)
+        orRadBar.Size             = UDim2.new(1, -2*(28+6), 1, 0)
+        orRadBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+        orRadBar.BorderSizePixel  = 0
+        Instance.new("UICorner", orRadBar).CornerRadius = UDim.new(0, 6)
+        local orRadFill = Instance.new("Frame", orRadBar)
+        orRadFill.Size             = UDim2.new(BH.ORBIT.Radius/50, 0, 1, 0)
+        orRadFill.BackgroundColor3 = Color3.fromRGB(180, 80, 255)
+        orRadFill.BorderSizePixel  = 0
+        Instance.new("UICorner", orRadFill).CornerRadius = UDim.new(0, 6)
+        local orRadUp = makeSliderBtn(orbitRadRow, "+")
+        local function updateOrbitRadius(delta)
+            BH.ORBIT.Radius = math.clamp(BH.ORBIT.Radius + delta, 2, 50)
+            orbitRadLabel.Text = "Radius: " .. BH.ORBIT.Radius .. " st"
+            orRadFill.Size = UDim2.new(BH.ORBIT.Radius/50, 0, 1, 0)
+        end
+        orRadDown.MouseButton1Click:Connect(function() updateOrbitRadius(-1) end)
+        orRadUp.MouseButton1Click:Connect(function()   updateOrbitRadius(1)  end)
+        local orbitSpdLabel = Instance.new("TextLabel", scroll)
+        orbitSpdLabel.LayoutOrder            = 44
+        orbitSpdLabel.Size                   = UDim2.new(1, 0, 0, 16)
+        orbitSpdLabel.BackgroundTransparency = 1
+        orbitSpdLabel.Font                   = Enum.Font.GothamBold
+        orbitSpdLabel.Text                   = "Speed: " .. BH.ORBIT.Speed .. "x"
+        orbitSpdLabel.TextColor3             = Color3.new(1, 1, 1)
+        orbitSpdLabel.TextSize               = 11
+        orbitSpdLabel.TextXAlignment         = Enum.TextXAlignment.Left
+        local orbitSpdRow = Instance.new("Frame", scroll)
+        orbitSpdRow.LayoutOrder            = 45
+        orbitSpdRow.Size                   = UDim2.new(1, 0, 0, 28)
+        orbitSpdRow.BackgroundTransparency = 1
+        local orsRL = Instance.new("UIListLayout", orbitSpdRow)
+        orsRL.FillDirection     = Enum.FillDirection.Horizontal
+        orsRL.Padding           = UDim.new(0, 6)
+        orsRL.VerticalAlignment = Enum.VerticalAlignment.Center
+        local orSpdDown = makeSliderBtn(orbitSpdRow, "−")
+        local orSpdBar  = Instance.new("Frame", orbitSpdRow)
+        orSpdBar.Size             = UDim2.new(1, -2*(28+6), 1, 0)
+        orSpdBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+        orSpdBar.BorderSizePixel  = 0
+        Instance.new("UICorner", orSpdBar).CornerRadius = UDim.new(0, 6)
+        local orSpdFill = Instance.new("Frame", orSpdBar)
+        orSpdFill.Size             = UDim2.new(BH.ORBIT.Speed/20, 0, 1, 0)
+        orSpdFill.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+        orSpdFill.BorderSizePixel  = 0
+        Instance.new("UICorner", orSpdFill).CornerRadius = UDim.new(0, 6)
+        local orSpdUp = makeSliderBtn(orbitSpdRow, "+")
+        local function updateOrbitSpeed(delta)
+            BH.ORBIT.Speed = math.clamp(BH.ORBIT.Speed + delta, 0.5, 20)
+            orbitSpdLabel.Text = "Speed: " .. BH.ORBIT.Speed .. "x"
+            orSpdFill.Size = UDim2.new(BH.ORBIT.Speed/20, 0, 1, 0)
+        end
+        orSpdDown.MouseButton1Click:Connect(function() updateOrbitSpeed(-0.5) end)
+        orSpdUp.MouseButton1Click:Connect(function()   updateOrbitSpeed(0.5)  end)
+        local orbitRingsLabel = Instance.new("TextLabel", scroll)
+        orbitRingsLabel.LayoutOrder            = 46
+        orbitRingsLabel.Size                   = UDim2.new(1, 0, 0, 16)
+        orbitRingsLabel.BackgroundTransparency = 1
+        orbitRingsLabel.Font                   = Enum.Font.GothamBold
+        orbitRingsLabel.Text                   = "Rings: " .. BH.ORBIT.Rings
+        orbitRingsLabel.TextColor3             = Color3.new(1, 1, 1)
+        orbitRingsLabel.TextSize               = 11
+        orbitRingsLabel.TextXAlignment         = Enum.TextXAlignment.Left
+        local orbitRingsRow = Instance.new("Frame", scroll)
+        orbitRingsRow.LayoutOrder            = 47
+        orbitRingsRow.Size                   = UDim2.new(1, 0, 0, 28)
+        orbitRingsRow.BackgroundTransparency = 1
+        local orringsRL = Instance.new("UIListLayout", orbitRingsRow)
+        orringsRL.FillDirection     = Enum.FillDirection.Horizontal
+        orringsRL.Padding           = UDim.new(0, 6)
+        orringsRL.VerticalAlignment = Enum.VerticalAlignment.Center
+        local orRingsDown = makeSliderBtn(orbitRingsRow, "−")
+        local orRingsBar  = Instance.new("Frame", orbitRingsRow)
+        orRingsBar.Size             = UDim2.new(1, -2*(28+6), 1, 0)
+        orRingsBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+        orRingsBar.BorderSizePixel  = 0
+        Instance.new("UICorner", orRingsBar).CornerRadius = UDim.new(0, 6)
+        local orRingsFill = Instance.new("Frame", orRingsBar)
+        orRingsFill.Size             = UDim2.new(BH.ORBIT.Rings/5, 0, 1, 0)
+        orRingsFill.BackgroundColor3 = Color3.fromRGB(80, 220, 180)
+        orRingsFill.BorderSizePixel  = 0
+        Instance.new("UICorner", orRingsFill).CornerRadius = UDim.new(0, 6)
+        local orRingsUp = makeSliderBtn(orbitRingsRow, "+")
+        local function updateOrbitRings(delta)
+            BH.ORBIT.Rings = math.clamp(BH.ORBIT.Rings + delta, 1, 5)
+            orbitRingsLabel.Text = "Rings: " .. BH.ORBIT.Rings
+            orRingsFill.Size = UDim2.new(BH.ORBIT.Rings/5, 0, 1, 0)
+            for i, e in ipairs(BH.ORBIT.Parts) do
+                e.ringOffset = ((i % BH.ORBIT.Rings) / BH.ORBIT.Rings) * math.pi
+            end
+        end
+        orRingsDown.MouseButton1Click:Connect(function() updateOrbitRings(-1) end)
+        orRingsUp.MouseButton1Click:Connect(function()   updateOrbitRings(1)  end)
+        local orbitCountLabel = Instance.new("TextLabel", scroll)
+        orbitCountLabel.LayoutOrder            = 48
+        orbitCountLabel.Size                   = UDim2.new(1, 0, 0, 16)
+        orbitCountLabel.BackgroundTransparency = 1
+        orbitCountLabel.Font                   = Enum.Font.Code
+        orbitCountLabel.Text                   = ""
+        orbitCountLabel.TextColor3             = Color3.fromRGB(80, 80, 100)
+        orbitCountLabel.TextSize               = 10
+        orbitCountLabel.TextXAlignment         = Enum.TextXAlignment.Left
+        RunService.Heartbeat:Connect(function()
+            orbitCountLabel.Text = BH.ORBIT.Active
+                and ("orbiting: " .. #BH.ORBIT.Parts .. " parts")
+                or  ""
+        end)
+        orbitToggleBtn.MouseButton1Click:Connect(function()
+            if BH.ORBIT.Active then
+                orbitStop()
+                orbitToggleBtn.Text             = "ORBIT SHIELD: OFF"
+                orbitToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+            else
+                orbitStart()
+                orbitToggleBtn.Text             = "ORBIT SHIELD: ON"
+                orbitToggleBtn.BackgroundColor3 = Color3.fromRGB(120, 40, 200)
+            end
+        end)
+        sectionHeader("MISSILE PART", 50)
+        local missilePartLabel = Instance.new("TextLabel", scroll)
+        missilePartLabel.LayoutOrder      = 51
+        missilePartLabel.Name             = "MissilePartLabel"
+        missilePartLabel.Size             = UDim2.new(1, 0, 0, 30)
+        missilePartLabel.BackgroundColor3 = Color3.fromRGB(35, 20, 20)
+        missilePartLabel.BorderSizePixel  = 0
+        missilePartLabel.Font             = Enum.Font.Code
+        missilePartLabel.Text             = "no part selected"
+        missilePartLabel.TextColor3       = Color3.fromRGB(150, 150, 150)
+        missilePartLabel.TextSize         = 11
+        missilePartLabel.TextXAlignment   = Enum.TextXAlignment.Left
+        Instance.new("UICorner", missilePartLabel).CornerRadius = UDim.new(0, 6)
+        local mlPad = Instance.new("UIPadding", missilePartLabel)
+        mlPad.PaddingLeft = UDim.new(0, 8)
+        local missileLaunchBtn
+        local setMissileBtn = mkBtn(scroll, "SET AS MISSILE PART", Color3.fromRGB(160, 40, 40), 52)
+        setMissileBtn.MouseButton1Click:Connect(function()
+            local sel  = NetworkClaim.State.SelectedObject
+            local part = nil
+            if sel then
+                if sel:IsA("BasePart") then
+                    part = sel
+                elseif sel:IsA("Model") then
+                    part = sel:FindFirstChildOfClass("BasePart") or sel.PrimaryPart
+                end
+            end
+            if not part then
+                missilePartLabel.Text       = "select a BasePart first"
+                missilePartLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+                return
+            end
+            if BH.MISSILE.Active then
+                missileStop()
+                missileLaunchBtn.Text             = "LAUNCH: OFF"
+                missileLaunchBtn.BackgroundColor3 = Color3.fromRGB(120, 30, 30)
+            end
+            missileSetPart(part)
+            missilePartLabel.Text       = "missile: " .. part.Name
+            missilePartLabel.TextColor3 = Color3.fromRGB(255, 100, 60)
+        end)
+        local missileClearBtn = mkBtn(scroll, "CLEAR MISSILE PART", Color3.fromRGB(60, 30, 30), 53)
+        missileClearBtn.MouseButton1Click:Connect(function()
+            if BH.MISSILE.Active then
+                missileStop()
+                missileLaunchBtn.Text             = "LAUNCH: OFF"
+                missileLaunchBtn.BackgroundColor3 = Color3.fromRGB(120, 30, 30)
+            end
+            missileSetPart(nil)
+            missilePartLabel.Text       = "no part selected"
+            missilePartLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+        end)
+        local missileForceLabel = Instance.new("TextLabel", scroll)
+        missileForceLabel.LayoutOrder            = 54
+        missileForceLabel.Size                   = UDim2.new(1, 0, 0, 16)
+        missileForceLabel.BackgroundTransparency = 1
+        missileForceLabel.Font                   = Enum.Font.GothamBold
+        missileForceLabel.Text                   = "Force: " .. BH.MISSILE.Force
+        missileForceLabel.TextColor3             = Color3.new(1, 1, 1)
+        missileForceLabel.TextSize               = 11
+        missileForceLabel.TextXAlignment         = Enum.TextXAlignment.Left
+        local missileForceRow = Instance.new("Frame", scroll)
+        missileForceRow.LayoutOrder            = 55
+        missileForceRow.Size                   = UDim2.new(1, 0, 0, 28)
+        missileForceRow.BackgroundTransparency = 1
+        local mfrRL = Instance.new("UIListLayout", missileForceRow)
+        mfrRL.FillDirection     = Enum.FillDirection.Horizontal
+        mfrRL.Padding           = UDim.new(0, 6)
+        mfrRL.VerticalAlignment = Enum.VerticalAlignment.Center
+        local mfDown1  = makeSliderBtn(missileForceRow, "−")
+        local mfDown10 = makeSliderBtn(missileForceRow, "−−")
+        local mfBar    = Instance.new("Frame", missileForceRow)
+        mfBar.Size             = UDim2.new(1, -4*(28+6), 1, 0)
+        mfBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+        mfBar.BorderSizePixel  = 0
+        Instance.new("UICorner", mfBar).CornerRadius = UDim.new(0, 6)
+        local MAX_MFORCE = 5e6
+        local mfFill = Instance.new("Frame", mfBar)
+        mfFill.Size             = UDim2.new(BH.MISSILE.Force/MAX_MFORCE, 0, 1, 0)
+        mfFill.BackgroundColor3 = Color3.fromRGB(255, 80, 40)
+        mfFill.BorderSizePixel  = 0
+        Instance.new("UICorner", mfFill).CornerRadius = UDim.new(0, 6)
+        local mfUp10 = makeSliderBtn(missileForceRow, "++")
+        local mfUp1  = makeSliderBtn(missileForceRow, "+")
+        local function updateMissileForce(delta)
+            BH.MISSILE.Force = math.clamp(BH.MISSILE.Force + delta, 1e4, MAX_MFORCE)
+            missileForceLabel.Text = "Force: " .. string.format("%.0f", BH.MISSILE.Force)
+            mfFill.Size = UDim2.new(BH.MISSILE.Force/MAX_MFORCE, 0, 1, 0)
+        end
+        mfDown1.MouseButton1Click:Connect(function()  updateMissileForce(-1e5) end)
+        mfDown10.MouseButton1Click:Connect(function() updateMissileForce(-5e5) end)
+        mfUp1.MouseButton1Click:Connect(function()    updateMissileForce(1e5)  end)
+        mfUp10.MouseButton1Click:Connect(function()   updateMissileForce(5e5)  end)
+        missileLaunchBtn = mkBtn(scroll, "LAUNCH: OFF", Color3.fromRGB(120, 30, 30), 56)
+        missileLaunchBtn.MouseButton1Click:Connect(function()
+            if BH.MISSILE.Active then
+                missileStop()
+                missileLaunchBtn.Text             = "LAUNCH: OFF"
+                missileLaunchBtn.BackgroundColor3 = Color3.fromRGB(120, 30, 30)
+            else
+                if not BH.MISSILE.Part or not BH.MISSILE.Part.Parent then
+                    missilePartLabel.Text       = "set a missile part first"
+                    missilePartLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+                    return
+                end
+                if not BH.sendTarget then
+                    missilePartLabel.Text       = "set a target in PART FLINGER first"
+                    missilePartLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+                    return
+                end
+                missileStart()
+                missileLaunchBtn.Text             = "LAUNCH: ON  🔴"
+                missileLaunchBtn.BackgroundColor3 = Color3.fromRGB(220, 40, 40)
+                task.spawn(function()
+                    while BH.MISSILE.Active do task.wait(0.5) end
+                    missileLaunchBtn.Text             = "LAUNCH: OFF"
+                    missileLaunchBtn.BackgroundColor3 = Color3.fromRGB(120, 30, 30)
+                end)
+            end
+        end)
+        local function setFlingerStatus(msg, color)
+            flingerStatus.Text       = msg
+            flingerStatus.TextColor3 = color or Color3.fromRGB(80, 80, 100)
+        end
+        local function setBHTarget(player)
+            BH.sendTarget = player
+            if player then
+                setFlingerStatus("→ " .. player.Name .. " (" .. player.DisplayName .. ")",
+                    Color3.fromRGB(200, 80, 80))
+            else
+                setFlingerStatus("idle")
+            end
+        end
+        local function stopBlackhole()
+            BH.blackHoleActive = false
+            bringBtn.Text             = "Bring: Off"
+            bringBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+            if BH.DescendantAddedConn then
+                BH.DescendantAddedConn:Disconnect()
+                BH.DescendantAddedConn = nil
+            end
+            if BH.cycleConnection then
+                BH.cycleConnection:Disconnect()
+                BH.cycleConnection = nil
+            end
+            for part in pairs(BH.TARGET_PARTS) do bhReleasePart(part) end
+        end
+        local function startBlackhole()
+            if not BH.sendTarget then return end
+            BH.blackHoleActive = true
+            bringBtn.Text             = "Bring: On"
+            bringBtn.BackgroundColor3 = Color3.fromRGB(160, 35, 35)
+            local tc    = BH.sendTarget.Character
+            local tRoot = tc and tc:FindFirstChild("HumanoidRootPart")
+            if tRoot then _bhAttachment.WorldCFrame = tRoot.CFrame end
+            task.spawn(function()
+                for _, v in ipairs(Workspace:GetDescendants()) do bhForcePart(v) end
+            end)
+            BH.DescendantAddedConn = Workspace.DescendantAdded:Connect(function(v)
+                if BH.blackHoleActive then task.spawn(bhForcePart, v) end
+            end)
+            if BH.targetMode == "All" then
+                BH.cycleConnection = RunService.Heartbeat:Connect(function()
+                    local now = tick()
+                    if now - BH.cycleLastSwap >= 3 then
+                        BH.cycleLastSwap = now
+                        local players = bhGetValidPlayers()
+                        if #players > 0 then
+                            BH.cycleIndex = (BH.cycleIndex % #players) + 1
+                            setBHTarget(players[BH.cycleIndex])
+                        end
+                    end
+                end)
+            end
+        end
+        local function toggleSpectate()
+            if not BH.sendTarget then return end
+            BH.spectateActive = not BH.spectateActive
+            spectateBtn.Text             = BH.spectateActive and "Spectate: On" or "Spectate: Off"
+            spectateBtn.BackgroundColor3 = BH.spectateActive
+                and Color3.fromRGB(40, 80, 140)
+                or  Color3.fromRGB(50, 50, 70)
+            if BH.spectateActive then
+                bhStartSpectating()
+                if BH.spectateMonitorConn then BH.spectateMonitorConn:Disconnect() end
+                BH.spectateMonitorConn = RunService.Heartbeat:Connect(function()
+                    if not BH.spectateActive then
+                        BH.spectateMonitorConn:Disconnect(); return
+                    end
+                    if not bhIsTargetValid(BH.sendTarget) then
+                        bhStopSpectating()
+                        BH.spectateActive    = false
+                        spectateBtn.Text     = "Spectate: Off"
+                        spectateBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+                    elseif Workspace.CurrentCamera.CameraSubject
+                        ~= BH.sendTarget.Character:FindFirstChildOfClass("Humanoid") then
+                        bhStartSpectating()
+                    end
+                end)
+            else
+                bhStopSpectating()
+                if BH.spectateMonitorConn then
+                    BH.spectateMonitorConn:Disconnect()
+                    BH.spectateMonitorConn = nil
+                end
+            end
+        end
+        RunService.Heartbeat:Connect(function()
+            if BH.blackHoleActive then
+                local n = 0
+                for _ in pairs(BH.TARGET_PARTS) do n += 1 end
+                partsCounter.Text = "parts claimed: " .. n
+            else
+                partsCounter.Text = ""
+            end
+        end)
+        bringBtn.MouseButton1Click:Connect(function()
+            if BH.blackHoleActive then
+                stopBlackhole()
+            else
+                if BH.targetMode == "Players" then
+                    local p = bhGetPlayer(inputBox.Text)
+                    if not p then
+                        setFlingerStatus("not found: " .. inputBox.Text, Color3.fromRGB(200, 80, 80))
+                        return
+                    end
+                    setBHTarget(p)
+                else
+                    local players = bhGetValidPlayers()
+                    if #players == 0 then
+                        setFlingerStatus("no valid players", Color3.fromRGB(200, 80, 80))
+                        return
+                    end
+                    setBHTarget(players[1])
+                end
+                startBlackhole()
+            end
+        end)
+        spectateBtn.MouseButton1Click:Connect(toggleSpectate)
+        modeBtn.MouseButton1Click:Connect(function()
+            BH.targetMode = BH.targetMode == "Players" and "All" or "Players"
+            modeBtn.Text      = BH.targetMode
+            inputBox.Visible  = BH.targetMode == "Players"
+            if BH.blackHoleActive then
+                stopBlackhole()
+                if BH.targetMode == "All" then
+                    local players = bhGetValidPlayers()
+                    if #players > 0 then setBHTarget(players[1]); startBlackhole() end
+                end
+            end
+        end)
+        inputBox.FocusLost:Connect(function(enter)
+            if not enter then return end
+            local p = bhGetPlayer(inputBox.Text)
+            if p then
+                inputBox.Text = p.Name
+                if not BH.blackHoleActive then setBHTarget(p) end
+            else
+                setFlingerStatus("not found: " .. inputBox.Text, Color3.fromRGB(200, 80, 80))
+            end
+        end)
+        Players.PlayerRemoving:Connect(function(p)
+            if p ~= BH.sendTarget then return end
+            if BH.spectateActive then
+                bhStopSpectating()
+                BH.spectateActive    = false
+                spectateBtn.Text     = "Spectate: Off"
+                spectateBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+            end
+            if BH.blackHoleActive and BH.targetMode == "All" then
+                local players = bhGetValidPlayers()
+                if #players > 0 then setBHTarget(players[1])
+                else stopBlackhole(); setFlingerStatus("no players left") end
+            elseif BH.blackHoleActive then
+                stopBlackhole(); setFlingerStatus("target left")
+            else
+                setBHTarget(nil)
+            end
+        end)
+        local guiVisible = true
+        UserInputService.InputBegan:Connect(function(input, gpe)
+            if gpe then return end
+            if input.KeyCode == Enum.KeyCode.RightControl then
+                guiVisible = not guiVisible
+                TweenService:Create(mainFrame, TweenInfo.new(0.25),
+                    { BackgroundTransparency = guiVisible and 0 or 1 }):Play()
+                for _, child in ipairs(mainFrame:GetDescendants()) do
+                    if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+                        TweenService:Create(child, TweenInfo.new(0.25), {
+                            TextTransparency       = guiVisible and 0 or 1,
+                            BackgroundTransparency = guiVisible and 0 or 1,
+                        }):Play()
+                    end
+                end
+                mainFrame.Active = guiVisible
+            end
+        end)
+        sectionHeader("NO COLLISION", 60)
+        local noCollideRow = mkHalfRow(61)
+        local noCollidePlayerBtn = Instance.new("TextButton", noCollideRow)
+        noCollidePlayerBtn.Size             = UDim2.new(0.5, -3, 1, 0)
+        noCollidePlayerBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        noCollidePlayerBtn.BorderSizePixel  = 0
+        noCollidePlayerBtn.Font             = Enum.Font.GothamBold
+        noCollidePlayerBtn.Text             = "Player: Off"
+        noCollidePlayerBtn.TextColor3       = Color3.new(1, 1, 1)
+        noCollidePlayerBtn.TextSize         = 12
+        noCollidePlayerBtn.AutoButtonColor  = false
+        Instance.new("UICorner", noCollidePlayerBtn).CornerRadius = UDim.new(0, 6)
+        local noCollidePartsBtn = Instance.new("TextButton", noCollideRow)
+        noCollidePartsBtn.Size             = UDim2.new(0.5, -3, 1, 0)
+        noCollidePartsBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        noCollidePartsBtn.BorderSizePixel  = 0
+        noCollidePartsBtn.Font             = Enum.Font.GothamBold
+        noCollidePartsBtn.Text             = "Parts: Off"
+        noCollidePartsBtn.TextColor3       = Color3.new(1, 1, 1)
+        noCollidePartsBtn.TextSize         = 12
+        noCollidePartsBtn.AutoButtonColor  = false
+        Instance.new("UICorner", noCollidePartsBtn).CornerRadius = UDim.new(0, 6)
+        local noCollidePlayer = false
+        local noCollideParts  = false
+        local playerNoCollideConn = nil
+        local partsNoCollideConn  = nil
+        noCollidePlayerBtn.MouseButton1Click:Connect(function()
+            noCollidePlayer = not noCollidePlayer
+            noCollidePlayerBtn.Text             = "Player: " .. (noCollidePlayer and "On" or "Off")
+            noCollidePlayerBtn.BackgroundColor3 = noCollidePlayer
+                and Color3.fromRGB(60, 20, 120)
+                or  Color3.fromRGB(40, 40, 60)
+            if playerNoCollideConn then playerNoCollideConn:Disconnect(); playerNoCollideConn = nil end
+            if noCollidePlayer then
+                playerNoCollideConn = RunService.Heartbeat:Connect(function()
+                    local char = LocalPlayer.Character
+                    if not char then return end
+                    for _, p in ipairs(char:GetDescendants()) do
+                        if p:IsA("BasePart") and p.CanCollide then
+                            pcall(function() p.CanCollide = false end)
+                        end
+                    end
+                end)
+            else
+                local char = LocalPlayer.Character
+                if char then
+                    for _, p in ipairs(char:GetDescendants()) do
+                        if p:IsA("BasePart") then
+                            pcall(function() p.CanCollide = true end)
+                        end
+                    end
+                end
+            end
+        end)
+        noCollidePartsBtn.MouseButton1Click:Connect(function()
+            noCollideParts = not noCollideParts
+            noCollidePartsBtn.Text             = "Parts: " .. (noCollideParts and "On" or "Off")
+            noCollidePartsBtn.BackgroundColor3 = noCollideParts
+                and Color3.fromRGB(60, 20, 120)
+                or  Color3.fromRGB(40, 40, 60)
+            if partsNoCollideConn then partsNoCollideConn:Disconnect(); partsNoCollideConn = nil end
+            if noCollideParts then
+                partsNoCollideConn = RunService.Heartbeat:Connect(function()
+                    for part in pairs(MASS_CLAIMED) do
+                        if part.Parent and part.CanCollide then
+                            pcall(function() part.CanCollide = false end)
+                        end
+                    end
+                    for part in pairs(BH.TARGET_PARTS) do
+                        if part.Parent and part.CanCollide then
+                            pcall(function() part.CanCollide = false end)
+                        end
+                    end
+                end)
+            else
+                for part in pairs(MASS_CLAIMED) do
+                    pcall(function() part.CanCollide = true end)
+                end
+                for part in pairs(BH.TARGET_PARTS) do
+                    pcall(function() part.CanCollide = true end)
+                end
+            end
+        end)
+        screenGui.Parent = CoreGui
+        return selectionLabel, statusIndicator, claimedList
+    end
+    function NetworkClaim:Enable()
+        if self.State.IsEnabled then return end
+        self.State.IsEnabled = true
+        self:_createUI()
+        self.State.Connections.MouseClick = UserInputService.InputBegan:Connect(function(input, gp)
+            if gp then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                local target = LocalPlayer:GetMouse().Target
+                if target then
+                    local obj = target:IsA("Model") and target or target.Parent
+                    if obj and (obj:IsA("Model") or obj:IsA("BasePart")) then
+                        self:SelectObject(obj)
+                        if self.State.AutoClaim then
+                            task.wait(0.1)
+                            self:ClaimSelected()
+                        end
+                    end
+                end
+            end
+        end)
+        print("✓ NetworkClaim+Flinger enabled — click objects to select")
+    end
+    function NetworkClaim:Disable()
+        if not self.State.IsEnabled then return end
+        self:ReleaseAll()
+        self.State.IsEnabled = false
+        if self.State.SelectedObject then
+            local sel = self.State.SelectedObject:FindFirstChild("NetworkClaim_Selection")
+            if sel then sel:Destroy() end
+        end
+        for _, conn in pairs(self.State.Connections) do
+            if conn then conn:Disconnect() end
+        end
+        table.clear(self.State.Connections)
+        if BH.blackHoleActive then
+            BH.blackHoleActive = false
+            for part in pairs(BH.TARGET_PARTS) do bhReleasePart(part) end
+        end
+        if BH.ORBIT.Active then orbitStop() end
+        if BH.MISSILE.Active then missileStop() end
+        if massClaimActive then
+            massClaimActive = false
+            for part in pairs(MASS_CLAIMED) do tripleReleasePart(part) end
+        end
+        if self.State._massAddedConn then
+            self.State._massAddedConn:Disconnect()
+            self.State._massAddedConn = nil
+        end
+        if self.State.UI then
+            self.State.UI:Destroy()
+            self.State.UI = nil
+        end
+        self.State.SelectedObject = nil
+        print("✓ NetworkClaim+Flinger disabled")
+    end
+    function NetworkClaim:Toggle()
+        if self.State.IsEnabled then self:Disable() else self:Enable() end
+    end
+    getgenv().ClaimBring_Module = NetworkClaim
+    NetworkClaim:Enable()
 end)
+
 RegisterCommand({
     Name        = "voidtrap",
     Aliases     = {"void", "vt"},
@@ -46054,7 +46070,7 @@ RegisterCommand({
     			local bv = Instance.new("BodyVelocity")
     			bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
     			local dir = (targetRoot.Position - part.Position).Unit
-    			bv.Velocity = dir * 900
+    			bv.Velocity = dir * 500
     			bv.Parent = part
     		end)
     	end
@@ -46078,7 +46094,7 @@ RegisterCommand({
     				-- constantly re-aim the velocity so it tracks them if they move
     				local bv = part:FindFirstChildOfClass("BodyVelocity")
     				if bv then
-    					bv.Velocity = (targetRoot.Position - part.Position).Unit * 900
+    					bv.Velocity = (targetRoot.Position - part.Position).Unit * 500
     				else
     					launchAtTarget()
     				end
