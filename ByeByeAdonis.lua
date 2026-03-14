@@ -1,5 +1,5 @@
 print("made by zuka hooking into the adonis core.client")
-print("updated on march 13 fri 10:35pm"
+print("updated on march 13 fri 10:35pm")
 if getgenv().__ZUKA_BYPASS_LOADED then return end
 getgenv().__ZUKA_BYPASS_LOADED = true
 if not game:IsLoaded() then game.Loaded:Wait() end
