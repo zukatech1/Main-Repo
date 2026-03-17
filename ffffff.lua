@@ -1,438 +1,347 @@
 -- ============================================================
---  Callum_ModuleExplorer  v2.0
---  Scans: ReplicatedStorage, LocalPlayer, CoreGui/RobloxGui
---  Features:
---    - Tree view: Container > Module > Functions
---    - pcall-requires hidden/obfuscated modules
---    - Upvalue count per function
---    - Hook with custom function body (live inject)
---    - Deep metatable unlock + edit
---    - ★ context tab: Adonis-aware upvalue fingerprinting
---    - ★ Adonis panel (dedicated):
---        · resolve Core/Remote/Anti/Functions/Variables/Service
---        · key interceptor (hooks Remote.Get)
---        · RemoteEvent live logger (OnClientEvent tap)
---        · anti-cheat neutraliser (hooks Detected/v_u_44)
---        · _G.Adonis API reader
---        · DebugMode bridge (RunEnvFunc/GetEnvTableMeta)
---        · client table walker (dump any sub-table)
---        · TrackTask/thread viewer
---        · ACLI loader section (ClientMover):
---            - acliLogs (v_u_36) dump
---            - integrity flag (v_u_14) scanner
---            - loader kick fn (v_u_16/v_u_48) neutraliser
---            - ACLI error code reference table
---    - RightAlt to toggle
+--  Callum_ModuleExplorer  v3.0  (clean rewrite)
+--  RightAlt = toggle UI
+--  ★ adonis button = dedicated Adonis panel
 -- ============================================================
 
-local Players           = game:GetService("Players")
-local UserInputService  = game:GetService("UserInputService")
-local CoreGui           = game:GetService("CoreGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local lp                = Players.LocalPlayer
+local Players          = game:GetService("Players")
+local UIS              = game:GetService("UserInputService")
+local CoreGui          = game:GetService("CoreGui")
+local RepStore         = game:GetService("ReplicatedStorage")
+local lp               = Players.LocalPlayer
 
--- ── EXPLOIT UTILS ───────────────────────────────────────────
-local getupvalues     = getupvalues     or function() return {} end
-local setupvalue      = setupvalue      or function() end
-local hookfunction    = hookfunction    or function() end
-local newcclosure     = newcclosure     or function(f) return f end
-local iscclosure      = iscclosure      or function() return false end
-local islclosure      = islclosure      or function() return false end
-local getrawmetatable = getrawmetatable or getmetatable
+-- exploit funcs (safe fallbacks so script loads even in studio)
+local getupvalues  = getupvalues  or function() return {} end
+local setupvalue   = setupvalue   or function() end
+local hookfn       = hookfunction or function() end
+local newcc        = newcclosure  or function(f) return f end
+local isluaclosure = islclosure   or function() return false end
+local getgc        = getgc        or nil   -- may be nil, checked before use
+local getrawmt     = getrawmetatable or getmetatable
 
--- ── GUI ROOT ────────────────────────────────────────────────
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name           = "Callum_ModuleExplorer"
-ScreenGui.ResetOnSpawn   = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-ScreenGui.Parent         = (gethui and gethui()) or CoreGui
+-- ─────────────────────────────────────────────────────────────
+--  GUI
+-- ─────────────────────────────────────────────────────────────
+local Root = Instance.new("ScreenGui")
+Root.Name = "Callum_ModuleExplorer_v3"
+Root.ResetOnSpawn = false
+Root.ZIndexBehavior = Enum.ZIndexBehavior.Global
+Root.Parent = (gethui and gethui()) or CoreGui
 
-local GlowFrame2 = Instance.new("Frame")
-GlowFrame2.Size = UDim2.new(0,616,0,556)
-GlowFrame2.Position = UDim2.new(0.5,-308,0.5,-278)
-GlowFrame2.BackgroundColor3 = Color3.fromRGB(255,255,255)
-GlowFrame2.BackgroundTransparency = 0.93
-GlowFrame2.BorderSizePixel = 0
-GlowFrame2.ZIndex = 1
-GlowFrame2.Parent = ScreenGui
-Instance.new("UICorner",GlowFrame2).CornerRadius = UDim.new(0,10)
+-- outer glow
+local function Glow(w,h,xOff,yOff,t,z)
+    local f=Instance.new("Frame",Root)
+    f.Size=UDim2.new(0,w,0,h)
+    f.Position=UDim2.new(0.5,xOff,0.5,yOff)
+    f.BackgroundColor3=Color3.fromRGB(255,255,255)
+    f.BackgroundTransparency=t f.BorderSizePixel=0 f.ZIndex=z
+    Instance.new("UICorner",f).CornerRadius=UDim.new(0,10)
+    return f
+end
+local G2=Glow(616,556,-308,-278,0.93,1)
+local G1=Glow(600,540,-300,-270,0.82,2)
 
-local GlowFrame = Instance.new("Frame")
-GlowFrame.Size = UDim2.new(0,600,0,540)
-GlowFrame.Position = UDim2.new(0.5,-300,0.5,-270)
-GlowFrame.BackgroundColor3 = Color3.fromRGB(255,255,255)
-GlowFrame.BackgroundTransparency = 0.82
-GlowFrame.BorderSizePixel = 0
-GlowFrame.ZIndex = 2
-GlowFrame.Parent = ScreenGui
-Instance.new("UICorner",GlowFrame).CornerRadius = UDim.new(0,8)
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0,580,0,520)
-MainFrame.Position = UDim2.new(0.5,-290,0.5,-260)
-MainFrame.BackgroundColor3 = Color3.fromRGB(18,18,18)
-MainFrame.BackgroundTransparency = 0.18
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.ZIndex = 3
-MainFrame.Parent = ScreenGui
-Instance.new("UICorner",MainFrame).CornerRadius = UDim.new(0,4)
-
-local Grad = Instance.new("UIGradient")
-Grad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0,Color3.fromRGB(255,255,255)),
-    ColorSequenceKeypoint.new(1,Color3.fromRGB(18,18,18)),
-})
-Grad.Transparency = NumberSequence.new({
-    NumberSequenceKeypoint.new(0,0.88),
-    NumberSequenceKeypoint.new(0.4,0.96),
-    NumberSequenceKeypoint.new(1,1.0),
-})
-Grad.Rotation = 135
-Grad.Parent = MainFrame
-
-MainFrame:GetPropertyChangedSignal("Position"):Connect(function()
-    local p = MainFrame.Position
-    GlowFrame.Position  = UDim2.new(p.X.Scale,p.X.Offset-10,p.Y.Scale,p.Y.Offset-10)
-    GlowFrame2.Position = UDim2.new(p.X.Scale,p.X.Offset-18,p.Y.Scale,p.Y.Offset-18)
+local Win=Instance.new("Frame",Root)
+Win.Size=UDim2.new(0,580,0,520)
+Win.Position=UDim2.new(0.5,-290,0.5,-260)
+Win.BackgroundColor3=Color3.fromRGB(18,18,18)
+Win.BackgroundTransparency=0.15
+Win.BorderSizePixel=0 Win.Active=true Win.Draggable=true Win.ZIndex=3
+Win.Parent=Root
+Instance.new("UICorner",Win).CornerRadius=UDim.new(0,4)
+do
+    local g=Instance.new("UIGradient",Win)
+    g.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(18,18,18))})
+    g.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.88),NumberSequenceKeypoint.new(0.4,0.96),NumberSequenceKeypoint.new(1,1)})
+    g.Rotation=135
+end
+Win:GetPropertyChangedSignal("Position"):Connect(function()
+    local p=Win.Position
+    G1.Position=UDim2.new(p.X.Scale,p.X.Offset-10,p.Y.Scale,p.Y.Offset-10)
+    G2.Position=UDim2.new(p.X.Scale,p.X.Offset-18,p.Y.Scale,p.Y.Offset-18)
 end)
 
--- ── TITLE ───────────────────────────────────────────────────
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1,0,0,30)
-Title.BackgroundColor3 = Color3.fromRGB(30,30,30)
-Title.Text = "module explorer  v2"
-Title.TextColor3 = Color3.fromRGB(255,255,255)
-Title.TextSize = 13
-Title.Font = Enum.Font.Code
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = MainFrame
-Instance.new("UICorner",Title).CornerRadius = UDim.new(0,4)
+-- title bar
+local TitleBar=Instance.new("TextLabel",Win)
+TitleBar.Size=UDim2.new(1,0,0,30) TitleBar.BackgroundColor3=Color3.fromRGB(30,30,30)
+TitleBar.Text="  module explorer  v3" TitleBar.TextColor3=Color3.fromRGB(255,255,255)
+TitleBar.TextSize=13 TitleBar.Font=Enum.Font.Code TitleBar.TextXAlignment=Enum.TextXAlignment.Left
+Instance.new("UICorner",TitleBar).CornerRadius=UDim.new(0,4)
 
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(0.5,0,0,16)
-StatusLabel.Position = UDim2.new(0,5,0,33)
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "idle"
-StatusLabel.TextColor3 = Color3.fromRGB(140,160,255)
-StatusLabel.TextSize = 11
-StatusLabel.Font = Enum.Font.Code
-StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-StatusLabel.Parent = MainFrame
+local StatusLbl=Instance.new("TextLabel",Win)
+StatusLbl.Size=UDim2.new(0.5,0,0,16) StatusLbl.Position=UDim2.new(0,5,0,33)
+StatusLbl.BackgroundTransparency=1 StatusLbl.Text="idle"
+StatusLbl.TextColor3=Color3.fromRGB(140,160,255) StatusLbl.TextSize=11
+StatusLbl.Font=Enum.Font.Code StatusLbl.TextXAlignment=Enum.TextXAlignment.Left
 
-local function MakeTopBtn(txt,color,xOff,w)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0,w,0,18)
-    b.Position = UDim2.new(1,xOff,0,32)
-    b.BackgroundColor3 = color
-    b.Text = txt
-    b.TextColor3 = Color3.fromRGB(220,220,220)
-    b.TextSize = 10
-    b.Font = Enum.Font.Code
-    b.BorderSizePixel = 0
-    b.Parent = MainFrame
-    Instance.new("UICorner",b).CornerRadius = UDim.new(0,3)
+local function TopBtn(lbl,col,xOff,w)
+    local b=Instance.new("TextButton",Win)
+    b.Size=UDim2.new(0,w,0,18) b.Position=UDim2.new(1,xOff,0,32)
+    b.BackgroundColor3=col b.Text=lbl b.TextColor3=Color3.fromRGB(230,230,230)
+    b.TextSize=10 b.Font=Enum.Font.Code b.BorderSizePixel=0
+    Instance.new("UICorner",b).CornerRadius=UDim.new(0,3)
     return b
 end
-local AdonisBtn = MakeTopBtn("★ adonis",Color3.fromRGB(60,30,80),-196,72)
-local ScanBtn   = MakeTopBtn("⟳ scan",  Color3.fromRGB(40,80,60),-120,60)
-local CloseBtn  = MakeTopBtn("✕",       Color3.fromRGB(80,30,30),-56, 50)
+local BtnAdonis = TopBtn("★ adonis", Color3.fromRGB(60,25,80),  -200, 76)
+local BtnScan   = TopBtn("⟳ scan",   Color3.fromRGB(35,75,50),  -120, 60)
+local BtnClose  = TopBtn("✕",        Color3.fromRGB(80,25,25),  -56,  50)
 
--- ── SEARCH ──────────────────────────────────────────────────
-local SearchBar = Instance.new("Frame")
-SearchBar.Size = UDim2.new(1,-10,0,22)
-SearchBar.Position = UDim2.new(0,5,0,53)
-SearchBar.BackgroundColor3 = Color3.fromRGB(28,28,36)
-SearchBar.BorderSizePixel = 0
-SearchBar.Parent = MainFrame
-Instance.new("UICorner",SearchBar).CornerRadius = UDim.new(0,3)
-local _sil = Instance.new("TextLabel",SearchBar)
-_sil.Size=UDim2.new(0,22,1,0) _sil.BackgroundTransparency=1
-_sil.Text="🔍" _sil.TextSize=11 _sil.Font=Enum.Font.Code
-local SearchBox = Instance.new("TextBox",SearchBar)
-SearchBox.Size = UDim2.new(1,-26,1,0)
-SearchBox.Position = UDim2.new(0,22,0,0)
-SearchBox.BackgroundTransparency = 1
-SearchBox.PlaceholderText = "search modules or functions..."
-SearchBox.PlaceholderColor3 = Color3.fromRGB(90,90,90)
-SearchBox.Text = ""
-SearchBox.TextColor3 = Color3.fromRGB(200,200,200)
-SearchBox.TextSize = 11
-SearchBox.Font = Enum.Font.Code
-SearchBox.ClearTextOnFocus = false
-SearchBox.TextXAlignment = Enum.TextXAlignment.Left
+-- search bar
+local SBar=Instance.new("Frame",Win)
+SBar.Size=UDim2.new(1,-10,0,22) SBar.Position=UDim2.new(0,5,0,53)
+SBar.BackgroundColor3=Color3.fromRGB(26,26,34) SBar.BorderSizePixel=0
+Instance.new("UICorner",SBar).CornerRadius=UDim.new(0,3)
+local SIcon=Instance.new("TextLabel",SBar)
+SIcon.Size=UDim2.new(0,22,1,0) SIcon.BackgroundTransparency=1
+SIcon.Text="🔍" SIcon.TextSize=11 SIcon.Font=Enum.Font.Code
+local SBox=Instance.new("TextBox",SBar)
+SBox.Size=UDim2.new(1,-26,1,0) SBox.Position=UDim2.new(0,22,0,0)
+SBox.BackgroundTransparency=1 SBox.PlaceholderText="search..." SBox.PlaceholderColor3=Color3.fromRGB(80,80,80)
+SBox.Text="" SBox.TextColor3=Color3.fromRGB(200,200,200) SBox.TextSize=11 SBox.Font=Enum.Font.Code
+SBox.ClearTextOnFocus=false SBox.TextXAlignment=Enum.TextXAlignment.Left
 
--- ── SPLIT ───────────────────────────────────────────────────
-local LeftPane = Instance.new("ScrollingFrame")
-LeftPane.Size = UDim2.new(0,200,1,-82)
-LeftPane.Position = UDim2.new(0,5,0,79)
-LeftPane.BackgroundTransparency = 1
-LeftPane.CanvasSize = UDim2.new(0,0,0,0)
-LeftPane.ScrollBarThickness = 2
-LeftPane.Parent = MainFrame
-local LeftLayout = Instance.new("UIListLayout")
-LeftLayout.Padding = UDim.new(0,2)
-LeftLayout.SortOrder = Enum.SortOrder.LayoutOrder
-LeftLayout.Parent = LeftPane
+-- left tree pane
+local LeftSF=Instance.new("ScrollingFrame",Win)
+LeftSF.Size=UDim2.new(0,198,1,-82) LeftSF.Position=UDim2.new(0,5,0,79)
+LeftSF.BackgroundTransparency=1 LeftSF.CanvasSize=UDim2.new(0,0,0,0) LeftSF.ScrollBarThickness=2
+local LeftLL=Instance.new("UIListLayout",LeftSF)
+LeftLL.Padding=UDim.new(0,2) LeftLL.SortOrder=Enum.SortOrder.LayoutOrder
 
-local Divider = Instance.new("Frame")
-Divider.Size = UDim2.new(0,1,1,-82)
-Divider.Position = UDim2.new(0,208,0,79)
-Divider.BackgroundColor3 = Color3.fromRGB(50,50,70)
-Divider.BorderSizePixel = 0
-Divider.Parent = MainFrame
+-- divider
+local Div=Instance.new("Frame",Win)
+Div.Size=UDim2.new(0,1,1,-82) Div.Position=UDim2.new(0,206,0,79)
+Div.BackgroundColor3=Color3.fromRGB(50,50,70) Div.BorderSizePixel=0
 
-local RightPane = Instance.new("Frame")
-RightPane.Size = UDim2.new(1,-218,1,-82)
-RightPane.Position = UDim2.new(0,213,0,79)
-RightPane.BackgroundTransparency = 1
-RightPane.ClipsDescendants = true
-RightPane.Parent = MainFrame
+-- right pane
+local RPane=Instance.new("Frame",Win)
+RPane.Size=UDim2.new(1,-216,1,-82) RPane.Position=UDim2.new(0,211,0,79)
+RPane.BackgroundTransparency=1 RPane.ClipsDescendants=true
 
 -- placeholder
-local Placeholder = Instance.new("TextLabel")
-Placeholder.Size = UDim2.new(1,0,1,0)
-Placeholder.BackgroundTransparency = 1
-Placeholder.Text = "select a function\nfrom the tree"
-Placeholder.TextColor3 = Color3.fromRGB(60,60,80)
-Placeholder.TextSize = 12
-Placeholder.Font = Enum.Font.Code
-Placeholder.Parent = RightPane
+local Hint=Instance.new("TextLabel",RPane)
+Hint.Size=UDim2.new(1,0,1,0) Hint.BackgroundTransparency=1
+Hint.Text="select a function from the tree" Hint.TextColor3=Color3.fromRGB(55,55,75)
+Hint.TextSize=12 Hint.Font=Enum.Font.Code
 
--- detail frame
-local DetailFrame = Instance.new("Frame")
-DetailFrame.Size = UDim2.new(1,0,1,0)
-DetailFrame.BackgroundTransparency = 1
-DetailFrame.Visible = false
-DetailFrame.Parent = RightPane
+-- ─────────────────────────────────────────────────────────────
+--  DETAIL FRAME (function view)
+-- ─────────────────────────────────────────────────────────────
+local DFrame=Instance.new("Frame",RPane)
+DFrame.Size=UDim2.new(1,0,1,0) DFrame.BackgroundTransparency=1 DFrame.Visible=false
 
-local FnHeader = Instance.new("TextLabel")
-FnHeader.Size = UDim2.new(1,0,0,22)
-FnHeader.BackgroundColor3 = Color3.fromRGB(30,30,46)
-FnHeader.Text = ""
-FnHeader.TextColor3 = Color3.fromRGB(180,200,255)
-FnHeader.TextSize = 11
-FnHeader.Font = Enum.Font.Code
-FnHeader.TextXAlignment = Enum.TextXAlignment.Left
-FnHeader.TextTruncate = Enum.TextTruncate.AtEnd
-FnHeader.Parent = DetailFrame
-Instance.new("UICorner",FnHeader).CornerRadius = UDim.new(0,3)
+local DHeader=Instance.new("TextLabel",DFrame)
+DHeader.Size=UDim2.new(1,0,0,22) DHeader.BackgroundColor3=Color3.fromRGB(28,28,46)
+DHeader.TextColor3=Color3.fromRGB(180,200,255) DHeader.TextSize=11 DHeader.Font=Enum.Font.Code
+DHeader.TextXAlignment=Enum.TextXAlignment.Left DHeader.TextTruncate=Enum.TextTruncate.AtEnd
+Instance.new("UICorner",DHeader).CornerRadius=UDim.new(0,3)
 
-local MetaRow = Instance.new("TextLabel")
-MetaRow.Size = UDim2.new(1,0,0,16)
-MetaRow.Position = UDim2.new(0,0,0,25)
-MetaRow.BackgroundTransparency = 1
-MetaRow.Text = ""
-MetaRow.TextColor3 = Color3.fromRGB(120,140,120)
-MetaRow.TextSize = 10
-MetaRow.Font = Enum.Font.Code
-MetaRow.TextXAlignment = Enum.TextXAlignment.Left
-MetaRow.Parent = DetailFrame
+local DMeta=Instance.new("TextLabel",DFrame)
+DMeta.Size=UDim2.new(1,0,0,15) DMeta.Position=UDim2.new(0,0,0,25)
+DMeta.BackgroundTransparency=1 DMeta.TextColor3=Color3.fromRGB(110,130,110)
+DMeta.TextSize=10 DMeta.Font=Enum.Font.Code DMeta.TextXAlignment=Enum.TextXAlignment.Left
 
-local function MakeTab(lbl,xScale,wScale)
-    local b = Instance.new("TextButton",DetailFrame)
-    b.Size = UDim2.new(wScale or 0.25,-2,0,20)
-    b.Position = UDim2.new(xScale,2,0,44)
-    b.BackgroundColor3 = Color3.fromRGB(30,30,40)
-    b.Text = lbl
-    b.TextColor3 = Color3.fromRGB(160,160,200)
-    b.TextSize = 10
-    b.Font = Enum.Font.Code
-    b.BorderSizePixel = 0
-    Instance.new("UICorner",b).CornerRadius = UDim.new(0,3)
+local function MkTab(lbl,xS,wS)
+    local b=Instance.new("TextButton",DFrame)
+    b.Size=UDim2.new(wS,-2,0,20) b.Position=UDim2.new(xS,2,0,43)
+    b.BackgroundColor3=Color3.fromRGB(28,28,40) b.Text=lbl
+    b.TextColor3=Color3.fromRGB(150,150,190) b.TextSize=10 b.Font=Enum.Font.Code b.BorderSizePixel=0
+    Instance.new("UICorner",b).CornerRadius=UDim.new(0,3)
     return b
 end
-local TabHook   = MakeTab("⚡ hook",   0,    0.25)
-local TabUpvals = MakeTab("📦 upvals", 0.25, 0.25)
-local TabMeta   = MakeTab("🔬 meta",   0.5,  0.25)
-local TabCtx    = MakeTab("★ context", 0.75, 0.25)
+local TbHook  = MkTab("⚡ hook",    0,    0.25)
+local TbUpval = MkTab("📦 upvals",  0.25, 0.25)
+local TbMeta  = MkTab("🔬 meta",    0.5,  0.25)
+local TbCtx   = MkTab("★ context",  0.75, 0.25)
 
-local ContentScroll = Instance.new("ScrollingFrame")
-ContentScroll.Size = UDim2.new(1,0,1,-68)
-ContentScroll.Position = UDim2.new(0,0,0,68)
-ContentScroll.BackgroundTransparency = 1
-ContentScroll.CanvasSize = UDim2.new(0,0,0,0)
-ContentScroll.ScrollBarThickness = 2
-ContentScroll.Parent = DetailFrame
+local CSF=Instance.new("ScrollingFrame",DFrame)
+CSF.Size=UDim2.new(1,0,1,-66) CSF.Position=UDim2.new(0,0,0,66)
+CSF.BackgroundTransparency=1 CSF.CanvasSize=UDim2.new(0,0,0,0) CSF.ScrollBarThickness=2
 
--- adonis panel
-local AdonisPanel = Instance.new("Frame")
-AdonisPanel.Size = UDim2.new(1,0,1,0)
-AdonisPanel.BackgroundTransparency = 1
-AdonisPanel.Visible = false
-AdonisPanel.ClipsDescendants = true
-AdonisPanel.Parent = RightPane
+-- ─────────────────────────────────────────────────────────────
+--  ADONIS PANEL
+-- ─────────────────────────────────────────────────────────────
+local APanel=Instance.new("Frame",RPane)
+APanel.Size=UDim2.new(1,0,1,0) APanel.BackgroundTransparency=1
+APanel.Visible=false APanel.ClipsDescendants=true
 
-local APScroll = Instance.new("ScrollingFrame")
-APScroll.Size = UDim2.new(1,0,1,0)
-APScroll.BackgroundTransparency = 1
-APScroll.CanvasSize = UDim2.new(0,0,0,0)
-APScroll.ScrollBarThickness = 2
-APScroll.Parent = AdonisPanel
-local APLayout = Instance.new("UIListLayout")
-APLayout.Padding = UDim.new(0,4)
-APLayout.SortOrder = Enum.SortOrder.LayoutOrder
-APLayout.Parent = APScroll
+local ASF=Instance.new("ScrollingFrame",APanel)
+ASF.Size=UDim2.new(1,0,1,0) ASF.BackgroundTransparency=1
+ASF.CanvasSize=UDim2.new(0,0,0,0) ASF.ScrollBarThickness=2
+local ALL=Instance.new("UIListLayout",ASF)
+ALL.Padding=UDim.new(0,3) ALL.SortOrder=Enum.SortOrder.LayoutOrder
 
--- ── STATE ───────────────────────────────────────────────────
-local ScannedModules = {}
-local AllTreeItems   = {}
-local ActiveFn, ActiveFnName, ActiveModIdx = nil, nil, nil
-local ActiveTab  = "hook"
+-- ─────────────────────────────────────────────────────────────
+--  STATE
+-- ─────────────────────────────────────────────────────────────
+local Modules    = {}   -- scanned module list
+local TreeItems  = {}   -- flat list for search
+local CurFn      = nil
+local CurFnName  = ""
+local CurModIdx  = nil
+local CurTab     = "hook"
 local AdonisOpen = false
+local Scanning   = false
 
-local AC = {
-    Core=nil, Remote=nil, Anti=nil, Functions=nil,
-    Variables=nil, Service=nil, DetectedFn=nil,
-    remoteObj=nil, remoteHook=nil, keyHook=nil,
-    key=nil, logLines={},
-    -- ACLI (ClientLoader) specific
-    acliLogs=nil,       -- v_u_36: internal loader log table
-    acliKickFn=nil,     -- v_u_16 / v_u_48: loader-level kick fn
-    acliIntegrity=nil,  -- v_u_14: integrity flag (must be true)
-    acliLoader=nil,     -- the ClientMover LocalScript itself
-    acliFolder=nil,     -- the Client folder passed to the module
+-- Adonis cache
+local AC={
+    Core=nil,Remote=nil,Anti=nil,Functions=nil,
+    Variables=nil,Service=nil,DetectedFn=nil,
+    remoteObj=nil,remoteHook=nil,
+    acliLogs=nil,acliKickFn=nil,
+    key=nil,logLines={},
 }
 
--- ── GENERIC HELPERS ─────────────────────────────────────────
-local function SetStatus(txt,col)
-    StatusLabel.Text = txt
-    StatusLabel.TextColor3 = col or Color3.fromRGB(140,160,255)
+-- ─────────────────────────────────────────────────────────────
+--  HELPERS
+-- ─────────────────────────────────────────────────────────────
+local function SetStatus(t,c)
+    StatusLbl.Text=t StatusLbl.TextColor3=c or Color3.fromRGB(140,160,255)
 end
 
-local function ClearContent()
-    for _,c in pairs(ContentScroll:GetChildren()) do
+local function RefreshSF(sf)
+    task.defer(function()
+        local l=sf:FindFirstChildWhichIsA("UIListLayout")
+        if l then sf.CanvasSize=UDim2.new(0,0,0,l.AbsoluteContentSize.Y+6) end
+    end)
+end
+
+local function ClearSF(sf)
+    for _,c in ipairs(sf:GetChildren()) do
         if not c:IsA("UIListLayout") then c:Destroy() end
     end
-    ContentScroll.CanvasSize = UDim2.new(0,0,0,0)
+    sf.CanvasSize=UDim2.new(0,0,0,0)
 end
 
-local function ContentLayout()
-    local l = Instance.new("UIListLayout",ContentScroll)
-    l.Padding = UDim.new(0,3)
-    l.SortOrder = Enum.SortOrder.LayoutOrder
+-- make a list layout inside a scrollframe
+local function MkLL(sf)
+    local l=Instance.new("UIListLayout",sf)
+    l.Padding=UDim.new(0,3) l.SortOrder=Enum.SortOrder.LayoutOrder
     return l
 end
 
-local function RefreshCanvas(sf,layout)
-    task.defer(function()
-        local l = layout or sf:FindFirstChildWhichIsA("UIListLayout")
-        if l then sf.CanvasSize = UDim2.new(0,0,0,l.AbsoluteContentSize.Y+6) end
-    end)
+-- simple text row
+local function Row(parent,txt,col,h)
+    local l=Instance.new("TextLabel",parent)
+    l.Size=UDim2.new(1,-4,0,h or 18) l.BackgroundTransparency=1
+    l.Text=txt l.TextColor3=col or Color3.fromRGB(190,190,190)
+    l.TextSize=10 l.Font=Enum.Font.Code
+    l.TextXAlignment=Enum.TextXAlignment.Left l.TextWrapped=true
+    return l
 end
 
-local INDENT = {container=0,module=8,fn=18}
-
-local function MakeTreeLabel(text,color,indent,bgColor)
-    local f = Instance.new("Frame")
-    f.Size = UDim2.new(1,-4,0,22)
-    f.BackgroundColor3 = bgColor or Color3.fromRGB(24,24,24)
-    f.BorderSizePixel = 0
-    f.Parent = LeftPane
-    Instance.new("UICorner",f).CornerRadius = UDim.new(0,3)
-    local lbl = Instance.new("TextLabel",f)
-    lbl.Size = UDim2.new(1,-(indent+4),1,0)
-    lbl.Position = UDim2.new(0,indent+4,0,0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.TextColor3 = color
-    lbl.TextSize = 10
-    lbl.Font = Enum.Font.Code
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.TextTruncate = Enum.TextTruncate.AtEnd
-    return f, lbl
+-- button
+local function Btn(parent,txt,col,h)
+    local b=Instance.new("TextButton",parent)
+    b.Size=UDim2.new(1,-4,0,h or 22) b.BackgroundColor3=col
+    b.Text=txt b.TextColor3=Color3.fromRGB(225,225,225)
+    b.TextSize=10 b.Font=Enum.Font.Code b.BorderSizePixel=0
+    Instance.new("UICorner",b).CornerRadius=UDim.new(0,3)
+    return b
 end
 
-local function HighlightTab(which)
-    ActiveTab = which
-    local map = {hook=TabHook,upvalues=TabUpvals,meta=TabMeta,context=TabCtx}
-    for k,btn in pairs(map) do
-        btn.BackgroundColor3 = (k==which) and Color3.fromRGB(50,50,80) or Color3.fromRGB(30,30,40)
-        btn.TextColor3 = (k==which) and Color3.fromRGB(200,220,255) or Color3.fromRGB(140,140,180)
+-- section header
+local function Hdr(parent,txt)
+    local f=Instance.new("Frame",parent)
+    f.Size=UDim2.new(1,-4,0,20) f.BackgroundColor3=Color3.fromRGB(38,28,58) f.BorderSizePixel=0
+    Instance.new("UICorner",f).CornerRadius=UDim.new(0,3)
+    local l=Instance.new("TextLabel",f)
+    l.Size=UDim2.new(1,-6,1,0) l.Position=UDim2.new(0,6,0,0) l.BackgroundTransparency=1
+    l.Text=txt l.TextColor3=Color3.fromRGB(195,155,255) l.TextSize=10 l.Font=Enum.Font.Code
+    l.TextXAlignment=Enum.TextXAlignment.Left
+    return f
+end
+
+-- mini log box: returns (scrollframe, append function)
+local function LogBox(parent,h)
+    local bg=Instance.new("Frame",parent)
+    bg.Size=UDim2.new(1,-4,0,h) bg.BackgroundColor3=Color3.fromRGB(18,18,26) bg.BorderSizePixel=0
+    Instance.new("UICorner",bg).CornerRadius=UDim.new(0,3)
+    local sf=Instance.new("ScrollingFrame",bg)
+    sf.Size=UDim2.new(1,-4,1,-4) sf.Position=UDim2.new(0,2,0,2)
+    sf.BackgroundTransparency=1 sf.CanvasSize=UDim2.new(0,0,0,0) sf.ScrollBarThickness=2
+    local ll=Instance.new("UIListLayout",sf)
+    ll.Padding=UDim.new(0,1) ll.SortOrder=Enum.SortOrder.LayoutOrder
+    local function append(txt,col)
+        local l=Instance.new("TextLabel",sf)
+        l.Size=UDim2.new(1,0,0,13) l.BackgroundTransparency=1
+        l.Text=txt l.TextColor3=col or Color3.fromRGB(175,210,175)
+        l.TextSize=9 l.Font=Enum.Font.Code
+        l.TextXAlignment=Enum.TextXAlignment.Left l.TextTruncate=Enum.TextTruncate.AtEnd
+        task.defer(function()
+            sf.CanvasSize=UDim2.new(0,0,0,ll.AbsoluteContentSize.Y+4)
+            sf.CanvasPosition=Vector2.new(0,math.huge)
+        end)
+    end
+    local function clear()
+        for _,c in ipairs(sf:GetChildren()) do if c:IsA("TextLabel") then c:Destroy() end end
+        sf.CanvasSize=UDim2.new(0,0,0,0)
+    end
+    return bg,append,clear
+end
+
+-- ─────────────────────────────────────────────────────────────
+--  CONTENT TABS
+-- ─────────────────────────────────────────────────────────────
+local function ActivateTab(which)
+    CurTab=which
+    local map={hook=TbHook,upvalues=TbUpval,meta=TbMeta,context=TbCtx}
+    for k,b in pairs(map) do
+        b.BackgroundColor3=(k==which) and Color3.fromRGB(46,46,76) or Color3.fromRGB(28,28,40)
+        b.TextColor3=(k==which) and Color3.fromRGB(200,215,255) or Color3.fromRGB(150,150,190)
     end
 end
 
--- ── HOOK TAB ────────────────────────────────────────────────
-local function BuildHookTab(fnRef,fnName)
-    ClearContent() ContentLayout()
-    local info = Instance.new("TextLabel",ContentScroll)
-    info.Size=UDim2.new(1,-4,0,24) info.BackgroundTransparency=1
-    info.Text="write replacement. 'original' = original fn." info.TextColor3=Color3.fromRGB(120,140,120)
-    info.TextSize=10 info.Font=Enum.Font.Code info.TextXAlignment=Enum.TextXAlignment.Left info.TextWrapped=true
-
-    local EdBg = Instance.new("Frame",ContentScroll)
-    EdBg.Size=UDim2.new(1,-4,0,160) EdBg.BackgroundColor3=Color3.fromRGB(22,22,32) EdBg.BorderSizePixel=0
-    Instance.new("UICorner",EdBg).CornerRadius=UDim.new(0,3)
-    local EdBox = Instance.new("TextBox",EdBg)
-    EdBox.Size=UDim2.new(1,-6,1,-6) EdBox.Position=UDim2.new(0,3,0,3)
-    EdBox.BackgroundTransparency=1 EdBox.Text="-- args: ...\n-- call original: original(...)\nreturn original(...)"
-    EdBox.TextColor3=Color3.fromRGB(180,220,180) EdBox.TextSize=10 EdBox.Font=Enum.Font.Code
-    EdBox.ClearTextOnFocus=false EdBox.MultiLine=true
-    EdBox.TextXAlignment=Enum.TextXAlignment.Left EdBox.TextYAlignment=Enum.TextYAlignment.Top
-
-    local function MkBtn(txt,col)
-        local b=Instance.new("TextButton",ContentScroll)
-        b.Size=UDim2.new(1,-4,0,24) b.BackgroundColor3=col b.Text=txt
-        b.TextColor3=Color3.fromRGB(220,220,220) b.TextSize=11 b.Font=Enum.Font.Code b.BorderSizePixel=0
-        Instance.new("UICorner",b).CornerRadius=UDim.new(0,3)
-        return b
-    end
-    local HookBtn   = MkBtn("⚡  apply hook",  Color3.fromRGB(40,70,50))
-    local UnhookBtn = MkBtn("✕  remove hook",  Color3.fromRGB(70,30,30))
-    local ResLbl = Instance.new("TextLabel",ContentScroll)
-    ResLbl.Size=UDim2.new(1,-4,0,20) ResLbl.BackgroundTransparency=1 ResLbl.Text=""
-    ResLbl.TextColor3=Color3.fromRGB(140,200,140) ResLbl.TextSize=10 ResLbl.Font=Enum.Font.Code
-    ResLbl.TextXAlignment=Enum.TextXAlignment.Left
-
+-- HOOK TAB
+local function ShowHook(fnRef,fnName)
+    ClearSF(CSF) MkLL(CSF)
+    Row(CSF,"replacement body — 'original' = original fn",Color3.fromRGB(110,130,110))
+    local ebg=Instance.new("Frame",CSF)
+    ebg.Size=UDim2.new(1,-4,0,155) ebg.BackgroundColor3=Color3.fromRGB(20,20,30) ebg.BorderSizePixel=0
+    Instance.new("UICorner",ebg).CornerRadius=UDim.new(0,3)
+    local eb=Instance.new("TextBox",ebg)
+    eb.Size=UDim2.new(1,-6,1,-6) eb.Position=UDim2.new(0,3,0,3)
+    eb.BackgroundTransparency=1 eb.MultiLine=true eb.ClearTextOnFocus=false
+    eb.Text="-- args: ...\nreturn original(...)"
+    eb.TextColor3=Color3.fromRGB(175,220,175) eb.TextSize=10 eb.Font=Enum.Font.Code
+    eb.TextXAlignment=Enum.TextXAlignment.Left eb.TextYAlignment=Enum.TextYAlignment.Top
+    local applyBtn=Btn(CSF,"⚡ apply hook",Color3.fromRGB(35,65,45))
+    local removeBtn=Btn(CSF,"✕ remove hook",Color3.fromRGB(65,25,25))
+    local resLbl=Row(CSF,"",Color3.fromRGB(130,190,130))
     local orig=fnRef local hooked,handle=false,nil
-    HookBtn.MouseButton1Click:Connect(function()
-        local src="return function(original) return function(...) "..EdBox.Text.." end end"
+    applyBtn.MouseButton1Click:Connect(function()
+        local src="return function(original) return function(...) "..eb.Text.." end end"
         local ok,w=pcall(loadstring,src)
-        if not ok or not w then ResLbl.Text="syntax: "..tostring(w) ResLbl.TextColor3=Color3.fromRGB(255,100,100) return end
-        local ok2,fac=pcall(w)
-        if not ok2 or type(fac)~="function" then ResLbl.Text="compile: "..tostring(fac) ResLbl.TextColor3=Color3.fromRGB(255,100,100) return end
-        local rep=fac(orig)
-        local ok3,err=pcall(function() handle=hookfunction(fnRef,newcclosure(rep)) end)
-        if ok3 then hooked=true ResLbl.Text="✓ hooked "..fnName ResLbl.TextColor3=Color3.fromRGB(100,255,150)
-        else ResLbl.Text="failed: "..tostring(err) ResLbl.TextColor3=Color3.fromRGB(255,100,100) end
+        if not ok or not w then resLbl.Text="syntax: "..tostring(w) resLbl.TextColor3=Color3.fromRGB(255,100,100) return end
+        local ok2,fac=pcall(w) if not ok2 or type(fac)~="function" then resLbl.Text="compile: "..tostring(fac) resLbl.TextColor3=Color3.fromRGB(255,100,100) return end
+        local ok3,err=pcall(function() handle=hookfn(fnRef,newcc(fac(orig))) end)
+        if ok3 then hooked=true resLbl.Text="✓ hooked" resLbl.TextColor3=Color3.fromRGB(100,255,140)
+        else resLbl.Text="failed: "..tostring(err) resLbl.TextColor3=Color3.fromRGB(255,100,100) end
     end)
-    UnhookBtn.MouseButton1Click:Connect(function()
-        if hooked and handle then
-            pcall(hookfunction,fnRef,orig) hooked,handle=false,nil
-            ResLbl.Text="✓ removed" ResLbl.TextColor3=Color3.fromRGB(255,180,80)
-        else ResLbl.Text="not hooked" ResLbl.TextColor3=Color3.fromRGB(160,160,160) end
+    removeBtn.MouseButton1Click:Connect(function()
+        if hooked then pcall(hookfn,fnRef,orig) hooked=false resLbl.Text="removed" resLbl.TextColor3=Color3.fromRGB(200,180,100)
+        else resLbl.Text="not hooked" end
     end)
-    RefreshCanvas(ContentScroll)
+    RefreshSF(CSF)
 end
 
--- ── UPVALUE TAB ─────────────────────────────────────────────
-local function BuildUpvalueTab(fnRef,fnName)
-    ClearContent() ContentLayout()
+-- UPVALUE TAB
+local function ShowUpvals(fnRef)
+    ClearSF(CSF) MkLL(CSF)
     local uvs={} pcall(function() uvs=getupvalues(fnRef) end)
-    if #uvs==0 then
-        local l=Instance.new("TextLabel",ContentScroll)
-        l.Size=UDim2.new(1,-4,0,22) l.BackgroundTransparency=1 l.Text="no upvalues accessible"
-        l.TextColor3=Color3.fromRGB(80,80,100) l.TextSize=10 l.Font=Enum.Font.Code
-        l.TextXAlignment=Enum.TextXAlignment.Left
-        RefreshCanvas(ContentScroll) return
-    end
+    if #uvs==0 then Row(CSF,"no upvalues accessible",Color3.fromRGB(80,80,100)) RefreshSF(CSF) return end
     for i,v in ipairs(uvs) do
         local vt=typeof(v)
-        local Row=Instance.new("Frame",ContentScroll)
-        Row.Size=UDim2.new(1,-4,0,26) Row.BackgroundColor3=Color3.fromRGB(26,26,36) Row.BorderSizePixel=0
-        Instance.new("UICorner",Row).CornerRadius=UDim.new(0,3)
-        local il=Instance.new("TextLabel",Row)
-        il.Size=UDim2.new(0,22,1,0) il.BackgroundTransparency=1 il.Text=tostring(i)
-        il.TextColor3=Color3.fromRGB(100,100,140) il.TextSize=9 il.Font=Enum.Font.Code
-        local tl=Instance.new("TextLabel",Row)
-        tl.Size=UDim2.new(0,36,1,0) tl.Position=UDim2.new(0,22,0,0) tl.BackgroundTransparency=1
-        tl.Text=vt:sub(1,3):upper() tl.TextColor3=Color3.fromRGB(140,160,255) tl.TextSize=9 tl.Font=Enum.Font.Code
-        local vb=Instance.new("TextBox",Row)
-        vb.Size=UDim2.new(1,-62,0.85,0) vb.Position=UDim2.new(0,58,0.075,0)
-        vb.BackgroundColor3=Color3.fromRGB(32,32,44) vb.Text=tostring(v)
-        vb.TextColor3=Color3.fromRGB(200,230,200) vb.TextSize=10 vb.Font=Enum.Font.Code
-        vb.ClearTextOnFocus=false vb.TextXAlignment=Enum.TextXAlignment.Left vb.TextTruncate=Enum.TextTruncate.AtEnd
+        local rf=Instance.new("Frame",CSF)
+        rf.Size=UDim2.new(1,-4,0,24) rf.BackgroundColor3=Color3.fromRGB(24,24,34) rf.BorderSizePixel=0
+        Instance.new("UICorner",rf).CornerRadius=UDim.new(0,3)
+        local il=Instance.new("TextLabel",rf) il.Size=UDim2.new(0,20,1,0) il.BackgroundTransparency=1
+        il.Text=tostring(i) il.TextColor3=Color3.fromRGB(90,90,130) il.TextSize=9 il.Font=Enum.Font.Code
+        local tl=Instance.new("TextLabel",rf) tl.Size=UDim2.new(0,34,1,0) tl.Position=UDim2.new(0,20,0,0)
+        tl.BackgroundTransparency=1 tl.Text=vt:sub(1,3):upper() tl.TextColor3=Color3.fromRGB(130,150,240) tl.TextSize=9 tl.Font=Enum.Font.Code
+        local vb=Instance.new("TextBox",rf) vb.Size=UDim2.new(1,-58,0.82,0) vb.Position=UDim2.new(0,54,0.09,0)
+        vb.BackgroundColor3=Color3.fromRGB(30,30,42) vb.Text=tostring(v) vb.TextColor3=Color3.fromRGB(195,225,195)
+        vb.TextSize=10 vb.Font=Enum.Font.Code vb.ClearTextOnFocus=false
+        vb.TextXAlignment=Enum.TextXAlignment.Left vb.TextTruncate=Enum.TextTruncate.AtEnd
         Instance.new("UICorner",vb).CornerRadius=UDim.new(0,3)
         local ui=i
         vb.FocusLost:Connect(function(enter)
@@ -444,39 +353,30 @@ local function BuildUpvalueTab(fnRef,fnName)
             if nv~=nil then pcall(setupvalue,fnRef,ui,nv) end
         end)
     end
-    RefreshCanvas(ContentScroll)
+    RefreshSF(CSF)
 end
 
--- ── META TAB ────────────────────────────────────────────────
-local function BuildMetaTab(modTable)
-    ClearContent() ContentLayout()
-    local mt=nil pcall(function() mt=getrawmetatable(modTable) end)
-    if not mt then
-        local l=Instance.new("TextLabel",ContentScroll)
-        l.Size=UDim2.new(1,-4,0,22) l.BackgroundTransparency=1 l.Text="no metatable"
-        l.TextColor3=Color3.fromRGB(80,80,100) l.TextSize=10 l.Font=Enum.Font.Code
-        l.TextXAlignment=Enum.TextXAlignment.Left
-        RefreshCanvas(ContentScroll) return
-    end
+-- META TAB
+local function ShowMeta(modTbl)
+    ClearSF(CSF) MkLL(CSF)
+    local mt=nil pcall(function() mt=getrawmt(modTbl) end)
+    if not mt then Row(CSF,"no metatable",Color3.fromRGB(80,80,100)) RefreshSF(CSF) return end
     pcall(function() if setreadonly then setreadonly(mt,false) end end)
-    local count=0
+    local n=0
     for k,v in pairs(mt) do
         local vt=typeof(v)
-        local Row=Instance.new("Frame",ContentScroll)
-        Row.Size=UDim2.new(1,-4,0,26) Row.BackgroundColor3=Color3.fromRGB(28,24,36) Row.BorderSizePixel=0
-        Instance.new("UICorner",Row).CornerRadius=UDim.new(0,3)
-        local kl=Instance.new("TextLabel",Row)
-        kl.Size=UDim2.new(0.38,0,1,0) kl.BackgroundTransparency=1 kl.Text=tostring(k)
-        kl.TextColor3=Color3.fromRGB(200,160,255) kl.TextSize=10 kl.Font=Enum.Font.Code
+        local rf=Instance.new("Frame",CSF)
+        rf.Size=UDim2.new(1,-4,0,24) rf.BackgroundColor3=Color3.fromRGB(26,22,34) rf.BorderSizePixel=0
+        Instance.new("UICorner",rf).CornerRadius=UDim.new(0,3)
+        local kl=Instance.new("TextLabel",rf) kl.Size=UDim2.new(0.38,0,1,0) kl.BackgroundTransparency=1
+        kl.Text=tostring(k) kl.TextColor3=Color3.fromRGB(195,155,245) kl.TextSize=10 kl.Font=Enum.Font.Code
         kl.TextXAlignment=Enum.TextXAlignment.Left kl.TextTruncate=Enum.TextTruncate.AtEnd
-        local tt=Instance.new("TextLabel",Row)
-        tt.Size=UDim2.new(0,28,1,0) tt.Position=UDim2.new(0.38,0,0,0) tt.BackgroundTransparency=1
-        tt.Text=vt:sub(1,3):upper() tt.TextColor3=Color3.fromRGB(140,160,255) tt.TextSize=9 tt.Font=Enum.Font.Code
-        local vb=Instance.new("TextBox",Row)
-        vb.Size=UDim2.new(0.62,-32,0.85,0) vb.Position=UDim2.new(0.38,30,0.075,0)
-        vb.BackgroundColor3=Color3.fromRGB(32,28,44) vb.Text=tostring(v)
-        vb.TextColor3=Color3.fromRGB(220,180,255) vb.TextSize=10 vb.Font=Enum.Font.Code
-        vb.ClearTextOnFocus=false vb.TextXAlignment=Enum.TextXAlignment.Left vb.TextTruncate=Enum.TextTruncate.AtEnd
+        local tt=Instance.new("TextLabel",rf) tt.Size=UDim2.new(0,26,1,0) tt.Position=UDim2.new(0.38,0,0,0)
+        tt.BackgroundTransparency=1 tt.Text=vt:sub(1,3):upper() tt.TextColor3=Color3.fromRGB(130,150,240) tt.TextSize=9 tt.Font=Enum.Font.Code
+        local vb=Instance.new("TextBox",rf) vb.Size=UDim2.new(0.62,-30,0.82,0) vb.Position=UDim2.new(0.38,28,0.09,0)
+        vb.BackgroundColor3=Color3.fromRGB(30,26,42) vb.Text=tostring(v) vb.TextColor3=Color3.fromRGB(215,175,255)
+        vb.TextSize=10 vb.Font=Enum.Font.Code vb.ClearTextOnFocus=false
+        vb.TextXAlignment=Enum.TextXAlignment.Left vb.TextTruncate=Enum.TextTruncate.AtEnd
         Instance.new("UICorner",vb).CornerRadius=UDim.new(0,3)
         local mk=k
         vb.FocusLost:Connect(function(enter)
@@ -487,144 +387,93 @@ local function BuildMetaTab(modTable)
             else nv=vb.Text end
             if nv~=nil then pcall(function() mt[mk]=nv end) end
         end)
-        count=count+1
+        n=n+1
     end
-    if count==0 then
-        local l=Instance.new("TextLabel",ContentScroll)
-        l.Size=UDim2.new(1,-4,0,22) l.BackgroundTransparency=1 l.Text="empty metatable"
-        l.TextColor3=Color3.fromRGB(80,80,100) l.TextSize=10 l.Font=Enum.Font.Code
-        l.TextXAlignment=Enum.TextXAlignment.Left
-    end
-    RefreshCanvas(ContentScroll)
+    if n==0 then Row(CSF,"empty metatable",Color3.fromRGB(80,80,100)) end
+    RefreshSF(CSF)
 end
 
--- ── CONTEXT TAB ─────────────────────────────────────────────
-local function BuildContextTab(fnRef,fnName)
-    ClearContent() ContentLayout()
+-- CONTEXT TAB
+local function ShowContext(fnRef)
+    ClearSF(CSF) MkLL(CSF)
     local uvs={} pcall(function() uvs=getupvalues(fnRef) end)
-
-    local function AddRow(lbl,val,col)
-        local Row=Instance.new("Frame",ContentScroll)
-        Row.Size=UDim2.new(1,-4,0,22) Row.BackgroundColor3=Color3.fromRGB(24,24,34) Row.BorderSizePixel=0
-        Instance.new("UICorner",Row).CornerRadius=UDim.new(0,3)
-        local ll=Instance.new("TextLabel",Row)
-        ll.Size=UDim2.new(0.44,0,1,0) ll.BackgroundTransparency=1 ll.Text=lbl
-        ll.TextColor3=Color3.fromRGB(160,160,200) ll.TextSize=10 ll.Font=Enum.Font.Code
-        ll.TextXAlignment=Enum.TextXAlignment.Left
-        local vl=Instance.new("TextLabel",Row)
-        vl.Size=UDim2.new(0.56,0,1,0) vl.Position=UDim2.new(0.44,0,0,0) vl.BackgroundTransparency=1
-        vl.Text=tostring(val) vl.TextColor3=col or Color3.fromRGB(200,230,200) vl.TextSize=10 vl.Font=Enum.Font.Code
-        vl.TextXAlignment=Enum.TextXAlignment.Left vl.TextTruncate=Enum.TextTruncate.AtEnd
-    end
-
     local ctype="unknown"
-    pcall(function()
-        if iscclosure(fnRef) then ctype="C closure"
-        elseif islclosure(fnRef) then ctype="Lua closure" end
-    end)
-    AddRow("closure type", ctype)
-    AddRow("upvalue count", #uvs)
-
-    -- fingerprint upvalues for Adonis sub-tables
+    pcall(function() if isluaclosure(fnRef) then ctype="Lua closure" else ctype="C closure" end end)
+    Row(CSF,"type: "..ctype.."   upvalues: "..#uvs)
     local found=0
     for i,v in ipairs(uvs) do
         if type(v)=="table" then
             local sig=""
-            if v.GetEvent and v.StartAPI then sig="Core"
-            elseif v.Send and v.Get and v.Fire then sig="Remote"
-            elseif v.Detected and v.AddDetector then sig="Anti"
-            elseif v.Wrap and v.UnWrap and v.ReadOnly then sig="Service"
-            elseif v.G_Access_Key~=nil then sig="Variables"
-            elseif v.SHA256 or v.MakeAdmin then sig="Functions"
+            if type(v.GetEvent)=="function" and (v.ScriptCache~=nil or type(v.LoadPlugin)=="function") then sig="Adonis.Core"
+            elseif type(v.Send)=="function" and type(v.Get)=="function" and type(v.Fire)=="function" then sig="Adonis.Remote"
+            elseif type(v.Detected)=="function" and type(v.AddDetector)=="function" then sig="Adonis.Anti"
+            elseif type(v.Wrap)=="function" and type(v.UnWrap)=="function" and type(v.TrackTask)=="function" then sig="Adonis.Service"
+            elseif rawget(v,"G_Access_Key")~=nil then sig="Adonis.Variables"
             end
-            if sig~="" then
-                AddRow("upval["..i.."]","★ Adonis."..sig, Color3.fromRGB(220,180,255))
-                found=found+1
-            end
-        elseif type(v)=="function" then
-            local uvs2={} pcall(function() uvs2=getupvalues(v) end)
-            for _,uv in ipairs(uvs2) do
-                if type(uv)=="string" and (uv:find("Kick") or uv:find("crash") or uv:find("Detected")) then
-                    AddRow("upval["..i.."]","⚠ possible Detected/anti fn", Color3.fromRGB(255,180,80))
-                    found=found+1 break
-                end
-            end
+            if sig~="" then Row(CSF,"upval["..i.."] ★ "..sig,Color3.fromRGB(210,170,255)) found=found+1 end
         end
     end
-    if found==0 then AddRow("adonis refs","none in upvalues",Color3.fromRGB(100,100,100)) end
-    RefreshCanvas(ContentScroll)
+    if found==0 then Row(CSF,"no Adonis refs found in upvalues",Color3.fromRGB(90,90,110)) end
+    RefreshSF(CSF)
 end
 
--- ── SELECT FUNCTION ─────────────────────────────────────────
-local function SelectFunction(fnRef,fnName,modIdx)
-    ActiveFn,ActiveFnName,ActiveModIdx = fnRef,fnName,modIdx
+-- ─────────────────────────────────────────────────────────────
+--  FUNCTION SELECTION
+-- ─────────────────────────────────────────────────────────────
+local function SelectFn(fnRef,fnName,modIdx)
+    CurFn,CurFnName,CurModIdx=fnRef,fnName,modIdx
     if AdonisOpen then
-        AdonisOpen=false AdonisPanel.Visible=false
-        AdonisBtn.BackgroundColor3=Color3.fromRGB(60,30,80)
+        AdonisOpen=false APanel.Visible=false
+        BtnAdonis.BackgroundColor3=Color3.fromRGB(60,25,80)
     end
-    Placeholder.Visible=false DetailFrame.Visible=true
-    FnHeader.Text="  fn  "..fnName
-    local ctype="unknown"
-    pcall(function()
-        if iscclosure(fnRef) then ctype="C closure"
-        elseif islclosure(fnRef) then ctype="Lua closure" end
-    end)
+    Hint.Visible=false DFrame.Visible=true
+    DHeader.Text="  fn  "..fnName
     local uvc=0 pcall(function() uvc=#getupvalues(fnRef) end)
-    MetaRow.Text=ctype.."   upvalues: "..uvc
-    HighlightTab(ActiveTab)
-    if ActiveTab=="hook" then BuildHookTab(fnRef,fnName)
-    elseif ActiveTab=="upvalues" then BuildUpvalueTab(fnRef,fnName)
-    elseif ActiveTab=="meta" and ScannedModules[modIdx] then BuildMetaTab(ScannedModules[modIdx].module)
-    elseif ActiveTab=="context" then BuildContextTab(fnRef,fnName)
+    local ctype="?" pcall(function() ctype=isluaclosure(fnRef) and "lua" or "C" end)
+    DMeta.Text=ctype.."  upvalues: "..uvc
+    ActivateTab(CurTab)
+    if CurTab=="hook" then ShowHook(fnRef,fnName)
+    elseif CurTab=="upvalues" then ShowUpvals(fnRef)
+    elseif CurTab=="meta" and Modules[modIdx] then ShowMeta(Modules[modIdx].module)
+    elseif CurTab=="context" then ShowContext(fnRef)
     end
 end
 
-TabHook.MouseButton1Click:Connect(function()
-    HighlightTab("hook") if ActiveFn then BuildHookTab(ActiveFn,ActiveFnName) end
+TbHook.MouseButton1Click:Connect(function()
+    ActivateTab("hook") if CurFn then ShowHook(CurFn,CurFnName) end
 end)
-TabUpvals.MouseButton1Click:Connect(function()
-    HighlightTab("upvalues") if ActiveFn then BuildUpvalueTab(ActiveFn,ActiveFnName) end
+TbUpval.MouseButton1Click:Connect(function()
+    ActivateTab("upvalues") if CurFn then ShowUpvals(CurFn) end
 end)
-TabMeta.MouseButton1Click:Connect(function()
-    HighlightTab("meta")
-    if ActiveFn and ActiveModIdx and ScannedModules[ActiveModIdx] then BuildMetaTab(ScannedModules[ActiveModIdx].module) end
+TbMeta.MouseButton1Click:Connect(function()
+    ActivateTab("meta")
+    if CurFn and CurModIdx and Modules[CurModIdx] then ShowMeta(Modules[CurModIdx].module) end
 end)
-TabCtx.MouseButton1Click:Connect(function()
-    HighlightTab("context") if ActiveFn then BuildContextTab(ActiveFn,ActiveFnName) end
+TbCtx.MouseButton1Click:Connect(function()
+    ActivateTab("context") if CurFn then ShowContext(CurFn) end
 end)
 
--- ════════════════════════════════════════════════════════════
---  ★  ADONIS PANEL
--- ════════════════════════════════════════════════════════════
+-- ─────────────────────────────────────────────────────────────
+--  ADONIS RESOLVER
+-- ─────────────────────────────────────────────────────────────
+local function Resolve()
+    -- 1. _G.Adonis
+    pcall(function() AC.gAPI=rawget(_G,"Adonis") end)
 
--- resolve Adonis internals from every available source
-local function TryResolveAdonis()
-
-    -- ── 1. _G.Adonis proxy ──────────────────────────────────
-    local gapi = rawget(_G,"Adonis")
-    if gapi then AC.gAPI = gapi end
-
-    -- ── 2. getfenv on already-required functions ─────────────
-    -- getfenv(fn) returns the environment a function was compiled in.
-    -- Adonis client modules run inside a custom env where "client"
-    -- and "service" are top-level keys.
+    -- 2. getfenv on scanned functions → look for client env
     if not AC.Core then
-        for _,m in ipairs(ScannedModules) do
+        for _,m in ipairs(Modules) do
             if AC.Core then break end
             for _,fn in pairs(m.functions) do
                 if AC.Core then break end
                 pcall(function()
-                    local env = getfenv(fn)
-                    if type(env) ~= "table" then return end
-                    local c = rawget(env,"client")
-                    if type(c) == "table" and type(c.Core) == "table" then
-                        AC.Core      = c.Core
-                        AC.Remote    = c.Remote
-                        AC.Anti      = c.Anti
-                        AC.Functions = c.Functions
-                        AC.Variables = c.Variables
-                        local svc = rawget(env,"service")
-                        if type(svc)=="table" then AC.Service=svc end
+                    local env=getfenv(fn)
+                    if type(env)~="table" then return end
+                    local c=rawget(env,"client")
+                    if type(c)=="table" and type(c.Core)=="table" then
+                        AC.Core=c.Core AC.Remote=c.Remote AC.Anti=c.Anti
+                        AC.Functions=c.Functions AC.Variables=c.Variables
+                        local s=rawget(env,"service") if type(s)=="table" then AC.Service=s end
                         if AC.Anti then AC.DetectedFn=AC.Anti.Detected end
                     end
                 end)
@@ -632,101 +481,78 @@ local function TryResolveAdonis()
         end
     end
 
-    -- ── 3. Upvalue walk (2 levels deep) ─────────────────────
-    local function CheckTable(t)
-        if not AC.Core
-            and type(t.GetEvent)=="function"
-            and (t.ScriptCache~=nil or t.RemoteEvent~=nil or type(t.LoadPlugin)=="function")
-        then AC.Core=t end
-        if not AC.Remote
-            and type(t.Send)=="function"
-            and type(t.Get)=="function"
-            and type(t.Fire)=="function"
-        then AC.Remote=t end
-        if not AC.Anti
-            and type(t.Detected)=="function"
-            and type(t.AddDetector)=="function"
-        then AC.Anti=t AC.DetectedFn=t.Detected end
-        if not AC.Service
-            and type(t.Wrap)=="function"
-            and type(t.UnWrap)=="function"
-            and type(t.TrackTask)=="function"
-        then AC.Service=t end
-        if not AC.Variables
-            and rawget(t,"G_Access_Key")~=nil
-        then AC.Variables=t end
+    -- 3. upvalue walk (2 levels)
+    local function chk(t)
+        if not AC.Core and type(t.GetEvent)=="function"
+            and (t.ScriptCache~=nil or type(t.LoadPlugin)=="function") then AC.Core=t end
+        if not AC.Remote and type(t.Send)=="function" and type(t.Get)=="function" then AC.Remote=t end
+        if not AC.Anti and type(t.Detected)=="function" and type(t.AddDetector)=="function" then
+            AC.Anti=t AC.DetectedFn=t.Detected end
+        if not AC.Service and type(t.Wrap)=="function" and type(t.TrackTask)=="function" then AC.Service=t end
+        if not AC.Variables and rawget(t,"G_Access_Key")~=nil then AC.Variables=t end
     end
-
-    for _,m in ipairs(ScannedModules) do
+    for _,m in ipairs(Modules) do
         if AC.Core and AC.Remote and AC.Anti and AC.Service then break end
         for _,fn in pairs(m.functions) do
             local uvs={} pcall(function() uvs=getupvalues(fn) end)
             for _,uv in ipairs(uvs) do
-                if type(uv)=="table" then
-                    CheckTable(uv)
+                if type(uv)=="table" then chk(uv)
                 elseif type(uv)=="function" then
                     local uvs2={} pcall(function() uvs2=getupvalues(uv) end)
-                    for _,uv2 in ipairs(uvs2) do
-                        if type(uv2)=="table" then CheckTable(uv2) end
-                    end
+                    for _,uv2 in ipairs(uvs2) do if type(uv2)=="table" then chk(uv2) end end
                 end
             end
         end
     end
 
-    -- ── 4. RemoteEvent ───────────────────────────────────────
+    -- 4. RemoteEvent
     if AC.Core and not AC.remoteObj then
         pcall(function()
-            local re = rawget(AC.Core,"RemoteEvent")
-            if re then AC.remoteObj = rawget(re,"Object") or re end
+            local re=rawget(AC.Core,"RemoteEvent")
+            if re then AC.remoteObj=rawget(re,"Object") or re end
         end)
     end
     if not AC.remoteObj then
         pcall(function()
-            for _,desc in ipairs(ReplicatedStorage:GetDescendants()) do
-                if desc:IsA("RemoteEvent") and desc:FindFirstChild("__FUNCTION") then
-                    AC.remoteObj=desc break
+            for _,d in ipairs(RepStore:GetDescendants()) do
+                if d:IsA("RemoteEvent") and d:FindFirstChild("__FUNCTION") then
+                    AC.remoteObj=d break
                 end
             end
         end)
     end
 
-    -- ── 5. ACLI via getgc ────────────────────────────────────
-    -- getgc(true) includes tables; we look for the acliLogs table
-    -- (v_u_36: array of strings starting with "ACLI:") and the
-    -- loader kick fn (v_u_48: Lua closure with a boolean upvalue
-    -- and a C-function upvalue whose name is "Kick").
+    -- 5. getgc for acliLogs and kick fn
     if getgc then
-        pcall(function()
-            local gc = getgc(true)
-            for _,obj in ipairs(gc) do
-                -- acliLogs: sequential table of strings, some containing "ACLI:"
-                if not AC.acliLogs and type(obj)=="table" then
-                    local ok,hasACLI,allStr,n = true,false,true,0
-                    for k,v in pairs(obj) do
-                        n=n+1
-                        if type(k)~="number" or type(v)~="string" then allStr=false break end
-                        if v:find("ACLI:",1,true) then hasACLI=true end
-                        if n>300 then allStr=false break end
+        -- acliLogs: sequential string table with "ACLI:" entries
+        if not AC.acliLogs then
+            pcall(function()
+                for _,obj in ipairs(getgc(true)) do
+                    if type(obj)=="table" then
+                        local hasACLI,allStr,n=false,true,0
+                        for k,v in pairs(obj) do
+                            n=n+1
+                            if type(k)~="number" or type(v)~="string" then allStr=false break end
+                            if v:find("ACLI:",1,true) then hasACLI=true end
+                            if n>500 then allStr=false break end
+                        end
+                        if allStr and hasACLI then AC.acliLogs=obj break end
                     end
-                    if allStr and hasACLI then AC.acliLogs=obj end
                 end
-            end
-        end)
-
-        -- separate pass for functions (getgc(false) = functions only)
+            end)
+        end
+        -- acliKickFn: Lua closure with boolean upvalue AND C-function "Kick" upvalue
         if not AC.acliKickFn then
             pcall(function()
-                local gc = getgc(false)
-                for _,obj in ipairs(gc) do
-                    if type(obj)=="function" and islclosure(obj) then
+                for _,obj in ipairs(getgc(false)) do
+                    if type(obj)=="function" and isluaclosure(obj) then
                         local uvs={} pcall(function() uvs=getupvalues(obj) end)
                         local hasBool,hasKick=false,false
                         for _,uv in ipairs(uvs) do
                             if type(uv)=="boolean" then hasBool=true end
-                            if type(uv)=="function" and not islclosure(uv) then
-                                local ok2,name=pcall(debug.info,uv,"n")
-                                if ok2 and name=="Kick" then hasKick=true end
+                            if type(uv)=="function" and not isluaclosure(uv) then
+                                local ok,n=pcall(debug.info,uv,"n")
+                                if ok and n=="Kick" then hasKick=true end
                             end
                         end
                         if hasBool and hasKick then AC.acliKickFn=obj break end
@@ -739,523 +565,273 @@ local function TryResolveAdonis()
     return AC.Core~=nil
 end
 
--- AP ui helpers
-local function APClear()
-    for _,c in pairs(APScroll:GetChildren()) do
-        if not c:IsA("UIListLayout") then c:Destroy() end
-    end
-end
+-- ─────────────────────────────────────────────────────────────
+--  ADONIS PANEL BUILD
+-- ─────────────────────────────────────────────────────────────
+local function BuildAdonis()
+    ClearSF(ASF)
+    local ll=MkLL(ASF)
+    local resolved=Resolve()
 
-local function APHeader(txt)
-    local f=Instance.new("Frame",APScroll)
-    f.Size=UDim2.new(1,-4,0,20) f.BackgroundColor3=Color3.fromRGB(40,30,60) f.BorderSizePixel=0
-    Instance.new("UICorner",f).CornerRadius=UDim.new(0,3)
-    local l=Instance.new("TextLabel",f)
-    l.Size=UDim2.new(1,-6,1,0) l.Position=UDim2.new(0,6,0,0) l.BackgroundTransparency=1
-    l.Text=txt l.TextColor3=Color3.fromRGB(200,160,255) l.TextSize=10 l.Font=Enum.Font.Code
-    l.TextXAlignment=Enum.TextXAlignment.Left
-    return f
-end
+    -- overview
+    Hdr(ASF,"★  adonis  —  resolution status")
+    Row(ASF,
+        (AC.Core and "✓" or "✗").." Core  "..(AC.Remote and "✓" or "✗").." Remote  "
+        ..(AC.Anti and "✓" or "✗").." Anti  "..(AC.Service and "✓" or "✗").." Service",
+        resolved and Color3.fromRGB(100,255,140) or Color3.fromRGB(255,120,120))
+    Row(ASF,"RemoteEvent: "..(AC.remoteObj and AC.remoteObj.Name or "not found"),Color3.fromRGB(140,200,255))
+    Row(ASF,"Key: "..(AC.key or (AC.Core and tostring(rawget(AC.Core,"Key")) or "not retrieved")),Color3.fromRGB(255,215,90))
+    Row(ASF,"acliLogs: "..(AC.acliLogs and tostring(#AC.acliLogs).." entries" or "not found"),Color3.fromRGB(180,180,180))
+    Row(ASF,"acliKickFn: "..(AC.acliKickFn and "found" or "not found"),Color3.fromRGB(180,180,180))
 
-local function APBtn(txt,color)
-    local b=Instance.new("TextButton",APScroll)
-    b.Size=UDim2.new(1,-4,0,22) b.BackgroundColor3=color b.Text=txt
-    b.TextColor3=Color3.fromRGB(220,220,220) b.TextSize=10 b.Font=Enum.Font.Code b.BorderSizePixel=0
-    Instance.new("UICorner",b).CornerRadius=UDim.new(0,3)
-    return b
-end
-
-local function APInfo(txt,color)
-    local l=Instance.new("TextLabel",APScroll)
-    l.Size=UDim2.new(1,-4,0,16) l.BackgroundTransparency=1 l.Text=txt
-    l.TextColor3=color or Color3.fromRGB(180,180,180) l.TextSize=10 l.Font=Enum.Font.Code
-    l.TextXAlignment=Enum.TextXAlignment.Left l.TextWrapped=true
-    return l
-end
-
-local function APLogBox(height)
-    local bg=Instance.new("Frame",APScroll)
-    bg.Size=UDim2.new(1,-4,0,height) bg.BackgroundColor3=Color3.fromRGB(20,20,28) bg.BorderSizePixel=0
-    Instance.new("UICorner",bg).CornerRadius=UDim.new(0,3)
-    local sf=Instance.new("ScrollingFrame",bg)
-    sf.Size=UDim2.new(1,-4,1,-4) sf.Position=UDim2.new(0,2,0,2)
-    sf.BackgroundTransparency=1 sf.CanvasSize=UDim2.new(0,0,0,0) sf.ScrollBarThickness=2
-    local ll=Instance.new("UIListLayout",sf)
-    ll.Padding=UDim.new(0,1) ll.SortOrder=Enum.SortOrder.LayoutOrder
-    return sf,ll
-end
-
-local function LogLine(sf,ll,txt,color)
-    local l=Instance.new("TextLabel",sf)
-    l.Size=UDim2.new(1,0,0,14) l.BackgroundTransparency=1 l.Text=txt
-    l.TextColor3=color or Color3.fromRGB(180,200,180) l.TextSize=9 l.Font=Enum.Font.Code
-    l.TextXAlignment=Enum.TextXAlignment.Left l.TextTruncate=Enum.TextTruncate.AtEnd
-    task.defer(function()
-        sf.CanvasSize=UDim2.new(0,0,0,ll.AbsoluteContentSize.Y+4)
-        sf.CanvasPosition=Vector2.new(0,math.huge)
-    end)
-end
-
--- ── BUILD ADONIS PANEL ──────────────────────────────────────
-local function BuildAdonisPanel()
-    APClear()
-    local resolved = TryResolveAdonis()
-
-    -- ── overview
-    APHeader("★  adonis internals")
-    APInfo(resolved and "✓ resolved" or "✗ not resolved — scan first",
-        resolved and Color3.fromRGB(100,255,150) or Color3.fromRGB(255,100,100))
-    APInfo("Core: "..tostring(AC.Core~=nil).."  Remote: "..tostring(AC.Remote~=nil)
-        .."  Anti: "..tostring(AC.Anti~=nil))
-    APInfo("Key: "..(AC.key or (AC.Core and AC.Core.Key and tostring(AC.Core.Key)) or "not retrieved"),
-        Color3.fromRGB(255,220,100))
-
-    -- ── key intercept
-    APHeader("🔑  key intercept")
-    APInfo("hooks Remote.Get to catch the key as it arrives from the server",Color3.fromRGB(140,140,140))
-    local startKeyBtn = APBtn("▶  start intercept", Color3.fromRGB(40,60,40))
-    local stopKeyBtn  = APBtn("■  stop intercept",  Color3.fromRGB(60,30,30))
-    local keyLbl      = APInfo("idle")
-    local _keyOrig, _keyHooked = nil, false
-
-    startKeyBtn.MouseButton1Click:Connect(function()
-        if _keyHooked then keyLbl.Text="already active" return end
-        if not AC.Remote or not AC.Remote.Get then
-            keyLbl.Text="Remote.Get not found" keyLbl.TextColor3=Color3.fromRGB(255,100,100) return
-        end
-        _keyOrig = AC.Remote.Get
+    -- ── KEY INTERCEPT ──
+    Hdr(ASF,"🔑  key intercept")
+    Row(ASF,"hooks Remote.Get to catch the key as it arrives",Color3.fromRGB(130,130,130))
+    local startK=Btn(ASF,"▶  start",Color3.fromRGB(35,55,35))
+    local stopK=Btn(ASF,"■  stop", Color3.fromRGB(55,25,25))
+    local keyLbl=Row(ASF,"idle")
+    local _korig,_khooked=nil,false
+    startK.MouseButton1Click:Connect(function()
+        if _khooked then keyLbl.Text="already active" return end
+        if not AC.Remote or type(AC.Remote.Get)~="function" then
+            keyLbl.Text="Remote.Get not found" keyLbl.TextColor3=Color3.fromRGB(255,100,100) return end
+        _korig=AC.Remote.Get
         local ok,err=pcall(function()
-            hookfunction(AC.Remote.Get, newcclosure(function(...)
-                local res = _keyOrig(...)
-                local req = tostring(select(1,...) or "")
-                if req:find("GET_KEY") then
-                    AC.key = res
-                    keyLbl.Text="✓ key: "..tostring(res)
-                    keyLbl.TextColor3=Color3.fromRGB(100,255,150)
-                    print("[ModuleExplorer] Adonis key: "..tostring(res))
+            hookfn(AC.Remote.Get,newcc(function(...)
+                local res=_korig(...)
+                local req=tostring(select(1,...) or "")
+                if req:find("GET_KEY",1,true) then
+                    AC.key=res keyLbl.Text="✓ key: "..tostring(res) keyLbl.TextColor3=Color3.fromRGB(100,255,140)
+                    print("[ModExp] key: "..tostring(res))
                 end
                 return res
             end))
         end)
-        if ok then _keyHooked=true keyLbl.Text="listening..." keyLbl.TextColor3=Color3.fromRGB(255,220,80)
-        else keyLbl.Text="hook failed: "..tostring(err) keyLbl.TextColor3=Color3.fromRGB(255,100,100) end
+        if ok then _khooked=true keyLbl.Text="listening..." keyLbl.TextColor3=Color3.fromRGB(255,215,80)
+        else keyLbl.Text="hook fail: "..tostring(err) keyLbl.TextColor3=Color3.fromRGB(255,100,100) end
     end)
-    stopKeyBtn.MouseButton1Click:Connect(function()
-        if _keyHooked and _keyOrig then
-            pcall(hookfunction,AC.Remote.Get,_keyOrig)
-            _keyHooked=false keyLbl.Text="stopped" keyLbl.TextColor3=Color3.fromRGB(160,160,160)
-        end
+    stopK.MouseButton1Click:Connect(function()
+        if _khooked and _korig then pcall(hookfn,AC.Remote.Get,_korig) _khooked=false keyLbl.Text="stopped" end
     end)
 
-    -- ── remote logger
-    APHeader("📡  remote event logger")
-    APInfo("taps OnClientEvent — logs every server→client call",Color3.fromRGB(140,140,140))
-    local startLogBtn = APBtn("▶  start",  Color3.fromRGB(30,50,70))
-    local stopLogBtn  = APBtn("■  stop",   Color3.fromRGB(60,30,30))
-    local clearLogBtn = APBtn("✕  clear",  Color3.fromRGB(40,40,40))
-    local logStatus   = APInfo("idle")
-    local logSF,logLL = APLogBox(90)
-
-    startLogBtn.MouseButton1Click:Connect(function()
-        if AC.remoteHook then logStatus.Text="already logging" return end
-        if not AC.remoteObj then
-            logStatus.Text="RemoteEvent not found" logStatus.TextColor3=Color3.fromRGB(255,100,100) return
-        end
-        AC.remoteHook = AC.remoteObj.OnClientEvent:Connect(function(...)
-            local args={...} local parts={}
-            for i,a in ipairs(args) do parts[i]=tostring(a) end
+    -- ── REMOTE LOGGER ──
+    Hdr(ASF,"📡  remote event logger")
+    Row(ASF,"taps OnClientEvent — logs all server→client calls",Color3.fromRGB(130,130,130))
+    local startL=Btn(ASF,"▶  start",Color3.fromRGB(25,45,65))
+    local stopL=Btn(ASF,"■  stop", Color3.fromRGB(55,25,25))
+    local clearL=Btn(ASF,"✕  clear",Color3.fromRGB(35,35,35))
+    local logStat=Row(ASF,"idle")
+    local _,logAppend,logClear=LogBox(ASF,90)
+    startL.MouseButton1Click:Connect(function()
+        if AC.remoteHook then logStat.Text="already logging" return end
+        if not AC.remoteObj then logStat.Text="RemoteEvent not found" logStat.TextColor3=Color3.fromRGB(255,100,100) return end
+        AC.remoteHook=AC.remoteObj.OnClientEvent:Connect(function(...)
+            local parts={} for i,a in ipairs({...}) do parts[i]=tostring(a) end
             local line="→ "..table.concat(parts," | ")
             table.insert(AC.logLines,line)
-            LogLine(logSF,logLL,line,Color3.fromRGB(140,220,255))
+            logAppend(line,Color3.fromRGB(130,215,255))
         end)
-        logStatus.Text="✓ logging "..AC.remoteObj.Name
-        logStatus.TextColor3=Color3.fromRGB(100,255,150)
+        logStat.Text="✓ logging "..AC.remoteObj.Name logStat.TextColor3=Color3.fromRGB(100,255,140)
     end)
-    stopLogBtn.MouseButton1Click:Connect(function()
-        if AC.remoteHook then
-            AC.remoteHook:Disconnect() AC.remoteHook=nil
-            logStatus.Text="stopped" logStatus.TextColor3=Color3.fromRGB(160,160,160)
-        end
+    stopL.MouseButton1Click:Connect(function()
+        if AC.remoteHook then AC.remoteHook:Disconnect() AC.remoteHook=nil logStat.Text="stopped" end
     end)
-    clearLogBtn.MouseButton1Click:Connect(function()
-        AC.logLines={}
-        for _,c in pairs(logSF:GetChildren()) do if c:IsA("TextLabel") then c:Destroy() end end
-        logSF.CanvasSize=UDim2.new(0,0,0,0)
-    end)
+    clearL.MouseButton1Click:Connect(function() AC.logLines={} logClear() end)
 
-    -- ── anti-cheat neutraliser
-    APHeader("🛡  anti-cheat neutraliser")
-    APInfo("hooks Detected (v_u_44) so all kicks/crashes from the anti loop are swallowed",Color3.fromRGB(140,140,140))
-    local neutBtn    = APBtn("⚡  neutralise Detected", Color3.fromRGB(70,40,20))
-    local restoreBtn = APBtn("↩  restore Detected",    Color3.fromRGB(30,50,30))
-    local antiLbl    = APInfo("idle")
-    local _antOrig,_antHooked=nil,false
-
+    -- ── ANTI NEUTRALISER ──
+    Hdr(ASF,"🛡  anti-cheat neutraliser")
+    Row(ASF,"hooks Detected (v_u_44) — swallows all kicks/crashes",Color3.fromRGB(130,130,130))
+    local neutBtn=Btn(ASF,"⚡  neutralise",Color3.fromRGB(65,38,15))
+    local restBtn=Btn(ASF,"↩  restore",   Color3.fromRGB(25,45,25))
+    local antiLbl=Row(ASF,"idle")
+    local _aorig,_ahooked=nil,false
     neutBtn.MouseButton1Click:Connect(function()
-        if _antHooked then antiLbl.Text="already neutralised" return end
-        local detFn = AC.DetectedFn or (AC.Anti and AC.Anti.Detected)
-        if not detFn then
-            antiLbl.Text="Detected fn not found" antiLbl.TextColor3=Color3.fromRGB(255,100,100) return
-        end
-        _antOrig=detFn
+        if _ahooked then antiLbl.Text="already neutralised" return end
+        local det=AC.DetectedFn or (AC.Anti and AC.Anti.Detected)
+        if type(det)~="function" then antiLbl.Text="Detected not found" antiLbl.TextColor3=Color3.fromRGB(255,100,100) return end
+        _aorig=det
         local ok,err=pcall(function()
-            hookfunction(detFn, newcclosure(function(action,reason,...)
-                print("[ModuleExplorer] Detected() blocked → "..tostring(action)..": "..tostring(reason))
+            hookfn(det,newcc(function(action,reason)
+                print("[ModExp] Detected() blocked: "..tostring(action).." / "..tostring(reason))
                 return true
             end))
         end)
-        if ok then _antHooked=true antiLbl.Text="✓ neutralised — kicks/crashes blocked" antiLbl.TextColor3=Color3.fromRGB(100,255,150)
-        else antiLbl.Text="hook failed: "..tostring(err) antiLbl.TextColor3=Color3.fromRGB(255,100,100) end
+        if ok then _ahooked=true antiLbl.Text="✓ kicks/crashes blocked" antiLbl.TextColor3=Color3.fromRGB(100,255,140)
+        else antiLbl.Text="hook fail: "..tostring(err) antiLbl.TextColor3=Color3.fromRGB(255,100,100) end
     end)
-    restoreBtn.MouseButton1Click:Connect(function()
-        if _antHooked and _antOrig then
-            pcall(hookfunction,_antOrig,_antOrig) _antHooked=false
-            antiLbl.Text="restored" antiLbl.TextColor3=Color3.fromRGB(200,200,200)
-        end
+    restBtn.MouseButton1Click:Connect(function()
+        if _ahooked and _aorig then pcall(hookfn,_aorig,_aorig) _ahooked=false antiLbl.Text="restored" end
     end)
 
-    -- ── _G API reader
-    APHeader("🔍  _G.Adonis API reader")
-    APInfo("probes known keys through the proxy's __index guard",Color3.fromRGB(140,140,140))
-    local readBtn  = APBtn("▶  read _G.Adonis", Color3.fromRGB(30,40,70))
-    local apiSF,apiLL = APLogBox(80)
+    -- ── ACLI KICK NEUTRALISER ──
+    Hdr(ASF,"📦  ACLI loader kick (v_u_48)")
+    Row(ASF,"separate from Anti.Detected — hooks the loader-level kick fn",Color3.fromRGB(130,130,130))
+    local neutAcli=Btn(ASF,"⚡  neutralise loader kick",Color3.fromRGB(65,38,15))
+    local restAcli=Btn(ASF,"↩  restore",                Color3.fromRGB(25,45,25))
+    local acliLbl=Row(ASF,AC.acliKickFn and "kick fn found" or "kick fn not found (run scan first)",
+        AC.acliKickFn and Color3.fromRGB(255,215,80) or Color3.fromRGB(160,160,160))
+    local _lkorig,_lkhooked=nil,false
+    neutAcli.MouseButton1Click:Connect(function()
+        if _lkhooked then acliLbl.Text="already neutralised" return end
+        local fn=AC.acliKickFn
+        if type(fn)~="function" then acliLbl.Text="not found — try re-scanning" acliLbl.TextColor3=Color3.fromRGB(255,100,100) return end
+        _lkorig=fn
+        local ok,err=pcall(function()
+            hookfn(fn,newcc(function(reason)
+                print("[ModExp] ACLI kick blocked: "..tostring(reason))
+            end))
+        end)
+        if ok then _lkhooked=true acliLbl.Text="✓ loader kick blocked" acliLbl.TextColor3=Color3.fromRGB(100,255,140)
+        else acliLbl.Text="hook fail: "..tostring(err) acliLbl.TextColor3=Color3.fromRGB(255,100,100) end
+    end)
+    restAcli.MouseButton1Click:Connect(function()
+        if _lkhooked and _lkorig then pcall(hookfn,_lkorig,_lkorig) _lkhooked=false acliLbl.Text="restored" end
+    end)
+
+    -- ── ACLI LOGS ──
+    Hdr(ASF,"📋  acliLogs (v_u_36)")
+    local dumpBtn=Btn(ASF,"dump logs",Color3.fromRGB(28,38,58))
+    local _,dumpAppend,dumpClear=LogBox(ASF,80)
+    dumpBtn.MouseButton1Click:Connect(function()
+        dumpClear()
+        local logs=AC.acliLogs
+        if not logs then dumpAppend("not found — run scan",Color3.fromRGB(255,120,120)) return end
+        local n=0
+        for _,v in ipairs(logs) do
+            local col=v:find("WARNING",1,true) and Color3.fromRGB(255,200,80)
+                or v:find("ACLI-0x",1,true) and Color3.fromRGB(255,120,120)
+                or Color3.fromRGB(175,210,175)
+            dumpAppend(v,col) n=n+1
+        end
+        if n==0 then dumpAppend("log table is empty — may not have loaded yet",Color3.fromRGB(140,140,140)) end
+    end)
+
+    -- ── _G API READER ──
+    Hdr(ASF,"🔍  _G.Adonis reader")
+    local readBtn=Btn(ASF,"read _G.Adonis",Color3.fromRGB(28,35,60))
+    local _,apiAppend,apiClear=LogBox(ASF,70)
     readBtn.MouseButton1Click:Connect(function()
-        for _,c in pairs(apiSF:GetChildren()) do if c:IsA("TextLabel") then c:Destroy() end end
+        apiClear()
         local api=rawget(_G,"Adonis")
-        if not api then LogLine(apiSF,apiLL,"_G.Adonis not set yet",Color3.fromRGB(255,120,120)) return end
+        if not api then apiAppend("_G.Adonis not set yet",Color3.fromRGB(255,120,120)) return end
         for _,k in ipairs({"Access","Scripts","Debug","Service","API_Specific"}) do
             local ok,v=pcall(function() return api[k] end)
-            LogLine(apiSF,apiLL,k.." = "..(ok and typeof(v).." "..tostring(v) or "protected"),
-                ok and Color3.fromRGB(200,180,255) or Color3.fromRGB(120,120,120))
-        end
-        local ok2,s=pcall(function() return api.Scripts end)
-        if ok2 and s then
-            LogLine(apiSF,apiLL,"Scripts.ExecutePermission = "..type(s.ExecutePermission),Color3.fromRGB(180,220,180))
+            apiAppend(k.." = "..(ok and typeof(v).." "..tostring(v) or "protected"),
+                ok and Color3.fromRGB(195,170,255) or Color3.fromRGB(110,110,110))
         end
     end)
 
-    -- ── debug bridge
-    APHeader("🧪  DebugMode bridge")
-    APInfo("requires DebugMode=true and Adonis_Debug_API in ReplicatedStorage",Color3.fromRGB(140,140,140))
-    local dbBg=Instance.new("Frame",APScroll)
-    dbBg.Size=UDim2.new(1,-4,0,22) dbBg.BackgroundColor3=Color3.fromRGB(26,26,36) dbBg.BorderSizePixel=0
-    Instance.new("UICorner",dbBg).CornerRadius=UDim.new(0,3)
-    local dbBox=Instance.new("TextBox",dbBg)
-    dbBox.Size=UDim2.new(1,-6,1,-2) dbBox.Position=UDim2.new(0,3,0,1)
-    dbBox.BackgroundTransparency=1 dbBox.PlaceholderText="env path e.g. Client.Core.Key"
-    dbBox.PlaceholderColor3=Color3.fromRGB(70,70,70) dbBox.Text=""
-    dbBox.TextColor3=Color3.fromRGB(200,220,200) dbBox.TextSize=10 dbBox.Font=Enum.Font.Code
-    dbBox.ClearTextOnFocus=false dbBox.TextXAlignment=Enum.TextXAlignment.Left
-    local runEnvBtn  = APBtn("RunEnvFunc",          Color3.fromRGB(40,50,30))
-    local getMetaBtn = APBtn("GetEnvTableMeta",     Color3.fromRGB(30,40,50))
-    local dbLbl      = APInfo("idle")
-
-    local function GetDbgAPI() return ReplicatedStorage:FindFirstChild("Adonis_Debug_API") end
-    runEnvBtn.MouseButton1Click:Connect(function()
-        local dbg=GetDbgAPI()
-        if not dbg then dbLbl.Text="Adonis_Debug_API not found (DebugMode off?)" dbLbl.TextColor3=Color3.fromRGB(255,100,100) return end
-        if dbBox.Text=="" then dbLbl.Text="enter a path" return end
-        local ok,res=pcall(function() return dbg:InvokeServer("RunEnvFunc",{dbBox.Text}) end)
-        dbLbl.Text=(ok and tostring(res) or "error: "..tostring(res))
-        dbLbl.TextColor3=ok and Color3.fromRGB(180,255,180) or Color3.fromRGB(255,100,100)
-    end)
-    getMetaBtn.MouseButton1Click:Connect(function()
-        local dbg=GetDbgAPI()
-        if not dbg then dbLbl.Text="not found" return end
-        if dbBox.Text=="" then dbLbl.Text="enter a path" return end
-        local ok,res=pcall(function() return dbg:InvokeServer("GetEnvTableMeta",{dbBox.Text}) end)
-        dbLbl.Text=(ok and tostring(res) or "error: "..tostring(res))
-        dbLbl.TextColor3=ok and Color3.fromRGB(180,255,180) or Color3.fromRGB(255,100,100)
-    end)
-
-    -- ── table walker
-    APHeader("🗂  client table walker")
-    APInfo("dumps keys from any resolved Adonis sub-table",Color3.fromRGB(140,140,140))
-    for _,tname in ipairs({"Core","Remote","Anti","Functions","Variables","Service"}) do
-        local btn=APBtn("dump "..tname, Color3.fromRGB(30,30,50))
-        local dSF,dLL=APLogBox(60)
-        btn.MouseButton1Click:Connect(function()
-            for _,c in pairs(dSF:GetChildren()) do if c:IsA("TextLabel") then c:Destroy() end end
-            local tbl=AC[tname]
-            if not tbl then LogLine(dSF,dLL,tname.." not resolved",Color3.fromRGB(255,120,120)) return end
-            local count=0
+    -- ── TABLE WALKER ──
+    Hdr(ASF,"🗂  table walker")
+    for _,name in ipairs({"Core","Remote","Anti","Functions","Variables","Service"}) do
+        local b=Btn(ASF,"dump "..name,Color3.fromRGB(28,28,48))
+        local _,da,dc=LogBox(ASF,60)
+        b.MouseButton1Click:Connect(function()
+            dc()
+            local tbl=AC[name]
+            if not tbl then da(name.." not resolved",Color3.fromRGB(255,120,120)) return end
+            local n=0
             pcall(function()
                 for k,v in pairs(tbl) do
                     local vt=typeof(v)
-                    local col=vt=="function" and Color3.fromRGB(160,220,160)
-                        or vt=="table" and Color3.fromRGB(200,180,255)
-                        or Color3.fromRGB(200,210,200)
-                    LogLine(dSF,dLL,"["..vt.."] "..tostring(k).." = "..tostring(v),col)
-                    count=count+1
-                    if count>80 then LogLine(dSF,dLL,"...truncated",Color3.fromRGB(100,100,100)) break end
+                    da("["..vt.."] "..tostring(k).." = "..tostring(v),
+                        vt=="function" and Color3.fromRGB(155,215,155) or
+                        vt=="table" and Color3.fromRGB(195,170,255) or Color3.fromRGB(195,205,195))
+                    n=n+1 if n>80 then da("...truncated") break end
                 end
             end)
-            if count==0 then LogLine(dSF,dLL,"empty or protected",Color3.fromRGB(120,120,120)) end
+            if n==0 then da("empty or protected",Color3.fromRGB(110,110,110)) end
         end)
     end
 
-    -- ── task viewer
-    APHeader("⏱  TrackTask viewer")
-    APInfo("reads Service.GetTasks() for running tracked threads",Color3.fromRGB(140,140,140))
-    local refreshBtn=APBtn("↺  refresh tasks",Color3.fromRGB(30,50,50))
-    local taskSF,taskLL=APLogBox(80)
-    refreshBtn.MouseButton1Click:Connect(function()
-        for _,c in pairs(taskSF:GetChildren()) do if c:IsA("TextLabel") then c:Destroy() end end
+    -- ── TASK VIEWER ──
+    Hdr(ASF,"⏱  task viewer")
+    local taskBtn=Btn(ASF,"↺  refresh",Color3.fromRGB(28,48,48))
+    local _,ta,tc=LogBox(ASF,80)
+    taskBtn.MouseButton1Click:Connect(function()
+        tc()
         local svc=AC.Service
-        if not svc then LogLine(taskSF,taskLL,"Service not resolved",Color3.fromRGB(255,120,120)) return end
+        if not svc then ta("Service not resolved",Color3.fromRGB(255,120,120)) return end
         local ok,tasks=pcall(function() return svc.GetTasks() end)
-        if not ok or type(tasks)~="table" then
-            LogLine(taskSF,taskLL,"GetTasks() unavailable: "..tostring(tasks),Color3.fromRGB(255,120,120)) return
-        end
-        local count=0
+        if not ok or type(tasks)~="table" then ta("GetTasks() failed: "..tostring(tasks),Color3.fromRGB(255,120,120)) return end
+        local n=0
         for _,t in pairs(tasks) do
-            local isThread=t.isThread and " [thread]" or ""
-            LogLine(taskSF,taskLL,tostring(t.Name or "?").." | "..tostring(t.Status or "?")..isThread,Color3.fromRGB(180,220,180))
-            count=count+1
+            ta(tostring(t.Name or "?").." | "..tostring(t.Status or "?")..(t.isThread and " [thread]" or ""),
+                Color3.fromRGB(175,215,175)) n=n+1
         end
-        if count==0 then LogLine(taskSF,taskLL,"no tasks",Color3.fromRGB(120,120,120)) end
+        if n==0 then ta("no tasks running") end
     end)
 
-    -- ── ACLI loader section
-    APHeader("📦  ACLI loader (ClientMover)")
-    APInfo("internals of the ClientLoader script — v_u_36 logs, integrity flag, kick fn",Color3.fromRGB(140,140,140))
+    -- ── ERROR CODE REF ──
+    Hdr(ASF,"🗒  ACLI error codes")
+    local _,ea,_=LogBox(ASF,110)
+    for _,p in ipairs({
+        {"0x6E2FA164","env integrity violation"},
+        {"0xEC7E1",   "proxy __index triggered"},
+        {"0x28AEC",   "proxy __newindex triggered"},
+        {"0x213A7768D","CallCheck: instance locked"},
+        {"0xBC34ADD8","CallCheck: fenv mismatch"},
+        {"0x20D21CEE7","module load fail"},
+        {"0x102134B1E","bad module return (not SUCCESS)"},
+        {"0xCE8CEF67","bad metatable on module return"},
+    }) do ea(p[1].."  →  "..p[2],Color3.fromRGB(255,175,90)) end
 
-    -- loader status row
-    local loaderLbl = APInfo(
-        AC.acliLoader and ("✓ ClientMover found: "..AC.acliLoader:GetFullName())
-            or "ClientMover not located (Folder service may be inaccessible)",
-        AC.acliLoader and Color3.fromRGB(100,255,150) or Color3.fromRGB(180,180,100)
-    )
-
-    -- acliLogs dump
-    local logsBtn = APBtn("📋  dump acliLogs (v_u_36)", Color3.fromRGB(30,40,60))
-    local logsDumpSF, logsDumpLL = APLogBox(80)
-    logsBtn.MouseButton1Click:Connect(function()
-        for _,c in pairs(logsDumpSF:GetChildren()) do if c:IsA("TextLabel") then c:Destroy() end end
-        -- try to get acliLogs from the loaded module's upvalues first
-        local logs = AC.acliLogs
-        -- fallback: scan all scanned module fns for it again
-        if not logs then
-            for _,m in ipairs(ScannedModules) do
-                for _,fn in pairs(m.functions) do
-                    if logs then break end
-                    local uvs={} pcall(function() uvs=getupvalues(fn) end)
-                    for _,uv in ipairs(uvs) do
-                        if type(uv)=="table" then
-                            for _,v in pairs(uv) do
-                                if type(v)=="string" and v:find("ACLI") then
-                                    logs=uv AC.acliLogs=uv break
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        if not logs then
-            LogLine(logsDumpSF,logsDumpLL,"acliLogs not found — try scanning first",Color3.fromRGB(255,120,120))
-            return
-        end
-        local count=0
-        for _,entry in ipairs(logs) do
-            local col = entry:find("WARNING") and Color3.fromRGB(255,200,80)
-                or entry:find("ACLI-0x") and Color3.fromRGB(255,120,120)
-                or Color3.fromRGB(180,220,180)
-            LogLine(logsDumpSF,logsDumpLL,entry,col)
-            count=count+1
-        end
-        if count==0 then LogLine(logsDumpSF,logsDumpLL,"log table is empty",Color3.fromRGB(120,120,120)) end
-        print("[ModuleExplorer] acliLogs dump: "..count.." entries")
-    end)
-
-    -- integrity flag reader
-    APInfo("integrity flag (v_u_14) — must be true after proxy require check passes",Color3.fromRGB(140,140,140))
-    local integrityBtn = APBtn("🔎  scan for integrity flag (v_u_14)", Color3.fromRGB(30,30,50))
-    local integrityLbl = APInfo("idle")
-    integrityBtn.MouseButton1Click:Connect(function()
-        -- v_u_14 is a boolean upvalue that starts false, set to true only if the
-        -- proxy require check passes. We scan all fns for a boolean upvalue
-        -- sitting alongside v_u_16-style kick functions.
-        local found=false
-        for _,m in ipairs(ScannedModules) do
-            for _,fn in pairs(m.functions) do
-                if found then break end
-                local uvs={} pcall(function() uvs=getupvalues(fn) end)
-                local hasBool,hasKick=false,false
-                local boolIdx=nil
-                for i,uv in ipairs(uvs) do
-                    if type(uv)=="boolean" then hasBool=true boolIdx=i end
-                    if type(uv)=="function" then
-                        local uvs2={} pcall(function() uvs2=getupvalues(uv) end)
-                        for _,uv2 in ipairs(uvs2) do
-                            if type(uv2)=="string" and uv2:find("ACLI") then hasKick=true break end
-                        end
-                    end
-                end
-                if hasBool and hasKick and boolIdx then
-                    local val=uvs[boolIdx]
-                    integrityLbl.Text="v_u_14 = "..tostring(val).." (upval["..boolIdx.."] of "..m.name..")"
-                    integrityLbl.TextColor3 = val and Color3.fromRGB(100,255,150) or Color3.fromRGB(255,120,120)
-                    AC.acliIntegrity = val
-                    found=true
-                end
-            end
-        end
-        if not found then
-            integrityLbl.Text="not found in scanned modules"
-            integrityLbl.TextColor3=Color3.fromRGB(160,160,160)
-        end
-    end)
-
-    -- loader kick fn neutraliser (v_u_16 / v_u_48)
-    APInfo("hooks the loader-level kick fn (v_u_16/v_u_48) — separate from Anti.Detected",Color3.fromRGB(140,140,140))
-    local neutLoaderBtn  = APBtn("⚡  neutralise loader kick (v_u_16)", Color3.fromRGB(70,40,20))
-    local restLoaderBtn  = APBtn("↩  restore loader kick",             Color3.fromRGB(30,50,30))
-    local loaderKickLbl  = APInfo("idle")
-    local _lkOrig, _lkHooked = nil, false
-
-    neutLoaderBtn.MouseButton1Click:Connect(function()
-        if _lkHooked then loaderKickLbl.Text="already neutralised" return end
-        -- Find v_u_48 (the public kick wrapper) by scanning upvalues for a function
-        -- that itself has v_u_31 (Player.Kick) as an upvalue
-        local kickFn=nil
-        for _,m in ipairs(ScannedModules) do
-            if kickFn then break end
-            for _,fn in pairs(m.functions) do
-                if kickFn then break end
-                local uvs={} pcall(function() uvs=getupvalues(fn) end)
-                for _,uv in ipairs(uvs) do
-                    if type(uv)=="function" then
-                        local uvs2={} pcall(function() uvs2=getupvalues(uv) end)
-                        local hasKickStr,hasPlayerRef=false,false
-                        for _,uv2 in ipairs(uvs2) do
-                            if type(uv2)=="string" and uv2:find("ACLI") then hasKickStr=true end
-                            -- v_u_31 is Player.Kick — a C function
-                            if type(uv2)=="function" then
-                                local ok,n=pcall(debug.info,uv2,"n")
-                                if ok and n=="Kick" then hasPlayerRef=true end
-                            end
-                        end
-                        if hasKickStr and hasPlayerRef then kickFn=uv end
-                    end
-                end
-            end
-        end
-        if not kickFn then
-            loaderKickLbl.Text="loader kick fn not found in upvalues"
-            loaderKickLbl.TextColor3=Color3.fromRGB(255,120,120)
-            return
-        end
-        _lkOrig=kickFn
-        local ok,err=pcall(function()
-            hookfunction(kickFn, newcclosure(function(reason,...)
-                print("[ModuleExplorer] ACLI loader kick blocked → "..tostring(reason))
-                -- do NOT call original — swallow it entirely
-            end))
-        end)
-        if ok then
-            _lkHooked=true
-            loaderKickLbl.Text="✓ loader kick neutralised"
-            loaderKickLbl.TextColor3=Color3.fromRGB(100,255,150)
-            AC.acliKickFn=kickFn
-            print("[ModuleExplorer] ACLI v_u_48 neutralised")
-        else
-            loaderKickLbl.Text="hook failed: "..tostring(err)
-            loaderKickLbl.TextColor3=Color3.fromRGB(255,100,100)
-        end
-    end)
-    restLoaderBtn.MouseButton1Click:Connect(function()
-        if _lkHooked and _lkOrig then
-            pcall(hookfunction,_lkOrig,_lkOrig)
-            _lkHooked=false
-            loaderKickLbl.Text="restored"
-            loaderKickLbl.TextColor3=Color3.fromRGB(200,200,200)
-        end
-    end)
-
-    -- ACLI error code reference
-    APHeader("🗒  ACLI error code reference")
-    local errorCodes = {
-        {"0x6E2FA164","Environment integrity violation (env tampered)"},
-        {"0xEC7E1",   "Proxy __index triggered"},
-        {"0x28AEC",   "Proxy __newindex triggered"},
-        {"0x36F14",   "Proxy __tostring triggered"},
-        {"0x213A7768D","CallCheck: Instance locked"},
-        {"0xBC34ADD8","CallCheck: caller fenv mismatch"},
-        {"0x20D21CEE7","Module failed to load (require error)"},
-        {"0x102134B1E","Bad module return (not SUCCESS)"},
-        {"0xCE8CEF67","Bad module return (invalid metatable)"},
-    }
-    local ecSF,ecLL=APLogBox(110)
-    for _,pair in ipairs(errorCodes) do
-        LogLine(ecSF,ecLL,pair[1].."  →  "..pair[2], Color3.fromRGB(255,180,100))
-    end
-
-    RefreshCanvas(APScroll,APLayout)
+    RefreshSF(ASF)
 end
 
--- ── Adonis toggle ────────────────────────────────────────────
-AdonisBtn.MouseButton1Click:Connect(function()
-    AdonisOpen = not AdonisOpen
-    if AdonisOpen then
-        TryResolveAdonis()
-        BuildAdonisPanel()
-        AdonisPanel.Visible=true
-        Placeholder.Visible=false
-        DetailFrame.Visible=false
-        AdonisBtn.BackgroundColor3=Color3.fromRGB(100,40,140)
-    else
-        AdonisPanel.Visible=false
-        Placeholder.Visible=true
-        AdonisBtn.BackgroundColor3=Color3.fromRGB(60,30,80)
-    end
-end)
-
-CloseBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible=false GlowFrame.Visible=false GlowFrame2.Visible=false
-end)
-
--- ════════════════════════════════════════════════════════════
+-- ─────────────────────────────────────────────────────────────
 --  TREE BUILD
--- ════════════════════════════════════════════════════════════
+-- ─────────────────────────────────────────────────────────────
 local function BuildTree()
-    for _,c in pairs(LeftPane:GetChildren()) do
-        if not c:IsA("UIListLayout") then c:Destroy() end
-    end
-    AllTreeItems={}
+    ClearSF(LeftSF) MkLL(LeftSF) TreeItems={}
 
-    local groups,containerGroups={},{}
-    for _,m in ipairs(ScannedModules) do
-        local g=m.source
-        if not groups[g] then groups[g]={label=g,modules={}} table.insert(containerGroups,groups[g]) end
-        table.insert(groups[g].modules,m)
+    -- group by source
+    local order,groups={},{}
+    for _,m in ipairs(Modules) do
+        if not groups[m.source] then
+            groups[m.source]={} table.insert(order,m.source)
+        end
+        table.insert(groups[m.source],m)
     end
 
-    for _,grp in ipairs(containerGroups) do
-        local cf,_=MakeTreeLabel("▾ "..grp.label,Color3.fromRGB(140,160,255),INDENT.container,Color3.fromRGB(30,30,50))
-        cf.LayoutOrder=#AllTreeItems
-        table.insert(AllTreeItems,{kind="container",label=grp.label,frame=cf})
-        local expanded=true local moduleFrames={}
-        cf.InputBegan:Connect(function(inp)
-            if inp.UserInputType~=Enum.UserInputType.MouseButton1 then return end
+    local function MkLabel(txt,col,bg,indent)
+        local f=Instance.new("Frame",LeftSF)
+        f.Size=UDim2.new(1,-4,0,21) f.BackgroundColor3=bg or Color3.fromRGB(22,22,22) f.BorderSizePixel=0
+        Instance.new("UICorner",f).CornerRadius=UDim.new(0,3)
+        local l=Instance.new("TextLabel",f)
+        l.Size=UDim2.new(1,-(indent+4),1,0) l.Position=UDim2.new(0,indent+4,0,0)
+        l.BackgroundTransparency=1 l.Text=txt l.TextColor3=col
+        l.TextSize=10 l.Font=Enum.Font.Code
+        l.TextXAlignment=Enum.TextXAlignment.Left l.TextTruncate=Enum.TextTruncate.AtEnd
+        return f,l
+    end
+
+    for _,src in ipairs(order) do
+        local cf,cl=MkLabel("▾ "..src,Color3.fromRGB(135,155,255),Color3.fromRGB(28,28,48),0)
+        cf.LayoutOrder=#TreeItems
+        table.insert(TreeItems,{kind="container",label=src,frame=cf})
+        local expanded=true local modFrames={}
+        cf.InputBegan:Connect(function(i)
+            if i.UserInputType~=Enum.UserInputType.MouseButton1 then return end
             expanded=not expanded
-            for _,mf in pairs(moduleFrames) do mf.Visible=expanded end
-            local l=cf:FindFirstChildWhichIsA("TextLabel")
-            if l then l.Text=(expanded and "▾ " or "▸ ")..grp.label end
+            for _,mf in pairs(modFrames) do mf.Visible=expanded end
+            cl.Text=(expanded and "▾ " or "▸ ")..src
         end)
 
-        for mIdx,m in ipairs(grp.modules) do
-            local mf,_=MakeTreeLabel("  ◆ "..m.name,Color3.fromRGB(200,200,255),INDENT.module,Color3.fromRGB(26,26,40))
-            mf.LayoutOrder=#AllTreeItems
-            table.insert(AllTreeItems,{kind="module",label=m.name,frame=mf,modIdx=mIdx})
-            table.insert(moduleFrames,mf)
-            local fnFrames,modExpanded={},false
-            mf.InputBegan:Connect(function(inp)
-                if inp.UserInputType~=Enum.UserInputType.MouseButton1 then return end
-                modExpanded=not modExpanded
-                for _,ff in pairs(fnFrames) do ff.Visible=modExpanded end
-                local l=mf:FindFirstChildWhichIsA("TextLabel")
-                if l then l.Text=(modExpanded and "  ▾ " or "  ◆ ")..m.name end
+        for mIdx,m in ipairs(groups[src]) do
+            -- find real index in Modules table
+            local realIdx=0
+            for ri,rm in ipairs(Modules) do if rm==m then realIdx=ri break end end
+            local mf,ml=MkLabel("  ◆ "..m.name,Color3.fromRGB(195,195,255),Color3.fromRGB(24,24,38),0)
+            mf.LayoutOrder=#TreeItems
+            table.insert(TreeItems,{kind="module",label=m.name,frame=mf})
+            table.insert(modFrames,mf)
+            local fnExpanded=false local fnFrames={}
+            mf.InputBegan:Connect(function(i)
+                if i.UserInputType~=Enum.UserInputType.MouseButton1 then return end
+                fnExpanded=not fnExpanded
+                for _,ff in pairs(fnFrames) do ff.Visible=fnExpanded end
+                ml.Text=(fnExpanded and "  ▾ " or "  ◆ ")..m.name
             end)
 
             local fnNames={}
@@ -1265,166 +841,139 @@ local function BuildTree()
             for _,fnName in ipairs(fnNames) do
                 local fnRef=m.functions[fnName]
                 local uvc=0 pcall(function() uvc=#getupvalues(fnRef) end)
-                local uvcStr=uvc>0 and (" +"..uvc) or ""
-                local ff,_=MakeTreeLabel("    ƒ "..fnName..uvcStr,Color3.fromRGB(160,220,160),INDENT.fn,Color3.fromRGB(24,28,24))
-                ff.LayoutOrder=#AllTreeItems ff.Visible=false
-                table.insert(AllTreeItems,{kind="fn",label=fnName,frame=ff,modIdx=mIdx,fnRef=fnRef})
+                local ff,_=MkLabel("    ƒ "..fnName..(uvc>0 and " +"..uvc or ""),
+                    Color3.fromRGB(155,215,155),Color3.fromRGB(22,26,22),0)
+                ff.LayoutOrder=#TreeItems ff.Visible=false
+                table.insert(TreeItems,{kind="fn",label=fnName,frame=ff})
                 table.insert(fnFrames,ff)
-                ff.InputBegan:Connect(function(inp)
-                    if inp.UserInputType~=Enum.UserInputType.MouseButton1 then return end
-                    SelectFunction(fnRef,fnName,mIdx)
+                ff.InputBegan:Connect(function(i)
+                    if i.UserInputType~=Enum.UserInputType.MouseButton1 then return end
+                    SelectFn(fnRef,fnName,realIdx)
                 end)
             end
         end
     end
 
     task.defer(function()
-        LeftPane.CanvasSize=UDim2.new(0,0,0,LeftLayout.AbsoluteContentSize.Y+5)
+        LeftSF.CanvasSize=UDim2.new(0,0,0,LeftLL.AbsoluteContentSize.Y+5)
     end)
 end
 
--- ── SEARCH ──────────────────────────────────────────────────
-SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-    local q=SearchBox.Text:lower():gsub("%s+","")
-    for _,item in ipairs(AllTreeItems) do
-        if q=="" then item.frame.Visible=(item.kind=="container" or item.kind=="module")
-        else item.frame.Visible=item.label:lower():find(q,1,true)~=nil end
+-- ─────────────────────────────────────────────────────────────
+--  SEARCH
+-- ─────────────────────────────────────────────────────────────
+SBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local q=SBox.Text:lower():gsub("%s+","")
+    for _,item in ipairs(TreeItems) do
+        if q=="" then item.frame.Visible=(item.kind~="fn")
+        else item.frame.Visible=(item.label:lower():find(q,1,true)~=nil) end
     end
     task.defer(function()
-        LeftPane.CanvasSize=UDim2.new(0,0,0,LeftLayout.AbsoluteContentSize.Y+5)
+        LeftSF.CanvasSize=UDim2.new(0,0,0,LeftLL.AbsoluteContentSize.Y+5)
     end)
 end)
 
--- ── SCANNER ─────────────────────────────────────────────────
--- Each module is required inside its own thread with a hard timeout.
--- This prevents any hanging require (obfuscated init loops, yielding
--- modules, CoreGui scripts) from blocking the entire scan.
-
-local REQUIRE_TIMEOUT = 2  -- seconds per module before we skip it
-
-local function ExtractFunctions(tbl, prefix, depth)
-    -- walks up to 2 levels deep collecting functions
-    depth = depth or 0
-    local fns = {}
-    local ok, err = pcall(function()
-        for k, v in pairs(tbl) do
-            local key = prefix and (prefix.."."..tostring(k)) or tostring(k)
-            if type(v) == "function" then
-                fns[key] = v
-            elseif type(v) == "table" and depth < 1 then
-                -- one level deeper
-                local inner = ExtractFunctions(v, key, depth+1)
-                for ik, iv in pairs(inner) do fns[ik] = iv end
-            end
-        end
-    end)
-    return fns
+-- ─────────────────────────────────────────────────────────────
+--  SCANNER
+-- ─────────────────────────────────────────────────────────────
+local function SafeRequire(ms)
+    local done,ok,res=false,false,nil
+    task.spawn(function() ok,res=pcall(require,ms) done=true end)
+    local t=0
+    while not done and t<2 do task.wait(0.05) t=t+0.05 end
+    if not done then return false,"timeout" end
+    return ok,res
 end
 
-local function SafeRequire(moduleScript)
-    -- returns ok, result — result is the module table or error string
-    -- runs in a separate thread; we join with a timeout
-    local done, result, success = false, nil, false
-    task.spawn(function()
-        local ok, res = pcall(require, moduleScript)
-        success = ok
-        result  = res
-        done    = true
-    end)
-    local t = 0
-    while not done and t < REQUIRE_TIMEOUT do
-        task.wait(0.05)
-        t = t + 0.05
-    end
-    if not done then
-        return false, "timeout"
-    end
-    return success, result
-end
-
-local function ScanContainer(container, sourceName, outList)
-    -- collects ModuleScript descendants, requires each with a timeout,
-    -- extracts functions, appends results to outList
-    local descs = {}
-    pcall(function() descs = container:GetDescendants() end)
-    for _, desc in ipairs(descs) do
-        if desc:IsA("ModuleScript") then
-            local ok, result = SafeRequire(desc)
-            if ok and type(result) == "table" then
-                local fns = ExtractFunctions(result)
+local function ScanInto(container,source,out)
+    local descs={}
+    pcall(function() descs=container:GetDescendants() end)
+    local n=0
+    for _,d in ipairs(descs) do
+        if d:IsA("ModuleScript") then
+            local ok,res=SafeRequire(d)
+            if ok and type(res)=="table" then
+                local fns={}
+                pcall(function()
+                    for k,v in pairs(res) do
+                        if type(v)=="function" then fns[tostring(k)]=v end
+                    end
+                    for k,v in pairs(res) do
+                        if type(v)=="table" then
+                            for k2,v2 in pairs(v) do
+                                if type(v2)=="function" then fns[tostring(k).."."..tostring(k2)]=v2 end
+                            end
+                        end
+                    end
+                end)
                 if next(fns) then
-                    table.insert(outList, {
-                        name      = desc.Name,
-                        path      = desc:GetFullName(),
-                        module    = result,
-                        source    = sourceName,
-                        functions = fns,
-                    })
+                    table.insert(out,{name=d.Name,path=d:GetFullName(),module=res,source=source,functions=fns})
                 end
             end
         end
-        -- yield every 5 modules so the UI stays responsive
-        if _ % 5 == 0 then task.wait() end
+        n=n+1
+        if n%8==0 then task.wait() end
     end
 end
 
-local scanRunning = false
 local function RunScan()
-    if scanRunning then return end
-    scanRunning = true
-    SetStatus("scanning...", Color3.fromRGB(255,180,0))
-    ScannedModules = {}
-    if not AdonisOpen then
-        Placeholder.Visible = true
-        DetailFrame.Visible = false
-    end
-
+    if Scanning then return end
+    Scanning=true
+    Modules={}
+    if not AdonisOpen then Hint.Visible=true DFrame.Visible=false end
+    SetStatus("scanning RepStore...",Color3.fromRGB(255,175,50))
     task.spawn(function()
-        -- ReplicatedStorage
-        ScanContainer(ReplicatedStorage, "ReplicatedStorage", ScannedModules)
-        SetStatus("scanning LocalPlayer...", Color3.fromRGB(255,180,0))
-
-        -- LocalPlayer containers
-        for _, cname in ipairs({"Backpack","PlayerScripts","PlayerGui"}) do
-            local c = lp:FindFirstChild(cname)
-            if c then ScanContainer(c, "LocalPlayer."..cname, ScannedModules) end
+        ScanInto(RepStore,"ReplicatedStorage",Modules)
+        SetStatus("scanning LocalPlayer...",Color3.fromRGB(255,175,50))
+        for _,n in ipairs({"Backpack","PlayerScripts","PlayerGui"}) do
+            local c=lp:FindFirstChild(n)
+            if c then ScanInto(c,"LocalPlayer."..n,Modules) end
         end
-        -- Character separately (may be nil on load)
-        if lp.Character then
-            ScanContainer(lp.Character, "LocalPlayer.Character", ScannedModules)
-        end
-
-        SetStatus("scanning CoreGui...", Color3.fromRGB(255,180,0))
-        -- CoreGui — pcall the whole thing, RobloxGui children can error on GetDescendants
-        pcall(function() ScanContainer(CoreGui, "CoreGui", ScannedModules) end)
-        local rg = CoreGui:FindFirstChild("RobloxGui")
-        if rg then
-            pcall(function() ScanContainer(rg, "RobloxGui", ScannedModules) end)
-        end
-
-        local total = #ScannedModules
-        SetStatus("resolving Adonis...", Color3.fromRGB(255,180,0))
-        TryResolveAdonis()
+        if lp.Character then ScanInto(lp.Character,"LocalPlayer.Character",Modules) end
+        SetStatus("scanning CoreGui...",Color3.fromRGB(255,175,50))
+        pcall(function() ScanInto(CoreGui,"CoreGui",Modules) end)
+        local rg=CoreGui:FindFirstChild("RobloxGui")
+        if rg then pcall(function() ScanInto(rg,"RobloxGui",Modules) end) end
+        SetStatus("building tree...",Color3.fromRGB(255,175,50))
+        Resolve()
         BuildTree()
-        SetStatus(total.." modules found", Color3.fromRGB(0,255,150))
-        if AdonisOpen then BuildAdonisPanel() end
-        scanRunning = false
+        SetStatus(#Modules.." modules",Color3.fromRGB(80,255,130))
+        if AdonisOpen then BuildAdonis() end
+        Scanning=false
     end)
 end
 
-ScanBtn.MouseButton1Click:Connect(RunScan)
+-- ─────────────────────────────────────────────────────────────
+--  BUTTON WIRING
+-- ─────────────────────────────────────────────────────────────
+BtnScan.MouseButton1Click:Connect(RunScan)
 
--- ── TOGGLE ──────────────────────────────────────────────────
-UserInputService.InputBegan:Connect(function(input,gpe)
-    if not gpe and input.KeyCode==Enum.KeyCode.RightAlt then
-        local v=not MainFrame.Visible
-        MainFrame.Visible=v GlowFrame.Visible=v GlowFrame2.Visible=v
+BtnAdonis.MouseButton1Click:Connect(function()
+    AdonisOpen=not AdonisOpen
+    if AdonisOpen then
+        Resolve()
+        BuildAdonis()
+        APanel.Visible=true
+        Hint.Visible=false DFrame.Visible=false
+        BtnAdonis.BackgroundColor3=Color3.fromRGB(95,38,130)
+    else
+        APanel.Visible=false
+        Hint.Visible=true
+        BtnAdonis.BackgroundColor3=Color3.fromRGB(60,25,80)
     end
 end)
 
-RunScan()
+BtnClose.MouseButton1Click:Connect(function()
+    Win.Visible=false G1.Visible=false G2.Visible=false
+end)
 
-print("[ModuleExplorer v2] Loaded.")
-print("  RightAlt  → toggle")
-print("  ★ adonis  → dedicated Adonis panel")
-print("  ⟳ scan   → rescan all containers")
+UIS.InputBegan:Connect(function(input,gpe)
+    if not gpe and input.KeyCode==Enum.KeyCode.RightAlt then
+        local v=not Win.Visible
+        Win.Visible=v G1.Visible=v G2.Visible=v
+    end
+end)
+
+-- ─────────────────────────────────────────────────────────────
+RunScan()
+print("[ModuleExplorer v3] RightAlt = toggle  |  ★ adonis = panel")
