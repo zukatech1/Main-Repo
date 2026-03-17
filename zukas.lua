@@ -34215,7 +34215,7 @@ RegisterCommand({Name = "zshotgun", Aliases = {}, Description = "For https://www
 RegisterCommand({Name = "noanim", Aliases = {}, Description = "Pauses/Removes All animations for the player."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/animationremover.lua", " Loading.. ") end)
 RegisterCommand({Name = "gunlagger2", Aliases = {}, Description = "For Protect the house from Monsters."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/machinegun.lua", " Loading.. ") end)
 RegisterCommand({Name = "gunlagger", Aliases = {}, Description = "For Protect the house from Monsters."}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/Lagger.lua", " Loading.. ") end)
-RegisterCommand({Name = "lagserv", Aliases = {"spayload"}, Description = "WIP"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/gamelagger.lua", " Loading.. ") end)
+RegisterCommand({Name = "weaponeditor", Aliases = {"weape"}, Description = "Universal"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Weapons.lua", " Loading.. ") end)
 RegisterCommand({Name = "doomshammer", Aliases = {}, Description = "For Dumb bossfights"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/doomshammer.lua", " Loading.. ") end)
 RegisterCommand({Name = "tptoswords", Aliases = {}, Description = "For Dumb bossfights"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/SwordGrabberBossfightGame.lua", " Loading.. ") end)
 RegisterCommand({Name = "removeff", Aliases = {}, Description = "Removes Forcefields on the client, can be useful with low security"}, function() loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/removeforcefield.txt", " Loading.. ") end)
@@ -37461,7 +37461,7 @@ end)
             end
         end)
     end))
-    DoNotif("Revamp soon!", 2)
+    DoNotif("Use the removeadonis command if the game you're in uses adonis", 2)
 end)
 loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/notifier.lua"))()
 
