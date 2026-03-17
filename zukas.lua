@@ -1,21 +1,19 @@
-print("Terminal Version, No Luna UI")
-
 --[[Made By Zuka]]
 local TweenService    = game:GetService("TweenService")
 local CoreGui         = game:GetService("CoreGui")
 local ContentProvider = game:GetService("ContentProvider")
 do
     local THEME = {
-        Title        = "ZukaTech",
+        Title        = " ",
         Subtitle     = "Made by @OverZuka — We're so back...",
         IconAssetId  = "rbxassetid://7243158473",
         BackgroundColor = Color3.fromRGB(8, 8, 12),
         AccentColor     = Color3.fromRGB(0, 220, 255),
         TextColor       = Color3.fromRGB(230, 230, 240),
         SubtitleColor   = Color3.fromRGB(130, 130, 150),
-        FadeInTime  = 0.5,
-        HoldTime    = 1.8,
-        FadeOutTime = 0.4,
+        FadeInTime  = 0.2,
+        HoldTime    = 0.2,
+        FadeOutTime = 0.2,
         TypingSpeed    = 0.045,
         ScanlineCount  = 28,
         ScanlineAlpha  = 0.06,
@@ -31,7 +29,7 @@ do
     local background = Instance.new("Frame")
     background.Size                 = UDim2.fromScale(1, 1)
     background.BackgroundColor3     = THEME.BackgroundColor
-    background.BackgroundTransparency = 0.3
+    background.BackgroundTransparency = 0.4
     background.BorderSizePixel      = 0
     background.ZIndex               = 1
     background.Parent               = splashGui
@@ -57,7 +55,7 @@ do
     sweepLine.Size                 = UDim2.new(1, 0, 0, 2)
     sweepLine.Position             = UDim2.fromScale(0, -0.01)
     sweepLine.BackgroundColor3     = THEME.AccentColor
-    sweepLine.BackgroundTransparency = 0.7
+    sweepLine.BackgroundTransparency = 1
     sweepLine.BorderSizePixel      = 0
     sweepLine.ZIndex               = 3
     sweepLine.Parent               = scanContainer
@@ -87,7 +85,7 @@ do
     card.Position             = UDim2.fromScale(0.5, 0.5)
     card.AnchorPoint          = Vector2.new(0.5, 0.5)
     card.BackgroundColor3     = Color3.fromRGB(13, 13, 18)
-    card.BackgroundTransparency = 0
+    card.BackgroundTransparency = 1
     card.BorderSizePixel      = 0
     card.ZIndex               = 5
     card.Parent               = background
@@ -95,7 +93,7 @@ do
     local cardStroke = Instance.new("UIStroke", card)
     cardStroke.Thickness    = 1
     cardStroke.Color        = THEME.AccentColor
-    cardStroke.Transparency = 0.6
+    cardStroke.Transparency = 1
     local gradient = Instance.new("UIGradient", card)
     gradient.Color    = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 28)),
@@ -116,7 +114,7 @@ do
     iconWrap.Position             = UDim2.new(0.5, 0, 0, 28)
     iconWrap.AnchorPoint          = Vector2.new(0.5, 0)
     iconWrap.BackgroundColor3     = Color3.fromRGB(20, 20, 28)
-    iconWrap.BackgroundTransparency = 0
+    iconWrap.BackgroundTransparency = 1
     iconWrap.BorderSizePixel      = 0
     iconWrap.ZIndex               = 6
     Instance.new("UICorner", iconWrap).CornerRadius = UDim.new(0, 12)
@@ -131,7 +129,7 @@ do
     icon.AnchorPoint          = Vector2.new(0.5, 0.5)
     icon.BackgroundTransparency = 1
     icon.ImageColor3          = THEME.AccentColor
-    icon.ImageTransparency    = 0.1
+    icon.ImageTransparency    = 0.8
     icon.Image                = THEME.IconAssetId
     icon.ZIndex               = 7
     icon.Parent               = iconWrap
@@ -191,7 +189,7 @@ do
         TweenService:Create(topBar, eFast, { Size = UDim2.new(0.6, 0, 0, 2) }):Play()
     end)
     task.delay(0.15, function()
-        TweenService:Create(iconStroke, eFast, { Transparency = 0.2 }):Play()
+        TweenService:Create(iconStroke, eFast, { Transparency = 0.7 }):Play()
         task.wait(0.25)
         TweenService:Create(iconStroke, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
             { Transparency = 0.7 }):Play()
@@ -219,7 +217,7 @@ do
             task.wait(3)
         end
     end)
-    task.delay(THEME.FadeInTime * 0.6, function()
+    task.delay(THEME.FadeInTime * 0.3, function()
         local fullText = THEME.Title
         for i = 1, #fullText do
             title.Text = string.sub(fullText, 1, i)
@@ -258,16 +256,6 @@ do
     task.wait(THEME.FadeOutTime + 0.05)
     splashGui:Destroy()
 end
-if not game:IsLoaded() then game.Loaded:Wait() end
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local oldKick
-oldKick = hookfunction(LocalPlayer.Kick, newcclosure(function(self, ...)
-    if not checkcaller() and self == LocalPlayer then
-        return nil
-    end
-    return oldKick(self, ...)
-end))
 local function detectEnvironment()
     local env = {
         executor = identifyexecutor and identifyexecutor() or "Unknown",
@@ -333,13 +321,6 @@ local function dismantle_readonly(target)
         if mt and set_ro then set_ro(mt, false) end
     end)
 end
-
-
-dismantle_readonly(getgenv())
-dismantle_readonly(getrenv())
-dismantle_readonly(getreg())
-
-
 local function protect_interface(instance)
     local protector = (get_hidden_gui or (syn and syn.protect_gui))
     if protector then pcall(protector, instance) end
@@ -1581,77 +1562,154 @@ end)
 Modules.Performance = {
     State = {
         IsEnabled = false,
-        OriginalProperties = {}
+        OriginalProperties = {},
+        Connections = {}
     }
 }
+local LIGHTING_EFFECT_CLASSES = {
+    "Atmosphere", "Clouds", "BloomEffect", "BlurEffect",
+    "SunRaysEffect", "DepthOfFieldEffect", "ColorCorrectionEffect"
+}
+local QUALITY_LEVEL_STEP = Enum.QualityLevel.Level01
+local function SaveAndDisable(instance, props)
+    local saved = {}
+    for _, prop in ipairs(props) do
+        local ok, val = pcall(function() return instance[prop] end)
+        if ok then
+            saved[prop] = val
+            pcall(function() instance[prop] = (type(val) == "boolean" and false or getattr(val)) end)
+        end
+    end
+    return saved
+end
+local function DisableParticlesIn(root, store)
+    for _, obj in ipairs(root:GetDescendants()) do
+        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
+            local ok, cur = pcall(function() return obj.Enabled end)
+            if ok then
+                store[obj] = cur
+                pcall(function() obj.Enabled = false end)
+            end
+        end
+    end
+end
 function Modules.Performance:Enable()
     if self.State.IsEnabled then return end
     self.State.IsEnabled = true
     self.State.OriginalProperties = {}
-    local lighting = game:GetService("Lighting")
-    local terrain = Workspace:FindFirstChildOfClass("Terrain")
-    local materialService = game:GetService("MaterialService")
-    self.State.OriginalProperties.Lighting = {
-        Technology = lighting.Technology,
-        GlobalShadows = lighting.GlobalShadows,
+    local orig = self.State.OriginalProperties
+    local lighting      = game:GetService("Lighting")
+    local terrain       = workspace:FindFirstChildOfClass("Terrain")
+    local matService    = game:GetService("MaterialService")
+    local renderSettings = settings():GetService("RenderSettings")
+    orig.Lighting = {
+        Technology              = lighting.Technology,
+        GlobalShadows           = lighting.GlobalShadows,
         EnvironmentDiffuseScale = lighting.EnvironmentDiffuseScale,
-        EnvironmentSpecularScale = lighting.EnvironmentSpecularScale
+        EnvironmentSpecularScale= lighting.EnvironmentSpecularScale,
     }
-    lighting.Technology = Enum.Technology.Compatibility
-    lighting.GlobalShadows = false
-    lighting.EnvironmentDiffuseScale = 0
-    lighting.EnvironmentSpecularScale = 0
-    if terrain then
-        self.State.OriginalProperties.Terrain = {
-            Decoration = terrain.Decoration
-        }
-        terrain.Decoration = false
+    pcall(function()
+        lighting.Technology               = Enum.Technology.Compatibility
+        lighting.GlobalShadows            = false
+        lighting.EnvironmentDiffuseScale  = 0
+        lighting.EnvironmentSpecularScale = 0
+    end)
+    orig.LightingEffects = {}
+    for _, effect in ipairs(lighting:GetChildren()) do
+        for _, cls in ipairs(LIGHTING_EFFECT_CLASSES) do
+            if effect:IsA(cls) then
+                local ok, enabled = pcall(function() return effect.Enabled end)
+                if ok then
+                    orig.LightingEffects[effect] = enabled
+                    pcall(function() effect.Enabled = false end)
+                end
+                break
+            end
+        end
     end
-    self.State.OriginalProperties.MaterialService = {
-        MaterialQuality = materialService.MaterialQuality
-    }
-    materialService.MaterialQuality = Enum.MaterialQuality.Low
-	self.State.OriginalProperties.LightingEffects = {}
-	for _, effect in ipairs(lighting:GetChildren()) do
-		if effect:IsA("Atmosphere") or effect:IsA("Clouds") or effect:IsA("BloomEffect") or effect:IsA("BlurEffect") then
-			self.State.OriginalProperties.LightingEffects[effect] = {
-				Enabled = effect.Enabled
-			}
-			effect.Enabled = false
-		end
-	end
-    DoNotif("Performance Mode: ENABLED. Shadows and effects disabled.", 2)
+    if terrain then
+        orig.Terrain = {
+            Decoration = terrain.Decoration,
+            WaterWaveSize = terrain.WaterWaveSize,
+            WaterWaveSpeed = terrain.WaterWaveSpeed,
+        }
+        pcall(function()
+            terrain.Decoration    = false
+            terrain.WaterWaveSize  = 0
+            terrain.WaterWaveSpeed = 0
+        end)
+    end
+    local okM, curQ = pcall(function() return matService.MaterialQuality end)
+    if okM then
+        orig.MaterialService = { MaterialQuality = curQ }
+        pcall(function() matService.MaterialQuality = Enum.MaterialQuality.Low end)
+    end
+    local okQ, curLevel = pcall(function() return renderSettings.QualityLevel end)
+    if okQ then
+        orig.QualityLevel = curLevel
+        pcall(function() renderSettings.QualityLevel = QUALITY_LEVEL_STEP end)
+    end
+    orig.Particles = {}
+    DisableParticlesIn(workspace, orig.Particles)
+    self.State.Connections.ParticleAdded = workspace.DescendantAdded:Connect(function(obj)
+        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
+            if self.State.OriginalProperties.Particles then
+                local ok, cur = pcall(function() return obj.Enabled end)
+                if ok then
+                    self.State.OriginalProperties.Particles[obj] = cur
+                    pcall(function() obj.Enabled = false end)
+                end
+            end
+        end
+    end)
+    DoNotif("Performance Mode: ENABLED", 2)
 end
 function Modules.Performance:Disable()
     if not self.State.IsEnabled then return end
     self.State.IsEnabled = false
-    local lighting = game:GetService("Lighting")
-    local terrain = Workspace:FindFirstChildOfClass("Terrain")
-    local materialService = game:GetService("MaterialService")
-    if self.State.OriginalProperties.Lighting then
-        for prop, value in pairs(self.State.OriginalProperties.Lighting) do
-            pcall(function() lighting[prop] = value end)
+    for _, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    self.State.Connections = {}
+    local orig        = self.State.OriginalProperties
+    local lighting    = game:GetService("Lighting")
+    local terrain     = workspace:FindFirstChildOfClass("Terrain")
+    local matService  = game:GetService("MaterialService")
+    local renderSettings = settings():GetService("RenderSettings")
+    if orig.Lighting then
+        for prop, val in pairs(orig.Lighting) do
+            pcall(function() lighting[prop] = val end)
         end
     end
-    if terrain and self.State.OriginalProperties.Terrain then
-        for prop, value in pairs(self.State.OriginalProperties.Terrain) do
-            pcall(function() terrain[prop] = value end)
+    if orig.LightingEffects then
+        for effect, wasEnabled in pairs(orig.LightingEffects) do
+            if effect and effect.Parent then
+                pcall(function() effect.Enabled = wasEnabled end)
+            end
         end
     end
-    if self.State.OriginalProperties.MaterialService then
-        for prop, value in pairs(self.State.OriginalProperties.MaterialService) do
-            pcall(function() materialService[prop] = value end)
+    if terrain and orig.Terrain then
+        for prop, val in pairs(orig.Terrain) do
+            pcall(function() terrain[prop] = val end)
         end
     end
-	if self.State.OriginalProperties.LightingEffects then
-		for effect, props in pairs(self.State.OriginalProperties.LightingEffects) do
-			if effect and effect.Parent then
-				pcall(function() effect.Enabled = props.Enabled end)
-			end
-		end
-	end
+    if orig.MaterialService then
+        for prop, val in pairs(orig.MaterialService) do
+            pcall(function() matService[prop] = val end)
+        end
+    end
+    if orig.QualityLevel then
+        pcall(function() renderSettings.QualityLevel = orig.QualityLevel end)
+    end
+    if orig.Particles then
+        for obj, wasEnabled in pairs(orig.Particles) do
+            if obj and obj.Parent then
+                pcall(function() obj.Enabled = wasEnabled end)
+            end
+        end
+    end
     self.State.OriginalProperties = {}
-    DoNotif("Performance Mode: DISABLED. Graphics restored.", 2)
+    DoNotif("Performance Mode: DISABLED", 2)
 end
 function Modules.Performance:Toggle()
     if self.State.IsEnabled then
@@ -1660,8 +1718,145 @@ function Modules.Performance:Toggle()
         self:Enable()
     end
 end
-RegisterCommand({ Name = "fpsboost", Aliases = { "noshadows", "performance" }, Description = "Toggles performance mode by disabling shadows and other intensive graphical features." }, function()
+RegisterCommand({
+    Name = "fpsboost",
+    Aliases = { "noshadows", "performance" },
+    Description = "Toggles performance mode — disables shadows, effects, particles, and steps down render quality."
+}, function()
     Modules.Performance:Toggle()
+end)
+Modules.Freecam = {
+    State = {
+        IsEnabled = false,
+        Connections = {},
+        Camera = nil,
+        OriginalCameraType = nil,
+        OriginalCFrame = nil,
+    },
+    Config = {
+        BaseSpeed       = 32,
+        ShiftMultiplier = 3,
+        ScrollStep      = 8,
+        Sensitivity     = 0.35,
+        SpeedMin        = 4,
+        SpeedMax        = 512,
+        SmoothFactor    = 0.18,
+    }
+}
+local UIS     = game:GetService("UserInputService")
+local RunSvc  = game:GetService("RunService")
+local Players = game:GetService("Players")
+local KEYS = {
+    Forward  = Enum.KeyCode.W,
+    Backward = Enum.KeyCode.S,
+    Left     = Enum.KeyCode.A,
+    Right    = Enum.KeyCode.D,
+    Up       = Enum.KeyCode.E,
+    Down     = Enum.KeyCode.Q,
+    Sprint   = Enum.KeyCode.LeftShift,
+    SpeedUp  = Enum.KeyCode.Equals,
+    SpeedDown= Enum.KeyCode.Minus,
+}
+function Modules.Freecam:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    local cam = workspace.CurrentCamera
+    self.State.Camera            = cam
+    self.State.OriginalCameraType= cam.CameraType
+    self.State.OriginalCFrame    = cam.CFrame
+    cam.CameraType = Enum.CameraType.Scriptable
+    UIS.MouseBehavior   = Enum.MouseBehavior.LockCenter
+    UIS.MouseIconEnabled= false
+    local cfg      = self.Config
+    local yaw, pitch = 0, 0
+    local velocity   = Vector3.new(0, 0, 0)
+    local currentSpeed = cfg.BaseSpeed
+    local initCF = cam.CFrame
+    local _, iY, _ = initCF:ToEulerAnglesYXZ()
+    yaw = iY
+    self.State.Connections.MouseMove = UIS.InputChanged:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseMovement then
+            yaw   = yaw   - inp.Delta.X * cfg.Sensitivity * 0.01
+            pitch = math.clamp(
+                pitch - inp.Delta.Y * cfg.Sensitivity * 0.01,
+                math.rad(-89), math.rad(89)
+            )
+        end
+    end)
+    self.State.Connections.Scroll = UIS.InputChanged:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseWheel then
+            currentSpeed = math.clamp(
+                currentSpeed + inp.Position.Z * cfg.ScrollStep,
+                cfg.SpeedMin, cfg.SpeedMax
+            )
+        end
+    end)
+    self.State.Connections.SpeedKey = UIS.InputBegan:Connect(function(inp, gpe)
+        if gpe then return end
+        if inp.KeyCode == KEYS.SpeedUp then
+            currentSpeed = math.clamp(currentSpeed + cfg.ScrollStep, cfg.SpeedMin, cfg.SpeedMax)
+        elseif inp.KeyCode == KEYS.SpeedDown then
+            currentSpeed = math.clamp(currentSpeed - cfg.ScrollStep, cfg.SpeedMin, cfg.SpeedMax)
+        end
+    end)
+    self.State.Connections.Heartbeat = RunSvc.Heartbeat:Connect(function(dt)
+        local speed = currentSpeed
+            * (UIS:IsKeyDown(KEYS.Sprint) and cfg.ShiftMultiplier or 1)
+        local moveVec = Vector3.new(
+            (UIS:IsKeyDown(KEYS.Right)    and 1 or 0) - (UIS:IsKeyDown(KEYS.Left)    and 1 or 0),
+            (UIS:IsKeyDown(KEYS.Up)       and 1 or 0) - (UIS:IsKeyDown(KEYS.Down)    and 1 or 0),
+            (UIS:IsKeyDown(KEYS.Backward) and 1 or 0) - (UIS:IsKeyDown(KEYS.Forward) and 1 or 0)
+        )
+        if moveVec.Magnitude > 0 then
+            moveVec = moveVec.Unit * speed
+        end
+        local rotCF = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
+        local targetVelocity = rotCF:VectorToWorldSpace(moveVec)
+        velocity = velocity:Lerp(targetVelocity, math.min(1, cfg.SmoothFactor / dt * 0.016))
+        local newPos = cam.CFrame.Position + velocity * dt
+        cam.CFrame = CFrame.new(newPos) * rotCF
+    end)
+    DoNotif("Freecam: ENABLED  [WASD/QE move · Shift sprint · Scroll speed]", 3)
+end
+function Modules.Freecam:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    for key, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+        self.State.Connections[key] = nil
+    end
+    local cam = self.State.Camera or workspace.CurrentCamera
+    pcall(function()
+        cam.CameraType = self.State.OriginalCameraType or Enum.CameraType.Custom
+    end)
+    UIS.MouseBehavior    = Enum.MouseBehavior.Default
+    UIS.MouseIconEnabled = true
+    local char = Players.LocalPlayer and Players.LocalPlayer.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        pcall(function()
+            cam.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 2, 8), hrp.Position)
+        end)
+    elseif self.State.OriginalCFrame then
+        pcall(function() cam.CFrame = self.State.OriginalCFrame end)
+    end
+    self.State.Camera         = nil
+    self.State.OriginalCFrame = nil
+    DoNotif("Freecam: DISABLED", 2)
+end
+function Modules.Freecam:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+RegisterCommand({
+    Name        = "freecam",
+    Aliases     = {},
+    Description = "Toggles freecam — detaches camera for free movement. WASD/QE to move, Shift to sprint, Scroll to adjust speed."
+}, function()
+    Modules.Freecam:Toggle()
 end)
 Modules.AstralProjection = {
     State = {
@@ -6826,178 +7021,6 @@ function Modules.VoidShield:Initialize()
         end)
     end
 end
-Modules.Blackhole = {
-    State = {
-        IsEnabled = false,
-        IsForceActive = false,
-        TargetCFrame = CFrame.new(),
-        BlackholePart = nil,
-        BlackholeAttachment = nil,
-        Connections = {},
-        UI = {}
-    },
-    Config = {
-        ForceResponsiveness = 200,
-        TorqueMagnitude = 100000,
-        MoveKey = Enum.KeyCode.E,
-        MoverName = "Zuka_BlackholeMover"
-    },
-    Dependencies = {"RunService", "UserInputService", "Players", "Workspace", "CoreGui"},
-    Services = {}
-}
-function Modules.Blackhole:_cleanupForces()
-    for _, descendant in ipairs(self.Services.Workspace:GetDescendants()) do
-        if descendant.Name == self.Config.MoverName and descendant:IsA("Instance") then
-            descendant:Destroy()
-        end
-        if descendant:IsA("BasePart") and not descendant.CanCollide then
-            pcall(function() descendant.CanCollide = true end)
-        end
-    end
-end
-function Modules.Blackhole:_applyForce(part)
-    if not self.State.IsForceActive or not (part and part:IsA("BasePart")) then return end
-    if part.Anchored or part:FindFirstAncestorOfClass("Humanoid") then return end
-    if part:IsDescendantOf(self.Services.Players.LocalPlayer.Character) then return end
-    for _, child in ipairs(part:GetChildren()) do
-        if child:IsA("BodyMover") or child:IsA("RocketPropulsion") then
-            child:Destroy()
-        end
-        if child.Name == self.Config.MoverName then
-            child:Destroy()
-        end
-    end
-    part.CanCollide = false
-    local attachment = Instance.new("Attachment", part)
-    attachment.Name = self.Config.MoverName
-    local align = Instance.new("AlignPosition", attachment)
-    align.Attachment0 = attachment
-    align.Attachment1 = self.State.BlackholeAttachment
-    align.MaxForce = 1e9
-    align.MaxVelocity = math.huge
-    align.Responsiveness = self.Config.ForceResponsiveness
-    local torque = Instance.new("Torque", attachment)
-    torque.Attachment0 = attachment
-    torque.Torque = Vector3.new(self.Config.TorqueMagnitude, self.Config.TorqueMagnitude, self.Config.TorqueMagnitude)
-end
-function Modules.Blackhole:Disable()
-    if not self.State.IsEnabled then return end
-    for _, conn in pairs(self.State.Connections) do
-        conn:Disconnect()
-    end
-    table.clear(self.State.Connections)
-    pcall(function()
-        for _, plr in ipairs(self.Services.Players:GetPlayers()) do
-            plr.MaximumSimulationRadius = -1
-        end
-    end)
-    self:_cleanupForces()
-    if self.State.BlackholePart and self.State.BlackholePart.Parent then
-        self.State.BlackholePart:Destroy()
-    end
-    if self.State.UI.ScreenGui and self.State.UI.ScreenGui.Parent then
-        self.State.UI.ScreenGui:Destroy()
-    end
-    self.State = {
-        IsEnabled = false,
-        IsForceActive = false,
-        TargetCFrame = CFrame.new(),
-        Connections = {},
-        UI = {}
-    }
-    DoNotif("Blackhole destroyed.", 2)
-end
-function Modules.Blackhole:Enable()
-    if self.State.IsEnabled then return end
-    self.State.IsEnabled = true
-    local localPlayer = self.Services.Players.LocalPlayer
-    local bhPart = Instance.new("Part")
-    bhPart.Name = "Zuka_BlackholeCore"
-    bhPart.Anchored = true
-    bhPart.CanCollide = false
-    bhPart.Transparency = 1
-    bhPart.Size = Vector3.one
-    self.State.BlackholePart = bhPart
-    self.State.BlackholeAttachment = Instance.new("Attachment", bhPart)
-    local mouse = localPlayer:GetMouse()
-    self.State.TargetCFrame = mouse.Hit + Vector3.new(0, 5, 0)
-    bhPart.Parent = self.Services.Workspace
-    self.State.Connections.SimRadius = self.Services.RunService.Heartbeat:Connect(function()
-        pcall(function()
-            for _, plr in ipairs(self.Services.Players:GetPlayers()) do
-                if plr ~= localPlayer then plr.MaximumSimulationRadius = 0 end
-            end
-            localPlayer.MaximumSimulationRadius = 1e9
-        end)
-    end)
-    self.State.Connections.PositionUpdate = self.Services.RunService.RenderStepped:Connect(function()
-        if self.State.BlackholeAttachment then
-            self.State.BlackholeAttachment.WorldCFrame = self.State.TargetCFrame
-        end
-    end)
-    self.State.Connections.DescendantAdded = self.Services.Workspace.DescendantAdded:Connect(function(desc)
-        self:_applyForce(desc)
-    end)
-    self.State.Connections.Input = self.Services.UserInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and input.KeyCode == self.Config.MoveKey then
-            self.State.TargetCFrame = mouse.Hit + Vector3.new(0, 5, 0)
-        end
-    end)
-    local screenGui = Instance.new("ScreenGui", self.Services.CoreGui)
-    screenGui.Name = "BlackholeControlGUI"
-    screenGui.ResetOnSpawn = false
-    self.State.UI.ScreenGui = screenGui
-    local toggleBtn = Instance.new("TextButton")
-    toggleBtn.Name = "ToggleButton"
-    toggleBtn.Text = "Enable Blackhole"
-    toggleBtn.AnchorPoint = Vector2.new(0.5, 1)
-    toggleBtn.Size = UDim2.fromOffset(160, 40)
-    toggleBtn.Position = UDim2.new(0.5, 0, 0.93, 0)
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
-    toggleBtn.TextColor3 = Color3.new(1, 1, 1)
-    toggleBtn.Font = Enum.Font.SourceSansBold
-    toggleBtn.TextSize = 18
-    toggleBtn.Parent = screenGui
-    Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0.25, 0)
-    local moveBtn = toggleBtn:Clone()
-    moveBtn.Name = "MoveButton"
-    moveBtn.Text = "Move Blackhole (E)"
-    moveBtn.Position = UDim2.new(0.5, 0, 0.99, 0)
-    moveBtn.BackgroundColor3 = Color3.fromRGB(51, 51, 51)
-    moveBtn.Parent = screenGui
-    toggleBtn.MouseButton1Click:Connect(function()
-        self.State.IsForceActive = not self.State.IsForceActive
-        toggleBtn.Text = self.State.IsForceActive and "Disable Blackhole" or "Enable Blackhole"
-        if self.State.IsForceActive then
-            DoNotif("Blackhole force enabled", 2)
-            for _,v in ipairs(self.Services.Workspace:GetDescendants()) do self:_applyForce(v) end
-        else
-            self:_cleanupForces()
-            DoNotif("Blackhole force disabled", 2)
-        end
-    end)
-    moveBtn.MouseButton1Click:Connect(function()
-        self.State.TargetCFrame = mouse.Hit + Vector3.new(0, 5, 0)
-    end)
-    DoNotif("Blackhole created. Tap button or press E to move.", 3)
-end
-function Modules.Blackhole:Initialize()
-    local module = self
-    for _, service in ipairs(self.Dependencies) do
-        module.Services[service] = game:GetService(service)
-    end
-    RegisterCommand({
-        Name = "blackhole",
-        Aliases = {"bhole"},
-        Description = "Toggles a client-sided black hole that pulls all unanchored parts."
-    }, function()
-        if module.State.IsEnabled then
-            module:Disable()
-        else
-            module:Enable()
-        end
-    end)
-end
 Modules.PathfinderFollow = {
     State = {
         IsEnabled = false,
@@ -9638,7 +9661,7 @@ function Modules.AdvancedShiftLock:Initialize()
     end
     RegisterCommand({
         Name = "shiftlock",
-        Aliases = {"sl", "lockcam"},
+        Aliases = {"sl"},
         Description = "Toggles an advanced Over-The-Shoulder Shift Lock."
     }, function()
         if module.State.IsEnabled then
@@ -9974,16 +9997,23 @@ Modules.SpectateController = {
     State = {
         IsEnabled = false,
         TargetPlayer = nil,
-        Connections = {}
+        Connections = {},
+        IsCycling = false,
+        CycleIndex = 1,
+        CycleThread = nil
     },
     Services = {
         Players = game:GetService("Players"),
         Workspace = game:GetService("Workspace")
     }
 }
+
 function Modules.SpectateController:_cleanup()
+    self.State.IsCycling = false
+    self.State.CycleIndex = 1
+    self.State.CycleThread = nil
     for _, conn in pairs(self.State.Connections) do
-        if conn and conn.Connected then
+        if typeof(conn) == "RBXScriptConnection" and conn.Connected then
             conn:Disconnect()
         end
     end
@@ -9991,8 +10021,9 @@ function Modules.SpectateController:_cleanup()
     self.State.IsEnabled = false
     self.State.TargetPlayer = nil
 end
+
 function Modules.SpectateController:Disable()
-    if not self.State.IsEnabled then return end
+    if not self.State.IsEnabled and not self.State.IsCycling then return end
     local localPlayer = self.Services.Players.LocalPlayer
     self:_cleanup()
     if self.Services.Workspace.CurrentCamera and localPlayer.Character then
@@ -10000,6 +10031,7 @@ function Modules.SpectateController:Disable()
     end
     DoNotif("Spectate disabled.", 2)
 end
+
 function Modules.SpectateController:Enable(targetPlayer: Player)
     self:Disable()
     if not targetPlayer or targetPlayer == self.Services.Players.LocalPlayer then
@@ -10010,18 +10042,23 @@ function Modules.SpectateController:Enable(targetPlayer: Player)
     end
     self.State.IsEnabled = true
     self.State.TargetPlayer = targetPlayer
+
     local camera = self.Services.Workspace.CurrentCamera
     camera.CameraSubject = targetPlayer.Character
+
     local function resetView()
         if self.State.IsEnabled and self.State.TargetPlayer and self.State.TargetPlayer.Character then
             if camera.CameraSubject ~= self.State.TargetPlayer.Character then
                 camera.CameraSubject = self.State.TargetPlayer.Character
             end
         else
-            self:Disable()
+            if not self.State.IsCycling then
+                self:Disable()
+            end
         end
     end
-    self.State.Connections.TargetRespawn = targetPlayer.CharacterAdded:Connect(function(newCharacter)
+
+    self.State.Connections.TargetRespawn = targetPlayer.CharacterAdded:Connect(function()
         task.wait()
         resetView()
     end)
@@ -10030,8 +10067,68 @@ function Modules.SpectateController:Enable(targetPlayer: Player)
         task.wait(0.1)
         resetView()
     end)
+
     DoNotif("Now spectating " .. targetPlayer.Name, 2)
 end
+
+function Modules.SpectateController:_getEligiblePlayers()
+    local localPlayer = self.Services.Players.LocalPlayer
+    local eligible = {}
+    for _, player in ipairs(self.Services.Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character then
+            table.insert(eligible, player)
+        end
+    end
+    return eligible
+end
+
+function Modules.SpectateController:StartCycle()
+    for _, conn in pairs(self.State.Connections) do
+        if typeof(conn) == "RBXScriptConnection" and conn.Connected then
+            conn:Disconnect()
+        end
+    end
+    table.clear(self.State.Connections)
+    self.State.IsEnabled = false
+    self.State.TargetPlayer = nil
+
+    local eligible = self:_getEligiblePlayers()
+    if #eligible == 0 then
+        return DoNotif("No eligible players to cycle through.", 3)
+    end
+
+    self.State.IsCycling = true
+    self.State.CycleIndex = 1
+
+    DoNotif("Auto-cycle started. Switching every 10s.", 2)
+
+    self.State.CycleThread = task.spawn(function()
+        while self.State.IsCycling do
+            local players = self:_getEligiblePlayers()
+
+            if #players == 0 then
+                DoNotif("No players left to cycle through.", 3)
+                self:Disable()
+                break
+            end
+
+            if self.State.CycleIndex > #players then
+                self.State.CycleIndex = 1
+            end
+
+            local target = players[self.State.CycleIndex]
+            self.State.CycleIndex = (self.State.CycleIndex % #players) + 1
+
+            self.State.IsEnabled = true
+            self.State.TargetPlayer = target
+            self.Services.Workspace.CurrentCamera.CameraSubject = target.Character
+            DoNotif("Cycling → " .. target.Name, 1.5)
+
+            task.wait(10)
+        end
+    end)
+end
+
 function Modules.SpectateController:Initialize()
     RegisterCommand({
         Name = "view",
@@ -10048,12 +10145,25 @@ function Modules.SpectateController:Initialize()
             DoNotif("Player '" .. args[1] .. "' not found.", 3)
         end
     end)
+
     RegisterCommand({
         Name = "unview",
         Aliases = {"unspectate"},
         Description = "Stops spectating and returns to your character."
     }, function()
         self:Disable()
+    end)
+
+    RegisterCommand({
+        Name = "cycle",
+        Aliases = {"autocycle"},
+        Description = "Automatically cycles spectate through all players every 10 seconds."
+    }, function()
+        if self.State.IsCycling then
+            self:Disable()
+        else
+            self:StartCycle()
+        end
     end)
 end
 Modules.AstralHead = {
@@ -11088,6 +11198,132 @@ function Modules.AdminSpoofDemonstration:Initialize()
         end
     end)
 end
+Modules.ForceCamera = {
+    State = {
+        IsEnabled   = false,
+        Connections = {}
+    },
+    Config = {
+        Distance    = 12,
+        Height      = 5,
+        LerpAlpha   = 0.15,
+        LockPitch   = false,
+    }
+}
+function Modules.ForceCamera:Enable()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    local cam = workspace.CurrentCamera
+    pcall(function() cam.CameraType = Enum.CameraType.Scriptable end)
+    self.State.Connections.TypeGuard = cam:GetPropertyChangedSignal("CameraType"):Connect(function()
+        if self.State.IsEnabled and cam.CameraType ~= Enum.CameraType.Scriptable then
+            pcall(function() cam.CameraType = Enum.CameraType.Scriptable end)
+        end
+    end)
+    self.State.Connections.CameraSwap = workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+        local newCam = workspace.CurrentCamera
+        if newCam and self.State.IsEnabled then
+            pcall(function() newCam.CameraType = Enum.CameraType.Scriptable end)
+            if self.State.Connections.TypeGuard then
+                pcall(function() self.State.Connections.TypeGuard:Disconnect() end)
+            end
+            self.State.Connections.TypeGuard = newCam:GetPropertyChangedSignal("CameraType"):Connect(function()
+                if self.State.IsEnabled and newCam.CameraType ~= Enum.CameraType.Scriptable then
+                    pcall(function() newCam.CameraType = Enum.CameraType.Scriptable end)
+                end
+            end)
+        end
+    end)
+    self.State.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local currentCam = workspace.CurrentCamera
+        if not currentCam then return end
+        local cfg = self.Config
+        local hrpCF    = hrp.CFrame
+        local flatLook = Vector3.new(hrpCF.LookVector.X, 0, hrpCF.LookVector.Z)
+        if flatLook.Magnitude < 0.01 then
+            flatLook = Vector3.new(0, 0, -1)
+        else
+            flatLook = flatLook.Unit
+        end
+        local origin   = hrp.Position + Vector3.new(0, cfg.Height, 0)
+        local camPos   = origin - flatLook * cfg.Distance
+        local targetCF = CFrame.lookAt(camPos, origin)
+        currentCam.CFrame = currentCam.CFrame:Lerp(targetCF, cfg.LerpAlpha)
+    end)
+    DoNotif("Force Camera: ENABLED  [camera locked behind player]", 3)
+end
+function Modules.ForceCamera:Disable()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    for key, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+        self.State.Connections[key] = nil
+    end
+    pcall(function()
+        workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+    end)
+    DoNotif("Force Camera: DISABLED  [camera restored]", 2)
+end
+function Modules.ForceCamera:Toggle()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+RegisterCommand({
+    Name        = "forcecam",
+    Aliases     = { "lockcam", "behindcam" },
+    Description = "Locks the camera behind your character at all times, overriding game camera scripts."
+}, function()
+    Modules.ForceCamera:Toggle()
+end)
+RegisterCommand({
+    Name        = "forcecamdist",
+    Aliases     = { "fcdist" },
+    Description = "Set forced camera distance in studs. Usage: ;forcecamdist <studs>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Distance: " .. Modules.ForceCamera.Config.Distance, 2)
+        return
+    end
+    local v = tonumber(args[1])
+    if not v then DoNotif("Invalid number", 3) return end
+    Modules.ForceCamera.Config.Distance = math.clamp(v, 1, 100)
+    DoNotif("Camera distance: " .. Modules.ForceCamera.Config.Distance, 2)
+end)
+RegisterCommand({
+    Name        = "forcecamheight",
+    Aliases     = { "fcheight" },
+    Description = "Set forced camera height offset. Usage: ;forcecamheight <studs>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Height: " .. Modules.ForceCamera.Config.Height, 2)
+        return
+    end
+    local v = tonumber(args[1])
+    if not v then DoNotif("Invalid number", 3) return end
+    Modules.ForceCamera.Config.Height = v
+    DoNotif("Camera height: " .. Modules.ForceCamera.Config.Height, 2)
+end)
+RegisterCommand({
+    Name        = "forcecamsmooth",
+    Aliases     = { "fcsmooth" },
+    Description = "Set camera lerp smoothing (0.05 floaty → 1.0 instant). Usage: ;forcecamsmooth <0.05-1>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Smoothing: " .. Modules.ForceCamera.Config.LerpAlpha, 2)
+        return
+    end
+    local v = tonumber(args[1])
+    if not v then DoNotif("Invalid number", 3) return end
+    Modules.ForceCamera.Config.LerpAlpha = math.clamp(v, 0.01, 1)
+    DoNotif("Camera smoothing: " .. Modules.ForceCamera.Config.LerpAlpha, 2)
+end)
 Modules.CFrameEditor = {
     State = {
         IsEnabled = false,
@@ -12387,100 +12623,6 @@ function Modules.RemoteInterceptor:Initialize()
         DoNotif("Listed " .. count .. " intercepted remote(s) in the F9 console.", 2)
     end)
 end
-Modules.ClientCanary = {
-    State = {
-        IsEnabled = false,
-        HeartbeatConnection = nil,
-        ViolationData = {},
-        HighlightedPlayers = {}
-    },
-    Config = {
-        MAX_REASONABLE_SPEED = 75,
-        VIOLATION_THRESHOLD = 8,
-        VIOLATION_DECAY_TIME = 2.5,
-        CHECK_INTERVAL_SECONDS = 0.25
-    }
-}
-function Modules.ClientCanary:_onHeartbeat(deltaTime)
-    local now = os.clock()
-    for player, data in pairs(self.State.ViolationData) do
-        if now - data.LastCheck > self.Config.VIOLATION_DECAY_TIME then
-            data.Level = math.max(0, data.Level - 1)
-            data.LastCheck = now
-        end
-        if not player.Parent then
-            self.State.ViolationData[player] = nil
-        end
-    end
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and self.State.HighlightedPlayers[player] == nil then
-            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-            local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-            if humanoid and rootPart and humanoid.Health > 0 then
-                local horizontalVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 0, rootPart.AssemblyLinearVelocity.Z)
-                if horizontalVelocity.Magnitude > self.Config.MAX_REASONABLE_SPEED then
-                    local data = self.State.ViolationData[player] or { Level = 0, LastCheck = now }
-                    data.Level = data.Level + 1
-                    data.LastCheck = now
-                    self.State.ViolationData[player] = data
-                    if data.Level >= self.Config.VIOLATION_THRESHOLD then
-                        DoNotif(string.format("Exploiter Detected: %s (Reason: Sustained Speed)", player.Name), 4)
-                        pcall(function()
-                            Modules.HighlightPlayer:ApplyHighlight(player.Character)
-                        end)
-                        self.State.HighlightedPlayers[player] = true
-                        self.State.ViolationData[player] = nil
-                    end
-                end
-            end
-        end
-    end
-end
-function Modules.ClientCanary:Enable()
-    if self.State.IsEnabled then return end
-    self.State.IsEnabled = true
-    local lastCheck = 0
-    self.State.HeartbeatConnection = RunService.Heartbeat:Connect(function(deltaTime)
-        if os.clock() - lastCheck > self.Config.CHECK_INTERVAL_SECONDS then
-            self:_onHeartbeat(deltaTime)
-            lastCheck = os.clock()
-        end
-    end)
-    DoNotif("Client Canary: ENABLED. Automated exploiter detection is active.", 2)
-end
-function Modules.ClientCanary:Disable()
-    if not self.State.IsEnabled then return end
-    self.State.IsEnabled = false
-    if self.State.HeartbeatConnection then
-        self.State.HeartbeatConnection:Disconnect()
-        self.State.HeartbeatConnection = nil
-    end
-    for player, _ in pairs(self.State.HighlightedPlayers) do
-        if Modules.HighlightPlayer.State.TargetPlayer == player then
-            Modules.HighlightPlayer:ClearHighlight()
-        end
-    end
-    table.clear(self.State.ViolationData)
-    table.clear(self.State.HighlightedPlayers)
-    DoNotif("Client Canary: DISABLED.", 2)
-end
-function Modules.ClientCanary:Toggle()
-    if self.State.IsEnabled then
-        self:Disable()
-    else
-        self:Enable()
-    end
-end
-function Modules.ClientCanary:Initialize()
-    local module = self
-    RegisterCommand({
-        Name = "autodetect",
-        Aliases = {"canary", "watchdog"},
-        Description = "Toggles the automated client-side exploiter detection system."
-    }, function()
-        module:Toggle()
-    end)
-end
 Modules.TweenClickTP = {
 	State = {
 		IsEnabled = false,
@@ -12676,136 +12818,6 @@ function Modules.UniversalESP:Initialize(): ()
             module:Disable(folder)
         else
             module:Enable(folder)
-        end
-    end)
-end
-Modules.FolderAimbot = {
-    State = {
-        IsEnabled = false,
-        IsAiming = false,
-        TargetFolder = nil,
-        Connection = nil,
-        InputBegan = nil,
-        InputEnded = nil
-    },
-    Config = {
-        FOV = 200,
-        SMOOTHING = 0.25,
-        AIM_KEY = Enum.UserInputType.MouseButton2
-    }
-}
-function Modules.FolderAimbot:_resolvePath(path: string): Instance?
-    local current: Instance = game
-    for component in string.gmatch(path, "[^%.]+") do
-        if string.find(component, ":GetService") then
-            local serviceName = component:match("'(.-)'") or component:match('"(.-)"')
-            current = serviceName and game:GetService(serviceName) or current
-        else
-            current = current and current:FindFirstChild(component)
-        end
-    end
-    return current
-end
-function Modules.FolderAimbot:_getTargetPos(model: Model): Vector3?
-    local priority = {"Head", "HumanoidRootPart", "Torso", "UpperTorso"}
-    for _, name in ipairs(priority) do
-        local part = model:FindFirstChild(name)
-        if part and part:IsA("BasePart") then
-            return part.Position
-        end
-    end
-    return model.PrimaryPart and model.PrimaryPart.Position
-end
-function Modules.FolderAimbot:GetClosestTarget(): Model?
-    local folder = self.State.TargetFolder
-    if not folder then return nil end
-    local closestTarget = nil
-    local shortestDist = self.Config.FOV
-    local mousePos = UserInputService:GetMouseLocation()
-    for _, child in ipairs(folder:GetChildren()) do
-        if child:IsA("Model") then
-            local pos = self:_getTargetPos(child)
-            if pos then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(pos)
-                if onScreen then
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        closestTarget = child
-                    end
-                end
-            end
-        end
-    end
-    return closestTarget
-end
-function Modules.FolderAimbot:Enable(folder: Instance, fov: number?): ()
-    self:Disable()
-    self.State.IsEnabled = true
-    self.State.TargetFolder = folder
-    if fov then self.Config.FOV = fov end
-    self.State.InputBegan = UserInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and input.UserInputType == self.Config.AIM_KEY then
-            self.State.IsAiming = true
-        end
-    end)
-    self.State.InputEnded = UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == self.Config.AIM_KEY then
-            self.State.IsAiming = false
-        end
-    end)
-    self.State.Connection = RunService.RenderStepped:Connect(function()
-        if not self.State.IsAiming then return end
-        local target = self:GetClosestTarget()
-        if target then
-            local pos = self:_getTargetPos(target)
-            if pos then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(pos)
-                if onScreen then
-                    local mousePos = UserInputService:GetMouseLocation()
-                    local deltaX = (screenPos.X - mousePos.X) * self.Config.SMOOTHING
-                    local deltaY = (screenPos.Y - mousePos.Y) * self.Config.SMOOTHING
-                    if mousemoverel then
-                        mousemoverel(deltaX, deltaY)
-                    end
-                end
-            end
-        end
-    end)
-    DoNotif("Folder Aimbot: ENABLED for " .. folder.Name, 2)
-end
-function Modules.FolderAimbot:Disable(): ()
-    self.State.IsEnabled = false
-    self.State.IsAiming = false
-    if self.State.Connection then self.State.Connection:Disconnect() end
-    if self.State.InputBegan then self.State.InputBegan:Disconnect() end
-    if self.State.InputEnded then self.State.InputEnded:Disconnect() end
-    self.State.Connection = nil
-    self.State.InputBegan = nil
-    self.State.InputEnded = nil
-    self.State.TargetFolder = nil
-end
-function Modules.FolderAimbot:Initialize(): ()
-    local module = self
-    RegisterCommand({
-        Name = "faim",
-        Aliases = {"folderamt", "targetfolder"},
-        Description = "Aimbot for all models in a folder. Usage: ;faim Workspace.Zombies 300"
-    }, function(args: {string})
-        local path = args[1]
-        local fov = tonumber(args[2])
-        if not path then
-            if module.State.IsEnabled then
-                module:Disable()
-                return DoNotif("Folder Aimbot: DISABLED", 2)
-            end
-            return DoNotif("Usage: ;faim <Path> [FOV]", 3)
-        end
-        local folder = module:_resolvePath(path)
-        if folder then
-            module:Enable(folder, fov)
-        else
-            DoNotif("Error: Invalid path.", 3)
         end
     end)
 end
@@ -14535,7815 +14547,6 @@ function Modules.AntiAim:Initialize()
         DoNotif(config, 6)
     end)
 end
-Modules.Overseer = {
-    State = {
-        IsEnabled = false,
-        ActivePatches = {},
-        SelectedModule = nil,
-        CurrentTable = nil,
-        PathStack = {},
-        Minimized = false,
-        ViewingCode = false,
-        CurrentMode = "modules",
-        ExplorerPath = {},
-        ExplorerInstance = nil,
-        UI = nil,
-        SidebarButtons = {},
-        ValueHooks = {},
-        HookedConnections = {},
-        PropertyHooks = {},
-        RemoteSpyData = {},
-        CallFrequency = {},
-        CurrentTypeFilter = nil,
-        FilteredResults = {},
-        SpyCallLog = {},
-        IsSpying = false,
-        SelectedRemote = nil,
-        DisabledModules = {}
-    },
-    Config = {
-        ACCENT_COLOR = Color3.fromRGB(0, 255, 170),
-        BG_COLOR = Color3.fromRGB(10, 10, 12),
-        HEADER_COLOR = Color3.fromRGB(15, 15, 18),
-        SECONDARY_COLOR = Color3.fromRGB(18, 18, 22),
-        HOOK_COLOR = Color3.fromRGB(0, 200, 150),
-        DANGER_COLOR = Color3.fromRGB(200, 50, 50),
-        BUTTON_HEIGHT = 24,
-        ROW_HEIGHT = 35,
-        FILTER_HEIGHT = 40,
-        PADDING = 4,
-        CORNER_RADIUS = 2,
-        CODE_BUTTON_HEIGHT = 30
-    },
-    RemoteSpy = {
-        MaxLogSize = 500,
-        RecordingTypes = { "FireServer", "FireClient", "InvokeServer" }
-    }
-}
-function Modules.Overseer:_applyStyle(obj, radius)
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, radius or 4)
-    corner.Parent = obj
-end
-function Modules.Overseer:_setClipboard(txt)
-    if setclipboard then setclipboard(txt) end
-end
-function Modules.Overseer:_showErrorInGrid(errorText)
-    local ui = self.State.UI
-    if not ui or not ui.Grid then return end
-    for _, v in ipairs(ui.Grid:GetChildren()) do
-        if not v:IsA("UIListLayout") then v:Destroy() end
-    end
-    local errorLabel = Instance.new("TextLabel", ui.Grid)
-    errorLabel.Size = UDim2.new(1, 0, 0, 40)
-    errorLabel.Text = errorText
-    errorLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-    errorLabel.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
-    errorLabel.BackgroundTransparency = 0.3
-    errorLabel.Font = Enum.Font.Code
-    errorLabel.TextSize = 10
-    errorLabel.TextWrapped = true
-    self:_applyStyle(errorLabel, 2)
-end
-function Modules.Overseer:_cleanupModuleHooks(mod)
-    if self.State.ActivePatches[mod] then
-        self.State.ActivePatches[mod] = nil
-    end
-    for hookKey, hook in pairs(self.State.ValueHooks) do
-        if hook.table == mod then
-            self.State.ValueHooks[hookKey] = nil
-        end
-    end
-    for propKey, hook in pairs(self.State.PropertyHooks) do
-        if hook.instance and hook.instance:IsDescendantOf(mod) then
-            if self.State.HookedConnections[propKey] then
-                pcall(function() self.State.HookedConnections[propKey]:Disconnect() end)
-                self.State.HookedConnections[propKey] = nil
-            end
-            self.State.PropertyHooks[propKey] = nil
-        end
-    end
-end
-function Modules.Overseer:_validatePatches()
-    for tbl, keys in pairs(self.State.ActivePatches) do
-        if type(tbl) ~= "table" then
-            return false
-        end
-        for key, data in pairs(keys) do
-            if data.Value == nil then
-                return false
-            end
-        end
-    end
-    return true
-end
-function Modules.Overseer:_validateHooks()
-    for hookKey, hook in pairs(self.State.ValueHooks) do
-        if hook.enabled and hook.value == nil then
-            return false
-        end
-    end
-    for propKey, hook in pairs(self.State.PropertyHooks) do
-        if hook.enabled and hook.value == nil then
-            return false
-        end
-    end
-    return true
-end
-function Modules.Overseer:_generateObfuscatedName()
-    local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    local length = math.random(10, 20)
-    local result = ""
-    for i = 1, length do
-        local rand = math.random(1, #charset)
-        result = result .. charset:sub(rand, rand)
-    end
-    return result
-end
-function Modules.Overseer:_applyEnvironment(func, scriptInstance)
-    local fenv = {}
-    local realFenv = {script = scriptInstance}
-    local fenvMt = {}
-    fenvMt.__index = function(_, key)
-        return realFenv[key] or getfenv()[key]
-    end
-    fenvMt.__newindex = function(_, key, value)
-        if realFenv[key] == nil then
-            getfenv()[key] = value
-        else
-            realFenv[key] = value
-        end
-    end
-    setmetatable(fenv, fenvMt)
-    setfenv(func, fenv)
-    return func
-end
-function Modules.Overseer:_createButton(parent, text, size, position, bgColor, callback)
-    local btn = Instance.new("TextButton", parent)
-    btn.Size = size
-    btn.Position = position
-    btn.BackgroundColor3 = bgColor or self.Config.HOOK_COLOR
-    btn.Text = text
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.Code
-    btn.TextSize = 9
-    self:_applyStyle(btn, self.Config.CORNER_RADIUS)
-    if callback then
-        btn.MouseButton1Click:Connect(callback)
-    end
-    return btn
-end
-function Modules.Overseer:_createLabel(parent, text, size, position, textColor, bgColor)
-    local lbl = Instance.new("TextLabel", parent)
-    lbl.Size = size
-    lbl.Position = position
-    lbl.Text = text
-    lbl.TextColor3 = textColor or Color3.fromRGB(150, 150, 150)
-    lbl.BackgroundColor3 = bgColor or Color3.new(0, 0, 0)
-    lbl.BackgroundTransparency = (bgColor == nil and 1 or 0.3)
-    lbl.Font = Enum.Font.Code
-    lbl.TextSize = 9
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.TextYAlignment = Enum.TextYAlignment.Center
-    return lbl
-end
-function Modules.Overseer:_createRow(parent, labelText, labelSize, labelColor)
-    local row = Instance.new("Frame", parent)
-    row.Size = UDim2.new(1, -10, 0, self.Config.ROW_HEIGHT)
-    row.BackgroundTransparency = 1
-    local label = Instance.new("TextLabel", row)
-    label.Size = labelSize or UDim2.new(0.6, 0, 1, 0)
-    label.Text = labelText
-    label.TextColor3 = labelColor or Color3.fromRGB(150, 150, 150)
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.Code
-    label.TextSize = 9
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.ClipsDescendants = true
-    return row, label
-end
-function Modules.Overseer:_initRemoteSpy()
-    if self.State.IsSpying then return end
-    self.State.IsSpying = true
-    local function hookRemotes(parent)
-        for _, child in ipairs(parent:GetDescendants()) do
-            if child:IsA("RemoteEvent") then
-                pcall(function()
-                    if child.FireServer and not child:GetAttribute("_OverseerHooked") then
-                        local original = child.FireServer
-                        if setreadonly then setreadonly(child, false) end
-                        child.FireServer = function(remoteself, ...)
-                            local args = {...}
-                            local parentName = remoteself.Parent and remoteself.Parent.Name or "Unknown"
-                            table.insert(Modules.Overseer.State.SpyCallLog, {
-                                Type = "FireServer",
-                                Remote = remoteself.Name or "Unknown",
-                                Parent = parentName,
-                                Args = args,
-                                Time = tick()
-                            })
-                            if #Modules.Overseer.State.SpyCallLog > Modules.Overseer.RemoteSpy.MaxLogSize then
-                                table.remove(Modules.Overseer.State.SpyCallLog, 1)
-                            end
-                            return original(remoteself, ...)
-                        end
-                        child:SetAttribute("_OverseerHooked", true)
-                        if setreadonly then setreadonly(child, true) end
-                    end
-                end)
-            elseif child:IsA("RemoteFunction") then
-                pcall(function()
-                    if child.InvokeServer and not child:GetAttribute("_OverseerHooked") then
-                        local original = child.InvokeServer
-                        if setreadonly then setreadonly(child, false) end
-                        child.InvokeServer = function(remoteself, ...)
-                            local args = {...}
-                            local parentName = remoteself.Parent and remoteself.Parent.Name or "Unknown"
-                            table.insert(Modules.Overseer.State.SpyCallLog, {
-                                Type = "InvokeServer",
-                                Remote = remoteself.Name or "Unknown",
-                                Parent = parentName,
-                                Args = args,
-                                Time = tick()
-                            })
-                            if #Modules.Overseer.State.SpyCallLog > Modules.Overseer.RemoteSpy.MaxLogSize then
-                                table.remove(Modules.Overseer.State.SpyCallLog, 1)
-                            end
-                            return original(remoteself, ...)
-                        end
-                        child:SetAttribute("_OverseerHooked", true)
-                        if setreadonly then setreadonly(child, true) end
-                    end
-                end)
-            end
-        end
-    end
-    hookRemotes(ReplicatedStorage)
-    hookRemotes(game)
-    local hookConnection; hookConnection = game.DescendantAdded:Connect(function(child)
-        if self.State.IsSpying then
-            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-                task.wait(0.1)
-                pcall(function()
-                    if child:IsA("RemoteEvent") and child.FireServer and not child:GetAttribute("_OverseerHooked") then
-                        local original = child.FireServer
-                        if setreadonly then setreadonly(child, false) end
-                        child.FireServer = function(remoteself, ...)
-                            local args = {...}
-                            local parentName = remoteself.Parent and remoteself.Parent.Name or "Unknown"
-                            table.insert(Modules.Overseer.State.SpyCallLog, {
-                                Type = "FireServer",
-                                Remote = remoteself.Name or "Unknown",
-                                Parent = parentName,
-                                Args = args,
-                                Time = tick()
-                            })
-                            if #Modules.Overseer.State.SpyCallLog > Modules.Overseer.RemoteSpy.MaxLogSize then
-                                table.remove(Modules.Overseer.State.SpyCallLog, 1)
-                            end
-                            return original(remoteself, ...)
-                        end
-                        child:SetAttribute("_OverseerHooked", true)
-                        if setreadonly then setreadonly(child, true) end
-                    elseif child:IsA("RemoteFunction") and child.InvokeServer and not child:GetAttribute("_OverseerHooked") then
-                        local original = child.InvokeServer
-                        if setreadonly then setreadonly(child, false) end
-                        child.InvokeServer = function(remoteself, ...)
-                            local args = {...}
-                            local parentName = remoteself.Parent and remoteself.Parent.Name or "Unknown"
-                            table.insert(Modules.Overseer.State.SpyCallLog, {
-                                Type = "InvokeServer",
-                                Remote = remoteself.Name or "Unknown",
-                                Parent = parentName,
-                                Args = args,
-                                Time = tick()
-                            })
-                            if #Modules.Overseer.State.SpyCallLog > Modules.Overseer.RemoteSpy.MaxLogSize then
-                                table.remove(Modules.Overseer.State.SpyCallLog, 1)
-                            end
-                            return original(remoteself, ...)
-                        end
-                        child:SetAttribute("_OverseerHooked", true)
-                        if setreadonly then setreadonly(child, true) end
-                    end
-                end)
-            end
-        end
-    end)
-    table.insert(self.State.HookedConnections, hookConnection)
-end
-function Modules.Overseer:_showRemoteSpy()
-    local ui = self.State.UI
-    ui.Grid.Visible = true
-    ui.CodeFrame.Visible = false
-    ui.Title.Text = "REMOTE SPY - " .. #self.State.SpyCallLog .. " CALLS"
-    for _, v in ipairs(ui.Grid:GetChildren()) do
-        if not v:IsA("UIListLayout") then v:Destroy() end
-    end
-    local spyStatusLabel = Instance.new("TextLabel", ui.Grid)
-    spyStatusLabel.Size = UDim2.new(1, -10, 0, 30)
-    spyStatusLabel.BackgroundColor3 = self.State.IsSpying and Color3.fromRGB(20, 40, 20) or Color3.fromRGB(40, 20, 20)
-    spyStatusLabel.Text = "SPY STATUS: " .. (self.State.IsSpying and "ACTIVE" or "INACTIVE")
-    spyStatusLabel.TextColor3 = self.State.IsSpying and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
-    spyStatusLabel.Font = Enum.Font.Code
-    spyStatusLabel.TextSize = 10
-    self:_applyStyle(spyStatusLabel, 2)
-    if not self.State.IsSpying then
-        local startBtn = Instance.new("TextButton", ui.Grid)
-        startBtn.Size = UDim2.new(0.9, 0, 0, 35)
-        startBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 40)
-        startBtn.Text = "START SPYING ON ALL REMOTES"
-        startBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
-        startBtn.Font = Enum.Font.Code
-        startBtn.TextSize = 10
-        self:_applyStyle(startBtn, 2)
-        startBtn.MouseButton1Click:Connect(function()
-            self:_initRemoteSpy()
-            self:_showRemoteSpy()
-        end)
-    end
-    if #self.State.SpyCallLog > 0 then
-        local logLabel = Instance.new("TextLabel", ui.Grid)
-        logLabel.Size = UDim2.new(1, 0, 0, 20)
-        logLabel.Text = " CALL HISTORY (Most Recent First)"
-        logLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
-        logLabel.BackgroundTransparency = 1
-        logLabel.Font = Enum.Font.Code
-        logLabel.TextSize = 9
-        for i = math.min(30, #self.State.SpyCallLog), 1, -1 do
-            local call = self.State.SpyCallLog[i]
-            if call and call.Remote then
-                local row, label = self:_createRow(ui.Grid, "", UDim2.new(0.7, 0, 1, 0))
-                local parentName = call.Parent or "Unknown"
-                local callText = "[" .. call.Type .. "] " .. call.Remote .. " | Parent: " .. parentName
-                label.Text = callText
-                label.TextColor3 = (call.Type == "FireServer" and Color3.fromRGB(100, 150, 255) or Color3.fromRGB(150, 100, 255))
-                local argsBtn = Instance.new("TextButton", row)
-                argsBtn.Size = UDim2.new(0, 60, 0, 24)
-                argsBtn.Position = UDim2.fromScale(0.72, 0.15)
-                argsBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 100)
-                argsBtn.Text = "ARGS (" .. (#call.Args or 0) .. ")"
-                argsBtn.TextColor3 = Color3.fromRGB(200, 200, 255)
-                argsBtn.Font = Enum.Font.Code
-                argsBtn.TextSize = 7
-                self:_applyStyle(argsBtn, 2)
-                argsBtn.MouseButton1Click:Connect(function()
-                    self:_showRemoteArgs(call)
-                end)
-            end
-        end
-    end
-end
-function Modules.Overseer:_showRemoteArgs(callInfo)
-    local ui = self.State.UI
-    ui.Grid.Visible = false
-    ui.CodeFrame.Visible = true
-    ui.Title.Text = "REMOTE ARGS: " .. callInfo.Remote
-    local argText = "[" .. callInfo.Type .. "] " .. callInfo.Remote .. "\n\n"
-    for i, arg in ipairs(callInfo.Args) do
-        local argType = type(arg)
-        if argType == "table" then
-            argText = argText .. "Arg[" .. i .. "]: TABLE\n"
-            for k, v in pairs(arg) do
-                argText = argText .. "  [" .. tostring(k) .. "] = " .. tostring(v) .. "\n"
-            end
-        else
-            argText = argText .. "Arg[" .. i .. "]: " .. argType:upper() .. " = " .. tostring(arg) .. "\n"
-        end
-    end
-    ui.CodeBox.Text = argText
-    ui.CodeBox.TextEditable = false
-end
-local c_check = clonefunction(checkcaller)
-local c_rawset = clonefunction(rawset)
-local c_getmt = clonefunction(getrawmetatable)
-function Modules.Overseer:_hookValue(tbl, key, value, valueType)
-    local hookKey = tostring(tbl) .. ":" .. tostring(key)
-    if self.State.ValueHooks[hookKey] then
-        self.State.ValueHooks[hookKey].enabled = true
-        return
-    end
-    self.State.ValueHooks[hookKey] = {
-        table = tbl,
-        key = key,
-        value = value,
-        type = valueType,
-        enabled = true,
-        originalMt = getrawmetatable and getrawmetatable(tbl)
-    }
-    pcall(function()
-        if setreadonly then setreadonly(tbl, false) elseif make_writeable then make_writeable(tbl) end
-        rawset(tbl, key, value)
-        if setreadonly then setreadonly(tbl, true) end
-    end)
-    if getrawmetatable then
-        local mt = getrawmetatable(tbl)
-        if mt then
-            pcall(function()
-                if setreadonly then setreadonly(mt, false) elseif make_writeable then make_writeable(mt) end
-                local originalNewindex = rawget(mt, "__newindex")
-                rawset(mt, "__newindex", function(t, k, v)
-                    if k == key then
-                        rawset(tbl, key, value)
-                    elseif type(originalNewindex) == "function" then
-                        originalNewindex(t, k, v)
-                    else
-                        rawset(t, k, v)
-                    end
-                end)
-                if setreadonly then setreadonly(mt, true) end
-            end)
-        end
-    end
-end
-function Modules.Overseer:_unhookValue(tbl, key)
-    local hookKey = tostring(tbl) .. ":" .. tostring(key)
-    self.State.ValueHooks[hookKey] = nil
-end
-function Modules.Overseer:_hookProperty(instance, property, value)
-    if not instance or not instance:IsA("Instance") then return end
-    local propKey = tostring(instance) .. ":" .. property
-    self.State.PropertyHooks[propKey] = {
-        instance = instance,
-        property = property,
-        value = value,
-        enabled = true
-    }
-    pcall(function()
-        instance[property] = value
-    end)
-    if self.State.HookedConnections[propKey] then
-        pcall(function() self.State.HookedConnections[propKey]:Disconnect() end)
-    end
-    self.State.HookedConnections[propKey] = RunService.Heartbeat:Connect(function()
-        if self.State.PropertyHooks[propKey] and self.State.PropertyHooks[propKey].enabled then
-            pcall(function()
-                if instance and instance.Parent and instance[property] ~= value then
-                    instance[property] = value
-                elseif not instance or not instance.Parent then
-                    self:_unhookProperty(instance, property)
-                end
-            end)
-        end
-    end)
-end
-function Modules.Overseer:_unhookProperty(instance, property)
-    local propKey = tostring(instance) .. ":" .. property
-    if self.State.HookedConnections[propKey] then
-        self.State.HookedConnections[propKey]:Disconnect()
-        self.State.HookedConnections[propKey] = nil
-    end
-    self.State.PropertyHooks[propKey] = nil
-end
-function Modules.Overseer:_getPatchStatus()
-    local active = 0
-    local valueHooks = 0
-    local propHooks = 0
-    for _, _ in pairs(self.State.ActivePatches) do active = active + 1 end
-    for _, hook in pairs(self.State.ValueHooks) do if hook.enabled then valueHooks = valueHooks + 1 end end
-    for _, hook in pairs(self.State.PropertyHooks) do if hook.enabled then propHooks = propHooks + 1 end end
-    return active, valueHooks, propHooks
-end
-function Modules.Overseer:_filterTableByType(tbl, typeFilter)
-    if not tbl or type(tbl) ~= "table" then return {} end
-    local results = {}
-    for k, v in pairs(tbl) do
-        local vType = type(v)
-        if typeFilter == "all" or vType == typeFilter then
-            table.insert(results, {key = k, value = v, type = vType})
-        end
-    end
-    return results
-end
-function Modules.Overseer:_searchInTable(tbl, searchTerm)
-    local results = {}
-    searchTerm = searchTerm:lower()
-    for k, v in pairs(tbl) do
-        local keyStr = tostring(k):lower()
-        local valStr = tostring(v):lower()
-        if keyStr:find(searchTerm) or valStr:find(searchTerm) then
-            table.insert(results, {key = k, value = v, type = type(v)})
-        end
-    end
-    return results
-end
-function Modules.Overseer:_getAllValuesOfType(typeFilter, searchDepth)
-    searchDepth = searchDepth or 2
-    local results = {}
-    local scanned = {}
-    local maxResults = 100
-    local function scanTable(tbl, depth, path)
-        if scanned[tbl] or depth <= 0 or #results >= maxResults then return end
-        if type(tbl) ~= "table" then return end
-        scanned[tbl] = true
-        local success, pairs_result = pcall(function()
-            local count = 0
-            for k, v in pairs(tbl) do
-                if count > 50 then break end
-                count = count + 1
-                if type(v) == typeFilter then
-                    table.insert(results, {
-                        path = path .. "." .. tostring(k),
-                        key = k,
-                        value = v,
-                        type = typeFilter,
-                        table = tbl
-                    })
-                elseif type(v) == "table" and depth > 0 and not scanned[v] then
-                    local tableSafe, _ = pcall(function() return pairs(v) end)
-                    if tableSafe then
-                        scanTable(v, depth - 1, path .. "." .. tostring(k))
-                    end
-                end
-                if #results >= maxResults then break end
-            end
-        end)
-        if not success then
-            return
-        end
-    end
-    pcall(function()
-        if _G then scanTable(_G, searchDepth, "_G") end
-    end)
-    return results
-end
-function Modules.Overseer:_applyPatch(tbl, key, val, isFunc)
-    if not tbl or type(tbl) ~= "table" then return false end
-    if not self.State.ActivePatches[tbl] then
-        self.State.ActivePatches[tbl] = {}
-    end
-    self.State.ActivePatches[tbl][key] = {Value = val, Locked = true, IsFunction = isFunc}
-    pcall(function()
-        if setreadonly then setreadonly(tbl, false) elseif make_writeable then make_writeable(tbl) end
-        if isFunc then
-            if val == "TRUE" then
-                rawset(tbl, key, function() return true end)
-            elseif val == "FALSE" then
-                rawset(tbl, key, function() return false end)
-            else
-                rawset(tbl, key, val)
-            end
-        else
-            rawset(tbl, key, val)
-        end
-        if setreadonly then setreadonly(tbl, true) end
-    end)
-    if getrawmetatable then
-        pcall(function()
-            local mt = getrawmetatable(tbl)
-            if mt then
-                if setreadonly then setreadonly(mt, false) end
-                local oldIndex = rawget(mt, "__index")
-                rawset(mt, "__index", function(t, k)
-                    if k == key then
-                        return val
-                    elseif type(oldIndex) == "function" then
-                        return oldIndex(t, k)
-                    elseif type(oldIndex) == "table" then
-                        return oldIndex[k]
-                    end
-                end)
-                if setreadonly then setreadonly(mt, true) end
-            end
-        end)
-    end
-    return true
-end
-function Modules.Overseer:_getUpvalues(func, depth, maxDepth)
-    depth = depth or 0
-    maxDepth = maxDepth or 5
-    if depth > maxDepth then return {} end
-    local upvalues = {}
-    local success, result = pcall(debug.getupvalues, func)
-    if success and result then
-        for i, uv in ipairs(result) do
-            local uvType = type(uv)
-            upvalues[i] = {
-                Index = i,
-                Value = uv,
-                Type = uvType,
-                IsFunction = uvType == "function",
-                IsTable = uvType == "table",
-                ChildUpvalues = uvType == "function" and self:_getUpvalues(uv, depth + 1, maxDepth) or {}
-            }
-        end
-    end
-    return upvalues
-end
-function Modules.Overseer:_patchEnvironment(func, varName, varValue)
-    if type(func) ~= "function" then return false end
-    return pcall(function()
-        local env = getfenv(func)
-        if not env then env = {} end
-        if setreadonly then setreadonly(env, false) end
-        env[varName] = varValue
-        if setreadonly then setreadonly(env, true) end
-        setfenv(func, env)
-    end)
-end
-function Modules.Overseer:_batchPatch(tbl, patches)
-    if type(patches) ~= "table" then return 0 end
-    local count = 0
-    for key, value in pairs(patches) do
-        if self:_applyPatch(tbl, key, value, false) then
-            count = count + 1
-        end
-    end
-    return count
-end
-function Modules.Overseer:_clearPatches(tbl)
-    if not tbl or type(tbl) ~= "table" then return false end
-    pcall(function()
-        if setreadonly then setreadonly(tbl, false) end
-        if self.State.ActivePatches[tbl] then
-            for key, _ in pairs(self.State.ActivePatches[tbl]) do
-                if not key:find("^__") then
-                    pcall(function() rawset(tbl, key, nil) end)
-                end
-            end
-        end
-        if setreadonly then setreadonly(tbl, true) end
-    end)
-    self.State.ActivePatches[tbl] = nil
-    return true
-end
-function Modules.Overseer:_scanMetatable(tbl)
-    if not getrawmetatable then return nil end
-    local mt = c_getmt(tbl)
-    if not mt then return nil end
-    if setreadonly then setreadonly(mt, false) elseif make_writeable then make_writeable(mt) end
-    local metamethods = {}
-    for k, v in pairs(mt) do
-        if type(v) == "function" then
-            metamethods[k] = {
-                Value = v,
-                Type = "function",
-                Upvalues = self:_getUpvalues(v),
-                OriginalUpvalues = self:_getUpvalues(v)
-            }
-        else
-            metamethods[k] = {Value = v, Type = type(v)}
-        end
-    end
-    return {
-        Metatable = mt,
-        Methods = metamethods
-    }
-end
-function Modules.Overseer:_patchMetamethod(tbl, metamethod, newFunc)
-    if not getrawmetatable then return false end
-    if not tbl or type(tbl) ~= "table" then return false end
-    return pcall(function()
-        local mt = getrawmetatable(tbl)
-        if not mt then
-            mt = {}
-            setmetatable(tbl, mt)
-        end
-        if setreadonly then setreadonly(mt, false) end
-        rawset(mt, metamethod, newFunc)
-        if setreadonly then setreadonly(mt, true) end
-        if not self.State.ActivePatches[tbl] then
-            self.State.ActivePatches[tbl] = {}
-        end
-        self.State.ActivePatches[tbl][metamethod] = {
-            Value = newFunc,
-            Locked = true,
-            IsFunction = true,
-            IsMetamethod = true
-        }
-    end)
-end
-function Modules.Overseer:_createUpvalueRow(uvIndex, uvData, parentFunc, ui)
-    local row = Instance.new("Frame", ui.Grid)
-    row.Size = UDim2.new(1, -10, 0, 35)
-    row.BackgroundTransparency = 1
-    local label = Instance.new("TextLabel", row)
-    label.Size = UDim2.new(0.4, 0, 1, 0)
-    label.Text = "  [" .. uvIndex .. "] " .. uvData.Type
-    label.TextColor3 = Color3.fromRGB(100, 200, 255)
-    label.Font = Enum.Font.Code
-    label.TextSize = 9
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.BackgroundTransparency = 1
-    label.ClipsDescendants = true
-    if uvData.IsTable then
-        local diveBtn = Instance.new("TextButton", row)
-        diveBtn.Size = UDim2.new(0, 100, 0, 24)
-        diveBtn.Position = UDim2.fromScale(0.42, 0.15)
-        diveBtn.BackgroundColor3 = Color3.fromRGB(30, 60, 80)
-        diveBtn.Text = "DIVE UV >"
-        diveBtn.TextColor3 = Color3.fromRGB(0, 200, 255)
-        diveBtn.Font = Enum.Font.Code
-        diveBtn.TextSize = 8
-        self:_applyStyle(diveBtn, 2)
-        diveBtn.MouseButton1Click:Connect(function()
-            table.insert(self.State.PathStack, self.State.CurrentTable)
-            self.State.CurrentTable = uvData.Value
-            self:PopulateGrid(uvData.Value, "[UV:" .. uvIndex .. "]")
-        end)
-    elseif uvData.IsFunction then
-        local uvBtn = Instance.new("TextButton", row)
-        uvBtn.Size = UDim2.new(0, 80, 0, 24)
-        uvBtn.Position = UDim2.fromScale(0.42, 0.15)
-        uvBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 100)
-        uvBtn.Text = "UVALS"
-        uvBtn.TextColor3 = Color3.fromRGB(150, 100, 255)
-        uvBtn.Font = Enum.Font.Code
-        uvBtn.TextSize = 8
-        self:_applyStyle(uvBtn, 2)
-        uvBtn.MouseButton1Click:Connect(function()
-            self:_showUpvaluesUI(uvData.Value, "[UV:" .. uvIndex .. "] Function")
-        end)
-        local viewBtn = Instance.new("TextButton", row)
-        viewBtn.Size = UDim2.new(0, 60, 0, 24)
-        viewBtn.Position = UDim2.fromScale(0.55, 0.15)
-        viewBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 60)
-        viewBtn.Text = "VIEW"
-        viewBtn.TextColor3 = Color3.fromRGB(255, 100, 255)
-        viewBtn.Font = Enum.Font.Code
-        viewBtn.TextSize = 8
-        self:_applyStyle(viewBtn, 2)
-        viewBtn.MouseButton1Click:Connect(function() self:_showSource(uvData.Value) end)
-    else
-        local box = Instance.new("TextBox", row)
-        box.Size = UDim2.new(0, 100, 0, 24)
-        box.Position = UDim2.fromScale(0.42, 0.15)
-        box.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
-        box.Text = tostring(uvData.Value)
-        box.TextColor3 = Color3.fromRGB(100, 200, 255)
-        box.Font = Enum.Font.Code
-        box.TextSize = 9
-        self:_applyStyle(box, 2)
-        box.FocusLost:Connect(function(enter)
-            if enter and parentFunc then
-                local newVal = tonumber(box.Text) or box.Text
-                self:_patchUpvalue(parentFunc, uvIndex, newVal)
-                box.Text = tostring(newVal)
-            end
-        end)
-    end
-end
-function Modules.Overseer:_showUpvaluesUI(func, funcName)
-    local ui = self.State.UI
-    self.State.ViewingCode = true
-    ui.Grid.Visible = false
-    ui.CodeFrame.Visible = true
-    ui.Title.Text = "UPVALUES: " .. funcName
-    ui.CodeBox.Text = "-- Scanning upvalues..."
-    task.spawn(function()
-        for _, v in ipairs(ui.Grid:GetChildren()) do
-            if not v:IsA("UIListLayout") then v:Destroy() end
-        end
-        ui.CodeFrame.Visible = false
-        ui.Grid.Visible = true
-        local upvalues = self:_getUpvalues(func)
-        if #upvalues == 0 then
-            local noUvLabel = Instance.new("TextLabel", ui.Grid)
-            noUvLabel.Size = UDim2.new(1, 0, 0, 20)
-            noUvLabel.Text = "  -- NO UPVALUES FOUND -- "
-            noUvLabel.TextColor3 = Color3.fromRGB(200, 100, 100)
-            noUvLabel.BackgroundTransparency = 1
-            noUvLabel.Font = Enum.Font.Code
-            noUvLabel.TextSize = 9
-        else
-            for _, uvData in ipairs(upvalues) do
-                self:_createUpvalueRow(uvData.Index, uvData, func, ui)
-                if uvData.IsFunction and #uvData.ChildUpvalues > 0 then
-                    for _, childUv in ipairs(uvData.ChildUpvalues) do
-                        local childRow = Instance.new("Frame", ui.Grid)
-                        childRow.Size = UDim2.new(1, -30, 0, 35)
-                        childRow.BackgroundTransparency = 1
-                        childRow.Position = UDim2.new(0, 20, 0, 0)
-                        local childLabel = Instance.new("TextLabel", childRow)
-                        childLabel.Size = UDim2.new(1, 0, 1, 0)
-                        childLabel.Text = "    └─[" .. childUv.Index .. "] " .. childUv.Type
-                        childLabel.TextColor3 = Color3.fromRGB(150, 150, 100)
-                        childLabel.Font = Enum.Font.Code
-                        childLabel.TextSize = 8
-                        childLabel.TextXAlignment = Enum.TextXAlignment.Left
-                        childLabel.BackgroundTransparency = 1
-                    end
-                end
-            end
-        end
-    end)
-end
-function Modules.Overseer:_showSource(target)
-    if not target or not self.State.UI then return end
-    local decompiler = (decompile or decompile_script)
-    local ui = self.State.UI
-    self.State.ViewingCode = true
-    ui.Grid.Visible = false
-    ui.CodeFrame.Visible = true
-    ui.CodeFrame.Name = "ViewMode"
-    local targetName = "Closure"
-    if type(target) == "table" and target.Name then
-        targetName = target.Name
-    elseif type(target) == "function" then
-        targetName = "Function"
-    end
-    ui.Title.Text = "DECOMPILING: " .. targetName
-    ui.CodeBox.Text = "-- Generating Source, please wait..."
-    task.spawn(function()
-        local success, src
-        if decompiler then
-            success, src = pcall(decompiler, target)
-        else
-            success, src = false, "-- [ERROR] Decompiler not available (decompile/decompile_script required)"
-        end
-        if self.State.UI and self.State.UI.CodeBox then
-            ui.CodeBox.Text = success and src or "-- [FAILURE] Decompilation error: " .. tostring(src)
-        end
-    end)
-end
-function Modules.Overseer:_showEditUI(target, targetName)
-    if not target or not self.State.UI then return end
-    local decompiler = (decompile or decompile_script)
-    local ui = self.State.UI
-    self.State.ViewingCode = true
-    ui.Grid.Visible = false
-    ui.CodeFrame.Visible = true
-    ui.CodeFrame.Name = "EditMode"
-    ui.Title.Text = "EDIT: " .. targetName
-    ui.CodeBox.Text = "-- Loading source..."
-    ui.CodeBox.TextEditable = true
-    ui.CodeBox.ClearTextOnFocus = false
-    task.spawn(function()
-        local success, src
-        if decompiler then
-            success, src = pcall(decompiler, target)
-        else
-            success, src = false, "-- [ERROR] Decompiler not available (decompile/decompile_script required)\n-- Module source editing not supported"
-        end
-        if self.State.UI and self.State.UI.CodeBox then
-            ui.CodeBox.Text = success and src or "-- [ERROR] Failed to decompile source\n" .. tostring(src)
-        end
-    end)
-end
-function Modules.Overseer:_createTableRow(k, v, src)
-    local ui = self.State.UI
-    local row = Instance.new("Frame", ui.Grid)
-    row.Size = UDim2.new(1, -10, 0, 35)
-    row.BackgroundTransparency = 1
-    local label = Instance.new("TextLabel", row)
-    label.Size = UDim2.new(0.35, 0, 1, 0)
-    label.Text = " " .. tostring(k)
-    label.TextColor3 = Color3.fromRGB(150, 150, 150)
-    label.Font = Enum.Font.Code
-    label.TextSize = 9
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.BackgroundTransparency = 1
-    label.ClipsDescendants = true
-    if type(v) == "table" then
-        local diveBtn = Instance.new("TextButton", row)
-        diveBtn.Size = UDim2.new(0, 100, 0, 24)
-        diveBtn.Position = UDim2.fromScale(0.37, 0.15)
-        diveBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-        diveBtn.Text = "DIVE >"
-        diveBtn.TextColor3 = self.Config.ACCENT_COLOR
-        diveBtn.Font = Enum.Font.Code
-        diveBtn.TextSize = 8
-        self:_applyStyle(diveBtn, 2)
-        diveBtn.MouseButton1Click:Connect(function()
-            table.insert(self.State.PathStack, src)
-            self:PopulateGrid(v, tostring(k))
-        end)
-    elseif type(v) == "function" then
-        local spoofBtn = Instance.new("TextButton", row)
-        spoofBtn.Size = UDim2.new(0, 40, 0, 24)
-        spoofBtn.Position = UDim2.fromScale(0.37, 0.15)
-        spoofBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-        spoofBtn.Text = "SPOOF"
-        spoofBtn.TextColor3 = Color3.new(1, 1, 1)
-        spoofBtn.Font = Enum.Font.Code
-        spoofBtn.TextSize = 7
-        self:_applyStyle(spoofBtn, 2)
-        local uvBtn = Instance.new("TextButton", row)
-        uvBtn.Size = UDim2.new(0, 40, 0, 24)
-        uvBtn.Position = UDim2.fromScale(0.45, 0.15)
-        uvBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 100)
-        uvBtn.Text = "UVALS"
-        uvBtn.TextColor3 = Color3.fromRGB(150, 100, 255)
-        uvBtn.Font = Enum.Font.Code
-        uvBtn.TextSize = 7
-        self:_applyStyle(uvBtn, 2)
-        uvBtn.MouseButton1Click:Connect(function()
-            self:_showUpvaluesUI(v, tostring(k))
-        end)
-        local viewBtn = Instance.new("TextButton", row)
-        viewBtn.Size = UDim2.new(0, 35, 0, 24)
-        viewBtn.Position = UDim2.fromScale(0.54, 0.15)
-        viewBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 60)
-        viewBtn.Text = "V"
-        viewBtn.TextColor3 = Color3.fromRGB(255, 100, 255)
-        viewBtn.Font = Enum.Font.Code
-        viewBtn.TextSize = 7
-        self:_applyStyle(viewBtn, 2)
-        viewBtn.MouseButton1Click:Connect(function()
-            self.State.EditTarget = src
-            self:_showSource(v)
-        end)
-        local editBtn = Instance.new("TextButton", row)
-        editBtn.Size = UDim2.new(0, 35, 0, 24)
-        editBtn.Position = UDim2.fromScale(0.615, 0.15)
-        editBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 50)
-        editBtn.Text = "E"
-        editBtn.TextColor3 = Color3.fromRGB(255, 180, 100)
-        editBtn.Font = Enum.Font.Code
-        editBtn.TextSize = 7
-        self:_applyStyle(editBtn, 2)
-        editBtn.MouseButton1Click:Connect(function()
-            self.State.EditTarget = src
-            self:_showEditUI(v, tostring(k) .. "()")
-        end)
-        local modes = {"NORMAL", "TRUE", "FALSE"}
-        local cur = 1
-        spoofBtn.MouseButton1Click:Connect(function()
-            cur = (cur % 3) + 1
-            local mode = modes[cur]
-            spoofBtn.Text = "F" .. string.sub(mode, 1, 1)
-            spoofBtn.BackgroundColor3 = (mode == "TRUE" and Color3.fromRGB(0, 200, 100)) or (mode == "FALSE" and Color3.fromRGB(200, 50, 50)) or Color3.fromRGB(50, 50, 70)
-            if mode == "NORMAL" then
-                if self.State.ActivePatches[src] then self.State.ActivePatches[src][k] = nil end
-            else
-                self:_applyPatch(src, k, mode, true)
-            end
-        end)
-    else
-        local valueType = type(v)
-        local box = Instance.new("TextBox", row)
-        box.Size = UDim2.new(0, 90, 0, 24)
-        box.Position = UDim2.fromScale(0.37, 0.15)
-        box.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
-        box.Text = tostring(v)
-        box.TextColor3 = self.Config.ACCENT_COLOR
-        box.Font = Enum.Font.Code
-        box.TextSize = 9
-        self:_applyStyle(box, 2)
-        box.FocusLost:Connect(function(enter)
-            if enter then
-                self:_applyPatch(src, k, tonumber(box.Text) or box.Text, false)
-            end
-        end)
-        if valueType == "number" then
-            local hookBtn = Instance.new("TextButton", row)
-            hookBtn.Size = UDim2.new(0, 45, 0, 24)
-            hookBtn.Position = UDim2.fromScale(0.545, 0.15)
-            hookBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 40)
-            hookBtn.Text = "HOOK"
-            hookBtn.TextColor3 = self.Config.HOOK_COLOR
-            hookBtn.Font = Enum.Font.Code
-            hookBtn.TextSize = 7
-            self:_applyStyle(hookBtn, 2)
-            hookBtn.MouseButton1Click:Connect(function()
-                local newVal = tonumber(box.Text) or v
-                self:_hookValue(src, k, newVal, valueType)
-                hookBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
-                hookBtn.Text = "HOOKED"
-                task.wait(0.5)
-                hookBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 40)
-                hookBtn.Text = "HOOK"
-            end)
-        end
-    end
-end
-function Modules.Overseer:PopulateGrid(targetTable, name)
-    local ui = self.State.UI
-    self.State.CurrentTable = targetTable
-    self.State.CurrentTypeFilter = nil
-    local active, valueHooks, propHooks = self:_getPatchStatus()
-    ui.Title.Text = "PATH: " .. (name or "Main") .. " [" .. active .. " patches | " .. valueHooks .. " value hooks]"
-    for _, v in ipairs(ui.Grid:GetChildren()) do
-        if not v:IsA("UIListLayout") then v:Destroy() end
-    end
-    local filterFrame = Instance.new("Frame", ui.Grid)
-    filterFrame.Size = UDim2.new(1, -10, 0, 40)
-    filterFrame.BackgroundTransparency = 0.8
-    filterFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    self:_applyStyle(filterFrame, 2)
-    local types = {"number", "string", "boolean", "function", "table"}
-    local typeButtons = {}
-    for i, typeStr in ipairs(types) do
-        local typeBtn = Instance.new("TextButton", filterFrame)
-        typeBtn.Size = UDim2.new(0, 80, 0, 25)
-        typeBtn.Position = UDim2.new(0, 10 + (i-1) * 90, 0.5, -12.5)
-        typeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-        typeBtn.Text = typeStr:upper()
-        typeBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-        typeBtn.Font = Enum.Font.Code
-        typeBtn.TextSize = 8
-        self:_applyStyle(typeBtn, 2)
-        typeBtn.MouseButton1Click:Connect(function()
-            self:_applyTypeFilter(targetTable, typeStr, name)
-            for _, btn in ipairs(typeButtons) do
-                btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-                btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-            end
-            typeBtn.BackgroundColor3 = Color3.fromRGB(60, 80, 100)
-            typeBtn.TextColor3 = Color3.fromRGB(100, 200, 255)
-        end)
-        table.insert(typeButtons, typeBtn)
-    end
-    local clearBtn = Instance.new("TextButton", filterFrame)
-    clearBtn.Size = UDim2.new(0, 60, 0, 25)
-    clearBtn.Position = UDim2.new(0, 10 + 5 * 90, 0.5, -12.5)
-    clearBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 40)
-    clearBtn.Text = "ALL"
-    clearBtn.TextColor3 = Color3.new(1, 1, 1)
-    clearBtn.Font = Enum.Font.Code
-    clearBtn.TextSize = 8
-    self:_applyStyle(clearBtn, 2)
-    clearBtn.MouseButton1Click:Connect(function()
-        for _, btn in ipairs(typeButtons) do
-            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-            btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-        end
-        clearBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 40)
-        clearBtn.TextColor3 = Color3.fromRGB(255, 200, 100)
-        self.State.CurrentTypeFilter = nil
-        self:_populateGridRows(targetTable)
-    end)
-    clearBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 40)
-    clearBtn.TextColor3 = Color3.fromRGB(255, 200, 100)
-    self:_populateGridRows(targetTable)
-end
-function Modules.Overseer:_populateGridRows(targetTable)
-    if not self.State.UI or not self.State.UI.Grid then return end
-    local ui = self.State.UI
-    if type(targetTable) ~= "table" then
-        local errorLabel = Instance.new("TextLabel", ui.Grid)
-        errorLabel.Size = UDim2.new(1, 0, 0, 30)
-        errorLabel.Text = "-- ERROR: Cannot display non-table value --"
-        errorLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-        errorLabel.BackgroundTransparency = 1
-        errorLabel.Font = Enum.Font.Code
-        errorLabel.TextSize = 10
-        return
-    end
-    local children = ui.Grid:GetChildren()
-    for i = #children, 1, -1 do
-        local v = children[i]
-        if v and v.Parent and not v:IsA("UIListLayout") and v.Name ~= "FilterFrame" then
-            v:Destroy()
-        end
-    end
-    local rowsToDisplay = targetTable
-    local isFiltered = false
-    if self.State.CurrentTypeFilter then
-        rowsToDisplay = self:_filterTableByType(targetTable, self.State.CurrentTypeFilter)
-        isFiltered = true
-    end
-    if isFiltered then
-        for _, item in ipairs(rowsToDisplay) do
-            if item and item.key then
-                self:_createTableRow(item.key, item.value, targetTable)
-            end
-        end
-    else
-        for k, v in pairs(rowsToDisplay) do
-            self:_createTableRow(k, v, targetTable)
-        end
-    end
-    local mt = getrawmetatable and getrawmetatable(targetTable)
-    if mt then
-        if setreadonly then setreadonly(mt, false) elseif make_writeable then make_writeable(mt) end
-        if mt.__index and type(mt.__index) == "table" then
-            local ghostLabel = Instance.new("TextLabel", ui.Grid)
-            ghostLabel.Size = UDim2.new(1, 0, 0, 20)
-            ghostLabel.Text = " -- GHOST INDEX (__index) -- "
-            ghostLabel.TextColor3 = Color3.fromRGB(255, 0, 255)
-            ghostLabel.BackgroundTransparency = 1
-            ghostLabel.Font = Enum.Font.Code
-            ghostLabel.TextSize = 9
-            for k, v in pairs(mt.__index) do
-                self:_createTableRow(k, v, mt.__index)
-            end
-        end
-        local metamethods = {}
-        for mmKey, mmVal in pairs(mt) do
-            if mmKey ~= "__index" and type(mmVal) == "function" then
-                table.insert(metamethods, {Key = mmKey, Value = mmVal})
-            end
-        end
-        if #metamethods > 0 then
-            local mmLabel = Instance.new("TextLabel", ui.Grid)
-            mmLabel.Size = UDim2.new(1, 0, 0, 20)
-            mmLabel.Text = " -- METAMETHODS -- "
-            mmLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
-            mmLabel.BackgroundTransparency = 1
-            mmLabel.Font = Enum.Font.Code
-            mmLabel.TextSize = 9
-            for _, mmData in ipairs(metamethods) do
-                local mmRow = Instance.new("Frame", ui.Grid)
-                mmRow.Size = UDim2.new(1, -10, 0, 35)
-                mmRow.BackgroundTransparency = 1
-                local mmLabel2 = Instance.new("TextLabel", mmRow)
-                mmLabel2.Size = UDim2.new(0.4, 0, 1, 0)
-                mmLabel2.Text = " " .. mmData.Key .. "()"
-                mmLabel2.TextColor3 = Color3.fromRGB(255, 200, 100)
-                mmLabel2.Font = Enum.Font.Code
-                mmLabel2.TextSize = 9
-                mmLabel2.TextXAlignment = Enum.TextXAlignment.Left
-                mmLabel2.BackgroundTransparency = 1
-                mmLabel2.ClipsDescendants = true
-                local uvBtn = Instance.new("TextButton", mmRow)
-                uvBtn.Size = UDim2.new(0, 65, 0, 24)
-                uvBtn.Position = UDim2.fromScale(0.42, 0.15)
-                uvBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 100)
-                uvBtn.Text = "UVALS"
-                uvBtn.TextColor3 = Color3.fromRGB(150, 100, 255)
-                uvBtn.Font = Enum.Font.Code
-                uvBtn.TextSize = 8
-                self:_applyStyle(uvBtn, 2)
-                uvBtn.MouseButton1Click:Connect(function()
-                    self:_showUpvaluesUI(mmData.Value, mmData.Key .. "() metamethod")
-                end)
-                local viewBtn = Instance.new("TextButton", mmRow)
-                viewBtn.Size = UDim2.new(0, 65, 0, 24)
-                viewBtn.Position = UDim2.fromScale(0.54, 0.15)
-                viewBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 60)
-                viewBtn.Text = "VIEW"
-                viewBtn.TextColor3 = Color3.fromRGB(255, 100, 255)
-                viewBtn.Font = Enum.Font.Code
-                viewBtn.TextSize = 8
-                self:_applyStyle(viewBtn, 2)
-                viewBtn.MouseButton1Click:Connect(function()
-                    self:_showSource(mmData.Value)
-                end)
-            end
-        end
-    end
-end
-function Modules.Overseer:_applyTypeFilter(targetTable, typeFilter, name)
-    self.State.CurrentTypeFilter = typeFilter
-    local ui = self.State.UI
-    ui.Title.Text = "FILTERED BY: " .. typeFilter:upper() .. " in " .. (name or "Main")
-    self:_populateGridRows(targetTable)
-end
-function Modules.Overseer:AddModuleToList(mod)
-    local n = mod.Name:lower()
-    if n:find("chat") or n:find("roblox") then return end
-    local ui = self.State.UI
-    local container = Instance.new("Frame", ui.Sidebar)
-    container.Size = UDim2.new(1, -5, 0, 25)
-    container.BackgroundTransparency = 1
-    local isScript = mod:IsA("LocalScript") or mod:IsA("Script")
-    local displayName = " [" .. mod.ClassName .. "] " .. mod.Name
-    local isDisabled = self.State.DisabledModules[mod]
-    local b = Instance.new("TextButton", container)
-    b.Size = UDim2.new(0.55, 0, 1, 0)
-    b.Text = displayName
-    b.BackgroundColor3 = isDisabled and Color3.fromRGB(40, 20, 20) or (isScript and Color3.fromRGB(25, 20, 20) or Color3.fromRGB(20, 20, 25))
-    b.TextColor3 = isDisabled and Color3.fromRGB(100, 50, 50) or Color3.new(0.8, 0.8, 0.8)
-    b.Font = Enum.Font.Code
-    b.TextXAlignment = Enum.TextXAlignment.Left
-    b.ClipsDescendants = true
-    self:_applyStyle(b, 2)
-    local disB = Instance.new("TextButton", container)
-    disB.Size = UDim2.new(0.12, 0, 1, 0)
-    disB.Position = UDim2.fromScale(0.55, 0)
-    disB.BackgroundColor3 = isDisabled and Color3.fromRGB(80, 40, 40) or Color3.fromRGB(40, 80, 40)
-    disB.Text = isDisabled and "✗" or "✓"
-    disB.TextColor3 = Color3.new(1, 1, 1)
-    disB.Font = Enum.Font.Code
-    disB.TextSize = 10
-    self:_applyStyle(disB, 2)
-    local srcB = Instance.new("TextButton", container)
-    srcB.Size = UDim2.new(0.12, 0, 1, 0)
-    srcB.Position = UDim2.fromScale(0.67, 0)
-    srcB.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    srcB.Text = "V"
-    srcB.TextColor3 = Color3.fromRGB(100, 200, 255)
-    srcB.Font = Enum.Font.Code
-    srcB.TextSize = 8
-    self:_applyStyle(srcB, 2)
-    local editB = Instance.new("TextButton", container)
-    editB.Size = UDim2.new(0.16, 0, 1, 0)
-    editB.Position = UDim2.fromScale(0.79, 0)
-    editB.BackgroundColor3 = Color3.fromRGB(50, 40, 30)
-    editB.Text = "E"
-    editB.TextColor3 = Color3.fromRGB(255, 180, 100)
-    editB.Font = Enum.Font.Code
-    editB.TextSize = 8
-    self:_applyStyle(editB, 2)
-    self.State.SidebarButtons[container] = mod.Name
-    disB.MouseButton1Click:Connect(function()
-        local isCurrentlyDisabled = self.State.DisabledModules[mod]
-        self.State.DisabledModules[mod] = not isCurrentlyDisabled
-        if self.State.DisabledModules[mod] then
-            disB.BackgroundColor3 = Color3.fromRGB(80, 40, 40)
-            disB.Text = "✗"
-            b.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
-            b.TextColor3 = Color3.fromRGB(100, 50, 50)
-            self:_cleanupModuleHooks(mod)
-        else
-            disB.BackgroundColor3 = Color3.fromRGB(40, 80, 40)
-            disB.Text = "✓"
-            b.BackgroundColor3 = isScript and Color3.fromRGB(25, 20, 20) or Color3.fromRGB(20, 20, 25)
-            b.TextColor3 = Color3.new(0.8, 0.8, 0.8)
-        end
-    end)
-    b.MouseButton1Click:Connect(function()
-        if self.State.DisabledModules[mod] then
-            self:_showErrorInGrid("-- ERROR: Module is disabled --")
-            return
-        end
-        if not mod or not mod.Parent then
-            self:_showErrorInGrid("-- ERROR: Module has been destroyed --")
-            return
-        end
-        self.State.SelectedModule = mod
-        self.State.PathStack = {}
-        if isScript then
-            self:_showSource(mod)
-        else
-            local success, result = pcall(function()
-                if not mod or not mod.Parent then
-                    error("Module has been destroyed")
-                end
-                return require(mod)
-            end)
-            if success and type(result) == "table" then
-                self:PopulateGrid(result, mod.Name)
-            else
-                self:_showSource(mod)
-            end
-        end
-    end)
-    srcB.MouseButton1Click:Connect(function()
-        if self.State.DisabledModules[mod] then
-            self.State.UI.CodeBox.Text = "-- ERROR: Module is disabled --"
-            return
-        end
-        if not mod or not mod.Parent then
-            self.State.UI.CodeBox.Text = "-- ERROR: Module has been destroyed --"
-            return
-        end
-        self.State.EditTarget = mod
-        self:_showSource(mod)
-    end)
-    editB.MouseButton1Click:Connect(function()
-        if self.State.DisabledModules[mod] then
-            self.State.UI.CodeBox.Text = "-- ERROR: Module is disabled --"
-            return
-        end
-        if not mod or not mod.Parent then
-            self.State.UI.CodeBox.Text = "-- ERROR: Module has been destroyed --"
-            return
-        end
-        self.State.EditTarget = mod
-        self:_showEditUI(mod, displayName)
-    end)
-end
-function Modules.Overseer:_createInstanceRow(inst, parent)
-    local ui = self.State.UI
-    local row = Instance.new("Frame", ui.Grid)
-    row.Size = UDim2.new(1, -10, 0, 35)
-    row.BackgroundTransparency = 1
-    local label = Instance.new("TextLabel", row)
-    label.Size = UDim2.new(0.55, 0, 1, 0)
-    label.Text = " " .. inst.Name .. " (" .. inst.ClassName .. ")"
-    label.TextColor3 = Color3.fromRGB(150, 200, 255)
-    label.Font = Enum.Font.Code
-    label.TextSize = 9
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.BackgroundTransparency = 1
-    label.ClipsDescendants = true
-    if #inst:GetChildren() > 0 then
-        local expandBtn = Instance.new("TextButton", row)
-        expandBtn.Size = UDim2.new(0, 50, 0, 24)
-        expandBtn.Position = UDim2.fromScale(0.57, 0.15)
-        expandBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 80)
-        expandBtn.Text = "EXPAND"
-        expandBtn.TextColor3 = Color3.fromRGB(0, 200, 255)
-        expandBtn.Font = Enum.Font.Code
-        expandBtn.TextSize = 7
-        self:_applyStyle(expandBtn, 2)
-        expandBtn.MouseButton1Click:Connect(function()
-            table.insert(self.State.ExplorerPath, inst)
-            self:PopulateExplorer(inst)
-        end)
-    end
-    if inst:IsA("ModuleScript") or inst:IsA("Script") or inst:IsA("LocalScript") then
-        local poisonBtn = Instance.new("TextButton", row)
-        poisonBtn.Size = UDim2.new(0, 50, 0, 24)
-        poisonBtn.Position = UDim2.fromScale(0.72, 0.15)
-        poisonBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 60)
-        poisonBtn.Text = "POISON"
-        poisonBtn.TextColor3 = Color3.fromRGB(255, 100, 255)
-        poisonBtn.Font = Enum.Font.Code
-        poisonBtn.TextSize = 7
-        self:_applyStyle(poisonBtn, 2)
-        poisonBtn.MouseButton1Click:Connect(function()
-            self.State.SelectedModule = inst
-            self.State.PathStack = {}
-            self.State.CurrentMode = "modules"
-            if inst:IsA("ModuleScript") then
-                local success, result = pcall(require, inst)
-                if success then
-                    self:PopulateGrid(result, inst.Name)
-                end
-            else
-                self:_showSource(inst)
-            end
-        end)
-    elseif inst:IsA("GuiObject") or inst:IsA("Part") or inst:IsA("BasePart") then
-        local propBtn = Instance.new("TextButton", row)
-        propBtn.Size = UDim2.new(0, 50, 0, 24)
-        propBtn.Position = UDim2.fromScale(0.72, 0.15)
-        propBtn.BackgroundColor3 = Color3.fromRGB(60, 50, 40)
-        propBtn.Text = "PROPS"
-        propBtn.TextColor3 = Color3.fromRGB(255, 180, 100)
-        propBtn.Font = Enum.Font.Code
-        propBtn.TextSize = 7
-        self:_applyStyle(propBtn, 2)
-        propBtn.MouseButton1Click:Connect(function()
-            self:_showInstanceProperties(inst)
-        end)
-    end
-end
-function Modules.Overseer:PopulateExplorer(instance)
-    local ui = self.State.UI
-    self.State.ExplorerInstance = instance
-    local pathStr = ""
-    for i, inst in ipairs(self.State.ExplorerPath) do
-        pathStr = pathStr .. inst.Name .. "/"
-    end
-    pathStr = pathStr .. instance.Name
-    ui.Title.Text = "EXPLORER: " .. pathStr
-    for _, v in ipairs(ui.Grid:GetChildren()) do
-        if not v:IsA("UIListLayout") then v:Destroy() end
-    end
-    local children = instance:GetChildren()
-    if #children == 0 then
-        local emptyLabel = Instance.new("TextLabel", ui.Grid)
-        emptyLabel.Size = UDim2.new(1, 0, 0, 20)
-        emptyLabel.Text = "  -- NO CHILDREN -- "
-        emptyLabel.TextColor3 = Color3.fromRGB(200, 100, 100)
-        emptyLabel.BackgroundTransparency = 1
-        emptyLabel.Font = Enum.Font.Code
-        emptyLabel.TextSize = 9
-    else
-        for _, child in ipairs(children) do
-            self:_createInstanceRow(child, instance)
-        end
-    end
-end
-function Modules.Overseer:_showGlobalTypeSearch()
-    local ui = self.State.UI
-    self.State.ViewingCode = true
-    ui.Grid.Visible = false
-    ui.CodeFrame.Visible = true
-    ui.Title.Text = "GLOBAL TYPE SEARCH"
-    ui.CodeBox.TextEditable = false
-    for _, v in ipairs(ui.Grid:GetChildren()) do
-        if not v:IsA("UIListLayout") then v:Destroy() end
-    end
-    local searchLabel = Instance.new("TextLabel", ui.Grid)
-    searchLabel.Size = UDim2.new(1, -10, 0, 30)
-    searchLabel.Text = "Select a type to search globally..."
-    searchLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    searchLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    searchLabel.Font = Enum.Font.Code
-    searchLabel.TextSize = 10
-    self:_applyStyle(searchLabel, 2)
-    local types = {"number", "string", "boolean", "function", "table"}
-    for i, typeStr in ipairs(types) do
-        local typeBtn = Instance.new("TextButton", ui.Grid)
-        typeBtn.Size = UDim2.new(0.9, 0, 0, 35)
-        typeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-        typeBtn.Text = "SEARCH: " .. typeStr:upper() .. " (Click to start)"
-        typeBtn.TextColor3 = Color3.fromRGB(100, 200, 255)
-        typeBtn.Font = Enum.Font.Code
-        typeBtn.TextSize = 9
-        self:_applyStyle(typeBtn, 2)
-        typeBtn.MouseButton1Click:Connect(function()
-            self:_displayGlobalSearchResults(typeStr)
-        end)
-    end
-end
-function Modules.Overseer:_displayGlobalSearchResults(typeFilter)
-    local ui = self.State.UI
-    for _, v in ipairs(ui.Grid:GetChildren()) do
-        if not v:IsA("UIListLayout") then v:Destroy() end
-    end
-    ui.CodeBox.Text = "Searching for all " .. typeFilter .. " values...\nThis may take a moment...\n\n"
-    local results = self:_getAllValuesOfType(typeFilter, 3)
-    ui.CodeBox.Text = "Found " .. #results .. " " .. typeFilter .. " values:\n\n"
-    local headerLabel = Instance.new("TextLabel", ui.Grid)
-    headerLabel.Size = UDim2.new(1, -10, 0, 25)
-    headerLabel.Text = "FOUND " .. #results .. " RESULTS - Click to dive into"
-    headerLabel.TextColor3 = self.Config.HOOK_COLOR
-    headerLabel.BackgroundColor3 = Color3.fromRGB(20, 30, 20)
-    headerLabel.Font = Enum.Font.Code
-    headerLabel.TextSize = 10
-    self:_applyStyle(headerLabel, 2)
-    for i, result in ipairs(results) do
-        if i > 50 then
-            local moreLabel = Instance.new("TextLabel", ui.Grid)
-            moreLabel.Size = UDim2.new(1, -10, 0, 20)
-            moreLabel.Text = "... and " .. (#results - 50) .. " more"
-            moreLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-            moreLabel.BackgroundTransparency = 1
-            moreLabel.Font = Enum.Font.Code
-            moreLabel.TextSize = 9
-            break
-        end
-        local resultRow = Instance.new("Frame", ui.Grid)
-        resultRow.Size = UDim2.new(1, -10, 0, 35)
-        resultRow.BackgroundTransparency = 1
-        local resultLabel = Instance.new("TextLabel", resultRow)
-        resultLabel.Size = UDim2.new(0.7, 0, 1, 0)
-        resultLabel.Text = " " .. result.path
-        resultLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
-        resultLabel.Font = Enum.Font.Code
-        resultLabel.TextSize = 8
-        resultLabel.TextXAlignment = Enum.TextXAlignment.Left
-        resultLabel.BackgroundTransparency = 1
-        resultLabel.ClipsDescendants = true
-        local diveBtn = Instance.new("TextButton", resultRow)
-        diveBtn.Size = UDim2.new(0, 55, 0, 24)
-        diveBtn.Position = UDim2.fromScale(0.72, 0.15)
-        diveBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 80)
-        diveBtn.Text = "DIVE"
-        diveBtn.TextColor3 = Color3.fromRGB(0, 200, 255)
-        diveBtn.Font = Enum.Font.Code
-        diveBtn.TextSize = 8
-        self:_applyStyle(diveBtn, 2)
-        diveBtn.MouseButton1Click:Connect(function()
-            if type(result.value) == "table" then
-                table.insert(self.State.PathStack, self.State.CurrentTable)
-                self.State.CurrentTable = result.value
-                self:PopulateGrid(result.value, result.path)
-            end
-        end)
-    end
-end
-function Modules.Overseer:_showInstanceProperties(inst)
-    local ui = self.State.UI
-    self.State.ViewingCode = true
-    ui.Grid.Visible = false
-    ui.CodeFrame.Visible = true
-    ui.Title.Text = "PROPERTIES: " .. inst.Name
-    ui.CodeBox.TextEditable = false
-    for _, v in ipairs(ui.Grid:GetChildren()) do
-        if not v:IsA("UIListLayout") then v:Destroy() end
-    end
-    local properties = {}
-    pcall(function()
-        properties = inst:GetProperties()
-    end)
-    if #properties == 0 then
-        ui.CodeBox.Text = "-- No properties accessible"
-        return
-    end
-    for _, prop in ipairs(properties) do
-        local success, val = pcall(function() return inst[prop] end)
-        if success then
-            local propRow = Instance.new("Frame", ui.Grid)
-            propRow.Size = UDim2.new(1, -10, 0, 35)
-            propRow.BackgroundTransparency = 1
-            local label = Instance.new("TextLabel", propRow)
-            label.Size = UDim2.new(0.4, 0, 1, 0)
-            label.Text = " " .. prop
-            label.TextColor3 = Color3.fromRGB(150, 200, 255)
-            label.Font = Enum.Font.Code
-            label.TextSize = 8
-            label.TextXAlignment = Enum.TextXAlignment.Left
-            label.BackgroundTransparency = 1
-            label.ClipsDescendants = true
-            if type(val) == "number" then
-                local box = Instance.new("TextBox", propRow)
-                box.Size = UDim2.new(0, 80, 0, 24)
-                box.Position = UDim2.fromScale(0.42, 0.15)
-                box.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
-                box.Text = tostring(val)
-                box.TextColor3 = Color3.fromRGB(100, 200, 255)
-                box.Font = Enum.Font.Code
-                box.TextSize = 8
-                self:_applyStyle(box, 2)
-                box.FocusLost:Connect(function(enter)
-                    if enter then
-                        pcall(function()
-                            inst[prop] = tonumber(box.Text) or val
-                        end)
-                    end
-                end)
-                local hookBtn = Instance.new("TextButton", propRow)
-                hookBtn.Size = UDim2.new(0, 45, 0, 24)
-                hookBtn.Position = UDim2.fromScale(0.545, 0.15)
-                hookBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 40)
-                hookBtn.Text = "HOOK"
-                hookBtn.TextColor3 = self.Config.HOOK_COLOR
-                hookBtn.Font = Enum.Font.Code
-                hookBtn.TextSize = 7
-                self:_applyStyle(hookBtn, 2)
-                hookBtn.MouseButton1Click:Connect(function()
-                    local newVal = tonumber(box.Text) or val
-                    self:_hookProperty(inst, prop, newVal)
-                    hookBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
-                    hookBtn.Text = "HOOKED"
-                    task.wait(0.5)
-                    hookBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 40)
-                    hookBtn.Text = "HOOK"
-                end)
-            else
-                local label2 = Instance.new("TextLabel", propRow)
-                label2.Size = UDim2.new(0.5, 0, 1, 0)
-                label2.Position = UDim2.fromScale(0.42, 0)
-                label2.Text = tostring(val)
-                label2.TextColor3 = Color3.fromRGB(150, 150, 150)
-                label2.Font = Enum.Font.Code
-                label2.TextSize = 8
-                label2.TextXAlignment = Enum.TextXAlignment.Left
-                label2.BackgroundTransparency = 1
-                label2.ClipsDescendants = true
-            end
-        end
-    end
-end
-function Modules.Overseer:_generatePoisonedVersion(originalCode)
-    local poisonedCode = "local ORIGINAL_SCRIPT = [[\n" .. originalCode .. "\n]]\n\n"
-    poisonedCode = poisonedCode .. "-- Poison execution environment\n"
-    poisonedCode = poisonedCode .. "local function applyPoison()\n"
-    poisonedCode = poisonedCode .. "    local success, result = pcall(function()\n"
-    poisonedCode = poisonedCode .. "        local func, err = loadstring(ORIGINAL_SCRIPT, 'PoisonedScript')\n"
-    poisonedCode = poisonedCode .. "        if func then\n"
-    poisonedCode = poisonedCode .. "            return func()\n"
-    poisonedCode = poisonedCode .. "        else\n"
-    poisonedCode = poisonedCode .. "            error('Compilation failed: ' .. tostring(err))\n"
-    poisonedCode = poisonedCode .. "        end\n"
-    poisonedCode = poisonedCode .. "    end)\n"
-    poisonedCode = poisonedCode .. "    return success, result\n"
-    poisonedCode = poisonedCode .. "end\n\n"
-    poisonedCode = poisonedCode .. "local success, result = applyPoison()\n"
-    poisonedCode = poisonedCode .. "if not success then warn('Poisoned execution error: ' .. tostring(result)) end\n"
-    return poisonedCode
-end
-function Modules.Overseer:_generateAdvancedPoisonVersion(originalCode, options)
-    options = options or {}
-    local poisonedCode = "-- ============================================================================\n"
-    poisonedCode = poisonedCode .. "-- POISONED SCRIPT - OVERSEER INJECTION\n"
-    poisonedCode = poisonedCode .. "-- Patches: " .. (options.includePatches and "ACTIVE" or "NONE") .. " | Hooks: " .. (options.includeHooks and "ACTIVE" or "NONE") .. "\n"
-    poisonedCode = poisonedCode .. "-- ============================================================================\n\n"
-    poisonedCode = poisonedCode .. "local PATCHES_ENABLED = " .. (options.patchesEnabled and "true" or "false") .. "\n"
-    poisonedCode = poisonedCode .. "local HOOKS_ENABLED = " .. (options.includeHooks and "true" or "false") .. "\n\n"
-    poisonedCode = poisonedCode .. "local ORIGINAL_SCRIPT = [[\n"
-    poisonedCode = poisonedCode .. originalCode .. "\n]]\n\n"
-    if options.includePatches then
-        poisonedCode = poisonedCode .. "local ACTIVE_PATCHES = {\n"
-        for tbl, keys in pairs(self.State.ActivePatches) do
-            for key, data in pairs(keys) do
-                local valStr = tostring(data.Value)
-                if type(data.Value) == "string" then
-                    valStr = "\"" .. data.Value:gsub("\"", "\\\"") .. "\""
-                elseif type(data.Value) == "boolean" then
-                    valStr = data.Value and "true" or "false"
-                end
-                poisonedCode = poisonedCode .. "    [" .. tostring(key) .. "] = {value = " .. valStr .. ", locked = " .. (data.Locked and "true" or "false") .. "},\n"
-            end
-        end
-        poisonedCode = poisonedCode .. "}\n\n"
-    else
-        poisonedCode = poisonedCode .. "local ACTIVE_PATCHES = {}\n\n"
-    end
-    if options.includeHooks then
-        poisonedCode = poisonedCode .. "local HOOKED_VALUES = {\n"
-        for hookKey, hook in pairs(self.State.ValueHooks) do
-            if hook.enabled then
-                poisonedCode = poisonedCode .. "    [" .. hookKey .. "] = {value = " .. tostring(hook.value) .. ", enabled = true},\n"
-            end
-        end
-        poisonedCode = poisonedCode .. "}\n\n"
-    else
-        poisonedCode = poisonedCode .. "local HOOKED_VALUES = {}\n\n"
-    end
-    poisonedCode = poisonedCode .. "-- Apply patches and hooks before execution\n"
-    poisonedCode = poisonedCode .. "local function applyPoisonLogic()\n"
-    poisonedCode = poisonedCode .. "    if PATCHES_ENABLED then\n"
-    poisonedCode = poisonedCode .. "        for key, patchData in pairs(ACTIVE_PATCHES) do\n"
-    poisonedCode = poisonedCode .. "            if patchData.locked then\n"
-    poisonedCode = poisonedCode .. "                _G[key] = patchData.value\n"
-    poisonedCode = poisonedCode .. "            end\n"
-    poisonedCode = poisonedCode .. "        end\n"
-    poisonedCode = poisonedCode .. "    end\n"
-    poisonedCode = poisonedCode .. "    if HOOKS_ENABLED then\n"
-    poisonedCode = poisonedCode .. "        for hookKey, hookData in pairs(HOOKED_VALUES) do\n"
-    poisonedCode = poisonedCode .. "            if hookData.enabled then\n"
-    poisonedCode = poisonedCode .. "                _G[hookKey] = hookData.value\n"
-    poisonedCode = poisonedCode .. "            end\n"
-    poisonedCode = poisonedCode .. "        end\n"
-    poisonedCode = poisonedCode .. "    end\n"
-    poisonedCode = poisonedCode .. "end\n\n"
-    poisonedCode = poisonedCode .. "-- Execute with poison applied\n"
-    poisonedCode = poisonedCode .. "local success, result = pcall(function()\n"
-    poisonedCode = poisonedCode .. "    applyPoisonLogic()\n"
-    poisonedCode = poisonedCode .. "    local func, err = loadstring(ORIGINAL_SCRIPT, 'PoisonedExecution')\n"
-    poisonedCode = poisonedCode .. "    if func then\n"
-    poisonedCode = poisonedCode .. "        return func()\n"
-    poisonedCode = poisonedCode .. "    else\n"
-    poisonedCode = poisonedCode .. "        error('Compilation: ' .. tostring(err))\n"
-    poisonedCode = poisonedCode .. "    end\n"
-    poisonedCode = poisonedCode .. "end)\n\n"
-    poisonedCode = poisonedCode .. "if success then\n"
-    poisonedCode = poisonedCode .. "    print('[POISON] Script executed with ' .. (PATCHES_ENABLED and 'patches' or 'no patches') .. ' & ' .. (HOOKS_ENABLED and 'hooks' or 'no hooks'))\n"
-    poisonedCode = poisonedCode .. "else\n"
-    poisonedCode = poisonedCode .. "    warn('[POISON] Execution failed: ' .. tostring(result))\n"
-    poisonedCode = poisonedCode .. "end\n"
-    return poisonedCode
-end
-function Modules.Overseer:_showPoisonOptions()
-    local ui = self.State.UI
-    for _, v in ipairs(ui.Grid:GetChildren()) do
-        if not v:IsA("UIListLayout") then v:Destroy() end
-    end
-    ui.CodeFrame.Visible = false
-    ui.Grid.Visible = true
-    ui.Title.Text = "POISON OPTIONS"
-    local titleLabel = Instance.new("TextLabel", ui.Grid)
-    titleLabel.Size = UDim2.new(1, -10, 0, 30)
-    titleLabel.Text = "Generate Poisoned Version - Select Options:"
-    titleLabel.TextColor3 = Color3.fromRGB(200, 100, 255)
-    titleLabel.BackgroundColor3 = Color3.fromRGB(40, 20, 60)
-    titleLabel.Font = Enum.Font.Code
-    titleLabel.TextSize = 10
-    self:_applyStyle(titleLabel, 2)
-    local options = {
-        {name = "Simple Wrapper", desc = "Wrap in basic execution", value = "simple"},
-        {name = "Include Patches", desc = "Include active patches", value = "patches"},
-        {name = "Include Hooks", desc = "Include value hooks", value = "hooks"},
-        {name = "Advanced (All)", desc = "Patches + Hooks + Comments", value = "advanced"}
-    }
-    for _, option in ipairs(options) do
-        local optRow = Instance.new("Frame", ui.Grid)
-        optRow.Size = UDim2.new(1, -10, 0, 35)
-        optRow.BackgroundTransparency = 1
-        local optLabel = Instance.new("TextLabel", optRow)
-        optLabel.Size = UDim2.new(0.6, 0, 1, 0)
-        optLabel.Text = " " .. option.name .. "\n " .. option.desc
-        optLabel.TextColor3 = Color3.fromRGB(150, 200, 255)
-        optLabel.Font = Enum.Font.Code
-        optLabel.TextSize = 9
-        optLabel.TextXAlignment = Enum.TextXAlignment.Left
-        optLabel.TextYAlignment = Enum.TextYAlignment.Center
-        optLabel.BackgroundTransparency = 1
-        local execBtn = Instance.new("TextButton", optRow)
-        execBtn.Size = UDim2.new(0, 70, 0, 24)
-        execBtn.Position = UDim2.fromScale(0.62, 0.25)
-        execBtn.BackgroundColor3 = Color3.fromRGB(60, 80, 100)
-        execBtn.Text = "GENERATE"
-        execBtn.TextColor3 = Color3.fromRGB(100, 200, 255)
-        execBtn.Font = Enum.Font.Code
-        execBtn.TextSize = 8
-        self:_applyStyle(execBtn, 2)
-        execBtn.MouseButton1Click:Connect(function()
-            local codeBox = ui.CodeBox
-            local originalCode = codeBox.Text
-            if (option.value == "patches" or option.value == "advanced") and not self:_validatePatches() then
-                self:_showErrorInGrid("-- ERROR: Invalid patches detected --")
-                return
-            end
-            if (option.value == "hooks" or option.value == "advanced") and not self:_validateHooks() then
-                self:_showErrorInGrid("-- ERROR: Invalid hooks detected --")
-                return
-            end
-            local poisonedCode = ""
-            if option.value == "simple" then
-                poisonedCode = self:_generatePoisonedVersion(originalCode)
-            else
-                local opts = {
-                    patchesEnabled = true,
-                    includePatches = (option.value == "patches" or option.value == "advanced"),
-                    includeHooks = (option.value == "hooks" or option.value == "advanced")
-                }
-                poisonedCode = self:_generateAdvancedPoisonVersion(originalCode, opts)
-            end
-            self:_showPoisonedCode(poisonedCode, option.name)
-        end)
-    end
-end
-function Modules.Overseer:_showPoisonedCode(poisonedCode, optionName)
-    local ui = self.State.UI
-    ui.Grid.Visible = false
-    ui.CodeFrame.Visible = true
-    ui.Title.Text = "POISONED VERSION (" .. optionName .. ")"
-    ui.CodeBox.Text = poisonedCode
-    ui.CodeBox.TextEditable = false
-    local children = ui.CodeFrame:GetChildren()
-    for _, btn in ipairs(children) do
-        if btn:IsA("TextButton") then
-            if btn.Text == "COPY" then
-                btn.Visible = true
-            elseif btn.Text == "EDIT" then
-                btn.Visible = true
-            elseif btn.Text == "APPLY" then
-                btn.Visible = true
-                btn.Text = "EXECUTE"
-                btn.BackgroundColor3 = Color3.fromRGB(150, 80, 20)
-                btn.TextColor3 = Color3.new(1, 1, 1)
-            end
-        end
-    end
-end
-function Modules.Overseer:_showPatchManager()
-    local ui = self.State.UI
-    self.State.ViewingCode = true
-    ui.Grid.Visible = false
-    ui.CodeFrame.Visible = true
-    ui.Title.Text = "PATCH MANAGER"
-    ui.CodeBox.TextEditable = false
-    for _, v in ipairs(ui.Grid:GetChildren()) do
-        if not v:IsA("UIListLayout") then v:Destroy() end
-    end
-    local active, valueHooks, propHooks = self:_getPatchStatus()
-    local headerLabel = Instance.new("TextLabel", ui.Grid)
-    headerLabel.Size = UDim2.new(1, 0, 0, 30)
-    headerLabel.Text = "ACTIVE PATCHES: " .. active .. " | VALUE HOOKS: " .. valueHooks .. " | PROPERTY HOOKS: " .. propHooks
-    headerLabel.TextColor3 = self.Config.HOOK_COLOR
-    headerLabel.BackgroundColor3 = Color3.fromRGB(20, 30, 20)
-    headerLabel.Font = Enum.Font.Code
-    headerLabel.TextSize = 10
-    self:_applyStyle(headerLabel, 2)
-    if valueHooks > 0 then
-        local vhLabel = Instance.new("TextLabel", ui.Grid)
-        vhLabel.Size = UDim2.new(1, 0, 0, 20)
-        vhLabel.Text = " -- VALUE HOOKS --"
-        vhLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
-        vhLabel.BackgroundTransparency = 1
-        vhLabel.Font = Enum.Font.Code
-        vhLabel.TextSize = 9
-        for hookKey, hook in pairs(self.State.ValueHooks) do
-            if hook.enabled then
-                local hookRow = Instance.new("Frame", ui.Grid)
-                hookRow.Size = UDim2.new(1, -10, 0, 35)
-                hookRow.BackgroundTransparency = 1
-                local hookLabel = Instance.new("TextLabel", hookRow)
-                hookLabel.Size = UDim2.new(0.7, 0, 1, 0)
-                hookLabel.Text = " " .. hookKey .. " = " .. tostring(hook.value)
-                hookLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
-                hookLabel.Font = Enum.Font.Code
-                hookLabel.TextSize = 8
-                hookLabel.TextXAlignment = Enum.TextXAlignment.Left
-                hookLabel.BackgroundTransparency = 1
-                hookLabel.ClipsDescendants = true
-                local toggleBtn = Instance.new("TextButton", hookRow)
-                toggleBtn.Size = UDim2.new(0, 50, 0, 24)
-                toggleBtn.Position = UDim2.fromScale(0.72, 0.15)
-                toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
-                toggleBtn.Text = "DISABLE"
-                toggleBtn.TextColor3 = Color3.new(1, 1, 1)
-                toggleBtn.Font = Enum.Font.Code
-                toggleBtn.TextSize = 7
-                self:_applyStyle(toggleBtn, 2)
-                toggleBtn.MouseButton1Click:Connect(function()
-                    hook.enabled = false
-                    hookRow:Destroy()
-                end)
-            end
-        end
-    end
-    if propHooks > 0 then
-        local phLabel = Instance.new("TextLabel", ui.Grid)
-        phLabel.Size = UDim2.new(1, 0, 0, 20)
-        phLabel.Text = " -- PROPERTY HOOKS --"
-        phLabel.TextColor3 = Color3.fromRGB(255, 180, 100)
-        phLabel.BackgroundTransparency = 1
-        phLabel.Font = Enum.Font.Code
-        phLabel.TextSize = 9
-        for propKey, hook in pairs(self.State.PropertyHooks) do
-            if hook.enabled then
-                local hookRow = Instance.new("Frame", ui.Grid)
-                hookRow.Size = UDim2.new(1, -10, 0, 35)
-                hookRow.BackgroundTransparency = 1
-                local hookLabel = Instance.new("TextLabel", hookRow)
-                hookLabel.Size = UDim2.new(0.7, 0, 1, 0)
-                hookLabel.Text = " " .. hook.property .. " = " .. tostring(hook.value)
-                hookLabel.TextColor3 = Color3.fromRGB(255, 180, 100)
-                hookLabel.Font = Enum.Font.Code
-                hookLabel.TextSize = 8
-                hookLabel.TextXAlignment = Enum.TextXAlignment.Left
-                hookLabel.BackgroundTransparency = 1
-                hookLabel.ClipsDescendants = true
-                local toggleBtn = Instance.new("TextButton", hookRow)
-                toggleBtn.Size = UDim2.new(0, 50, 0, 24)
-                toggleBtn.Position = UDim2.fromScale(0.72, 0.15)
-                toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
-                toggleBtn.Text = "DISABLE"
-                toggleBtn.TextColor3 = Color3.new(1, 1, 1)
-                toggleBtn.Font = Enum.Font.Code
-                toggleBtn.TextSize = 7
-                self:_applyStyle(toggleBtn, 2)
-                toggleBtn.MouseButton1Click:Connect(function()
-                    self:_unhookProperty(hook.instance, hook.property)
-                    hookRow:Destroy()
-                end)
-            end
-        end
-    end
-    if active > 0 then
-        local patchLabel = Instance.new("TextLabel", ui.Grid)
-        patchLabel.Size = UDim2.new(1, 0, 0, 20)
-        patchLabel.Text = " -- TABLE PATCHES --"
-        patchLabel.TextColor3 = Color3.fromRGB(150, 100, 255)
-        patchLabel.BackgroundTransparency = 1
-        patchLabel.Font = Enum.Font.Code
-        patchLabel.TextSize = 9
-        for tbl, keys in pairs(self.State.ActivePatches) do
-            for key, data in pairs(keys) do
-                local patchRow = Instance.new("Frame", ui.Grid)
-                patchRow.Size = UDim2.new(1, -10, 0, 35)
-                patchRow.BackgroundTransparency = 1
-                local patchLabel2 = Instance.new("TextLabel", patchRow)
-                patchLabel2.Size = UDim2.new(0.7, 0, 1, 0)
-                patchLabel2.Text = " [" .. key .. "] = " .. tostring(data.Value)
-                patchLabel2.TextColor3 = Color3.fromRGB(150, 100, 255)
-                patchLabel2.Font = Enum.Font.Code
-                patchLabel2.TextSize = 8
-                patchLabel2.TextXAlignment = Enum.TextXAlignment.Left
-                patchLabel2.BackgroundTransparency = 1
-                patchLabel2.ClipsDescendants = true
-                local clearBtn = Instance.new("TextButton", patchRow)
-                clearBtn.Size = UDim2.new(0, 50, 0, 24)
-                clearBtn.Position = UDim2.fromScale(0.72, 0.15)
-                clearBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
-                clearBtn.Text = "CLEAR"
-                clearBtn.TextColor3 = Color3.new(1, 1, 1)
-                clearBtn.Font = Enum.Font.Code
-                clearBtn.TextSize = 7
-                self:_applyStyle(clearBtn, 2)
-                clearBtn.MouseButton1Click:Connect(function()
-                    if self.State.ActivePatches[tbl] then
-                        self.State.ActivePatches[tbl][key] = nil
-                    end
-                    patchRow:Destroy()
-                end)
-            end
-        end
-    end
-end
-function Modules.Overseer:_initFunctionTracer()
-    if self.State.TracerActive then return end
-    self.State.TracerActive = true
-    self.State.CallTrace = {}
-    self.State.CallFrequency = {}
-    local function traceCall(func, name, args, returns)
-        local call = {
-            Function = name or "Unknown",
-            Args = args,
-            Returns = returns,
-            Time = tick()
-        }
-        table.insert(self.State.CallTrace, call)
-        if #self.State.CallTrace > self.State.MaxTraceSize then
-            table.remove(self.State.CallTrace, 1)
-        end
-        if not self.State.CallFrequency[name] then
-            self.State.CallFrequency[name] = 0
-        end
-        self.State.CallFrequency[name] = self.State.CallFrequency[name] + 1
-    end
-    self.State.TracerCallback = traceCall
-end
-function Modules.Overseer:_showFunctionTracer()
-    local ui = self.State.UI
-    ui.Grid.Visible = true
-    ui.CodeFrame.Visible = false
-    ui.Title.Text = "FUNCTION CALL TRACER - " .. #self.State.CallTrace .. " CALLS"
-    for _, v in ipairs(ui.Grid:GetChildren()) do
-        if not v:IsA("UIListLayout") then v:Destroy() end
-    end
-    local tracerStatusLabel = Instance.new("TextLabel", ui.Grid)
-    tracerStatusLabel.Size = UDim2.new(1, -10, 0, 30)
-    tracerStatusLabel.BackgroundColor3 = self.State.TracerActive and Color3.fromRGB(20, 40, 20) or Color3.fromRGB(40, 20, 20)
-    tracerStatusLabel.Text = "TRACER STATUS: " .. (self.State.TracerActive and "ACTIVE" or "INACTIVE")
-    tracerStatusLabel.TextColor3 = self.State.TracerActive and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
-    tracerStatusLabel.Font = Enum.Font.Code
-    tracerStatusLabel.TextSize = 10
-    self:_applyStyle(tracerStatusLabel, 2)
-    if not self.State.TracerActive then
-        local startBtn = Instance.new("TextButton", ui.Grid)
-        startBtn.Size = UDim2.new(0.9, 0, 0, 35)
-        startBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 40)
-        startBtn.Text = "START TRACING FUNCTIONS"
-        startBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
-        startBtn.Font = Enum.Font.Code
-        startBtn.TextSize = 10
-        self:_applyStyle(startBtn, 2)
-        startBtn.MouseButton1Click:Connect(function()
-            self:_initFunctionTracer()
-            self:_showFunctionTracer()
-        end)
-    else
-        local clearBtn = Instance.new("TextButton", ui.Grid)
-        clearBtn.Size = UDim2.new(0.9, 0, 0, 35)
-        clearBtn.BackgroundColor3 = Color3.fromRGB(100, 40, 40)
-        clearBtn.Text = "CLEAR TRACE LOG"
-        clearBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-        clearBtn.Font = Enum.Font.Code
-        clearBtn.TextSize = 10
-        self:_applyStyle(clearBtn, 2)
-        clearBtn.MouseButton1Click:Connect(function()
-            self.State.CallTrace = {}
-            self.State.CallFrequency = {}
-            self:_showFunctionTracer()
-        end)
-    end
-    if #self.State.CallTrace > 0 then
-        local freqLabel = Instance.new("TextLabel", ui.Grid)
-        freqLabel.Size = UDim2.new(1, 0, 0, 20)
-        freqLabel.Text = " CALL FREQUENCY (Top 10)"
-        freqLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
-        freqLabel.BackgroundTransparency = 1
-        freqLabel.Font = Enum.Font.Code
-        freqLabel.TextSize = 9
-        local sorted = {}
-        for func, count in pairs(self.State.CallFrequency) do
-            table.insert(sorted, {name = func, count = count})
-        end
-        table.sort(sorted, function(a, b) return a.count > b.count end)
-        for i = 1, math.min(10, #sorted) do
-            local data = sorted[i]
-            local row, label = self:_createRow(ui.Grid, "", UDim2.new(0.7, 0, 1, 0))
-            label.Text = "[" .. i .. "] " .. data.name .. " (" .. data.count .. " calls)"
-            label.TextColor3 = Color3.fromRGB(100, 150, 255)
-        end
-    end
-    if #self.State.CallTrace > 0 then
-        local callLabel = Instance.new("TextLabel", ui.Grid)
-        callLabel.Size = UDim2.new(1, 0, 0, 20)
-        callLabel.Text = " RECENT CALLS"
-        callLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
-        callLabel.BackgroundTransparency = 1
-        callLabel.Font = Enum.Font.Code
-        callLabel.TextSize = 9
-        for i = math.min(20, #self.State.CallTrace), 1, -1 do
-            local call = self.State.CallTrace[i]
-            if call then
-                local row, label = self:_createRow(ui.Grid, "", UDim2.new(0.8, 0, 1, 0))
-                local argCount = call.Args and #call.Args or 0
-                local status = call.Returns and call.Returns[1] and "OK" or "ERR"
-                label.Text = call.Function .. " [" .. argCount .. " args] - " .. status
-                label.TextColor3 = (call.Returns and call.Returns[1]) and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
-            end
-        end
-    end
-end
-function Modules.Overseer:_initEventSpy()
-    if self.State.EventSpyActive then return end
-    self.State.EventSpyActive = true
-    self.State.EventLog = {}
-    local function hookEvent(bindable, eventName)
-        if not bindable or bindable:GetAttribute("_OverseerEventHooked") then return end
-        pcall(function()
-            bindable.Event:Connect(function(...)
-                local args = {...}
-                table.insert(Modules.Overseer.State.EventLog, {
-                    Event = eventName,
-                    Parent = bindable.Parent and bindable.Parent.Name or "Unknown",
-                    Args = args,
-                    Time = tick(),
-                    Type = bindable.ClassName
-                })
-                if #Modules.Overseer.State.EventLog > Modules.Overseer.State.MaxEventLogSize then
-                    table.remove(Modules.Overseer.State.EventLog, 1)
-                end
-            end)
-            bindable:SetAttribute("_OverseerEventHooked", true)
-        end)
-    end
-    local function scanEvents(parent)
-        for _, child in ipairs(parent:GetDescendants()) do
-            if child:IsA("BindableEvent") or child:IsA("BindableFunction") then
-                hookEvent(child, child.Name)
-            end
-        end
-    end
-    scanEvents(ReplicatedStorage)
-    scanEvents(game)
-    table.insert(self.State.HookedConnections, game.DescendantAdded:Connect(function(child)
-        if self.State.EventSpyActive and (child:IsA("BindableEvent") or child:IsA("BindableFunction")) then
-            task.wait(0.05)
-            hookEvent(child, child.Name)
-        end
-    end))
-end
-function Modules.Overseer:_showEventSpy()
-    local ui = self.State.UI
-    ui.Grid.Visible = true
-    ui.CodeFrame.Visible = false
-    ui.Title.Text = "EVENT/SIGNAL SPY - " .. #self.State.EventLog .. " FIRES"
-    for _, v in ipairs(ui.Grid:GetChildren()) do
-        if not v:IsA("UIListLayout") then v:Destroy() end
-    end
-    local spyStatusLabel = Instance.new("TextLabel", ui.Grid)
-    spyStatusLabel.Size = UDim2.new(1, -10, 0, 30)
-    spyStatusLabel.BackgroundColor3 = self.State.EventSpyActive and Color3.fromRGB(20, 40, 20) or Color3.fromRGB(40, 20, 20)
-    spyStatusLabel.Text = "EVENT SPY STATUS: " .. (self.State.EventSpyActive and "ACTIVE" or "INACTIVE")
-    spyStatusLabel.TextColor3 = self.State.EventSpyActive and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
-    spyStatusLabel.Font = Enum.Font.Code
-    spyStatusLabel.TextSize = 10
-    self:_applyStyle(spyStatusLabel, 2)
-    if not self.State.EventSpyActive then
-        local startBtn = Instance.new("TextButton", ui.Grid)
-        startBtn.Size = UDim2.new(0.9, 0, 0, 35)
-        startBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 40)
-        startBtn.Text = "START SPYING ON EVENTS"
-        startBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
-        startBtn.Font = Enum.Font.Code
-        startBtn.TextSize = 10
-        self:_applyStyle(startBtn, 2)
-        startBtn.MouseButton1Click:Connect(function()
-            self:_initEventSpy()
-            self:_showEventSpy()
-        end)
-    end
-    if #self.State.EventLog > 0 then
-        local logLabel = Instance.new("TextLabel", ui.Grid)
-        logLabel.Size = UDim2.new(1, 0, 0, 20)
-        logLabel.Text = " SIGNAL FIRE HISTORY"
-        logLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
-        logLabel.BackgroundTransparency = 1
-        logLabel.Font = Enum.Font.Code
-        logLabel.TextSize = 9
-        for i = math.min(30, #self.State.EventLog), 1, -1 do
-            local event = self.State.EventLog[i]
-            if event then
-                local row, label = self:_createRow(ui.Grid, "", UDim2.new(0.8, 0, 1, 0))
-                local parentName = event.Parent or "Unknown"
-                local argCount = #event.Args
-                local eventText = "[" .. event.Type .. "] " .. event.Event .. " (" .. argCount .. " args)"
-                label.Text = eventText
-                label.TextColor3 = (event.Type == "BindableEvent" and Color3.fromRGB(100, 200, 255) or Color3.fromRGB(150, 150, 255))
-            end
-        end
-    end
-end
-function Modules.Overseer:_inspectScriptEnvironment(script)
-    if not script or not script:IsA("LuaSourceContainer") then return false end
-    self.State.ViewingCode = true
-    local ui = self.State.UI
-    ui.Grid.Visible = false
-    ui.CodeFrame.Visible = true
-    ui.Title.Text = "SCRIPT STATE: " .. script.Name
-    local envInfo = "SCRIPT: " .. script:GetFullName() .. "\n"
-    envInfo = envInfo .. "CLASS: " .. script.ClassName .. "\n"
-    envInfo = envInfo .. "ENABLED: " .. tostring(script.Enabled) .. "\n\n"
-    envInfo = envInfo .. "--- SOURCE CODE ---\n"
-    envInfo = envInfo .. script.Source .. "\n"
-    ui.CodeBox.Text = envInfo
-    ui.CodeBox.TextEditable = false
-end
-function Modules.Overseer:_showScriptStateInspector()
-    local ui = self.State.UI
-    self.State.ViewingCode = false
-    ui.Grid.Visible = true
-    ui.CodeFrame.Visible = false
-    ui.Title.Text = "SCRIPT STATE INSPECTOR"
-    for _, v in ipairs(ui.Grid:GetChildren()) do
-        if not v:IsA("UIListLayout") then v:Destroy() end
-    end
-    local infoLabel = Instance.new("TextLabel", ui.Grid)
-    infoLabel.Size = UDim2.new(1, -10, 0, 40)
-    infoLabel.Text = "Browse scripts in workspace and ReplicatedStorage"
-    infoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    infoLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    infoLabel.Font = Enum.Font.Code
-    infoLabel.TextSize = 10
-    infoLabel.TextWrapped = true
-    self:_applyStyle(infoLabel, 2)
-    local scanLabel = Instance.new("TextLabel", ui.Grid)
-    scanLabel.Size = UDim2.new(1, -10, 0, 20)
-    scanLabel.Text = " AVAILABLE SCRIPTS"
-    scanLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
-    scanLabel.BackgroundTransparency = 1
-    scanLabel.Font = Enum.Font.Code
-    scanLabel.TextSize = 9
-    local scripts = {}
-    local function scanScripts(parent)
-        for _, child in ipairs(parent:GetDescendants()) do
-            if child:IsA("LocalScript") or child:IsA("Script") or child:IsA("ModuleScript") then
-                table.insert(scripts, child)
-            end
-        end
-    end
-    scanScripts(Workspace)
-    scanScripts(ReplicatedStorage)
-    for i, script in ipairs(scripts) do
-        if i > 30 then break end
-        local row = Instance.new("Frame", ui.Grid)
-        row.Size = UDim2.new(1, -10, 0, 35)
-        row.BackgroundTransparency = 1
-        local label = Instance.new("TextLabel", row)
-        label.Size = UDim2.new(0.6, 0, 1, 0)
-        label.Text = " " .. script.Name .. " [" .. script.ClassName .. "]"
-        label.TextColor3 = Color3.fromRGB(150, 200, 255)
-        label.Font = Enum.Font.Code
-        label.TextSize = 9
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.BackgroundTransparency = 1
-        label.ClipsDescendants = true
-        local inspectBtn = Instance.new("TextButton", row)
-        inspectBtn.Size = UDim2.new(0, 70, 0, 24)
-        inspectBtn.Position = UDim2.fromScale(0.62, 0.15)
-        inspectBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 80)
-        inspectBtn.Text = "INSPECT"
-        inspectBtn.TextColor3 = Color3.fromRGB(0, 200, 255)
-        inspectBtn.Font = Enum.Font.Code
-        inspectBtn.TextSize = 8
-        self:_applyStyle(inspectBtn, 2)
-        inspectBtn.MouseButton1Click:Connect(function()
-            self:_inspectScriptEnvironment(script)
-        end)
-    end
-end
-function Modules.Overseer:CreateUI()
-    if self.State.UI then self.State.UI.Main.Visible = true return end
-    local screenGui = Instance.new("ScreenGui", CoreGui)
-    screenGui.Name = "Overseer_Merged_V1"
-    screenGui.ResetOnSpawn = false
-    local main = Instance.new("Frame", screenGui)
-    main.Size = UDim2.fromOffset(850, 570)
-    main.Position = UDim2.new(0.5, -425, 0.5, -285)
-    main.BackgroundColor3 = self.Config.BG_COLOR
-    main.BackgroundTransparency = 0.4
-    main.BorderSizePixel = 0
-    main.ClipsDescendants = true
-    self:_applyStyle(main, 6)
-    local toolbar = Instance.new("Frame", main)
-    toolbar.Size = UDim2.new(1, 0, 0, 30)
-    toolbar.Position = UDim2.fromOffset(0, 0)
-    toolbar.BackgroundColor3 = self.Config.SECONDARY_COLOR
-    local header = Instance.new("Frame", main)
-    header.Size = UDim2.new(1, 0, 0, 35)
-    header.Position = UDim2.fromOffset(0, 30)
-    header.BackgroundColor3 = self.Config.HEADER_COLOR
-    local title = Instance.new("TextLabel", header)
-    title.Size = UDim2.new(1, -280, 1, 0)
-    title.Position = UDim2.fromOffset(10, 0)
-    title.Text = "Overseer - Unified Module & Instance Explorer"
-    title.TextColor3 = self.Config.ACCENT_COLOR
-    title.Font = Enum.Font.Code
-    title.TextSize = 11
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.BackgroundTransparency = 1
-    local modeBtn = Instance.new("TextButton", header)
-    modeBtn.Size = UDim2.new(0, 70, 0, 24)
-    modeBtn.Position = UDim2.new(1, -210, 0.5, -11)
-    modeBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 100)
-    modeBtn.Text = "EXPLORER"
-    modeBtn.TextColor3 = Color3.new(1, 1, 1)
-    modeBtn.Font = Enum.Font.Code
-    modeBtn.TextSize = 9
-    self:_applyStyle(modeBtn, 2)
-    local patchBtn = Instance.new("TextButton", header)
-    patchBtn.Size = UDim2.new(0, 70, 0, 24)
-    patchBtn.Position = UDim2.new(1, -285, 0.5, -11)
-    patchBtn.BackgroundColor3 = Color3.fromRGB(80, 60, 40)
-    patchBtn.Text = "PATCHES"
-    patchBtn.TextColor3 = Color3.fromRGB(255, 180, 100)
-    patchBtn.Font = Enum.Font.Code
-    patchBtn.TextSize = 9
-    self:_applyStyle(patchBtn, 2)
-    local searchBtn = Instance.new("TextButton", header)
-    searchBtn.Size = UDim2.new(0, 70, 0, 24)
-    searchBtn.Position = UDim2.new(1, -360, 0.5, -11)
-    searchBtn.BackgroundColor3 = Color3.fromRGB(60, 80, 60)
-    searchBtn.Text = "SEARCH"
-    searchBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
-    searchBtn.Font = Enum.Font.Code
-    searchBtn.TextSize = 9
-    self:_applyStyle(searchBtn, 2)
-    local spyBtn = Instance.new("TextButton", header)
-    spyBtn.Size = UDim2.new(0, 70, 0, 24)
-    spyBtn.Position = UDim2.new(1, -435, 0.5, -11)
-    spyBtn.BackgroundColor3 = Color3.fromRGB(100, 60, 100)
-    spyBtn.Text = "SPY"
-    spyBtn.TextColor3 = Color3.fromRGB(255, 100, 255)
-    spyBtn.Font = Enum.Font.Code
-    spyBtn.TextSize = 9
-    self:_applyStyle(spyBtn, 2)
-    local backBtn = Instance.new("TextButton", header)
-    backBtn.Size = UDim2.new(0, 60, 0, 24)
-    backBtn.Position = UDim2.new(1, -118, 0.5, -12)
-    backBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-    backBtn.Text = "<"
-    backBtn.TextColor3 = Color3.new(1, 1, 1)
-    backBtn.Font = Enum.Font.Code
-    backBtn.TextSize = 10
-    self:_applyStyle(backBtn, 2)
-    local closeBtn = Instance.new("TextButton", header)
-    closeBtn.Size = UDim2.new(0, 30, 0, 30)
-    closeBtn.Position = UDim2.new(1, -35, 0, 0)
-    closeBtn.Text = "X"
-    closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    closeBtn.BackgroundTransparency = 1
-    closeBtn.Font = Enum.Font.Code
-    local content = Instance.new("Frame", main)
-    content.Size = UDim2.new(1, 0, 1, -65)
-    content.Position = UDim2.fromOffset(0, 65)
-    content.BackgroundTransparency = 1
-    local searchInput = Instance.new("TextBox", content)
-    searchInput.Size = UDim2.new(0, 230, 0, 30)
-    searchInput.Position = UDim2.fromOffset(10, 10)
-    searchInput.BackgroundColor3 = self.Config.SECONDARY_COLOR
-    searchInput.PlaceholderText = "SEARCH..."
-    searchInput.Text = ""
-    searchInput.TextColor3 = self.Config.ACCENT_COLOR
-    searchInput.Font = Enum.Font.Code
-    searchInput.TextSize = 10
-    self:_applyStyle(searchInput, 4)
-    local sidebar = Instance.new("ScrollingFrame", content)
-    sidebar.Size = UDim2.new(0, 230, 1, -60)
-    sidebar.Position = UDim2.fromOffset(10, 50)
-    sidebar.BackgroundTransparency = 1
-    sidebar.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    sidebar.ScrollBarThickness = 2
-    local sidebarList = Instance.new("UIListLayout", sidebar)
-    sidebarList.Padding = UDim.new(0, 4)
-    local grid = Instance.new("ScrollingFrame", content)
-    grid.Size = UDim2.new(1, -270, 1, -20)
-    grid.Position = UDim2.fromOffset(260, 10)
-    grid.BackgroundColor3 = self.Config.SECONDARY_COLOR
-    grid.BackgroundTransparency = 0.3
-    grid.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    grid.ScrollBarThickness = 2
-    self:_applyStyle(grid, 4)
-    local gridList = Instance.new("UIListLayout", grid)
-    gridList.SortOrder = Enum.SortOrder.LayoutOrder
-    local codeFrame = Instance.new("Frame", content)
-    codeFrame.Size = grid.Size
-    codeFrame.Position = grid.Position
-    codeFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
-    codeFrame.Visible = false
-    self:_applyStyle(codeFrame, 4)
-    local codeScroller = Instance.new("ScrollingFrame", codeFrame)
-    codeScroller.Size = UDim2.new(1, -20, 1, -60)
-    codeScroller.Position = UDim2.fromOffset(10, 10)
-    codeScroller.BackgroundTransparency = 1
-    codeScroller.ScrollBarThickness = 2
-    codeScroller.AutomaticCanvasSize = Enum.AutomaticSize.XY
-    local codeBox = Instance.new("TextBox", codeScroller)
-    codeBox.Size = UDim2.new(1, 0, 1, 0)
-    codeBox.BackgroundColor3 = Color3.fromRGB(5, 5, 7)
-    codeBox.TextColor3 = Color3.fromRGB(200, 200, 200)
-    codeBox.Font = Enum.Font.Code
-    codeBox.TextSize = 10
-    codeBox.TextXAlignment = Enum.TextXAlignment.Left
-    codeBox.TextYAlignment = Enum.TextYAlignment.Top
-    codeBox.ClearTextOnFocus = false
-    codeBox.TextEditable = false
-    codeBox.MultiLine = true
-    codeBox.AutomaticSize = Enum.AutomaticSize.XY
-    self:_applyStyle(codeBox, 4)
-    local copyBtn = Instance.new("TextButton", codeFrame)
-    copyBtn.Size = UDim2.new(0, 90, 0, 30)
-    copyBtn.Position = UDim2.new(1, -280, 1, -40)
-    copyBtn.BackgroundColor3 = self.Config.ACCENT_COLOR
-    copyBtn.Text = "COPY"
-    copyBtn.TextColor3 = Color3.new(0, 0, 0)
-    copyBtn.Font = Enum.Font.Code
-    copyBtn.TextSize = 10
-    self:_applyStyle(copyBtn, 4)
-    local editBtn = Instance.new("TextButton", codeFrame)
-    editBtn.Size = UDim2.new(0, 90, 0, 30)
-    editBtn.Position = UDim2.new(1, -185, 1, -40)
-    editBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 50)
-    editBtn.Text = "EDIT"
-    editBtn.TextColor3 = Color3.fromRGB(255, 180, 100)
-    editBtn.Font = Enum.Font.Code
-    editBtn.TextSize = 10
-    self:_applyStyle(editBtn, 4)
-    local applyBtn = Instance.new("TextButton", codeFrame)
-    applyBtn.Size = UDim2.new(0, 90, 0, 30)
-    applyBtn.Position = UDim2.new(1, -280, 1, -40)
-    applyBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
-    applyBtn.Text = "APPLY"
-    applyBtn.TextColor3 = Color3.new(1, 1, 1)
-    applyBtn.Font = Enum.Font.Code
-    applyBtn.TextSize = 10
-    applyBtn.Visible = false
-    self:_applyStyle(applyBtn, 4)
-    local discardBtn = Instance.new("TextButton", codeFrame)
-    discardBtn.Size = UDim2.new(0, 90, 0, 30)
-    discardBtn.Position = UDim2.new(1, -185, 1, -40)
-    discardBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
-    discardBtn.Text = "DISCARD"
-    discardBtn.TextColor3 = Color3.new(1, 1, 1)
-    discardBtn.Font = Enum.Font.Code
-    discardBtn.TextSize = 10
-    discardBtn.Visible = false
-    self:_applyStyle(discardBtn, 4)
-    local closeCode = Instance.new("TextButton", codeFrame)
-    closeCode.Size = UDim2.new(0, 90, 0, 30)
-    closeCode.Position = UDim2.new(0, 10, 1, -40)
-    closeCode.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-    closeCode.Text = "EXIT"
-    closeCode.TextColor3 = Color3.new(1, 1, 1)
-    closeCode.Font = Enum.Font.Code
-    closeCode.TextSize = 10
-    self:_applyStyle(closeCode, 4)
-    local poisonBtn = Instance.new("TextButton", codeFrame)
-    poisonBtn.Size = UDim2.new(0, 90, 0, 30)
-    poisonBtn.Position = UDim2.new(1, -90, 1, -40)
-    poisonBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 100)
-    poisonBtn.Text = "POISON"
-    poisonBtn.TextColor3 = Color3.fromRGB(200, 100, 255)
-    poisonBtn.Font = Enum.Font.Code
-    poisonBtn.TextSize = 10
-    self:_applyStyle(poisonBtn, 4)
-    self.State.UI = {
-        ScreenGui = screenGui,
-        Main = main,
-        Title = title,
-        Grid = grid,
-        Sidebar = sidebar,
-        CodeFrame = codeFrame,
-        CodeBox = codeBox,
-        Search = searchInput,
-        EditMode = false,
-        EditTarget = nil,
-        OriginalCode = ""
-    }
-    local scannedModules = {}
-    local function RescanModules()
-        for btn, _ in pairs(self.State.SidebarButtons) do
-            if btn and btn.Parent then
-                btn:Destroy()
-            end
-        end
-        self.State.SidebarButtons = {}
-        scannedModules = {}
-        for _, v in ipairs(grid:GetChildren()) do
-            if not v:IsA("UIListLayout") then
-                v:Destroy()
-            end
-        end
-        grid.Visible = true
-        codeFrame.Visible = false
-        title.Text = "Overseer - Unified Module & Instance Explorer"
-        self.State.CurrentTable = nil
-        self.State.PathStack = {}
-        self.State.SelectedModule = nil
-        sidebar.CanvasPosition = Vector2.new(0, 0)
-        grid.CanvasPosition = Vector2.new(0, 0)
-        local function scan(root)
-            for _, m in ipairs(root:GetDescendants()) do
-                if (m:IsA("ModuleScript") or m:IsA("LocalScript") or m:IsA("Script")) and not scannedModules[m] then
-                    scannedModules[m] = true
-                    self:AddModuleToList(m)
-                end
-            end
-        end
-        if ReplicatedFirst then scan(ReplicatedFirst) end
-        if ReplicatedStorage then scan(ReplicatedStorage) end
-        if Players.LocalPlayer then scan(Players.LocalPlayer) end
-        if Workspace then scan(Workspace) end
-        if getloadedmodules then
-            for _, m in ipairs(getloadedmodules()) do
-                if not scannedModules[m] then
-                    scannedModules[m] = true
-                    self:AddModuleToList(m)
-                end
-            end
-        end
-    end
-    local rescanBtn = Instance.new("TextButton", toolbar)
-    rescanBtn.Size = UDim2.new(0, 80, 0, 22)
-    rescanBtn.Position = UDim2.new(0, 10, 0.5, -11)
-    rescanBtn.BackgroundColor3 = Color3.fromRGB(30, 50, 40)
-    rescanBtn.Text = "RESCAN"
-    rescanBtn.TextColor3 = Color3.fromRGB(0, 255, 170)
-    rescanBtn.Font = Enum.Font.Code
-    rescanBtn.TextSize = 10
-    self:_applyStyle(rescanBtn, 3)
-    modeBtn.MouseButton1Click:Connect(function()
-        if self.State.CurrentMode == "modules" then
-            self.State.CurrentMode = "explorer"
-            self.State.ExplorerPath = {}
-            modeBtn.Text = "MODULES"
-            modeBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 60)
-            self:PopulateExplorer(game)
-        else
-            self.State.CurrentMode = "modules"
-            modeBtn.Text = "EXPLORER"
-            modeBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 100)
-            RescanModules()
-        end
-    end)
-    patchBtn.MouseButton1Click:Connect(function()
-        self:_showPatchManager()
-    end)
-    searchBtn.MouseButton1Click:Connect(function()
-        self:_showGlobalTypeSearch()
-    end)
-    spyBtn.MouseButton1Click:Connect(function()
-        self:_showRemoteSpy()
-    end)
-    local tracerBtn = Instance.new("TextButton", header)
-    tracerBtn.Size = UDim2.new(0, 70, 0, 24)
-    tracerBtn.Position = UDim2.new(1, -510, 0.5, -11)
-    tracerBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 60)
-    tracerBtn.Text = "TRACE"
-    tracerBtn.TextColor3 = Color3.fromRGB(255, 200, 100)
-    tracerBtn.Font = Enum.Font.Code
-    tracerBtn.TextSize = 9
-    self:_applyStyle(tracerBtn, 2)
-    local eventBtn = Instance.new("TextButton", header)
-    eventBtn.Size = UDim2.new(0, 70, 0, 24)
-    eventBtn.Position = UDim2.new(1, -585, 0.5, -11)
-    eventBtn.BackgroundColor3 = Color3.fromRGB(80, 100, 60)
-    eventBtn.Text = "EVENT"
-    eventBtn.TextColor3 = Color3.fromRGB(200, 255, 100)
-    eventBtn.Font = Enum.Font.Code
-    eventBtn.TextSize = 9
-    self:_applyStyle(eventBtn, 2)
-    local stateBtn = Instance.new("TextButton", header)
-    stateBtn.Size = UDim2.new(0, 70, 0, 24)
-    stateBtn.Position = UDim2.new(1, -660, 0.5, -11)
-    stateBtn.BackgroundColor3 = Color3.fromRGB(60, 80, 100)
-    stateBtn.Text = "STATE"
-    stateBtn.TextColor3 = Color3.fromRGB(100, 200, 255)
-    stateBtn.Font = Enum.Font.Code
-    stateBtn.TextSize = 9
-    self:_applyStyle(stateBtn, 2)
-    tracerBtn.MouseButton1Click:Connect(function()
-        self:_showFunctionTracer()
-    end)
-    eventBtn.MouseButton1Click:Connect(function()
-        self:_initEventSpy()
-        self:_showEventSpy()
-    end)
-    stateBtn.MouseButton1Click:Connect(function()
-        self:_showScriptStateInspector()
-    end)
-    backBtn.Position = UDim2.new(1, -735, 0.5, -11)
-    rescanBtn.MouseButton1Click:Connect(RescanModules)
-    backBtn.MouseButton1Click:Connect(function()
-        if self.State.CurrentMode == "modules" then
-            if #self.State.PathStack > 0 then
-                local prev = table.remove(self.State.PathStack)
-                if type(prev) == "table" then
-                    self:PopulateGrid(prev, "Parent")
-                else
-                    self:_showErrorInGrid("-- ERROR: Parent reference is invalid --")
-                end
-            end
-        else
-            if #self.State.ExplorerPath > 0 then
-                local prev = table.remove(self.State.ExplorerPath)
-                if prev and prev:IsA("Instance") and prev.Parent then
-                    self:PopulateExplorer(prev)
-                else
-                    self:_showErrorInGrid("-- ERROR: Instance was destroyed --")
-                end
-            end
-        end
-    end)
-    closeBtn.MouseButton1Click:Connect(function()
-        main.Visible = false
-    end)
-    closeCode.MouseButton1Click:Connect(function()
-        self.State.ViewingCode = false
-        self.State.UI.EditMode = false
-        codeFrame.Visible = false
-        grid.Visible = true
-        codeBox.Text = ""
-        codeBox.TextEditable = false
-        codeBox.ClearTextOnFocus = false
-        copyBtn.Visible = true
-        editBtn.Visible = true
-        applyBtn.Visible = false
-        discardBtn.Visible = false
-        poisonBtn.Visible = false
-        self.State.EditTarget = nil
-        self.State.UI.OriginalCode = ""
-        title.Text = "PATH: " .. (self.State.SelectedModule and self.State.SelectedModule.Name or "Main")
-    end)
-    poisonBtn.MouseButton1Click:Connect(function()
-        self:_showPoisonOptions()
-    end)
-    copyBtn.MouseButton1Click:Connect(function()
-        self:_setClipboard(codeBox.Text)
-        copyBtn.Text = "COPIED!"
-        task.wait(1)
-        copyBtn.Text = "COPY"
-    end)
-    editBtn.MouseButton1Click:Connect(function()
-        self.State.UI.EditMode = true
-        self.State.UI.OriginalCode = codeBox.Text
-        codeBox.TextEditable = true
-        copyBtn.Visible = false
-        editBtn.Visible = false
-        applyBtn.Visible = true
-        discardBtn.Visible = true
-        title.Text = title.Text .. " [EDITING]"
-    end)
-    applyBtn.MouseButton1Click:Connect(function()
-        local editedCode = codeBox.Text
-        local success, result = pcall(function()
-            local compiled = loadstring(editedCode, "EditedModule")
-            if compiled then
-                compiled()
-                return true
-            end
-            return false
-        end)
-        if success and result then
-            applyBtn.Text = "APPLIED!"
-            applyBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-            task.wait(1.5)
-            applyBtn.Text = "APPLY"
-            applyBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
-            if self.State.EditTarget then
-                self.State.ActivePatches[self.State.EditTarget] = self.State.ActivePatches[self.State.EditTarget] or {}
-                self.State.ActivePatches[self.State.EditTarget]["_EditedCode"] = {
-                    Value = editedCode,
-                    Locked = false,
-                    IsFunction = false,
-                    IsEdit = true
-                }
-            end
-        else
-            applyBtn.Text = "ERROR!"
-            applyBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-            codeBox.Text = "-- [ERROR] " .. tostring(result) .. "\n\n" .. editedCode
-            task.wait(2)
-            applyBtn.Text = "APPLY"
-            applyBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
-        end
-    end)
-    discardBtn.MouseButton1Click:Connect(function()
-        self.State.UI.EditMode = false
-        codeBox.Text = self.State.UI.OriginalCode
-        codeBox.TextEditable = false
-        copyBtn.Visible = true
-        editBtn.Visible = true
-        applyBtn.Visible = false
-        discardBtn.Visible = false
-        title.Text = title.Text:gsub(" %[EDITING%]", "")
-    end)
-    searchInput:GetPropertyChangedSignal("Text"):Connect(function()
-        local filter = searchInput.Text:lower()
-        local visibleCount = 0
-        for container, name in pairs(self.State.SidebarButtons) do
-            local isVisible = filter == "" or name:lower():find(filter, 1, true) ~= nil
-            container.Visible = isVisible
-            if isVisible then visibleCount = visibleCount + 1 end
-        end
-        if filter ~= "" and visibleCount == 0 then
-            local noResultsMsg = sidebar:FindFirstChild("NoResults")
-            if not noResultsMsg then
-                noResultsMsg = Instance.new("TextLabel", sidebar)
-                noResultsMsg.Name = "NoResults"
-                noResultsMsg.Size = UDim2.new(1, 0, 0, 30)
-                noResultsMsg.Text = "No matching modules found"
-                noResultsMsg.TextColor3 = Color3.fromRGB(150, 100, 100)
-                noResultsMsg.BackgroundTransparency = 1
-                noResultsMsg.Font = Enum.Font.Code
-                noResultsMsg.TextSize = 9
-            end
-            noResultsMsg.Visible = true
-        else
-            local noResultsMsg = sidebar:FindFirstChild("NoResults")
-            if noResultsMsg then noResultsMsg.Visible = false end
-        end
-    end)
-    local dragging, dragStart, startPos
-    local inputBegan; inputBegan = header.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = main.Position
-        end
-    end)
-    local inputChanged; inputChanged = UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    local inputEnded; inputEnded = UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-    table.insert(self.State.HookedConnections, inputBegan)
-    table.insert(self.State.HookedConnections, inputChanged)
-    table.insert(self.State.HookedConnections, inputEnded)
-    table.insert(self.State.HookedConnections, screenGui.Destroying:Connect(function()
-        for _, conn in ipairs(self.State.HookedConnections) do
-            if conn and typeof(conn) == "RBXScriptConnection" then
-                pcall(function() conn:Disconnect() end)
-            end
-        end
-        self.State.HookedConnections = {}
-        self.State.UI = nil
-    end))
-    task.spawn(function()
-        local paths = {ReplicatedStorage, Players.LocalPlayer, Workspace}
-        for _, p in ipairs(paths) do
-            if p then
-                for _, m in ipairs(p:GetDescendants()) do
-                    if m and (m:IsA("ModuleScript") or m:IsA("LocalScript") or m:IsA("Script")) and m.Parent then
-                        self:AddModuleToList(m)
-                    end
-                end
-                task.wait()
-            end
-        end
-    end)
-end
-function Modules.Overseer:Initialize()
-    local module = self
-    RunService.Heartbeat:Connect(function()
-        for tbl, keys in pairs(module.State.ActivePatches) do
-            for key, data in pairs(keys) do
-                if data.Locked then
-                    pcall(function()
-                        if setreadonly then setreadonly(tbl, false) elseif make_writeable then make_writeable(tbl) end
-                        if data.IsFunction then
-                            if data.Value == "TRUE" then
-                                rawset(tbl, key, function() return true end)
-                            elseif data.Value == "FALSE" then
-                                rawset(tbl, key, function() return false end)
-                            end
-                        else
-                            rawset(tbl, key, data.Value)
-                        end
-                        if setreadonly then setreadonly(tbl, true) end
-                    end)
-                end
-            end
-        end
-    end)
-    RegisterCommand({
-        Name = "os",
-        Aliases = {"opensource"},
-        Description = "Opens the ultimate Overseer module, Use at your own risk."
-    }, function()
-        module:CreateUI()
-    end)
-end
-Modules.OverseerCE = {
-    State = {
-        IsEnabled = false,
-        ActivePatches = {},
-        SelectedModule = nil,
-        CurrentTable = nil,
-        PathStack = {},
-        UI = nil,
-        ModuleList = {},
-        PatchList = {},
-        VisitedTables = {},
-        MetatableChain = {},
-        FreezeList = {},
-        EditingRow = nil,
-        SearchFilter = "",
-        ShowMetatables = true,
-        ShowFunctions = true,
-        AutoRefresh = false,
-        ScanResults = {},
-        ScanInProgress = false,
-        DumpedModules = {},
-        InjectionHistory = {},
-        AntiTamperActive = false,
-        OriginalFunctions = {},
-        HookedFunctions = {},
-        Base64DecoderEnabled = true,
-        ShowRawValues = false,
-        ModuleTypeCache = {},
-        DecompiledFunctions = {},
-        FunctionPatches = {},
-        CurrentModuleDecompiled = nil,
-        UpvalueMonitors = {},
-        CallTrackers = {},
-        ReturnHooks = {},
-        ConstantPatches = {},
-        DecompilerCache = {},
-	   ActivePoisons = {},
-        PoisonTemplates = {},
-        PoisonHistory = {},
-        RequireHooks = {},
-        CoroutineHijacks = {},
-        MetatableTraps = {},
-        CascadeTriggers = {},
-        PoisonValidationResults = {},
-        PoisonTypes = {
-            "ReturnOverride", "TableHijack", "FunctionWrapper", 
-            "ConstantPatch", "UpvalueInject", "MetatableTrap",
-            "PrototypePoison", "RequireHook", "YieldSpoof",
-            "CoroutineHijack", "ErrorInducer", "DataExfil",
-            "AntiDetection", "SelfHeal", "CascadeTrigger"
-        }
-    },
-    Config = {
-        BG_LIGHT = Color3.fromRGB(240, 240, 240),
-        BG_PANEL = Color3.fromRGB(236, 233, 216),
-        BG_DARK = Color3.fromRGB(212, 208, 200),
-        BG_WHITE = Color3.fromRGB(255, 255, 255),
-        BORDER_DARK = Color3.fromRGB(128, 128, 128),
-        BORDER_LIGHT = Color3.fromRGB(255, 255, 255),
-        TEXT_BLACK = Color3.fromRGB(0, 0, 0),
-        TEXT_GRAY = Color3.fromRGB(128, 128, 128),
-        ACCENT_BLUE = Color3.fromRGB(49, 106, 197),
-        HIGHLIGHT = Color3.fromRGB(51, 153, 255),
-        FROZEN_RED = Color3.fromRGB(255, 0, 0),
-        SUCCESS_GREEN = Color3.fromRGB(0, 180, 0),
-        WARNING_ORANGE = Color3.fromRGB(255, 165, 0),
-		POISON_PURPLE = Color3.fromRGB(138, 43, 226),
-        HEADER_HEIGHT = 24,
-        ROW_HEIGHT = 20,
-        BUTTON_HEIGHT = 23,
-        PADDING = 4,
-        ANIM_SPEED = 0.15,
-        HOVER_BRIGHTNESS = 1.1
-    }
-}
-function Modules.OverseerCE:Initialize()
-    if self.State.Base64DecoderEnabled then
-        self:InitializeBase64Decoder()
-    end
-    if self.State.AntiTamperActive then
-        self:SetupAntiTamper()
-    end
-    if self.State.AutoRefresh then
-        self:SetupAutoRefresh()
-    end
-    print("[HEX Overseer] Initialized successfully")
-    print("[HEX Overseer] Version 1.0 - Advanced Module Editor & Poison System")
-end
-function Modules.OverseerCE:InitializeBase64Decoder()
-    local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-    self.Base64Decode = function(data)
-        local bits = ''
-        local chars = {}
-        for i = 1, #data do
-            local c = data:sub(i, i)
-            local index = b64chars:find(c, 1, true)
-            if index then
-                bits = bits .. string.format('%06d', tonumber(string.format('%b', index - 1):sub(3)))
-            end
-        end
-        for i = 1, #bits, 8 do
-            local byte = bits:sub(i, i + 7)
-            if #byte == 8 then
-                table.insert(chars, string.char(tonumber(byte, 2)))
-            end
-        end
-        return table.concat(chars)
-    end
-    self.Base64Encode = function(data)
-        local bytes = {}
-        for i = 1, #data do
-            table.insert(bytes, string.format('%08d', tonumber(string.format('%b', data:byte(i)):sub(3))))
-        end
-        local bits = table.concat(bytes)
-        local result = {}
-        for i = 1, #bits, 6 do
-            local six = bits:sub(i, i + 5)
-            if #six == 6 then
-                table.insert(result, b64chars:sub(tonumber(six, 2) + 1, tonumber(six, 2) + 1))
-            end
-        end
-        while #result % 4 ~= 0 do
-            table.insert(result, '=')
-        end
-        return table.concat(result)
-    end
-end
-function Modules.OverseerCE:SetupAntiTamper()
-    local protectedFunctions = {
-        "RemovePoison",
-        "ClearAllPoisons",
-        "Initialize",
-        "SetupAntiTamper"
-    }
-    for _, funcName in ipairs(protectedFunctions) do
-        local func = self[funcName]
-        if type(func) == "function" then
-            self.State.OriginalFunctions[funcName] = func
-        end
-    end
-    self.AntiTamperConnection = RunService.Heartbeat:Connect(function()
-        for funcName, originalFunc in pairs(self.State.OriginalFunctions) do
-            if self[funcName] ~= originalFunc then
-                warn("[HEX Overseer] TAMPERING DETECTED: Function " .. funcName .. " was modified!")
-                self[funcName] = originalFunc
-            end
-        end
-    end)
-    self.State.AntiTamperActive = true
-end
-function Modules.OverseerCE:DisableAntiTamper()
-    if self.AntiTamperConnection then
-        self.AntiTamperConnection:Disconnect()
-        self.AntiTamperConnection = nil
-    end
-    self.State.AntiTamperActive = false
-end
-function Modules.OverseerCE:SetupAutoRefresh()
-    if self.AutoRefreshConnection then
-        self.AutoRefreshConnection:Disconnect()
-    end
-    self.AutoRefreshConnection = RunService.Heartbeat:Connect(function()
-        if self.State.AutoRefresh and self.State.UI then
-            if self.State.CurrentTable then
-                task.spawn(function()
-                    self:RefreshInspector()
-                end)
-            end
-        end
-    end)
-end
-function Modules.OverseerCE:ToggleAutoRefresh()
-    self.State.AutoRefresh = not self.State.AutoRefresh
-    if self.State.AutoRefresh then
-        self:SetupAutoRefresh()
-    elseif self.AutoRefreshConnection then
-        self.AutoRefreshConnection:Disconnect()
-        self.AutoRefreshConnection = nil
-    end
-    return self.State.AutoRefresh
-end
-function Modules.OverseerCE:FreezeValue(tbl, key, frozenValue)
-    if type(tbl) ~= "table" then
-        return false, "Target is not a table"
-    end
-    local freezeId = tostring(tbl) .. "_" .. tostring(key)
-    if self.State.FreezeList[freezeId] then
-        return false, "Value already frozen"
-    end
-    self.State.FreezeList[freezeId] = {
-        Table = tbl,
-        Key = key,
-        FrozenValue = frozenValue,
-        OriginalValue = tbl[key],
-        Connection = nil
-    }
-    if setreadonly then pcall(setreadonly, tbl, false) end
-    tbl[key] = frozenValue
-    if setreadonly then pcall(setreadonly, tbl, true) end
-    self.State.FreezeList[freezeId].Connection = RunService.Heartbeat:Connect(function()
-        if tbl[key] ~= frozenValue then
-            if setreadonly then pcall(setreadonly, tbl, false) end
-            tbl[key] = frozenValue
-            if setreadonly then pcall(setreadonly, tbl, true) end
-        end
-    end)
-    return true, freezeId
-end
-function Modules.OverseerCE:UnfreezeValue(freezeId)
-    local freeze = self.State.FreezeList[freezeId]
-    if not freeze then
-        return false, "Freeze not found"
-    end
-    if freeze.Connection then
-        freeze.Connection:Disconnect()
-    end
-    if setreadonly then pcall(setreadonly, freeze.Table, false) end
-    freeze.Table[freeze.Key] = freeze.OriginalValue
-    if setreadonly then pcall(setreadonly, freeze.Table, true) end
-    self.State.FreezeList[freezeId] = nil
-    return true
-end
-function Modules.OverseerCE:UnfreezeAll()
-    local count = 0
-    for freezeId in pairs(self.State.FreezeList) do
-        if self:UnfreezeValue(freezeId) then
-            count = count + 1
-        end
-    end
-    return count
-end
-function Modules.OverseerCE:ScanForModules(pattern, scanDepth)
-    scanDepth = scanDepth or 3
-    self.State.ScanInProgress = true
-    self.State.ScanResults = {}
-    local function scanTable(tbl, path, depth)
-        if depth > scanDepth then return end
-        if type(tbl) ~= "table" then return end
-        for key, value in pairs(tbl) do
-            local newPath = path .. "." .. tostring(key)
-            if pattern then
-                if string.find(tostring(key):lower(), pattern:lower()) or 
-                   string.find(newPath:lower(), pattern:lower()) then
-                    table.insert(self.State.ScanResults, {
-                        Path = newPath,
-                        Value = value,
-                        Type = type(value),
-                        Key = key
-                    })
-                end
-            else
-                table.insert(self.State.ScanResults, {
-                    Path = newPath,
-                    Value = value,
-                    Type = type(value),
-                    Key = key
-                })
-            end
-            if type(value) == "table" and depth < scanDepth then
-                scanTable(value, newPath, depth + 1)
-            end
-        end
-    end
-    local scanLocations = {
-        {name = "ReplicatedStorage", obj = ReplicatedStorage},
-        {name = "Workspace", obj = Workspace},
-        {name = "Players.LocalPlayer", obj = Players.LocalPlayer},
-        {name = "_G", obj = _G}
-    }
-    for _, location in ipairs(scanLocations) do
-        scanTable(location.obj, location.name, 0)
-    end
-    self.State.ScanInProgress = false
-    return self.State.ScanResults
-end
-function Modules.OverseerCE:GetScanResults()
-    return self.State.ScanResults
-end
-function Modules.OverseerCE:TraceMetatableChain(tbl)
-    self.State.MetatableChain = {}
-    local current = tbl
-    local depth = 0
-    local maxDepth = 20
-    while depth < maxDepth do
-        local mt, method = self:GetRawMetatable(current)
-        if not mt then break end
-        table.insert(self.State.MetatableChain, {
-            Depth = depth,
-            Metatable = mt,
-            Method = method,
-            HasIndex = mt.__index ~= nil,
-            HasNewIndex = mt.__newindex ~= nil,
-            IsLocked = pcall(getmetatable, current) == false
-        })
-        if type(mt.__index) == "table" then
-            current = mt.__index
-            depth = depth + 1
-        else
-            break
-        end
-    end
-    return self.State.MetatableChain
-end
-function Modules.OverseerCE:PoisonYieldSpoof(func, fakeYieldTime)
-    if type(func) ~= "function" then
-        return false, "Target must be a function"
-    end
-    if not hookfunction then
-        return false, "hookfunction not available"
-    end
-    fakeYieldTime = fakeYieldTime or 0.1
-    local success, originalFunc = pcall(function()
-        return hookfunction(func, function(...)
-            local startTime = tick()
-            local results = {pcall(func, ...)}
-            local elapsed = tick() - startTime
-            if elapsed < fakeYieldTime then
-                task.wait(fakeYieldTime - elapsed)
-            end
-            if results[1] then
-                return select(2, unpack(results))
-            else
-                error(results[2], 2)
-            end
-        end)
-    end)
-    if not success then
-        return false, "Failed to hook function"
-    end
-    local poisonData = {
-        Id = #self.State.ActivePoisons + 1,
-        Type = "YieldSpoof",
-        TargetFunction = func,
-        OriginalFunction = originalFunc,
-        FakeYieldTime = fakeYieldTime,
-        Timestamp = os.time(),
-        Active = true
-    }
-    table.insert(self.State.ActivePoisons, poisonData)
-    return true, poisonData.Id
-end
-function Modules.OverseerCE:PoisonCoroutineHijack(callback)
-    if not hookfunction then
-        return false, "hookfunction not available"
-    end
-    local originalCreate = coroutine.create
-    local originalWrap = coroutine.wrap
-    local originalResume = coroutine.resume
-    local hijackedCreate = function(func)
-        if callback then
-            callback("create", func)
-        end
-        return originalCreate(func)
-    end
-    local hijackedWrap = function(func)
-        if callback then
-            callback("wrap", func)
-        end
-        return originalWrap(func)
-    end
-    local hijackedResume = function(co, ...)
-        if callback then
-            callback("resume", co, ...)
-        end
-        return originalResume(co, ...)
-    end
-    coroutine.create = hijackedCreate
-    coroutine.wrap = hijackedWrap
-    coroutine.resume = hijackedResume
-    local poisonData = {
-        Id = #self.State.ActivePoisons + 1,
-        Type = "CoroutineHijack",
-        OriginalCreate = originalCreate,
-        OriginalWrap = originalWrap,
-        OriginalResume = originalResume,
-        Callback = callback,
-        Timestamp = os.time(),
-        Active = true
-    }
-    table.insert(self.State.ActivePoisons, poisonData)
-    table.insert(self.State.CoroutineHijacks, poisonData)
-    return true, poisonData.Id
-end
-function Modules.OverseerCE:PoisonErrorInducer(func, condition, errorMsg)
-    if type(func) ~= "function" then
-        return false, "Target must be a function"
-    end
-    if not hookfunction then
-        return false, "hookfunction not available"
-    end
-    errorMsg = errorMsg or "Induced error"
-    local success, originalFunc = pcall(function()
-        return hookfunction(func, function(...)
-            local shouldError = false
-            if type(condition) == "function" then
-                shouldError = condition(...)
-            elseif condition == true then
-                shouldError = true
-            end
-            if shouldError then
-                error(errorMsg, 2)
-            end
-            return func(...)
-        end)
-    end)
-    if not success then
-        return false, "Failed to hook function"
-    end
-    local poisonData = {
-        Id = #self.State.ActivePoisons + 1,
-        Type = "ErrorInducer",
-        TargetFunction = func,
-        OriginalFunction = originalFunc,
-        Condition = condition,
-        ErrorMessage = errorMsg,
-        Timestamp = os.time(),
-        Active = true
-    }
-    table.insert(self.State.ActivePoisons, poisonData)
-    return true, poisonData.Id
-end
-function Modules.OverseerCE:PoisonDataExfil(func, storageTable)
-    if type(func) ~= "function" then
-        return false, "Target must be a function"
-    end
-    if not hookfunction then
-        return false, "hookfunction not available"
-    end
-    storageTable = storageTable or {}
-    local success, originalFunc = pcall(function()
-        return hookfunction(func, function(...)
-            local callData = {
-                Timestamp = tick(),
-                Arguments = {...},
-                Stacktrace = debug.traceback()
-            }
-            table.insert(storageTable, callData)
-            local results = {func(...)}
-            callData.Returns = results
-            return unpack(results)
-        end)
-    end)
-    if not success then
-        return false, "Failed to hook function"
-    end
-    local poisonData = {
-        Id = #self.State.ActivePoisons + 1,
-        Type = "DataExfil",
-        TargetFunction = func,
-        OriginalFunction = originalFunc,
-        StorageTable = storageTable,
-        Timestamp = os.time(),
-        Active = true
-    }
-    table.insert(self.State.ActivePoisons, poisonData)
-    return true, poisonData.Id, storageTable
-end
-function Modules.OverseerCE:PoisonAntiDetection(func, legitimateSignature)
-    if type(func) ~= "function" then
-        return false, "Target must be a function"
-    end
-    local signature = legitimateSignature or {
-        source = "=[C]",
-        what = "C",
-        name = "legitimate_function"
-    }
-    if debug and debug.getinfo then
-        local originalGetInfo = debug.getinfo
-        debug.getinfo = function(target, ...)
-            if target == func then
-                return signature
-            end
-            return originalGetInfo(target, ...)
-        end
-    end
-    local poisonData = {
-        Id = #self.State.ActivePoisons + 1,
-        Type = "AntiDetection",
-        TargetFunction = func,
-        FakeSignature = signature,
-        Timestamp = os.time(),
-        Active = true
-    }
-    table.insert(self.State.ActivePoisons, poisonData)
-    return true, poisonData.Id
-end
-function Modules.OverseerCE:PoisonSelfHeal(poisonId, checkInterval)
-    local poison = self.State.ActivePoisons[poisonId]
-    if not poison then
-        return false, "Poison not found"
-    end
-    checkInterval = checkInterval or 1
-    local selfHealFunc
-    selfHealFunc = function()
-        if not poison.Active then return end
-        local isValid = false
-        if poison.Type == "TableHijack" then
-            local testKey = next(poison.Overrides)
-            if testKey then
-                isValid = poison.Target[testKey] == poison.Overrides[testKey]
-            end
-        elseif poison.Type == "UpvalueInject" then
-            local success, currentValue = pcall(getupvalue, poison.TargetFunction, poison.UpvalueIndex)
-            isValid = success and currentValue == poison.NewValue
-        end
-        if not isValid then
-            warn("[HEX Overseer] Self-heal: Restoring poison #" .. poisonId)
-            if poison.Type == "TableHijack" then
-                for key, value in pairs(poison.Overrides) do
-                    poison.Target[key] = value
-                end
-            elseif poison.Type == "UpvalueInject" then
-                pcall(setupvalue, poison.TargetFunction, poison.UpvalueIndex, poison.NewValue)
-            end
-        end
-        task.wait(checkInterval)
-        selfHealFunc()
-    end
-    poison.SelfHealConnection = task.spawn(selfHealFunc)
-    return true
-end
-function Modules.OverseerCE:PoisonCascadeTrigger(triggerFunc, poisonSequence, delay)
-    if type(triggerFunc) ~= "function" then
-        return false, "Trigger must be a function"
-    end
-    if not hookfunction then
-        return false, "hookfunction not available"
-    end
-    delay = delay or 0.1
-    local success, originalFunc = pcall(function()
-        return hookfunction(triggerFunc, function(...)
-            local results = {triggerFunc(...)}
-            task.spawn(function()
-                for i, poisonId in ipairs(poisonSequence) do
-                    task.wait(delay)
-                    local poison = self.State.ActivePoisons[poisonId]
-                    if poison and not poison.Active then
-                        poison.Active = true
-                        warn("[HEX Overseer] Cascade: Activated poison #" .. poisonId)
-                    end
-                end
-            end)
-            return unpack(results)
-        end)
-    end)
-    if not success then
-        return false, "Failed to hook trigger function"
-    end
-    local poisonData = {
-        Id = #self.State.ActivePoisons + 1,
-        Type = "CascadeTrigger",
-        TriggerFunction = triggerFunc,
-        OriginalFunction = originalFunc,
-        PoisonSequence = poisonSequence,
-        Delay = delay,
-        Timestamp = os.time(),
-        Active = true
-    }
-    table.insert(self.State.ActivePoisons, poisonData)
-    table.insert(self.State.CascadeTriggers, poisonData)
-    return true, poisonData.Id
-end
-function Modules.OverseerCE:GetRawMetatable(tbl)
-    local mt = nil
-    local success, result = pcall(getmetatable, tbl)
-    if success and result then
-        return result, "standard"
-    end
-    if getrawmetatable then
-        success, result = pcall(getrawmetatable, tbl)
-        if success and result then
-            return result, "getrawmetatable"
-        end
-    end
-    if debug and debug.getmetatable then
-        success, result = pcall(debug.getmetatable, tbl)
-        if success and result then
-            return result, "debug.getmetatable"
-        end
-    end
-    if hookmetamethod then
-        local old
-        success, result = pcall(function()
-            old = hookmetamethod(game, "__index", function() end)
-            hookmetamethod(game, "__index", old)
-            return getmetatable(tbl)
-        end)
-        if success and result then
-            return result, "hookmetamethod"
-        end
-    end
-    return nil, "failed"
-end
-function Modules.OverseerCE:UnlockMetatable(tbl)
-    if type(tbl) ~= "table" then
-        return false, "Not a table"
-    end
-    local mt, method = self:GetRawMetatable(tbl)
-    if not mt then
-        return false, "No metatable found"
-    end
-    local isLocked = false
-    local lockCheckSuccess, lockCheckResult = pcall(function()
-        return getmetatable(tbl)
-    end)
-    if not lockCheckSuccess or lockCheckResult == nil then
-        isLocked = true
-    end
-    local unlocked = false
-    local unlockMethod = nil
-    if setrawmetatable and isLocked then
-        local success = pcall(function()
-            setrawmetatable(tbl, mt)
-        end)
-        if success then
-            unlocked = true
-            unlockMethod = "setrawmetatable"
-        end
-    end
-    if not unlocked and mt then
-        local success = pcall(function()
-            if setreadonly then setreadonly(mt, false) end
-            rawset(mt, "__metatable", nil)
-            if setreadonly then setreadonly(mt, true) end
-        end)
-        if success then
-            unlocked = true
-            unlockMethod = "removed __metatable"
-        end
-    end
-    if not unlocked and mt then
-        local newMt = {}
-        for k, v in pairs(mt) do
-            newMt[k] = v
-        end
-        newMt.__metatable = nil
-        local success = pcall(function()
-            if setreadonly then setreadonly(tbl, false) end
-            if setmetatable then
-                setmetatable(tbl, newMt)
-            end
-            if setreadonly then setreadonly(tbl, true) end
-        end)
-        if success then
-            unlocked = true
-            unlockMethod = "replaced metatable"
-        end
-    end
-    if unlocked then
-        return true, "Unlocked using: " .. (unlockMethod or "unknown")
-    else
-        return true, "Readonly access via: " .. method
-    end
-end
-function Modules.OverseerCE:DecompileFunction(func)
-    if type(func) ~= "function" then
-        return nil, "Not a function"
-    end
-    local funcStr = tostring(func)
-    if self.State.DecompilerCache[funcStr] then
-        return self.State.DecompilerCache[funcStr]
-    end
-    local decompiled = {
-        Address = funcStr,
-        Info = {},
-        Constants = {},
-        Upvalues = {},
-        Protos = {},
-        SourceCode = nil,
-        AccessMethod = "basic"
-    }
-    if debug and debug.getinfo then
-        local success, info = pcall(debug.getinfo, func)
-        if success then
-            decompiled.Info = {
-                Source = info.source or "?",
-                ShortSource = info.short_src or "?",
-                LineDefined = info.linedefined or -1,
-                LastLineDefined = info.lastlinedefined or -1,
-                NumParams = info.nparams or 0,
-                IsVararg = info.isvararg or false,
-                What = info.what or "?",
-                Name = info.name or "<anonymous>"
-            }
-            decompiled.AccessMethod = "debug.getinfo"
-        end
-    elseif getinfo then
-        local success, info = pcall(getinfo, func)
-        if success then
-            decompiled.Info = info
-            decompiled.AccessMethod = "getinfo"
-        end
-    end
-    if getconstants then
-        local success, constants = pcall(getconstants, func)
-        if success and constants then
-            decompiled.Constants = constants
-        end
-    elseif debug and debug.getconstants then
-        local success, constants = pcall(debug.getconstants, func)
-        if success and constants then
-            decompiled.Constants = constants
-        end
-    end
-    if getupvalues then
-        local success, upvalues = pcall(getupvalues, func)
-        if success and upvalues then
-            decompiled.Upvalues = upvalues
-        end
-    elseif debug and debug.getupvalues then
-        local success, upvalues = pcall(debug.getupvalues, func)
-        if success and upvalues then
-            decompiled.Upvalues = upvalues
-        end
-    end
-    if getprotos then
-        local success, protos = pcall(getprotos, func)
-        if success and protos then
-            decompiled.Protos = protos
-        end
-    end
-    if decompile then
-        local success, source = pcall(decompile, func)
-        if success and source then
-            decompiled.SourceCode = source
-        end
-    end
-    self.State.DecompilerCache[funcStr] = decompiled
-    return decompiled
-end
-function Modules.OverseerCE:DecompileModuleScript(moduleScript)
-    if not moduleScript or not moduleScript:IsA("ModuleScript") then
-        return nil, "Not a ModuleScript"
-    end
-    local decompiled = {
-        Name = moduleScript.Name,
-        FullName = moduleScript:GetFullName(),
-        SourceCode = nil,
-        DecompileMethod = "none",
-        Functions = {},
-        RequireSuccess = false,
-        ModuleContent = nil
-    }
-    if decompile then
-        local success, source = pcall(decompile, moduleScript)
-        if success and source then
-            decompiled.SourceCode = source
-            decompiled.DecompileMethod = "decompile(ModuleScript)"
-            print("[Decompiler] ✓ Decompiled module via decompile()")
-        end
-    end
-    if not decompiled.SourceCode then
-        local success, moduleFunc = pcall(function()
-            return require(moduleScript)
-        end)
-        if success then
-            decompiled.RequireSuccess = true
-            decompiled.ModuleContent = moduleFunc
-            if type(moduleFunc) == "function" and decompile then
-                local funcSuccess, funcSource = pcall(decompile, moduleFunc)
-                if funcSuccess and funcSource then
-                    decompiled.SourceCode = funcSource
-                    decompiled.DecompileMethod = "decompile(require(module))"
-                    print("[Decompiler] ✓ Decompiled via require() return")
-                end
-            end
-            if type(moduleFunc) == "table" then
-                local functionCount = 0
-                for key, value in pairs(moduleFunc) do
-                    if type(value) == "function" then
-                        local funcDecomp = self:DecompileFunction(value)
-                        if funcDecomp and funcDecomp.SourceCode then
-                            table.insert(decompiled.Functions, {
-                                Name = tostring(key),
-                                Decompiled = funcDecomp
-                            })
-                            functionCount = functionCount + 1
-                        end
-                    end
-                end
-                if functionCount > 0 then
-                    local compositeParts = {
-                        "-- Module: " .. decompiled.Name,
-                        "-- Decompiled " .. functionCount .. " functions",
-                        "-- Original module returns a table",
-                        "",
-                        "local module = {}",
-                        ""
-                    }
-                    for _, funcData in ipairs(decompiled.Functions) do
-                        table.insert(compositeParts, "-- Function: " .. funcData.Name)
-                        table.insert(compositeParts, "function module." .. funcData.Name .. "()")
-                        if funcData.Decompiled.SourceCode then
-                            table.insert(compositeParts, funcData.Decompiled.SourceCode)
-                        else
-                            table.insert(compositeParts, "    -- Could not decompile")
-                        end
-                        table.insert(compositeParts, "end")
-                        table.insert(compositeParts, "")
-                    end
-                    table.insert(compositeParts, "return module")
-                    decompiled.SourceCode = table.concat(compositeParts, "\n")
-                    decompiled.DecompileMethod = "reconstructed from table functions"
-                    print("[Decompiler] ✓ Reconstructed from " .. functionCount .. " functions")
-                end
-            end
-        end
-    end
-    if not decompiled.SourceCode then
-        local infoParts = {
-            "-- Module: " .. decompiled.Name,
-            "-- Path: " .. decompiled.FullName,
-            "-- Status: Could not decompile source code",
-            "",
-            "-- This can happen because:",
-            "-- 1. Your executor doesn't have a decompiler",
-            "-- 2. The module uses bytecode protection",
-            "-- 3. The module is a native C module",
-            "",
-            "-- However, you can still:",
-            "-- • View the module structure in the Table Inspector",
-            "-- • Decompile individual functions from the function browser",
-            "-- • Use the Scanner to find specific values",
-            "",
-        }
-        if decompiled.RequireSuccess and decompiled.ModuleContent then
-            table.insert(infoParts, "-- Module loaded successfully!")
-            table.insert(infoParts, "-- Type: " .. type(decompiled.ModuleContent))
-            if type(decompiled.ModuleContent) == "table" then
-                table.insert(infoParts, "")
-                table.insert(infoParts, "-- Module Structure:")
-                local count = 0
-                for k, v in pairs(decompiled.ModuleContent) do
-                    if count < 20 then
-                        table.insert(infoParts, "-- " .. tostring(k) .. " = " .. type(v))
-                        count = count + 1
-                    end
-                end
-                if count >= 20 then
-                    table.insert(infoParts, "-- ... and more entries")
-                end
-            end
-        else
-            table.insert(infoParts, "-- Module could not be required")
-        end
-        decompiled.SourceCode = table.concat(infoParts, "\n")
-        decompiled.DecompileMethod = "fallback info"
-    end
-    return decompiled
-end
-function Modules.OverseerCE:PatchFunctionReturn(func, returnValue)
-    if type(func) ~= "function" then
-        return false, "Not a function"
-    end
-    local patchId = tostring(func) .. "_return"
-    if not hookfunction then
-        return false, "hookfunction not available"
-    end
-    local success, originalFunc = pcall(function()
-        return hookfunction(func, function(...)
-            return returnValue
-        end)
-    end)
-    if success then
-        self.State.ReturnHooks[patchId] = {
-            Original = originalFunc,
-            ReturnValue = returnValue,
-            Function = func,
-            Timestamp = os.time()
-        }
-        return true, "Return value hooked"
-    else
-        return false, "Hook failed: " .. tostring(originalFunc)
-    end
-end
-function Modules.OverseerCE:PatchFunctionUpvalue(func, upvalueName, newValue)
-    if type(func) ~= "function" then
-        return false, "Not a function"
-    end
-    if not setupvalue then
-        return false, "setupvalue not available"
-    end
-    local upvalues = {}
-    if getupvalues then
-        local success, uvs = pcall(getupvalues, func)
-        if success then upvalues = uvs end
-    end
-    local uvIndex = nil
-    for i, name in pairs(upvalues) do
-        if name == upvalueName or i == tonumber(upvalueName) then
-            uvIndex = i
-            break
-        end
-    end
-    if not uvIndex then
-        return false, "Upvalue not found: " .. upvalueName
-    end
-    local success, result = pcall(setupvalue, func, uvIndex, newValue)
-    if success then
-        local patchId = tostring(func) .. "_uv_" .. upvalueName
-        self.State.UpvalueMonitors[patchId] = {
-            Function = func,
-            UpvalueName = upvalueName,
-            UpvalueIndex = uvIndex,
-            NewValue = newValue,
-            Timestamp = os.time()
-        }
-        return true, "Upvalue patched"
-    else
-        return false, "Failed to set upvalue"
-    end
-end
-function Modules.OverseerCE:PatchFunctionConstant(func, constantIndex, newValue)
-    if type(func) ~= "function" then
-        return false, "Not a function"
-    end
-    if not setconstant then
-        return false, "setconstant not available"
-    end
-    local success, result = pcall(setconstant, func, constantIndex, newValue)
-    if success then
-        local patchId = tostring(func) .. "_const_" .. constantIndex
-        self.State.ConstantPatches[patchId] = {
-            Function = func,
-            ConstantIndex = constantIndex,
-            NewValue = newValue,
-            Timestamp = os.time()
-        }
-        return true, "Constant patched"
-    else
-        return false, "Failed to set constant: " .. tostring(result)
-    end
-end
-function Modules.OverseerCE:HookFunctionCalls(func, callback)
-    if type(func) ~= "function" then
-        return false, "Not a function"
-    end
-    if not hookfunction then
-        return false, "hookfunction not available"
-    end
-    local callCount = 0
-    local patchId = tostring(func) .. "_tracker"
-    local success, originalFunc = pcall(function()
-        return hookfunction(func, function(...)
-            callCount = callCount + 1
-            if self.State.CallTrackers[patchId] then
-                table.insert(self.State.CallTrackers[patchId].Calls, {
-                    Timestamp = tick(),
-                    Args = {...}
-                })
-            end
-            if callback then
-                callback(callCount, ...)
-            end
-            return originalFunc(...)
-        end)
-    end)
-    if success then
-        self.State.CallTrackers[patchId] = {
-            Original = originalFunc,
-            Function = func,
-            CallCount = callCount,
-            Calls = {},
-            Callback = callback,
-            Timestamp = os.time()
-        }
-        return true, "Call tracker installed"
-    else
-        return false, "Hook failed"
-    end
-end
-function Modules.OverseerCE:ReplaceClosure(oldFunc, newFunc)
-    if type(oldFunc) ~= "function" or type(newFunc) ~= "function" then
-        return false, "Both arguments must be functions"
-    end
-    if replaceclosure then
-        local success = pcall(replaceclosure, oldFunc, newFunc)
-        if success then
-            return true, "Closure replaced using replaceclosure"
-        end
-    end
-    if hookfunction then
-        local success = pcall(hookfunction, oldFunc, newFunc)
-        if success then
-            return true, "Closure replaced using hookfunction"
-        end
-    end
-    return false, "No closure replacement method available"
-end
-function Modules.OverseerCE:GetFunctionCallstack(func)
-    if type(func) ~= "function" then
-        return nil, "Not a function"
-    end
-    local callstack = {}
-    if debug and debug.traceback then
-        local trace = debug.traceback()
-        for line in trace:gmatch("[^\r\n]+") do
-            table.insert(callstack, line)
-        end
-    end
-    return callstack
-end
-function Modules.OverseerCE:PopulateFunctionList(panel)
-    if not self.State.CurrentTable then 
-        self:_showNotification("No module loaded to scan", "warning")
-        return 
-    end
-    local listArea = panel:FindFirstChild("FunctionListScroll", true)
-    if not listArea then 
-        warn("[Decompiler] Could not find FunctionListScroll")
-        self:_showNotification("Error: Function list area not found", "error")
-        return 
-    end
-    for _, child in ipairs(listArea:GetChildren()) do
-        if not child:IsA("UIListLayout") then 
-            child:Destroy() 
-        end
-    end
-    local foundFunctions = {}
-    local successCount = 0
-    local errorCount = 0
-    for k, v in pairs(self.State.CurrentTable) do
-        if type(v) == "function" then
-            table.insert(foundFunctions, {Name = tostring(k), Func = v, Source = "Module"})
-            successCount = successCount + 1
-        end
-    end
-    local mt = self:GetRawMetatable(self.State.CurrentTable)
-    if mt and mt.__index then
-        local target = mt.__index
-        if type(target) == "table" then
-            for k, v in pairs(target) do
-                if type(v) == "function" then
-                    table.insert(foundFunctions, {Name = "[MT] "..tostring(k), Func = v, Source = "Metatable"})
-                    successCount = successCount + 1
-                end
-            end
-        end
-    end
-    if #foundFunctions == 0 then
-        self:_showNotification("No functions found in this module", "warning")
-        local noFuncLabel = Instance.new("TextLabel", listArea)
-        noFuncLabel.Size = UDim2.new(1, -4, 0, 40)
-        noFuncLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 220)
-        noFuncLabel.Text = "No functions found.\n\nThis module may only\ncontain data or tables."
-        noFuncLabel.TextColor3 = self.Config.TEXT_BLACK
-        noFuncLabel.Font = Enum.Font.SourceSans
-        noFuncLabel.TextSize = 9
-        noFuncLabel.TextWrapped = true
-        noFuncLabel.BorderSizePixel = 0
-        self:_createBorder(noFuncLabel, true)
-        return
-    end
-    for _, data in ipairs(foundFunctions) do
-        local btn = self:_createButton(listArea, data.Name, UDim2.new(1, -4, 0, 20), UDim2.new(0,0,0,0), function()
-            self:_showNotification("Analyzing: " .. data.Name, "info")
-            print("[Decompiler] Decompiling function:", data.Name)
-            local decomp = self:DecompileFunction(data.Func)
-            if decomp then
-                self.State.CurrentDecompiledFunction = decomp
-                self.State.CurrentDecompiledFunctionRef = data.Func
-                self.State.CurrentDecompiledName = data.Name
-                self:SwitchDecompilerTab("Info", panel)
-                self:_showNotification("Function decompiled: " .. data.Name, "success")
-            else
-                self:_showNotification("Failed to decompile function", "error")
-            end
-        end)
-        btn.TextXAlignment = Enum.TextXAlignment.Left
-        btn.TextSize = 9
-        btn.TextWrapped = false
-        btn.TextTruncate = Enum.TextTruncate.AtEnd
-        btn.ZIndex = 103
-        local btnPadding = Instance.new("UIPadding", btn)
-        btnPadding.PaddingLeft = UDim.new(0, 4)
-        if data.Source == "Metatable" then
-            btn.TextColor3 = Color3.fromRGB(0, 120, 215)
-        end
-    end
-    self:_showNotification(string.format("Found %d functions", #foundFunctions), "success")
-    print(string.format("[Decompiler] Found %d functions in module", #foundFunctions))
-end
-function Modules.OverseerCE:CreateDecompilerPanel(parent)
-    local panel = self:_createPanel(parent, UDim2.fromOffset(4, 4), UDim2.new(1, -8, 1, -8), "Function Decompiler & Browser")
-    panel.ZIndex = 100
-    panel.ClipsDescendants = true
-    local browserFrame = Instance.new("Frame", panel)
-    browserFrame.Size = UDim2.new(0.25, -6, 1, -35)
-    browserFrame.Position = UDim2.fromOffset(4, 28)
-    browserFrame.BackgroundColor3 = self.Config.BG_DARK
-    browserFrame.BorderSizePixel = 0
-    browserFrame.ZIndex = 101
-    self:_createBorder(browserFrame, true)
-    local browserLabel = Instance.new("TextLabel", browserFrame)
-    browserLabel.Size = UDim2.new(1, 0, 0, 18)
-    browserLabel.Position = UDim2.fromOffset(0, 0)
-    browserLabel.Text = "Functions in Module"
-    browserLabel.Font = Enum.Font.SourceSansBold
-    browserLabel.TextSize = 10
-    browserLabel.BackgroundColor3 = self.Config.BG_PANEL
-    browserLabel.TextColor3 = self.Config.TEXT_BLACK
-    browserLabel.BorderSizePixel = 0
-    browserLabel.ZIndex = 102
-    local listScroll = Instance.new("ScrollingFrame", browserFrame)
-    listScroll.Name = "FunctionListScroll"
-    listScroll.Size = UDim2.new(1, -4, 1, -45)
-    listScroll.Position = UDim2.fromOffset(2, 20)
-    listScroll.BackgroundColor3 = self.Config.BG_WHITE
-    listScroll.BorderSizePixel = 0
-    listScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    listScroll.ScrollBarThickness = 4
-    listScroll.ZIndex = 102
-    self:_createBorder(listScroll, true)
-    local listLayout = Instance.new("UIListLayout", listScroll)
-    listLayout.Padding = UDim.new(0, 1)
-    local scanBtn = self:_createButton(browserFrame, "Scan Module", UDim2.new(1, -4, 0, 20), UDim2.new(0, 2, 1, -22), function()
-        if not self.State.CurrentTable then
-            self:_showNotification("No module loaded. Select a module from the left panel first.", "warning")
-            return
-        end
-        self:PopulateFunctionList(panel)
-        self:_showNotification("Scanning for functions...", "info")
-    end)
-    local decompileModuleBtn = self:_createButton(browserFrame, "Decompile Module", UDim2.new(1, -4, 0, 20), UDim2.new(0, 2, 1, -44), function()
-        if not self.State.SelectedModule then
-            self:_showNotification("No module selected. Select one from the main Module List first.", "warning")
-            return
-        end
-        self:_showNotification("Decompiling entire module...", "info")
-        local moduleDecomp = self:DecompileModuleScript(self.State.SelectedModule)
-        if moduleDecomp then
-            self.State.CurrentModuleDecompiled = moduleDecomp
-            self:SwitchDecompilerTab("ModuleSource", panel)
-            self:_showNotification("Module decompiled: " .. moduleDecomp.Name, "success")
-        else
-            self:_showNotification("Failed to decompile module", "error")
-        end
-    end)
-    decompileModuleBtn.ZIndex = 102
-    decompileModuleBtn.TextSize = 9
-    decompileModuleBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
-    scanBtn.ZIndex = 102
-    scanBtn.TextSize = 9
-    local contentContainer = Instance.new("Frame", panel)
-    contentContainer.Size = UDim2.new(0.75, -6, 1, -35)
-    contentContainer.Position = UDim2.new(0.25, 2, 0, 28)
-    contentContainer.BackgroundTransparency = 1
-    contentContainer.ZIndex = 100
-    local tabContainer = Instance.new("Frame", contentContainer)
-    tabContainer.Size = UDim2.new(1, 0, 0, 26)
-    tabContainer.Position = UDim2.fromOffset(0, 0)
-    tabContainer.BackgroundColor3 = self.Config.BG_DARK
-    tabContainer.BorderSizePixel = 0
-    tabContainer.ZIndex = 101
-    self:_createBorder(tabContainer, true)
-    local tabs = {"Info", "Constants", "Upvalues", "Protos", "Source", "ModuleSource"}
-    local tabButtons = {}
-    local tabWidth = (tabContainer.AbsoluteSize.X - 12) / #tabs
-    for i, tabName in ipairs(tabs) do
-        local tabBtn = self:_createButton(tabContainer, tabName, UDim2.new(0, tabWidth - 2, 0, 22), UDim2.fromOffset(2 + (i-1) * tabWidth, 2), function()
-            self:SwitchDecompilerTab(tabName, panel)
-            for _, btn in pairs(tabButtons) do
-                if btn and btn.Parent then
-                    btn.BackgroundColor3 = self.Config.BG_PANEL
-                    btn.TextColor3 = self.Config.TEXT_BLACK
-                end
-            end
-            if tabBtn and tabBtn.Parent then
-                tabBtn.BackgroundColor3 = self.Config.ACCENT_BLUE
-                tabBtn.TextColor3 = self.Config.BG_WHITE
-            end
-        end)
-        tabBtn.ZIndex = 102
-        tabBtn.TextSize = 9
-        tabButtons[tabName] = tabBtn
-    end
-    local contentArea = Instance.new("ScrollingFrame", contentContainer)
-    contentArea.Name = "DecompilerContent"
-    contentArea.Size = UDim2.new(1, 0, 1, -106)
-    contentArea.Position = UDim2.fromOffset(0, 28)
-    contentArea.BackgroundColor3 = self.Config.BG_WHITE
-    contentArea.BorderSizePixel = 0
-    contentArea.ScrollBarThickness = 12
-    contentArea.ScrollBarImageColor3 = self.Config.BG_DARK
-    contentArea.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    contentArea.CanvasSize = UDim2.new(0, 0, 0, 0)
-    contentArea.ZIndex = 101
-    contentArea.ClipsDescendants = true
-    self:_createBorder(contentArea, true)
-    local emptyLabel = Instance.new("TextLabel", contentArea)
-    emptyLabel.Name = "EmptyMessage"
-    emptyLabel.Size = UDim2.new(1, -16, 0, 80)
-    emptyLabel.Position = UDim2.fromOffset(8, 8)
-    emptyLabel.BackgroundTransparency = 1
-    emptyLabel.Text = [[HOW TO USE DECOMPILER:
-1. Select a module from the Module List (left panel)
-2. Click "Scan Module" in the function browser
-3. Click any function name to decompile it
-4. Use tabs above to view Info/Constants/Upvalues/Source
-5. Use Quick Actions below to patch/hook functions]]
-    emptyLabel.TextColor3 = self.Config.TEXT_GRAY
-    emptyLabel.Font = Enum.Font.SourceSans
-    emptyLabel.TextSize = 11
-    emptyLabel.TextWrapped = true
-    emptyLabel.TextXAlignment = Enum.TextXAlignment.Left
-    emptyLabel.TextYAlignment = Enum.TextYAlignment.Top
-    emptyLabel.ZIndex = 102
-    local actionFrame = Instance.new("Frame", contentContainer)
-    actionFrame.Size = UDim2.new(1, 0, 0, 76)
-    actionFrame.Position = UDim2.new(0, 0, 1, -76)
-    actionFrame.BackgroundColor3 = self.Config.BG_PANEL
-    actionFrame.BorderSizePixel = 0
-    actionFrame.ZIndex = 101
-    self:_createBorder(actionFrame, true)
-    local actionTitle = Instance.new("TextLabel", actionFrame)
-    actionTitle.Size = UDim2.new(1, -8, 0, 16)
-    actionTitle.Position = UDim2.fromOffset(4, 2)
-    actionTitle.BackgroundTransparency = 1
-    actionTitle.Text = "Quick Actions (select a function first)"
-    actionTitle.TextColor3 = self.Config.TEXT_BLACK
-    actionTitle.Font = Enum.Font.SourceSansBold
-    actionTitle.TextSize = 9
-    actionTitle.TextXAlignment = Enum.TextXAlignment.Left
-    actionTitle.ZIndex = 102
-    local buttonStartY = 20
-    local buttonHeight = 22
-    local buttonSpacing = 2
-    local buttonsPerRow = 4
-    local actionButtons = {
-        {label = "Hook Return", func = function() self:ShowReturnHookDialog(panel) end},
-        {label = "Patch Upvalue", func = function() self:ShowUpvaluePatchDialog(panel) end},
-        {label = "Patch Constant", func = function() self:ShowConstantPatchDialog(panel) end},
-        {label = "Track Calls", func = function() self:ShowCallTrackerDialog(panel) end},
-        {label = "Replace Closure", func = function() self:ShowClosureReplaceDialog(panel) end},
-        {label = "View Patches", func = function() self:ShowFunctionPatchList(panel) end},
-        {label = "Clear All Patches", func = function() 
-            self:ClearAllFunctionPatches()
-            self:_showNotification("All function patches cleared", "success")
-        end},
-        {label = "Export Info", func = function()
-            if self.State.CurrentDecompiledFunction then
-                self:ExportFunctionInfo(self.State.CurrentDecompiledFunction)
-            else
-                self:_showNotification("No function decompiled yet", "warning")
-            end
-        end}
-    }
-    for i, btnData in ipairs(actionButtons) do
-        local row = math.floor((i - 1) / buttonsPerRow)
-        local col = (i - 1) % buttonsPerRow
-        local btn = self:_createButton(
-            actionFrame, 
-            btnData.label, 
-            UDim2.new(0.25, -3, 0, buttonHeight), 
-            UDim2.new(col * 0.25, 2, 0, buttonStartY + row * (buttonHeight + buttonSpacing)),
-            btnData.func
-        )
-        btn.ZIndex = 102
-        btn.TextSize = 8
-        btn.TextWrapped = true
-    end
-    return panel
-end
-function Modules.OverseerCE:DecompileFunctionFromPath(path, panel)
-    local func = self:GetValueFromPath(path)
-    if type(func) ~= "function" then
-        self:_showNotification("Path does not point to a function", "error")
-        return
-    end
-    self:_showNotification("Decompiling function...", "info")
-    local decompiled = self:DecompileFunction(func)
-    if not decompiled then
-        self:_showNotification("Decompilation failed", "error")
-        return
-    end
-    self.State.CurrentDecompiledFunction = decompiled
-    self.State.CurrentDecompiledFunctionRef = func
-    self.State.CurrentDecompiledPath = path
-    self:SwitchDecompilerTab("Info", panel)
-    self:_showNotification("Function decompiled successfully", "success")
-end
-function Modules.OverseerCE:SwitchDecompilerTab(tabName, panel)
-    local contentArea = panel:FindFirstChild("DecompilerContent")
-    if not contentArea then return end
-    for _, child in ipairs(contentArea:GetChildren()) do
-        if not child:IsA("UIListLayout") then
-            child:Destroy()
-        end
-    end
-    if tabName == "ModuleSource" then
-        self:ShowModuleSource(contentArea)
-        return
-    end
-    if not self.State.CurrentDecompiledFunction then
-        local emptyLabel = Instance.new("TextLabel", contentArea)
-        emptyLabel.Size = UDim2.new(1, -8, 0, 30)
-        emptyLabel.Position = UDim2.fromOffset(4, 4)
-        emptyLabel.BackgroundTransparency = 1
-        emptyLabel.Text = "No function decompiled yet"
-        emptyLabel.TextColor3 = self.Config.TEXT_GRAY
-        emptyLabel.Font = Enum.Font.SourceSans
-        emptyLabel.TextSize = 11
-        emptyLabel.ZIndex = 102
-        return
-    end
-    local decomp = self.State.CurrentDecompiledFunction
-    if tabName == "Info" then
-        self:ShowDecompilerInfo(contentArea, decomp)
-    elseif tabName == "Constants" then
-        self:ShowDecompilerConstants(contentArea, decomp)
-    elseif tabName == "Upvalues" then
-        self:ShowDecompilerUpvalues(contentArea, decomp)
-    elseif tabName == "Protos" then
-        self:ShowDecompilerProtos(contentArea, decomp)
-    elseif tabName == "Source" then
-        self:ShowDecompilerSource(contentArea, decomp)
-    end
-end
-function Modules.OverseerCE:ShowDecompilerInfo(parent, decomp)
-    local yPos = 4
-    local infoText = string.format([[Function Information:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Address: %s
-Access Method: %s
-Source: %s
-Short Source: %s
-Line Defined: %d
-Last Line Defined: %d
-Number of Parameters: %d
-Is Vararg: %s
-What: %s
-Name: %s
-Constants: %d found
-Upvalues: %d found
-Protos: %d found
-]], 
-        decomp.Address,
-        decomp.AccessMethod,
-        decomp.Info.Source or "?",
-        decomp.Info.ShortSource or "?",
-        decomp.Info.LineDefined or -1,
-        decomp.Info.LastLineDefined or -1,
-        decomp.Info.NumParams or 0,
-        decomp.Info.IsVararg and "Yes" or "No",
-        decomp.Info.What or "?",
-        decomp.Info.Name or "<anonymous>",
-        #decomp.Constants,
-        #decomp.Upvalues,
-        #decomp.Protos
-    )
-    local infoLabel = Instance.new("TextLabel", parent)
-    infoLabel.Size = UDim2.new(1, -8, 0, 280)
-    infoLabel.Position = UDim2.fromOffset(4, yPos)
-    infoLabel.BackgroundColor3 = Color3.fromRGB(250, 250, 250)
-    infoLabel.Text = infoText
-    infoLabel.TextColor3 = self.Config.TEXT_BLACK
-    infoLabel.Font = Enum.Font.Code
-    infoLabel.TextSize = 9
-    infoLabel.TextXAlignment = Enum.TextXAlignment.Left
-    infoLabel.TextYAlignment = Enum.TextYAlignment.Top
-    infoLabel.TextWrapped = true
-    infoLabel.ZIndex = 102
-    self:_createBorder(infoLabel, true)
-    local infoPadding = Instance.new("UIPadding", infoLabel)
-    infoPadding.PaddingLeft = UDim.new(0, 6)
-    infoPadding.PaddingTop = UDim.new(0, 6)
-    infoPadding.PaddingRight = UDim.new(0, 6)
-end
-function Modules.OverseerCE:ShowDecompilerConstants(parent, decomp)
-    local yPos = 4
-    local headerLabel = Instance.new("TextLabel", parent)
-    headerLabel.Size = UDim2.new(1, -8, 0, 20)
-    headerLabel.Position = UDim2.fromOffset(4, yPos)
-    headerLabel.BackgroundTransparency = 1
-    headerLabel.Text = string.format("Constants (%d found)", #decomp.Constants)
-    headerLabel.TextColor3 = self.Config.TEXT_BLACK
-    headerLabel.Font = Enum.Font.SourceSansBold
-    headerLabel.TextSize = 11
-    headerLabel.TextXAlignment = Enum.TextXAlignment.Left
-    headerLabel.ZIndex = 102
-    yPos = yPos + 24
-    if #decomp.Constants == 0 then
-        local emptyLabel = Instance.new("TextLabel", parent)
-        emptyLabel.Size = UDim2.new(1, -8, 0, 20)
-        emptyLabel.Position = UDim2.fromOffset(4, yPos)
-        emptyLabel.BackgroundTransparency = 1
-        emptyLabel.Text = "No constants found"
-        emptyLabel.TextColor3 = self.Config.TEXT_GRAY
-        emptyLabel.Font = Enum.Font.SourceSans
-        emptyLabel.TextSize = 10
-        emptyLabel.TextXAlignment = Enum.TextXAlignment.Left
-        emptyLabel.ZIndex = 102
-        return
-    end
-    for i, constant in ipairs(decomp.Constants) do
-        local constFrame = Instance.new("Frame", parent)
-        constFrame.Size = UDim2.new(1, -8, 0, 24)
-        constFrame.Position = UDim2.fromOffset(4, yPos)
-        constFrame.BackgroundColor3 = i % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245, 245, 245)
-        constFrame.BorderSizePixel = 0
-        constFrame.ZIndex = 102
-        self:_createBorder(constFrame, true)
-        local indexLabel = Instance.new("TextLabel", constFrame)
-        indexLabel.Size = UDim2.new(0, 40, 1, 0)
-        indexLabel.Position = UDim2.fromOffset(4, 0)
-        indexLabel.BackgroundTransparency = 1
-        indexLabel.Text = tostring(i)
-        indexLabel.TextColor3 = self.Config.TEXT_GRAY
-        indexLabel.Font = Enum.Font.Code
-        indexLabel.TextSize = 10
-        indexLabel.TextXAlignment = Enum.TextXAlignment.Left
-        indexLabel.ZIndex = 103
-        local typeLabel = Instance.new("TextLabel", constFrame)
-        typeLabel.Size = UDim2.new(0, 60, 1, 0)
-        typeLabel.Position = UDim2.fromOffset(48, 0)
-        typeLabel.BackgroundTransparency = 1
-        typeLabel.Text = type(constant)
-        typeLabel.TextColor3 = self.Config.ACCENT_BLUE
-        typeLabel.Font = Enum.Font.Code
-        typeLabel.TextSize = 10
-        typeLabel.TextXAlignment = Enum.TextXAlignment.Left
-        typeLabel.ZIndex = 103
-        local valueLabel = Instance.new("TextLabel", constFrame)
-        valueLabel.Size = UDim2.new(1, -200, 1, 0)
-        valueLabel.Position = UDim2.fromOffset(112, 0)
-        valueLabel.BackgroundTransparency = 1
-        valueLabel.Text = tostring(constant)
-        valueLabel.TextColor3 = self.Config.TEXT_BLACK
-        valueLabel.Font = Enum.Font.Code
-        valueLabel.TextSize = 9
-        valueLabel.TextXAlignment = Enum.TextXAlignment.Left
-        valueLabel.TextTruncate = Enum.TextTruncate.AtEnd
-        valueLabel.ZIndex = 103
-        local patchBtn = self:_createButton(constFrame, "Patch", UDim2.fromOffset(60, 18), UDim2.new(1, -64, 0, 3), function()
-            self:ShowConstantPatchDialogWithIndex(i, constant)
-        end)
-        patchBtn.ZIndex = 104
-        patchBtn.TextSize = 8
-        yPos = yPos + 26
-    end
-end
-function Modules.OverseerCE:ShowDecompilerUpvalues(parent, decomp)
-    local yPos = 4
-    local headerLabel = Instance.new("TextLabel", parent)
-    headerLabel.Size = UDim2.new(1, -8, 0, 20)
-    headerLabel.Position = UDim2.fromOffset(4, yPos)
-    headerLabel.BackgroundTransparency = 1
-    headerLabel.Text = string.format("Upvalues (%d found)", #decomp.Upvalues)
-    headerLabel.TextColor3 = self.Config.TEXT_BLACK
-    headerLabel.Font = Enum.Font.SourceSansBold
-    headerLabel.TextSize = 11
-    headerLabel.TextXAlignment = Enum.TextXAlignment.Left
-    headerLabel.ZIndex = 102
-    yPos = yPos + 24
-    if #decomp.Upvalues == 0 then
-        local emptyLabel = Instance.new("TextLabel", parent)
-        emptyLabel.Size = UDim2.new(1, -8, 0, 20)
-        emptyLabel.Position = UDim2.fromOffset(4, yPos)
-        emptyLabel.BackgroundTransparency = 1
-        emptyLabel.Text = "No upvalues found"
-        emptyLabel.TextColor3 = self.Config.TEXT_GRAY
-        emptyLabel.Font = Enum.Font.SourceSans
-        emptyLabel.TextSize = 10
-        emptyLabel.TextXAlignment = Enum.TextXAlignment.Left
-        emptyLabel.ZIndex = 102
-        return
-    end
-    for name, value in pairs(decomp.Upvalues) do
-        local uvFrame = Instance.new("Frame", parent)
-        uvFrame.Size = UDim2.new(1, -8, 0, 24)
-        uvFrame.Position = UDim2.fromOffset(4, yPos)
-        uvFrame.BackgroundColor3 = yPos % 48 == 4 and self.Config.BG_WHITE or Color3.fromRGB(245, 245, 245)
-        uvFrame.BorderSizePixel = 0
-        uvFrame.ZIndex = 102
-        self:_createBorder(uvFrame, true)
-        local nameLabel = Instance.new("TextLabel", uvFrame)
-        nameLabel.Size = UDim2.new(0, 120, 1, 0)
-        nameLabel.Position = UDim2.fromOffset(4, 0)
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.Text = tostring(name)
-        nameLabel.TextColor3 = self.Config.ACCENT_BLUE
-        nameLabel.Font = Enum.Font.Code
-        nameLabel.TextSize = 10
-        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-        nameLabel.ZIndex = 103
-        local typeLabel = Instance.new("TextLabel", uvFrame)
-        typeLabel.Size = UDim2.new(0, 60, 1, 0)
-        typeLabel.Position = UDim2.fromOffset(128, 0)
-        typeLabel.BackgroundTransparency = 1
-        typeLabel.Text = type(value)
-        typeLabel.TextColor3 = self.Config.TEXT_GRAY
-        typeLabel.Font = Enum.Font.Code
-        typeLabel.TextSize = 10
-        typeLabel.TextXAlignment = Enum.TextXAlignment.Left
-        typeLabel.ZIndex = 103
-        local valueLabel = Instance.new("TextLabel", uvFrame)
-        valueLabel.Size = UDim2.new(1, -280, 1, 0)
-        valueLabel.Position = UDim2.fromOffset(192, 0)
-        valueLabel.BackgroundTransparency = 1
-        valueLabel.Text = tostring(value)
-        valueLabel.TextColor3 = self.Config.TEXT_BLACK
-        valueLabel.Font = Enum.Font.Code
-        valueLabel.TextSize = 9
-        valueLabel.TextXAlignment = Enum.TextXAlignment.Left
-        valueLabel.TextTruncate = Enum.TextTruncate.AtEnd
-        valueLabel.ZIndex = 103
-        local patchBtn = self:_createButton(uvFrame, "Patch", UDim2.fromOffset(60, 18), UDim2.new(1, -64, 0, 3), function()
-            self:ShowUpvaluePatchDialogWithName(name, value)
-        end)
-        patchBtn.ZIndex = 104
-        patchBtn.TextSize = 8
-        yPos = yPos + 26
-    end
-end
-function Modules.OverseerCE:ShowDecompilerProtos(parent, decomp)
-    local yPos = 4
-    local headerLabel = Instance.new("TextLabel", parent)
-    headerLabel.Size = UDim2.new(1, -8, 0, 20)
-    headerLabel.Position = UDim2.fromOffset(4, yPos)
-    headerLabel.BackgroundTransparency = 1
-    headerLabel.Text = string.format("Nested Functions/Protos (%d found)", #decomp.Protos)
-    headerLabel.TextColor3 = self.Config.TEXT_BLACK
-    headerLabel.Font = Enum.Font.SourceSansBold
-    headerLabel.TextSize = 11
-    headerLabel.TextXAlignment = Enum.TextXAlignment.Left
-    headerLabel.ZIndex = 102
-    yPos = yPos + 24
-    if #decomp.Protos == 0 then
-        local emptyLabel = Instance.new("TextLabel", parent)
-        emptyLabel.Size = UDim2.new(1, -8, 0, 20)
-        emptyLabel.Position = UDim2.fromOffset(4, yPos)
-        emptyLabel.BackgroundTransparency = 1
-        emptyLabel.Text = "No nested functions found"
-        emptyLabel.TextColor3 = self.Config.TEXT_GRAY
-        emptyLabel.Font = Enum.Font.SourceSans
-        emptyLabel.TextSize = 10
-        emptyLabel.TextXAlignment = Enum.TextXAlignment.Left
-        emptyLabel.ZIndex = 102
-        return
-    end
-    for i, proto in ipairs(decomp.Protos) do
-        local protoFrame = Instance.new("Frame", parent)
-        protoFrame.Size = UDim2.new(1, -8, 0, 30)
-        protoFrame.Position = UDim2.fromOffset(4, yPos)
-        protoFrame.BackgroundColor3 = i % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245, 245, 245)
-        protoFrame.BorderSizePixel = 0
-        protoFrame.ZIndex = 102
-        self:_createBorder(protoFrame, true)
-        local indexLabel = Instance.new("TextLabel", protoFrame)
-        indexLabel.Size = UDim2.new(0, 40, 1, 0)
-        indexLabel.Position = UDim2.fromOffset(4, 0)
-        indexLabel.BackgroundTransparency = 1
-        indexLabel.Text = "Proto " .. i
-        indexLabel.TextColor3 = self.Config.ACCENT_BLUE
-        indexLabel.Font = Enum.Font.Code
-        indexLabel.TextSize = 10
-        indexLabel.TextXAlignment = Enum.TextXAlignment.Left
-        indexLabel.ZIndex = 103
-        local addrLabel = Instance.new("TextLabel", protoFrame)
-        addrLabel.Size = UDim2.new(1, -140, 1, 0)
-        addrLabel.Position = UDim2.fromOffset(50, 0)
-        addrLabel.BackgroundTransparency = 1
-        addrLabel.Text = tostring(proto)
-        addrLabel.TextColor3 = self.Config.TEXT_BLACK
-        addrLabel.Font = Enum.Font.Code
-        addrLabel.TextSize = 9
-        addrLabel.TextXAlignment = Enum.TextXAlignment.Left
-        addrLabel.TextTruncate = Enum.TextTruncate.AtEnd
-        addrLabel.ZIndex = 103
-        local decompileBtn = self:_createButton(protoFrame, "Decompile", UDim2.fromOffset(80, 20), UDim2.new(1, -84, 0, 5), function()
-            if type(proto) == "function" then
-                local protoDecomp = self:DecompileFunction(proto)
-                if protoDecomp then
-                    self.State.CurrentDecompiledFunction = protoDecomp
-                    self.State.CurrentDecompiledFunctionRef = proto
-                    self:SwitchDecompilerTab("Info", parent:GetParent())
-                    self:_showNotification("Proto decompiled", "success")
-                end
-            end
-        end)
-        decompileBtn.ZIndex = 104
-        decompileBtn.TextSize = 8
-        yPos = yPos + 32
-    end
-end
-function Modules.OverseerCE:ShowDecompilerSource(parent, decomp)
-    local yPos = 4
-    local sourceBox = Instance.new("TextBox", parent)
-    sourceBox.Size = UDim2.new(1, -8, 1, -8)
-    sourceBox.Position = UDim2.fromOffset(4, yPos)
-    sourceBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    sourceBox.TextColor3 = Color3.fromRGB(220, 220, 220)
-    sourceBox.Font = Enum.Font.Code
-    sourceBox.TextSize = 9
-    sourceBox.TextXAlignment = Enum.TextXAlignment.Left
-    sourceBox.TextYAlignment = Enum.TextYAlignment.Top
-    sourceBox.TextWrapped = true
-    sourceBox.ClearTextOnFocus = false
-    sourceBox.MultiLine = true
-    sourceBox.ZIndex = 102
-    if decomp.SourceCode then
-        sourceBox.Text = decomp.SourceCode
-    else
-        sourceBox.Text = "-- Source code not available\n-- Decompiler not found or function is native\n\n-- Use the other tabs to view function details"
-    end
-    self:_createBorder(sourceBox, true)
-    local sourcePadding = Instance.new("UIPadding", sourceBox)
-    sourcePadding.PaddingLeft = UDim.new(0, 6)
-    sourcePadding.PaddingTop = UDim.new(0, 6)
-    sourcePadding.PaddingRight = UDim.new(0, 6)
-    sourcePadding.PaddingBottom = UDim.new(0, 6)
-end
-function Modules.OverseerCE:ShowModuleSource(parent)
-    local yPos = 4
-    if not self.State.CurrentModuleDecompiled then
-        local infoLabel = Instance.new("TextLabel", parent)
-        infoLabel.Size = UDim2.new(1, -8, 0, 80)
-        infoLabel.Position = UDim2.fromOffset(4, yPos)
-        infoLabel.BackgroundColor3 = Color3.fromRGB(255, 250, 220)
-        infoLabel.Text = [[MODULE SOURCE VIEWER
-To view the full module source code:
-1. Select a module from the Module List (left panel)
-2. Click "Decompile Module" button in the function browser
-3. The full module source will appear here
-Note: Individual function source is in the "Source" tab]]
-        infoLabel.TextColor3 = self.Config.TEXT_BLACK
-        infoLabel.Font = Enum.Font.SourceSans
-        infoLabel.TextSize = 11
-        infoLabel.TextXAlignment = Enum.TextXAlignment.Left
-        infoLabel.TextYAlignment = Enum.TextYAlignment.Top
-        infoLabel.TextWrapped = true
-        infoLabel.ZIndex = 102
-        self:_createBorder(infoLabel, true)
-        local labelPadding = Instance.new("UIPadding", infoLabel)
-        labelPadding.PaddingLeft = UDim.new(0, 8)
-        labelPadding.PaddingTop = UDim.new(0, 8)
-        return
-    end
-    local moduleDecomp = self.State.CurrentModuleDecompiled
-    local headerLabel = Instance.new("TextLabel", parent)
-    headerLabel.Size = UDim2.new(1, -8, 0, 24)
-    headerLabel.Position = UDim2.fromOffset(4, yPos)
-    headerLabel.BackgroundColor3 = self.Config.ACCENT_BLUE
-    headerLabel.Text = "📄 " .. moduleDecomp.Name .. " - " .. moduleDecomp.DecompileMethod
-    headerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    headerLabel.Font = Enum.Font.SourceSansBold
-    headerLabel.TextSize = 11
-    headerLabel.TextXAlignment = Enum.TextXAlignment.Left
-    headerLabel.ZIndex = 102
-    self:_createBorder(headerLabel, true)
-    local headerPadding = Instance.new("UIPadding", headerLabel)
-    headerPadding.PaddingLeft = UDim.new(0, 6)
-    yPos = yPos + 28
-    local btnContainer = Instance.new("Frame", parent)
-    btnContainer.Size = UDim2.new(1, -8, 0, 26)
-    btnContainer.Position = UDim2.fromOffset(4, yPos)
-    btnContainer.BackgroundTransparency = 1
-    btnContainer.ZIndex = 102
-    local copyBtn = self:_createButton(btnContainer, "Copy Source", UDim2.fromOffset(100, 22), UDim2.fromOffset(0, 0), function()
-        local copied = self:_setClipboard(moduleDecomp.SourceCode)
-        if copied then
-            self:_showNotification("Source copied to clipboard!", "success")
-        else
-            self:_showNotification("Clipboard not available", "error")
-        end
-    end)
-    copyBtn.ZIndex = 103
-    copyBtn.TextSize = 9
-    local refreshBtn = self:_createButton(btnContainer, "Re-Decompile", UDim2.fromOffset(100, 22), UDim2.fromOffset(104, 0), function()
-        if self.State.SelectedModule then
-            self:_showNotification("Re-decompiling...", "info")
-            local newDecomp = self:DecompileModuleScript(self.State.SelectedModule)
-            if newDecomp then
-                self.State.CurrentModuleDecompiled = newDecomp
-                self:SwitchDecompilerTab("ModuleSource", parent:GetParent())
-                self:_showNotification("Module re-decompiled!", "success")
-            end
-        end
-    end)
-    refreshBtn.ZIndex = 103
-    refreshBtn.TextSize = 9
-    local exportBtn = self:_createButton(btnContainer, "Export Info", UDim2.fromOffset(100, 22), UDim2.fromOffset(208, 0), function()
-        local exportData = {
-            Name = moduleDecomp.Name,
-            FullName = moduleDecomp.FullName,
-            Method = moduleDecomp.DecompileMethod,
-            SourceCode = moduleDecomp.SourceCode,
-            FunctionCount = #moduleDecomp.Functions
-        }
-        local success, json = pcall(function()
-            return game:GetService("HttpService"):JSONEncode(exportData)
-        end)
-        if success then
-            self:_setClipboard(json)
-            self:_showNotification("Module info exported!", "success")
-        end
-    end)
-    exportBtn.ZIndex = 103
-    exportBtn.TextSize = 9
-    yPos = yPos + 30
-    local sourceBox = Instance.new("TextBox", parent)
-    sourceBox.Size = UDim2.new(1, -8, 1, -yPos - 4)
-    sourceBox.Position = UDim2.fromOffset(4, yPos)
-    sourceBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    sourceBox.TextColor3 = Color3.fromRGB(220, 220, 220)
-    sourceBox.Font = Enum.Font.Code
-    sourceBox.TextSize = 9
-    sourceBox.TextXAlignment = Enum.TextXAlignment.Left
-    sourceBox.TextYAlignment = Enum.TextYAlignment.Top
-    sourceBox.TextWrapped = true
-    sourceBox.ClearTextOnFocus = false
-    sourceBox.MultiLine = true
-    sourceBox.ZIndex = 102
-    sourceBox.Text = moduleDecomp.SourceCode or "-- No source code available"
-    self:_createBorder(sourceBox, true)
-    local sourcePadding = Instance.new("UIPadding", sourceBox)
-    sourcePadding.PaddingLeft = UDim.new(0, 6)
-    sourcePadding.PaddingTop = UDim.new(0, 6)
-    sourcePadding.PaddingRight = UDim.new(0, 6)
-    sourcePadding.PaddingBottom = UDim.new(0, 6)
-end
-function Modules.OverseerCE:ShowReturnHookDialog(panel)
-    if not self.State.CurrentDecompiledFunctionRef then
-        self:_showNotification("No function selected", "warning")
-        return
-    end
-    self:_showNotification("Return hook feature - Enter value in console", "info")
-    print("[Decompiler] Enter return value to hook:")
-    print("[Decompiler] Example: Modules.OverseerCE:PatchFunctionReturn(<function>, <returnValue>)")
-end
-function Modules.OverseerCE:ShowUpvaluePatchDialog(panel)
-    if not self.State.CurrentDecompiledFunctionRef then
-        self:_showNotification("No function selected", "warning")
-        return
-    end
-    self:_showNotification("Upvalue patch feature - See upvalues tab", "info")
-end
-function Modules.OverseerCE:ShowUpvaluePatchDialogWithName(name, currentValue)
-    if not self.State.CurrentDecompiledFunctionRef then
-        self:_showNotification("No function selected", "warning")
-        return
-    end
-    local func = self.State.CurrentDecompiledFunctionRef
-    print(string.format("[Decompiler] Patch upvalue '%s'", name))
-    print(string.format("[Decompiler] Current value: %s", tostring(currentValue)))
-    print("[Decompiler] To patch, use:")
-    print(string.format("    Modules.OverseerCE:PatchFunctionUpvalue(<function>, '%s', <newValue>)", name))
-end
-function Modules.OverseerCE:ShowConstantPatchDialog(panel)
-    if not self.State.CurrentDecompiledFunctionRef then
-        self:_showNotification("No function selected", "warning")
-        return
-    end
-    self:_showNotification("Constant patch feature - See constants tab", "info")
-end
-function Modules.OverseerCE:ShowConstantPatchDialogWithIndex(index, currentValue)
-    if not self.State.CurrentDecompiledFunctionRef then
-        self:_showNotification("No function selected", "warning")
-        return
-    end
-    print(string.format("[Decompiler] Patch constant #%d", index))
-    print(string.format("[Decompiler] Current value: %s", tostring(currentValue)))
-    print("[Decompiler] To patch, use:")
-    print(string.format("    Modules.OverseerCE:PatchFunctionConstant(<function>, %d, <newValue>)", index))
-end
-function Modules.OverseerCE:ShowCallTrackerDialog(panel)
-    if not self.State.CurrentDecompiledFunctionRef then
-        self:_showNotification("No function selected", "warning")
-        return
-    end
-    local func = self.State.CurrentDecompiledFunctionRef
-    local success, msg = self:HookFunctionCalls(func, function(count, ...)
-        print(string.format("[Call Tracker] Function called #%d with args:", count))
-        local args = {...}
-        for i, arg in ipairs(args) do
-            print(string.format("  [%d] = %s", i, tostring(arg)))
-        end
-    end)
-    if success then
-        self:_showNotification("Call tracking enabled", "success")
-    else
-        self:_showNotification("Failed to enable tracking: " .. msg, "error")
-    end
-end
-function Modules.OverseerCE:ShowClosureReplaceDialog(panel)
-    if not self.State.CurrentDecompiledFunctionRef then
-        self:_showNotification("No function selected", "warning")
-        return
-    end
-    self:_showNotification("Closure replacement - Use console", "info")
-    print("[Decompiler] To replace this function's closure, use:")
-    print("    Modules.OverseerCE:ReplaceClosure(<oldFunc>, <newFunc>)")
-end
-function Modules.OverseerCE:ShowFunctionPatchList(panel)
-    print("=== ACTIVE FUNCTION PATCHES ===")
-    print("\n[Return Hooks]")
-    for id, patch in pairs(self.State.ReturnHooks) do
-        print(string.format("  %s -> returns %s", id, tostring(patch.ReturnValue)))
-    end
-    print("\n[Upvalue Patches]")
-    for id, patch in pairs(self.State.UpvalueMonitors) do
-        print(string.format("  %s[%s] = %s", id, patch.UpvalueName, tostring(patch.NewValue)))
-    end
-    print("\n[Constant Patches]")
-    for id, patch in pairs(self.State.ConstantPatches) do
-        print(string.format("  %s[%d] = %s", id, patch.ConstantIndex, tostring(patch.NewValue)))
-    end
-    print("\n[Call Trackers]")
-    for id, tracker in pairs(self.State.CallTrackers) do
-        print(string.format("  %s - %d calls tracked", id, #tracker.Calls))
-    end
-    self:_showNotification("Patch list printed to console", "info")
-end
-function Modules.OverseerCE:ClearAllFunctionPatches()
-    for id, patch in pairs(self.State.ReturnHooks) do
-        if patch.Original and hookfunction then
-            pcall(hookfunction, patch.Function, patch.Original)
-        end
-    end
-    self.State.ReturnHooks = {}
-    for id, tracker in pairs(self.State.CallTrackers) do
-        if tracker.Original and hookfunction then
-            pcall(hookfunction, tracker.Function, tracker.Original)
-        end
-    end
-    self.State.CallTrackers = {}
-    self.State.UpvalueMonitors = {}
-    self.State.ConstantPatches = {}
-    self.State.FunctionPatches = {}
-end
-function Modules.OverseerCE:RefreshDecompilerView(panel)
-    if self.State.CurrentDecompiledPath then
-        self:DecompileFunctionFromPath(self.State.CurrentDecompiledPath, panel)
-    end
-end
-function Modules.OverseerCE:ExportFunctionInfo(decomp)
-    local export = {
-        Address = decomp.Address,
-        Info = decomp.Info,
-        Constants = {},
-        Upvalues = {},
-        ProtosCount = #decomp.Protos,
-        HasSourceCode = decomp.SourceCode ~= nil,
-        SourceCode = decomp.SourceCode
-    }
-    for i, const in ipairs(decomp.Constants) do
-        export.Constants[i] = {
-            Index = i,
-            Type = type(const),
-            Value = tostring(const)
-        }
-    end
-    for name, value in pairs(decomp.Upvalues) do
-        table.insert(export.Upvalues, {
-            Name = tostring(name),
-            Type = type(value),
-            Value = tostring(value)
-        })
-    end
-    local success, exportText = pcall(function()
-        return game:GetService("HttpService"):JSONEncode(export)
-    end)
-    if success then
-        local copied = self:_setClipboard(exportText)
-        if copied then
-            self:_showNotification("Function info exported to clipboard", "success")
-        else
-            print("[Decompiler Export]")
-            print(exportText)
-            self:_showNotification("Export printed to console", "info")
-        end
-    else
-        self:_showNotification("Export failed", "error")
-    end
-end
-function Modules.OverseerCE:GetValueFromPath(path)
-    local parts = {}
-    for part in path:gmatch("[^%.]+") do
-        table.insert(parts, part)
-    end
-    if #parts == 0 then return nil end
-    local current = _G
-    for i, part in ipairs(parts) do
-        if current[part] ~= nil then
-            current = current[part]
-        else
-            current = game
-            for j = i, #parts do
-                local suc, res = pcall(function() return current[parts[j]] end)
-                if suc and res then
-                    current = res
-                else
-                    return nil
-                end
-            end
-            break
-        end
-    end
-    return current
-end
-function Modules.OverseerCE:GetTableWithMetatable(tbl)
-    if type(tbl) ~= "table" then
-        return tbl
-    end
-    local mt, method = self:GetRawMetatable(tbl)
-    if mt then
-        local unlocked, unlockMsg = self:UnlockMetatable(tbl)
-        local combined = {}
-        for k, v in pairs(tbl) do
-            combined[k] = v
-        end
-        combined["[METATABLE]"] = mt
-        combined["[METATABLE_INFO]"] = {
-            Locked = not unlocked,
-            AccessMethod = method,
-            UnlockMessage = unlockMsg
-        }
-        return combined
-    end
-    return tbl
-end
-function Modules.OverseerCE:DecodeBase64(data)
-    local success, result = pcall(function()
-        local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-        data = string.gsub(data, '[^'..b..'=]', '')
-        return (data:gsub('.', function(x)
-            if x == '=' then return '' end
-            local r,f='',(b:find(x)-1)
-            for i=6,1,-1 do r=r..(f%2^i-f%2^(i-1)>0 and '1' or '0') end
-            return r;
-        end):gsub('%d%d%d?%d?%d?%d?%d?%d?', function(x)
-            if #x ~= 8 then return '' end
-            local c=0
-            for i=1,8 do c=c+(x:sub(i,i)=='1' and 2^(8-i) or 0) end
-            return string.char(c)
-        end))
-    end)
-    if success and result then
-        return result
-    end
-    return nil
-end
-function Modules.OverseerCE:IsBase64(str)
-    if type(str) ~= "string" then return false end
-    if #str < 4 or #str % 4 ~= 0 then return false end
-    return str:match("^[A-Za-z0-9+/]*=*$") ~= nil
-end
-function Modules.OverseerCE:GetDisplayValue(value, key)
-    local valueType = type(value)
-    if valueType == "string" then
-        if self.State.Base64DecoderEnabled and self:IsBase64(value) and #value >= 8 then
-            local decoded = self:DecodeBase64(value)
-            if decoded and decoded ~= value then
-                return string.format('"%s" [Base64: %s]', 
-                    value:sub(1, 20)..(#value > 20 and "..." or ""), 
-                    decoded:sub(1, 40)..(#decoded > 40 and "..." or ""))
-            end
-        end
-        return '"' .. tostring(value) .. '"'
-    elseif valueType == "number" then
-        if value == math.floor(value) and value >= 0 and value < 2^32 then
-            return string.format("%d (0x%X)", value, value)
-        end
-        return tostring(value)
-    elseif valueType == "boolean" then
-        return tostring(value)
-    elseif valueType == "table" then
-        local size = 0
-        for _ in pairs(value) do size = size + 1 end
-        local mt = getmetatable(value)
-        if mt and mt.__tostring then
-            local success, str = pcall(function() return tostring(value) end)
-            if success and str ~= "table" and not str:find("table: 0x") then
-                return str .. " [table: " .. size .. " entries]"
-            end
-        end
-        return "{table: " .. size .. " entries}"
-    elseif valueType == "function" then
-        local info = debug and debug.getinfo and debug.getinfo(value)
-        if info then
-            local source = info.source or "?"
-            local line = info.linedefined or "?"
-            return string.format("function (%s:%s)", source:sub(1, 20), line)
-        end
-        return "function"
-    elseif valueType == "userdata" then
-        local success, str = pcall(function() return tostring(value) end)
-        if success then
-            return str .. " [userdata]"
-        end
-        return "[userdata]"
-    else
-        return tostring(value)
-    end
-end
-function Modules.OverseerCE:GetModuleContent(module)
-    if module == nil then
-        return {
-            ["[Error]"] = "Module returned nil",
-            ["[Type]"] = "nil",
-            ["[Info]"] = "This module doesn't return a value"
-        }
-    end
-    local moduleType = type(module)
-    if module ~= nil then
-        self.State.ModuleTypeCache[module] = moduleType
-    end
-    if moduleType == "table" then
-        return module
-    elseif moduleType == "function" then
-        local success, result = pcall(module)
-        if success then
-            if type(result) == "table" then
-                return result
-            else
-                return {
-                    ["[Return Value]"] = result,
-                    ["[Type]"] = type(result),
-                    ["[Function Info]"] = debug and debug.getinfo and debug.getinfo(module) or "unavailable"
-                }
-            end
-        else
-            return {
-                ["[Error]"] = tostring(result),
-                ["[Type]"] = "function (failed to execute)",
-                ["[Function Info]"] = debug and debug.getinfo and debug.getinfo(module) or "unavailable"
-            }
-        end
-    elseif moduleType == "userdata" or moduleType == "string" or moduleType == "number" or moduleType == "boolean" then
-        local wrapper = {
-            ["[Value]"] = module,
-            ["[Type]"] = moduleType,
-            ["[String Representation]"] = tostring(module)
-        }
-        local success, mt = pcall(getmetatable, module)
-        if success and mt then
-            wrapper["[Metatable]"] = mt
-        end
-        if moduleType == "string" and self.State.Base64DecoderEnabled and self:IsBase64(module) then
-            local decoded = self:DecodeBase64(module)
-            if decoded then
-                wrapper["[Base64 Decoded]"] = decoded
-            end
-        end
-        return wrapper
-    else
-        return {
-            ["[Value]"] = tostring(module),
-            ["[Type]"] = moduleType,
-            ["[Raw]"] = module
-        }
-    end
-end
-function Modules.OverseerCE:_createBorder(parent, inset)
-    local topColor = inset and self.Config.BORDER_DARK or self.Config.BORDER_LIGHT
-    local bottomColor = inset and self.Config.BORDER_LIGHT or self.Config.BORDER_DARK
-    local top = Instance.new("Frame", parent)
-    top.Name = "BorderTop"
-    top.Size = UDim2.new(1, 0, 0, 1)
-    top.Position = UDim2.new(0, 0, 0, 0)
-    top.BackgroundColor3 = topColor
-    top.BorderSizePixel = 0
-    top.ZIndex = parent.ZIndex + 1
-    local left = Instance.new("Frame", parent)
-    left.Name = "BorderLeft"
-    left.Size = UDim2.new(0, 1, 1, 0)
-    left.Position = UDim2.new(0, 0, 0, 0)
-    left.BackgroundColor3 = topColor
-    left.BorderSizePixel = 0
-    left.ZIndex = parent.ZIndex + 1
-    local bottom = Instance.new("Frame", parent)
-    bottom.Name = "BorderBottom"
-    bottom.Size = UDim2.new(1, 0, 0, 1)
-    bottom.Position = UDim2.new(0, 0, 1, -1)
-    bottom.BackgroundColor3 = bottomColor
-    bottom.BorderSizePixel = 0
-    bottom.ZIndex = parent.ZIndex + 1
-    local right = Instance.new("Frame", parent)
-    right.Name = "BorderRight"
-    right.Size = UDim2.new(0, 1, 1, 0)
-    right.Position = UDim2.new(1, -1, 0, 0)
-    right.BackgroundColor3 = bottomColor
-    right.BorderSizePixel = 0
-    right.ZIndex = parent.ZIndex + 1
-    return {top, left, bottom, right}
-end
-function Modules.OverseerCE:_createButton(parent, text, size, position, callback)
-    local btn = Instance.new("TextButton", parent)
-    btn.Size = size
-    btn.Position = position
-    btn.BackgroundColor3 = self.Config.BG_PANEL
-    btn.Text = text
-    btn.TextColor3 = self.Config.TEXT_BLACK
-    btn.Font = Enum.Font.SourceSans
-    btn.TextSize = 11
-    btn.BorderSizePixel = 0
-    btn.AutoButtonColor = false
-    btn.ClipsDescendants = true
-    self:_createBorder(btn, false)
-    if callback then
-        btn.MouseButton1Click:Connect(callback)
-    end
-    btn.MouseButton1Down:Connect(function()
-        btn.BackgroundColor3 = self.Config.BG_DARK
-        for _, child in ipairs(btn:GetChildren()) do
-            if child.Name == "BorderTop" or child.Name == "BorderLeft" then
-                child.BackgroundColor3 = self.Config.BORDER_DARK
-            elseif child.Name == "BorderBottom" or child.Name == "BorderRight" then
-                child.BackgroundColor3 = self.Config.BORDER_LIGHT
-            end
-        end
-    end)
-    btn.MouseButton1Up:Connect(function()
-        btn.BackgroundColor3 = self.Config.BG_PANEL
-        for _, child in ipairs(btn:GetChildren()) do
-            if child.Name == "BorderTop" or child.Name == "BorderLeft" then
-                child.BackgroundColor3 = self.Config.BORDER_LIGHT
-            elseif child.Name == "BorderBottom" or child.Name == "BorderRight" then
-                child.BackgroundColor3 = self.Config.BORDER_DARK
-            end
-        end
-    end)
-    btn.MouseEnter:Connect(function()
-        if btn.BackgroundColor3 ~= self.Config.BG_DARK then
-            local tween = TweenService:Create(btn, TweenInfo.new(0.1), {
-                BackgroundColor3 = self.Config.BG_LIGHT
-            })
-            tween:Play()
-        end
-    end)
-    btn.MouseLeave:Connect(function()
-        if btn.BackgroundColor3 ~= self.Config.BG_DARK then
-            local tween = TweenService:Create(btn, TweenInfo.new(0.1), {
-                BackgroundColor3 = self.Config.BG_PANEL
-            })
-            tween:Play()
-        end
-    end)
-    return btn
-end
-function Modules.OverseerCE:_createPanel(parent, position, size, title)
-    local panel = Instance.new("Frame", parent)
-    panel.Position = position
-    panel.Size = size
-    panel.BackgroundColor3 = self.Config.BG_PANEL
-    panel.BorderSizePixel = 0
-    panel.ClipsDescendants = false
-    self:_createBorder(panel, false)
-    if title then
-        local titleLabel = Instance.new("TextLabel", panel)
-        titleLabel.Size = UDim2.new(1, -4, 0, 18)
-        titleLabel.Position = UDim2.new(0, 2, 0, 2)
-        titleLabel.BackgroundColor3 = self.Config.BG_DARK
-        titleLabel.Text = title
-        titleLabel.TextColor3 = self.Config.TEXT_BLACK
-        titleLabel.Font = Enum.Font.SourceSansBold
-        titleLabel.TextSize = 11
-        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-        titleLabel.BorderSizePixel = 0
-        local titlePadding = Instance.new("UIPadding", titleLabel)
-        titlePadding.PaddingLeft = UDim.new(0, 4)
-        self:_createBorder(titleLabel, true)
-    end
-    return panel
-end
-function Modules.OverseerCE:_setClipboard(txt)
-    if setclipboard then 
-        setclipboard(txt)
-        return true
-    elseif toclipboard then
-        toclipboard(txt)
-        return true
-    end
-    return false
-end
-function Modules.OverseerCE:_generateUID()
-    local charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    local result = ""
-    for i = 1, 12 do
-        local rand = math.random(1, #charset)
-        result = result .. charset:sub(rand, rand)
-    end
-    return result
-end
-function Modules.OverseerCE:_showNotification(message, messageType)
-    if not self.State.UI or not self.State.UI.Main then return end
-    local notif = Instance.new("Frame", self.State.UI.Main)
-    notif.Size = UDim2.fromOffset(300, 60)
-    notif.Position = UDim2.new(1, -310, 1, 10)
-    notif.BackgroundColor3 = messageType == "success" and Color3.fromRGB(220, 255, 220)
-        or messageType == "error" and Color3.fromRGB(255, 220, 220)
-        or messageType == "warning" and Color3.fromRGB(255, 245, 220)
-        or self.Config.BG_LIGHT
-    notif.BorderSizePixel = 0
-    notif.ZIndex = 1000
-    self:_createBorder(notif, true)
-    local icon = Instance.new("TextLabel", notif)
-    icon.Size = UDim2.fromOffset(40, 40)
-    icon.Position = UDim2.fromOffset(10, 10)
-    icon.BackgroundTransparency = 1
-    icon.Text = messageType == "success" and "✓" 
-        or messageType == "error" and "✗" 
-        or messageType == "warning" and "⚠"
-        or "ℹ"
-    icon.TextColor3 = messageType == "success" and self.Config.SUCCESS_GREEN
-        or messageType == "error" and self.Config.FROZEN_RED
-        or messageType == "warning" and self.Config.WARNING_ORANGE
-        or self.Config.ACCENT_BLUE
-    icon.Font = Enum.Font.SourceSansBold
-    icon.TextSize = 24
-    icon.ZIndex = 1001
-    local msg = Instance.new("TextLabel", notif)
-    msg.Size = UDim2.new(1, -60, 1, -4)
-    msg.Position = UDim2.fromOffset(54, 2)
-    msg.BackgroundTransparency = 1
-    msg.Text = message
-    msg.TextColor3 = self.Config.TEXT_BLACK
-    msg.Font = Enum.Font.SourceSans
-    msg.TextSize = 10
-    msg.TextXAlignment = Enum.TextXAlignment.Left
-    msg.TextYAlignment = Enum.TextYAlignment.Center
-    msg.TextWrapped = true
-    msg.ZIndex = 1001
-    local slideTween = TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-        Position = UDim2.new(1, -310, 1, -70)
-    })
-    slideTween:Play()
-    task.delay(3, function()
-        local fadeOut = TweenService:Create(notif, TweenInfo.new(0.3), {
-            Position = UDim2.new(1, -310, 1, 10)
-        })
-        fadeOut:Play()
-        fadeOut.Completed:Connect(function()
-            notif:Destroy()
-        end)
-    end)
-end
-function Modules.OverseerCE:ScanForConstant(searchValue, searchType, exactMatch)
-    self.State.ScanResults = {}
-    self.State.ScanInProgress = true
-    local results = {}
-    local scanned = {}
-    local function scanTable(tbl, path, depth)
-        if depth > 20 then return end
-        if scanned[tbl] then return end
-        scanned[tbl] = true
-        for key, value in pairs(tbl) do
-            local matches = false
-            if searchType == "any" or type(value) == searchType then
-                if exactMatch then
-                    matches = (value == searchValue)
-                else
-                    if type(value) == "string" and type(searchValue) == "string" then
-                        matches = value:lower():find(searchValue:lower(), 1, true) ~= nil
-                    elseif type(value) == "number" and type(searchValue) == "number" then
-                        matches = math.abs(value - searchValue) < 0.0001
-                    else
-                        matches = (tostring(value):lower():find(tostring(searchValue):lower(), 1, true) ~= nil)
-                    end
-                end
-            end
-            if matches then
-                table.insert(results, {
-                    Path = path .. "." .. tostring(key),
-                    Key = key,
-                    Value = value,
-                    Type = type(value),
-                    Table = tbl,
-                    Depth = depth
-                })
-            end
-            if type(value) == "table" and depth < 20 then
-                scanTable(value, path .. "." .. tostring(key), depth + 1)
-            end
-        end
-        local mt = getmetatable(tbl)
-        if mt and type(mt) == "table" then
-            scanTable(mt, path .. ".[MT]", depth + 1)
-        end
-    end
-    for _, moduleData in ipairs(self.State.ModuleList) do
-        local success, moduleTable = pcall(function()
-            return require(moduleData.Script)
-        end)
-        if success and type(moduleTable) == "table" then
-            scanTable(moduleTable, moduleData.Name, 0)
-        end
-    end
-    self.State.ScanResults = results
-    self.State.ScanInProgress = false
-    return results
-end
-function Modules.OverseerCE:FindReferences(targetValue)
-    local references = {}
-    local scanned = {}
-    local function findRefs(tbl, path, depth)
-        if depth > 20 then return end
-        if scanned[tbl] then return end
-        scanned[tbl] = true
-        for key, value in pairs(tbl) do
-            if value == targetValue or rawequal(value, targetValue) then
-                table.insert(references, {
-                    Path = path .. "." .. tostring(key),
-                    Key = key,
-                    Table = tbl,
-                    Depth = depth
-                })
-            end
-            if type(value) == "table" then
-                findRefs(value, path .. "." .. tostring(key), depth + 1)
-            end
-        end
-        local mt = getmetatable(tbl)
-        if mt and type(mt) == "table" then
-            findRefs(mt, path .. ".[MT]", depth + 1)
-        end
-    end
-    for _, moduleData in ipairs(self.State.ModuleList) do
-        local success, moduleTable = pcall(function()
-            return require(moduleData.Script)
-        end)
-        if success and type(moduleTable) == "table" then
-            findRefs(moduleTable, moduleData.Name, 0)
-        end
-    end
-    return references
-end
-function Modules.OverseerCE:DumpModule(moduleScript, includeMetatables, includeFunctions, maxDepth)
-    maxDepth = maxDepth or 10
-    local success, moduleTable = pcall(function()
-        return require(moduleScript)
-    end)
-    if not success then
-        return {Success = false, Error = "Failed to require module"}
-    end
-    local dump = {
-        Name = moduleScript.Name,
-        Path = moduleScript:GetFullName(),
-        Timestamp = os.date("%Y-%m-%d %H:%M:%S"),
-        Structure = {}
-    }
-    local visited = {}
-    local function dumpValue(value, depth)
-        if depth > maxDepth then
-            return {Type = type(value), Value = "[MAX DEPTH]"}
-        end
-        local valueType = type(value)
-        if valueType == "nil" or valueType == "boolean" or valueType == "number" then
-            return {Type = valueType, Value = value}
-        elseif valueType == "string" then
-            return {Type = valueType, Value = value:sub(1, 100)}
-        elseif valueType == "function" then
-            if not includeFunctions then
-                return {Type = "function", Value = "[FUNCTION]"}
-            end
-            local info = {}
-            pcall(function()
-                if debug and debug.getinfo then
-                    local dbgInfo = debug.getinfo(value)
-                    info = {
-                        Source = dbgInfo.source,
-                        LineDefined = dbgInfo.linedefined,
-                        NumParams = dbgInfo.nparams,
-                        NumUpvalues = dbgInfo.nups
-                    }
-                end
-            end)
-            return {
-                Type = "function",
-                Value = tostring(value),
-                DebugInfo = info
-            }
-        elseif valueType == "table" then
-            if visited[value] then
-                return {Type = "table", Value = "[CIRCULAR:" .. tostring(value) .. "]"}
-            end
-            visited[value] = true
-            local tableDump = {
-                Type = "table",
-                Address = tostring(value),
-                Fields = {}
-            }
-            for k, v in pairs(value) do
-                tableDump.Fields[tostring(k)] = dumpValue(v, depth + 1)
-            end
-            if includeMetatables then
-                local mt = getmetatable(value)
-                if mt then
-                    tableDump.Metatable = dumpValue(mt, depth + 1)
-                end
-            end
-            return tableDump
-        else
-            return {Type = valueType, Value = tostring(value)}
-        end
-    end
-    dump.Structure = dumpValue(moduleTable, 0)
-    table.insert(self.State.DumpedModules, dump)
-    return {Success = true, Dump = dump}
-end
-function Modules.OverseerCE:ExportDump(dump)
-    local HttpService = game:GetService("HttpService")
-    local success, json = pcall(function()
-        return HttpService:JSONEncode(dump)
-    end)
-    if success then
-        local copied = self:_setClipboard(json)
-        if copied then
-            self:_showNotification("Dump exported to clipboard!", "success")
-        else
-            self:_showNotification("Failed to copy to clipboard", "error")
-        end
-        return {Success = true, JSON = json}
-    else
-        self:_showNotification("JSON encoding failed", "error")
-        return {Success = false, Error = "JSON encoding failed: " .. tostring(json)}
-    end
-end
-function Modules.OverseerCE:DumpAllModules()
-    local allDumps = {}
-    for _, moduleData in ipairs(self.State.ModuleList) do
-        local result = self:DumpModule(moduleData.Script, true, true, 8)
-        if result.Success then
-            table.insert(allDumps, result.Dump)
-        end
-    end
-    return {
-        Success = true,
-        Timestamp = os.date("%Y-%m-%d %H:%M:%S"),
-        TotalModules = #allDumps,
-        Dumps = allDumps
-    }
-end
-function Modules.OverseerCE:InjectCode(code, targetModule, withUpvalues)
-    local success, result = pcall(function()
-        local func = loadstring(code)
-        if not func then
-            return {Success = false, Error = "Failed to compile code"}
-        end
-        local env = {}
-        local envMeta = {}
-        if targetModule then
-            local moduleTable = require(targetModule)
-            envMeta.__index = function(_, key)
-                if moduleTable[key] ~= nil then
-                    return moduleTable[key]
-                end
-                return _G[key]
-            end
-            envMeta.__newindex = function(_, key, value)
-                if moduleTable[key] ~= nil then
-                    moduleTable[key] = value
-                else
-                    _G[key] = value
-                end
-            end
-        else
-            envMeta.__index = _G
-            envMeta.__newindex = _G
-        end
-        setmetatable(env, envMeta)
-        if setfenv then
-            setfenv(func, env)
-        end
-        local execResult = {func()}
-        table.insert(self.State.InjectionHistory, {
-            Code = code,
-            Target = targetModule and targetModule.Name or "Global",
-            Timestamp = tick(),
-            Result = execResult
-        })
-        return {Success = true, Result = execResult}
-    end)
-    if success then
-        return result
-    else
-        return {Success = false, Error = tostring(result)}
-    end
-end
-function Modules.OverseerCE:GetUpvalues(func)
-    if type(func) ~= "function" then
-        return {Success = false, Error = "Not a function"}
-    end
-    local upvalues = {}
-    if debug and debug.getupvalue then
-        local i = 1
-        while true do
-            local name, value = debug.getupvalue(func, i)
-            if not name then break end
-            table.insert(upvalues, {
-                Index = i,
-                Name = name,
-                Value = value,
-                Type = type(value)
-            })
-            i = i + 1
-        end
-    end
-    return {Success = true, Upvalues = upvalues}
-end
-function Modules.OverseerCE:SetUpvalue(func, index, newValue)
-    if type(func) ~= "function" then
-        return {Success = false, Error = "Not a function"}
-    end
-    if debug and debug.setupvalue then
-        local name = debug.setupvalue(func, index, newValue)
-        if name then
-            return {Success = true, UpvalueName = name}
-        else
-            return {Success = false, Error = "Invalid upvalue index"}
-        end
-    end
-    return {Success = false, Error = "debug.setupvalue not available"}
-end
-function Modules.OverseerCE:EnableAntiTamper()
-    if self.State.AntiTamperActive then
-        return {Success = false, Error = "Anti-tamper already active"}
-    end
-    self.State.OriginalFunctions = {
-        getmetatable = getmetatable,
-        setmetatable = setmetatable,
-        rawget = rawget,
-        rawset = rawset,
-        rawequal = rawequal,
-        type = type,
-        typeof = typeof
-    }
-    local originalGetmetatable = getmetatable
-    getmetatable = function(tbl)
-        local mt = originalGetmetatable(tbl)
-        if mt and self.State.ActivePatches[mt] then
-            local cleanMt = {}
-            for k, v in pairs(mt) do
-                if not self.State.ActivePatches[mt][k] then
-                    cleanMt[k] = v
-                else
-                    cleanMt[k] = self.State.ActivePatches[mt][k].Original
-                end
-            end
-            return cleanMt
-        end
-        return mt
-    end
-    local originalSetmetatable = setmetatable
-    setmetatable = function(tbl, mt)
-        print("[Anti-Tamper] setmetatable called on:", tostring(tbl))
-        return originalSetmetatable(tbl, mt)
-    end
-    local originalRawset = rawset
-    rawset = function(tbl, key, value)
-        for patchId, patch in pairs(self.State.FreezeList) do
-            if patch.Table == tbl and patch.Key == key then
-                print("[Anti-Tamper] Blocked rawset on frozen patch:", key)
-                return
-            end
-        end
-        return originalRawset(tbl, key, value)
-    end
-    local originalType = type
-    type = function(value)
-        if self.State.HookedFunctions[value] then
-            return "function"
-        end
-        return originalType(value)
-    end
-    if typeof then
-        local originalTypeof = typeof
-        typeof = function(value)
-            if self.State.HookedFunctions[value] then
-                return "function"
-            end
-            return originalTypeof(value)
-        end
-    end
-    self.State.AntiTamperActive = true
-    print("[Anti-Tamper] Protection enabled")
-    return {Success = true}
-end
-function Modules.OverseerCE:DisableAntiTamper()
-    if not self.State.AntiTamperActive then
-        return {Success = false, Error = "Anti-tamper not active"}
-    end
-    getmetatable = self.State.OriginalFunctions.getmetatable
-    setmetatable = self.State.OriginalFunctions.setmetatable
-    rawget = self.State.OriginalFunctions.rawget
-    rawset = self.State.OriginalFunctions.rawset
-    rawequal = self.State.OriginalFunctions.rawequal
-    type = self.State.OriginalFunctions.type
-    if typeof then
-        typeof = self.State.OriginalFunctions.typeof
-    end
-    self.State.AntiTamperActive = false
-    self.State.OriginalFunctions = {}
-    print("[Anti-Tamper] Protection disabled")
-    return {Success = true}
-end
-function Modules.OverseerCE:DetectAntiCheat()
-    local detections = {}
-    local patterns = {
-        {Name = "getfenv Hook", Check = function()
-            return getfenv ~= debug.getfenv
-        end},
-        {Name = "Protected Metatables", Check = function()
-            local test = {}
-            local success = pcall(function()
-                setmetatable(test, {__metatable = "Locked"})
-                getmetatable(test)
-            end)
-            return not success
-        end},
-        {Name = "Debug Library Available", Check = function()
-            return debug ~= nil
-        end},
-        {Name = "Global Hooks", Check = function()
-            return _G.__HOOKED or _G.__PROTECTED or _G.__ANTICHEAT
-        end}
-    }
-    for _, pattern in ipairs(patterns) do
-        local success, result = pcall(pattern.Check)
-        if success then
-            table.insert(detections, {
-                Name = pattern.Name,
-                Detected = result,
-                Timestamp = tick()
-            })
-        end
-    end
-    return {Success = true, Detections = detections}
-end
-function Modules.OverseerCE:AnalyzeMetatableChain(tbl)
-    local chain = {}
-    local current = tbl
-    local depth = 0
-    local visited = {}
-    while current and depth < 20 do
-        if visited[current] then break end
-        visited[current] = true
-        local mt, method = self:GetRawMetatable(current)
-        if not mt then break end
-        local unlocked, unlockMsg = self:UnlockMetatable(current)
-        local chainEntry = {
-            Depth = depth,
-            Metatable = mt,
-            Fields = {},
-            HasIndex = false,
-            IndexType = nil,
-            IndexValue = nil,
-            Locked = not unlocked,
-            AccessMethod = method,
-            UnlockMessage = unlockMsg
-        }
-        local fieldSuccess, fieldErr = pcall(function()
-            for k, v in pairs(mt) do
-                table.insert(chainEntry.Fields, {
-                    Key = k,
-                    Value = v,
-                    Type = type(v)
-                })
-                if k == "__index" then
-                    chainEntry.HasIndex = true
-                    chainEntry.IndexType = type(v)
-                    chainEntry.IndexValue = v
-                end
-            end
-        end)
-        if not fieldSuccess then
-            table.insert(chainEntry.Fields, {
-                Key = "[ERROR]",
-                Value = "Cannot iterate metatable: " .. tostring(fieldErr),
-                Type = "error"
-            })
-        end
-        table.insert(chain, chainEntry)
-        if chainEntry.HasIndex and chainEntry.IndexType == "table" then
-            current = chainEntry.IndexValue
-        else
-            break
-        end
-        depth = depth + 1
-    end
-    return chain
-end
-function Modules.OverseerCE:CreatePatch(tbl, key, newValue, freeze)
-    if not tbl or key == nil then return false end
-    local patchId = self:_generateUID()
-    pcall(function()
-        if setreadonly then setreadonly(tbl, false) 
-        elseif make_writeable then make_writeable(tbl) end
-    end)
-    local originalValue = rawget(tbl, key)
-    local patch = {
-        ID = patchId,
-        Table = tbl,
-        Key = key,
-        Original = originalValue,
-        NewValue = newValue,
-        Frozen = freeze or false,
-        Type = type(newValue),
-        Timestamp = tick(),
-        Active = true
-    }
-    rawset(tbl, key, newValue)
-    self.State.ActivePatches[patchId] = patch
-    if freeze then
-        self.State.FreezeList[patchId] = patch
-    end
-    pcall(function()
-        if setreadonly then setreadonly(tbl, true) end
-    end)
-    self:RefreshPatchList()
-    self:_showNotification("Patch applied to: " .. tostring(key), "success")
-    return patchId
-end
-function Modules.OverseerCE:CreateQuickHook(func, parentTable, key, hookType, customValue)
-    if type(func) ~= "function" then
-        self:_showNotification("Can only hook functions", "error")
-        return false
-    end
-    local hookId = self:_generateUID()
-    local originalFunc = func
-    local hookFunc
-    if hookType == "return_true" then
-        hookFunc = function(...)
-            return true
-        end
-    elseif hookType == "return_false" then
-        hookFunc = function(...)
-            return false
-        end
-    elseif hookType == "return_nil" then
-        hookFunc = function(...)
-            return nil
-        end
-    elseif hookType == "return_zero" then
-        hookFunc = function(...)
-            return 0
-        end
-    elseif hookType == "return_one" then
-        hookFunc = function(...)
-            return 1
-        end
-    elseif hookType == "return_empty_table" then
-        hookFunc = function(...)
-            return {}
-        end
-    elseif hookType == "return_empty_string" then
-        hookFunc = function(...)
-            return ""
-        end
-    elseif hookType == "block" then
-        hookFunc = function(...)
-        end
-    elseif hookType == "log_passthrough" then
-        hookFunc = function(...)
-            local args = {...}
-            print("[Hook Log]", key, "called with", #args, "arguments")
-            for i, arg in ipairs(args) do
-                print("  Arg " .. i .. ":", tostring(arg))
-            end
-            local results = {originalFunc(...)}
-            print("[Hook Log]", key, "returned", #results, "values")
-            for i, result in ipairs(results) do
-                print("  Result " .. i .. ":", tostring(result))
-            end
-            return table.unpack(results)
-        end
-    elseif hookType == "custom" then
-        hookFunc = function(...)
-            return customValue
-        end
-    else
-        self:_showNotification("Unknown hook type", "error")
-        return false
-    end
-    pcall(function()
-        if setreadonly then setreadonly(parentTable, false) 
-        elseif make_writeable then make_writeable(parentTable) end
-    end)
-    rawset(parentTable, key, hookFunc)
-    pcall(function()
-        if setreadonly then setreadonly(parentTable, true) end
-    end)
-    self.State.HookedFunctions[hookId] = {
-        ID = hookId,
-        Table = parentTable,
-        Key = key,
-        Original = originalFunc,
-        HookFunction = hookFunc,
-        HookType = hookType,
-        CustomValue = customValue,
-        Enabled = true,
-        CallCount = 0,
-        Timestamp = tick()
-    }
-    self.State.ActivePatches[hookId] = {
-        ID = hookId,
-        Table = parentTable,
-        Key = key,
-        Original = originalFunc,
-        NewValue = hookFunc,
-        Type = "function_hook",
-        Frozen = false,
-        Timestamp = tick(),
-        Active = true,
-        HookType = hookType
-    }
-    self:RefreshPatchList()
-    self:RefreshHookList()
-    local hookName = self:GetHookTypeName(hookType, customValue)
-    self:_showNotification("Hooked: " .. tostring(key) .. " → " .. hookName, "success")
-    return hookId
-end
-function Modules.OverseerCE:GetHookTypeName(hookType, customValue)
-    local names = {
-        return_true = "return true",
-        return_false = "return false",
-        return_nil = "return nil",
-        return_zero = "return 0",
-        return_one = "return 1",
-        return_empty_table = "return {}",
-        return_empty_string = 'return ""',
-        block = "block (no return)",
-        log_passthrough = "log & passthrough",
-        custom = "return " .. tostring(customValue)
-    }
-    return names[hookType] or hookType
-end
-function Modules.OverseerCE:RemoveHook(hookId)
-    local hook = self.State.HookedFunctions[hookId]
-    if not hook then return false end
-    pcall(function()
-        if setreadonly then setreadonly(hook.Table, false) 
-        elseif make_writeable then make_writeable(hook.Table) end
-        rawset(hook.Table, hook.Key, hook.Original)
-        if setreadonly then setreadonly(hook.Table, true) end
-    end)
-    self.State.HookedFunctions[hookId] = nil
-    self.State.ActivePatches[hookId] = nil
-    self:RefreshPatchList()
-    self:RefreshHookList()
-    self:_showNotification("Hook removed", "success")
-    return true
-end
-function Modules.OverseerCE:ToggleHook(hookId)
-    local hook = self.State.HookedFunctions[hookId]
-    if not hook then return end
-    pcall(function()
-        if setreadonly then setreadonly(hook.Table, false) 
-        elseif make_writeable then make_writeable(hook.Table) end
-    end)
-    if hook.Enabled then
-        rawset(hook.Table, hook.Key, hook.Original)
-        hook.Enabled = false
-    else
-        rawset(hook.Table, hook.Key, hook.HookFunction)
-        hook.Enabled = true
-    end
-    pcall(function()
-        if setreadonly then setreadonly(hook.Table, true) end
-    end)
-    self:RefreshHookList()
-end
-function Modules.OverseerCE:ShowQuickHookMenu(func, parentTable, key, buttonPosition)
-    if not self.State.UI then return end
-    local existingMenu = self.State.UI.Main:FindFirstChild("QuickHookMenu")
-    if existingMenu then existingMenu:Destroy() end
-    local menu = Instance.new("Frame", self.State.UI.Main)
-    menu.Name = "QuickHookMenu"
-    menu.Size = UDim2.fromOffset(200, 260)
-    menu.Position = buttonPosition or UDim2.fromOffset(400, 300)
-    menu.BackgroundColor3 = self.Config.BG_PANEL
-    menu.BorderSizePixel = 0
-    menu.ZIndex = 500
-    self:_createBorder(menu, false)
-    local title = Instance.new("TextLabel", menu)
-    title.Size = UDim2.new(1, -4, 0, 20)
-    title.Position = UDim2.fromOffset(2, 2)
-    title.BackgroundColor3 = self.Config.ACCENT_BLUE
-    title.Text = "Quick Hook: " .. tostring(key)
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 10
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.TextTruncate = Enum.TextTruncate.AtEnd
-    title.BorderSizePixel = 0
-    title.ZIndex = 501
-    local titlePadding = Instance.new("UIPadding", title)
-    titlePadding.PaddingLeft = UDim.new(0, 4)
-    self:_createBorder(title, true)
-    local hookOptions = {
-        {label = "Return true", hookType = "return_true"},
-        {label = "Return false", hookType = "return_false"},
-        {label = "Return nil", hookType = "return_nil"},
-        {label = "Return 0", hookType = "return_zero"},
-        {label = "Return 1", hookType = "return_one"},
-        {label = "Return {}", hookType = "return_empty_table"},
-        {label = 'Return ""', hookType = "return_empty_string"},
-        {label = "Block (no return)", hookType = "block"},
-        {label = "Log & Passthrough", hookType = "log_passthrough"}
-    }
-    local yPos = 26
-    for _, option in ipairs(hookOptions) do
-        local btn = self:_createButton(menu, option.label, UDim2.new(1, -8, 0, 22), UDim2.fromOffset(4, yPos), function()
-            self:CreateQuickHook(func, parentTable, key, option.hookType, nil)
-            menu:Destroy()
-        end)
-        btn.ZIndex = 501
-        btn.TextSize = 10
-        btn.TextXAlignment = Enum.TextXAlignment.Left
-        local btnPadding = Instance.new("UIPadding", btn)
-        btnPadding.PaddingLeft = UDim.new(0, 4)
-        yPos = yPos + 24
-    end
-    local customLabel = Instance.new("TextLabel", menu)
-    customLabel.Size = UDim2.new(1, -8, 0, 16)
-    customLabel.Position = UDim2.fromOffset(4, yPos)
-    customLabel.BackgroundTransparency = 1
-    customLabel.Text = "Custom Return Value:"
-    customLabel.TextColor3 = self.Config.TEXT_BLACK
-    customLabel.Font = Enum.Font.SourceSansBold
-    customLabel.TextSize = 9
-    customLabel.TextXAlignment = Enum.TextXAlignment.Left
-    customLabel.ZIndex = 501
-    yPos = yPos + 18
-    local customInput = Instance.new("TextBox", menu)
-    customInput.Size = UDim2.new(1, -48, 0, 22)
-    customInput.Position = UDim2.fromOffset(4, yPos)
-    customInput.BackgroundColor3 = self.Config.BG_WHITE
-    customInput.PlaceholderText = "Enter value..."
-    customInput.Text = ""
-    customInput.TextColor3 = self.Config.TEXT_BLACK
-    customInput.Font = Enum.Font.Code
-    customInput.TextSize = 9
-    customInput.TextXAlignment = Enum.TextXAlignment.Left
-    customInput.BorderSizePixel = 0
-    customInput.ClearTextOnFocus = false
-    customInput.ZIndex = 501
-    self:_createBorder(customInput, true)
-    local customBtn = self:_createButton(menu, "OK", UDim2.fromOffset(38, 22), UDim2.new(1, -42, 0, yPos), function()
-        local value = self:ParseValue(customInput.Text, "any")
-        if value ~= nil then
-            self:CreateQuickHook(func, parentTable, key, "custom", value)
-            menu:Destroy()
-        else
-            self:_showNotification("Invalid value", "error")
-        end
-    end)
-    customBtn.ZIndex = 501
-    customBtn.TextSize = 9
-    local closeDetector = Instance.new("TextButton", self.State.UI.Main)
-    closeDetector.Size = UDim2.new(1, 0, 1, 0)
-    closeDetector.BackgroundTransparency = 1
-    closeDetector.Text = ""
-    closeDetector.ZIndex = 499
-    closeDetector.MouseButton1Click:Connect(function()
-        menu:Destroy()
-        closeDetector:Destroy()
-    end)
-    local dragging, dragStart, startPos
-    title.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = menu.Position
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            menu.Position = UDim2.fromOffset(startPos.X.Offset + delta.X, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-end
-function Modules.OverseerCE:ParseValue(text, expectedType)
-    if expectedType == "string" or text:match('^".*"$') or text:match("^'.*'$") then
-        return text:gsub('^["\']', ''):gsub('["\']$', '')
-    elseif text == "true" then
-        return true
-    elseif text == "false" then
-        return false
-    elseif text == "nil" then
-        return nil
-    elseif text == "{}" then
-        return {}
-    elseif tonumber(text) then
-        return tonumber(text)
-    else
-        if expectedType == "any" then
-            return text
-        end
-        return nil
-    end
-end
-function Modules.OverseerCE:RemovePatch(patchId)
-    local patch = self.State.ActivePatches[patchId]
-    if not patch then return false end
-    pcall(function()
-        if setreadonly then setreadonly(patch.Table, false) 
-        elseif make_writeable then make_writeable(patch.Table) end
-        rawset(patch.Table, patch.Key, patch.Original)
-        if setreadonly then setreadonly(patch.Table, true) end
-    end)
-    self.State.ActivePatches[patchId] = nil
-    self.State.FreezeList[patchId] = nil
-    self:RefreshPatchList()
-    self:_showNotification("Patch removed", "success")
-    return true
-end
-function Modules.OverseerCE:ToggleFreeze(patchId)
-    local patch = self.State.ActivePatches[patchId]
-    if not patch then return end
-    patch.Frozen = not patch.Frozen
-    if patch.Frozen then
-        self.State.FreezeList[patchId] = patch
-    else
-        self.State.FreezeList[patchId] = nil
-    end
-    self:RefreshPatchList()
-end
-function Modules.OverseerCE:CreateUI()
-    if self.State.UI and self.State.UI.Main then 
-        self.State.UI.Main.Visible = true 
-        return 
-    end
-    local screenGui = Instance.new("ScreenGui", CoreGui)
-    screenGui.Name = "OverseerCE"
-    screenGui.ResetOnSpawn = false
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    local main = Instance.new("Frame", screenGui)
-    main.Size = UDim2.fromOffset(900, 600)
-    main.Position = UDim2.new(0.5, -450, 0.5, -300)
-    main.BackgroundColor3 = self.Config.BG_PANEL
-    main.BorderSizePixel = 0
-    main.ClipsDescendants = false
-    self:_createBorder(main, false)
-    local titleBar = Instance.new("Frame", main)
-    titleBar.Name = "TitleBar"
-    titleBar.Size = UDim2.new(1, -2, 0, 24)
-    titleBar.Position = UDim2.fromOffset(1, 1)
-    titleBar.BackgroundColor3 = self.Config.ACCENT_BLUE
-    titleBar.BorderSizePixel = 0
-    titleBar.ZIndex = 2
-    local titleGradient = Instance.new("UIGradient", titleBar)
-    titleGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(49, 106, 197)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 190, 230))
-    }
-    titleGradient.Rotation = 90
-    local titleIcon = Instance.new("TextLabel", titleBar)
-    titleIcon.Size = UDim2.fromOffset(20, 20)
-    titleIcon.Position = UDim2.fromOffset(2, 2)
-    titleIcon.BackgroundTransparency = 1
-    titleIcon.Text = "🔧"
-    titleIcon.TextColor3 = self.Config.BG_WHITE
-    titleIcon.Font = Enum.Font.SourceSansBold
-    titleIcon.TextSize = 14
-    titleIcon.ZIndex = 3
-    local title = Instance.new("TextLabel", titleBar)
-    title.Size = UDim2.new(1, -100, 1, 0)
-    title.Position = UDim2.fromOffset(24, 0)
-    title.Text = "Overseer CE 7.5 Enhanced - Module Inspector & Patcher"
-    title.TextColor3 = self.Config.BG_WHITE
-    title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 12
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.BackgroundTransparency = 1
-    title.ZIndex = 3
-    local closeBtn = self:_createButton(titleBar, "×", UDim2.fromOffset(20, 20), UDim2.new(1, -22, 0, 2), function()
-        main.Visible = false
-    end)
-    closeBtn.ZIndex = 4
-    closeBtn.TextSize = 16
-    closeBtn.Font = Enum.Font.SourceSansBold
-    closeBtn.BackgroundColor3 = self.Config.BG_LIGHT
-    local minBtn = self:_createButton(titleBar, "_", UDim2.fromOffset(20, 20), UDim2.new(1, -44, 0, 2), function()
-        main.Visible = false
-    end)
-    minBtn.ZIndex = 4
-    minBtn.TextYAlignment = Enum.TextYAlignment.Top
-    minBtn.BackgroundColor3 = self.Config.BG_LIGHT
-    local resizeHandle = Instance.new("Frame", main)
-    resizeHandle.Name = "ResizeHandle"
-    resizeHandle.Size = UDim2.fromOffset(16, 16)
-    resizeHandle.Position = UDim2.new(1, -16, 1, -16)
-    resizeHandle.BackgroundColor3 = self.Config.BG_DARK
-    resizeHandle.BorderSizePixel = 0
-    resizeHandle.ZIndex = 10
-    local resizeLine1 = Instance.new("Frame", resizeHandle)
-    resizeLine1.Size = UDim2.fromOffset(2, 12)
-    resizeLine1.Position = UDim2.fromOffset(10, 2)
-    resizeLine1.BackgroundColor3 = self.Config.BORDER_LIGHT
-    resizeLine1.BorderSizePixel = 0
-    resizeLine1.Rotation = 45
-    local resizeLine2 = Instance.new("Frame", resizeHandle)
-    resizeLine2.Size = UDim2.fromOffset(2, 12)
-    resizeLine2.Position = UDim2.fromOffset(6, 2)
-    resizeLine2.BackgroundColor3 = self.Config.BORDER_LIGHT
-    resizeLine2.BorderSizePixel = 0
-    resizeLine2.Rotation = 45
-    local resizeLine3 = Instance.new("Frame", resizeHandle)
-    resizeLine3.Size = UDim2.fromOffset(2, 8)
-    resizeLine3.Position = UDim2.fromOffset(2, 4)
-    resizeLine3.BackgroundColor3 = self.Config.BORDER_LIGHT
-    resizeLine3.BorderSizePixel = 0
-    resizeLine3.Rotation = 45
-    local content = Instance.new("Frame", main)
-    content.Size = UDim2.new(1, -4, 1, -28)
-    content.Position = UDim2.fromOffset(2, 26)
-    content.BackgroundColor3 = self.Config.BG_PANEL
-    content.BorderSizePixel = 0
-    local menuBar = Instance.new("Frame", content)
-    menuBar.Size = UDim2.new(1, 0, 0, 22)
-    menuBar.Position = UDim2.fromOffset(0, 0)
-    menuBar.BackgroundColor3 = self.Config.BG_PANEL
-    menuBar.BorderSizePixel = 0
-    self:_createBorder(menuBar, false)
-    local menuItems = {"Tools", "Scanner", "Dumper", "Injector", "Anti-Tamper", "Hooks", "Decompiler", "Poisons"}
-    local menuX = 4
-    for _, menuName in ipairs(menuItems) do
-        local menuBtn = self:_createButton(menuBar, menuName, UDim2.fromOffset(75, 18), UDim2.fromOffset(menuX, 2), function()
-            self:OpenToolWindow(menuName)
-        end)
-        menuBtn.TextSize = 10
-        menuX = menuX + 77
-    end
-    local modulePanel = self:_createPanel(content, UDim2.fromOffset(4, 26), UDim2.new(0, 280, 1, -30), "Module List")
-    local moduleSearch = Instance.new("TextBox", modulePanel)
-    moduleSearch.Size = UDim2.new(1, -8, 0, 22)
-    moduleSearch.Position = UDim2.fromOffset(4, 24)
-    moduleSearch.BackgroundColor3 = self.Config.BG_WHITE
-    moduleSearch.Text = ""
-    moduleSearch.PlaceholderText = "Search modules..."
-    moduleSearch.TextColor3 = self.Config.TEXT_BLACK
-    moduleSearch.Font = Enum.Font.SourceSans
-    moduleSearch.TextSize = 11
-    moduleSearch.TextXAlignment = Enum.TextXAlignment.Left
-    moduleSearch.BorderSizePixel = 0
-    moduleSearch.ClearTextOnFocus = false
-    local searchPadding = Instance.new("UIPadding", moduleSearch)
-    searchPadding.PaddingLeft = UDim.new(0, 4)
-    self:_createBorder(moduleSearch, true)
-    local moduleScroll = Instance.new("ScrollingFrame", modulePanel)
-    moduleScroll.Size = UDim2.new(1, -8, 1, -54)
-    moduleScroll.Position = UDim2.fromOffset(4, 50)
-    moduleScroll.BackgroundColor3 = self.Config.BG_WHITE
-    moduleScroll.BorderSizePixel = 0
-    moduleScroll.ScrollBarThickness = 12
-    moduleScroll.ScrollBarImageColor3 = self.Config.BG_DARK
-    moduleScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    moduleScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    self:_createBorder(moduleScroll, true)
-    local moduleList = Instance.new("UIListLayout", moduleScroll)
-    moduleList.Padding = UDim.new(0, 1)
-    local inspectorPanel = self:_createPanel(content, UDim2.fromOffset(292, 26), UDim2.new(1, -596, 1, -30), "Table Inspector")
-    local toolbar = Instance.new("Frame", inspectorPanel)
-    toolbar.Size = UDim2.new(1, -8, 0, 28)
-    toolbar.Position = UDim2.fromOffset(4, 24)
-    toolbar.BackgroundColor3 = self.Config.BG_DARK
-    toolbar.BorderSizePixel = 0
-    self:_createBorder(toolbar, true)
-    local backBtn = self:_createButton(toolbar, "< Back", UDim2.fromOffset(60, 22), UDim2.fromOffset(2, 2), function()
-        self:GoBack()
-    end)
-    local refreshBtn = self:_createButton(toolbar, "Refresh", UDim2.fromOffset(60, 22), UDim2.fromOffset(64, 2), function()
-        self:RefreshInspector()
-    end)
-    local pathLabel = Instance.new("TextLabel", toolbar)
-    pathLabel.Size = UDim2.new(1, -130, 1, -4)
-    pathLabel.Position = UDim2.fromOffset(128, 2)
-    pathLabel.BackgroundTransparency = 1
-    pathLabel.Text = "Root"
-    pathLabel.TextColor3 = self.Config.TEXT_BLACK
-    pathLabel.Font = Enum.Font.Code
-    pathLabel.TextSize = 10
-    pathLabel.TextXAlignment = Enum.TextXAlignment.Left
-    pathLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    local headerFrame = Instance.new("Frame", inspectorPanel)
-    headerFrame.Size = UDim2.new(1, -8, 0, self.Config.ROW_HEIGHT)
-    headerFrame.Position = UDim2.fromOffset(4, 56)
-    headerFrame.BackgroundColor3 = self.Config.BG_DARK
-    headerFrame.BorderSizePixel = 0
-    self:_createBorder(headerFrame, true)
-    local headers = {"Active", "Key", "Type", "Value", "Actions"}
-    local headerWidths = {0.08, 0.25, 0.12, 0.35, 0.2}
-    local xPos = 0
-    for i, headerText in ipairs(headers) do
-        local header = Instance.new("TextLabel", headerFrame)
-        header.Size = UDim2.new(headerWidths[i], -2, 1, 0)
-        header.Position = UDim2.new(xPos, 1, 0, 0)
-        header.BackgroundTransparency = 1
-        header.Text = headerText
-        header.TextColor3 = self.Config.TEXT_BLACK
-        header.Font = Enum.Font.SourceSansBold
-        header.TextSize = 10
-        header.TextXAlignment = Enum.TextXAlignment.Left
-        local headerPadding = Instance.new("UIPadding", header)
-        headerPadding.PaddingLeft = UDim.new(0, 4)
-        xPos = xPos + headerWidths[i]
-    end
-    local inspectorScroll = Instance.new("ScrollingFrame", inspectorPanel)
-    inspectorScroll.Size = UDim2.new(1, -8, 1, -84)
-    inspectorScroll.Position = UDim2.fromOffset(4, 76)
-    inspectorScroll.BackgroundColor3 = self.Config.BG_WHITE
-    inspectorScroll.BorderSizePixel = 0
-    inspectorScroll.ScrollBarThickness = 12
-    inspectorScroll.ScrollBarImageColor3 = self.Config.BG_DARK
-    inspectorScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    inspectorScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    self:_createBorder(inspectorScroll, true)
-    local inspectorList = Instance.new("UIListLayout", inspectorScroll)
-    inspectorList.Padding = UDim.new(0, 0)
-    local patchPanel = self:_createPanel(content, UDim2.new(1, -304, 0, 26), UDim2.new(0, 296, 1, -30), "Active Patches")
-    local patchControls = Instance.new("Frame", patchPanel)
-    patchControls.Size = UDim2.new(1, -8, 0, 28)
-    patchControls.Position = UDim2.fromOffset(4, 24)
-    patchControls.BackgroundColor3 = self.Config.BG_DARK
-    patchControls.BorderSizePixel = 0
-    self:_createBorder(patchControls, true)
-    local clearAllBtn = self:_createButton(patchControls, "Clear All", UDim2.fromOffset(70, 22), UDim2.fromOffset(2, 2), function()
-        for patchId in pairs(self.State.ActivePatches) do
-            self:RemovePatch(patchId)
-        end
-    end)
-    local exportBtn = self:_createButton(patchControls, "Export", UDim2.fromOffset(60, 22), UDim2.fromOffset(74, 2), function()
-        self:ExportPatches()
-    end)
-    local patchCount = Instance.new("TextLabel", patchControls)
-    patchCount.Size = UDim2.new(1, -140, 1, 0)
-    patchCount.Position = UDim2.fromOffset(138, 0)
-    patchCount.BackgroundTransparency = 1
-    patchCount.Text = "Patches: 0"
-    patchCount.TextColor3 = self.Config.TEXT_BLACK
-    patchCount.Font = Enum.Font.SourceSans
-    patchCount.TextSize = 10
-    patchCount.TextXAlignment = Enum.TextXAlignment.Left
-    local patchHeaderFrame = Instance.new("Frame", patchPanel)
-    patchHeaderFrame.Size = UDim2.new(1, -8, 0, self.Config.ROW_HEIGHT)
-    patchHeaderFrame.Position = UDim2.fromOffset(4, 56)
-    patchHeaderFrame.BackgroundColor3 = self.Config.BG_DARK
-    patchHeaderFrame.BorderSizePixel = 0
-    self:_createBorder(patchHeaderFrame, true)
-    local patchHeaders = {"Frozen", "Key", "Value", "Del"}
-    local patchHeaderWidths = {0.15, 0.35, 0.35, 0.15}
-    local patchXPos = 0
-    for i, patchHeaderText in ipairs(patchHeaders) do
-        local patchHeader = Instance.new("TextLabel", patchHeaderFrame)
-        patchHeader.Size = UDim2.new(patchHeaderWidths[i], -2, 1, 0)
-        patchHeader.Position = UDim2.new(patchXPos, 1, 0, 0)
-        patchHeader.BackgroundTransparency = 1
-        patchHeader.Text = patchHeaderText
-        patchHeader.TextColor3 = self.Config.TEXT_BLACK
-        patchHeader.Font = Enum.Font.SourceSansBold
-        patchHeader.TextSize = 10
-        patchHeader.TextXAlignment = Enum.TextXAlignment.Left
-        local patchHeaderPadding = Instance.new("UIPadding", patchHeader)
-        patchHeaderPadding.PaddingLeft = UDim.new(0, 4)
-        patchXPos = patchXPos + patchHeaderWidths[i]
-    end
-    local patchScroll = Instance.new("ScrollingFrame", patchPanel)
-    patchScroll.Size = UDim2.new(1, -8, 1, -84)
-    patchScroll.Position = UDim2.fromOffset(4, 76)
-    patchScroll.BackgroundColor3 = self.Config.BG_WHITE
-    patchScroll.BorderSizePixel = 0
-    patchScroll.ScrollBarThickness = 12
-    patchScroll.ScrollBarImageColor3 = self.Config.BG_DARK
-    patchScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    patchScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    self:_createBorder(patchScroll, true)
-    local patchList = Instance.new("UIListLayout", patchScroll)
-    patchList.Padding = UDim.new(0, 0)
-    self.State.UI = {
-        ScreenGui = screenGui,
-        Main = main,
-        ModuleScroll = moduleScroll,
-        ModuleSearch = moduleSearch,
-        InspectorScroll = inspectorScroll,
-        PathLabel = pathLabel,
-        PatchScroll = patchScroll,
-        PatchCount = patchCount,
-        ResizeHandle = resizeHandle,
-        HookScroll = nil
-    }
-    local dragging, dragStart, startPos
-    titleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = main.Position
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-    local resizing = false
-    local resizeStart = nil
-    local startSize = nil
-    resizeHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            resizing = true
-            resizeStart = input.Position
-            startSize = main.Size
-        end
-    end)
-    resizeHandle.MouseEnter:Connect(function()
-        resizeHandle.BackgroundColor3 = self.Config.BORDER_DARK
-    end)
-    resizeHandle.MouseLeave:Connect(function()
-        resizeHandle.BackgroundColor3 = self.Config.BG_DARK
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - resizeStart
-            local newWidth = math.max(700, startSize.X.Offset + delta.X)
-            local newHeight = math.max(400, startSize.Y.Offset + delta.Y)
-            main.Size = UDim2.fromOffset(newWidth, newHeight)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            resizing = false
-        end
-    end)
-    local searchDebounce = nil
-    moduleSearch.Changed:Connect(function(property)
-        if property == "Text" then
-            if searchDebounce then
-                task.cancel(searchDebounce)
-            end
-            searchDebounce = task.delay(0.3, function()
-                self:FilterModules(moduleSearch.Text)
-            end)
-        end
-    end)
-function Modules.OverseerCE:CreateHookManagerPanel(parent)
-    local panel = self:_createPanel(parent, UDim2.fromOffset(4, 4), UDim2.new(1, -8, 1, -8), "Hook Manager")
-    panel.ZIndex = 100
-    local info = Instance.new("TextLabel", panel)
-    info.Size = UDim2.new(1, -8, 0, 32)
-    info.Position = UDim2.fromOffset(4, 24)
-    info.BackgroundColor3 = Color3.fromRGB(220, 240, 255)
-    info.Text = "Active function hooks. Toggle enabled/disabled or remove hooks below."
-    info.TextColor3 = self.Config.TEXT_BLACK
-    info.Font = Enum.Font.SourceSans
-    info.TextSize = 10
-    info.TextXAlignment = Enum.TextXAlignment.Left
-    info.TextYAlignment = Enum.TextYAlignment.Top
-    info.TextWrapped = true
-    info.BorderSizePixel = 0
-    info.ZIndex = 101
-    local infoPadding = Instance.new("UIPadding", info)
-    infoPadding.PaddingLeft = UDim.new(0, 4)
-    infoPadding.PaddingTop = UDim.new(0, 4)
-    self:_createBorder(info, true)
-    local clearAllBtn = self:_createButton(panel, "Clear All Hooks", UDim2.fromOffset(120, 24), UDim2.fromOffset(4, 60), function()
-        for hookId in pairs(self.State.HookedFunctions) do
-            self:RemoveHook(hookId)
-        end
-        self:_showNotification("All hooks removed", "success")
-    end)
-    clearAllBtn.ZIndex = 101
-    local headerFrame = Instance.new("Frame", panel)
-    headerFrame.Size = UDim2.new(1, -8, 0, self.Config.ROW_HEIGHT)
-    headerFrame.Position = UDim2.fromOffset(4, 88)
-    headerFrame.BackgroundColor3 = self.Config.BG_DARK
-    headerFrame.BorderSizePixel = 0
-    headerFrame.ZIndex = 101
-    self:_createBorder(headerFrame, true)
-    local headers = {"On", "Function", "Hook Type", "Calls", "Remove"}
-    local headerWidths = {0.08, 0.35, 0.35, 0.12, 0.1}
-    local xPos = 0
-    for i, headerText in ipairs(headers) do
-        local header = Instance.new("TextLabel", headerFrame)
-        header.Size = UDim2.new(headerWidths[i], -2, 1, 0)
-        header.Position = UDim2.new(xPos, 1, 0, 0)
-        header.BackgroundTransparency = 1
-        header.Text = headerText
-        header.TextColor3 = self.Config.TEXT_BLACK
-        header.Font = Enum.Font.SourceSansBold
-        header.TextSize = 10
-        header.TextXAlignment = Enum.TextXAlignment.Left
-        header.ZIndex = 102
-        local headerPadding = Instance.new("UIPadding", header)
-        headerPadding.PaddingLeft = UDim.new(0, 4)
-        xPos = xPos + headerWidths[i]
-    end
-    local hookScroll = Instance.new("ScrollingFrame", panel)
-    hookScroll.Name = "HookScroll"
-    hookScroll.Size = UDim2.new(1, -8, 1, -116)
-    hookScroll.Position = UDim2.fromOffset(4, 108)
-    hookScroll.BackgroundColor3 = self.Config.BG_WHITE
-    hookScroll.BorderSizePixel = 0
-    hookScroll.ScrollBarThickness = 12
-    hookScroll.ScrollBarImageColor3 = self.Config.BG_DARK
-    hookScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    hookScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    hookScroll.ZIndex = 101
-    self:_createBorder(hookScroll, true)
-    local hookList = Instance.new("UIListLayout", hookScroll)
-    hookList.Padding = UDim.new(0, 0)
-    self.State.UI.HookScroll = hookScroll
-    return panel
-end
-function Modules.OverseerCE:RefreshHookList()
-    if not self.State.UI or not self.State.UI.HookScroll then return end
-    for _, child in ipairs(self.State.UI.HookScroll:GetChildren()) do
-        if not child:IsA("UIListLayout") then
-            child:Destroy()
-        end
-    end
-    for hookId, hook in pairs(self.State.HookedFunctions) do
-        self:CreateHookRow(hookId, hook)
-    end
-end
-function Modules.OverseerCE:CreateHookRow(hookId, hook)
-    if not self.State.UI or not self.State.UI.HookScroll then return end
-    local row = Instance.new("Frame", self.State.UI.HookScroll)
-    row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
-    row.BackgroundColor3 = hook.Enabled and self.Config.BG_WHITE or Color3.fromRGB(240, 240, 240)
-    row.BorderSizePixel = 0
-    row.ZIndex = 102
-    local enabledBox = Instance.new("TextButton", row)
-    enabledBox.Size = UDim2.fromOffset(12, 12)
-    enabledBox.Position = UDim2.new(0.04, -6, 0.5, -6)
-    enabledBox.BackgroundColor3 = self.Config.BG_WHITE
-    enabledBox.Text = hook.Enabled and "✓" or ""
-    enabledBox.TextColor3 = self.Config.SUCCESS_GREEN
-    enabledBox.Font = Enum.Font.SourceSansBold
-    enabledBox.TextSize = 10
-    enabledBox.BorderSizePixel = 0
-    enabledBox.AutoButtonColor = false
-    enabledBox.ZIndex = 103
-    self:_createBorder(enabledBox, true)
-    enabledBox.MouseButton1Click:Connect(function()
-        self:ToggleHook(hookId)
-    end)
-    local funcLabel = Instance.new("TextLabel", row)
-    funcLabel.Size = UDim2.new(0.35, -4, 1, 0)
-    funcLabel.Position = UDim2.new(0.08, 2, 0, 0)
-    funcLabel.BackgroundTransparency = 1
-    funcLabel.Text = tostring(hook.Key)
-    funcLabel.TextColor3 = self.Config.TEXT_BLACK
-    funcLabel.Font = Enum.Font.Code
-    funcLabel.TextSize = 10
-    funcLabel.TextXAlignment = Enum.TextXAlignment.Left
-    funcLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    funcLabel.ZIndex = 103
-    local hookTypeLabel = Instance.new("TextLabel", row)
-    hookTypeLabel.Size = UDim2.new(0.35, -4, 1, 0)
-    hookTypeLabel.Position = UDim2.new(0.43, 2, 0, 0)
-    hookTypeLabel.BackgroundTransparency = 1
-    hookTypeLabel.Text = self:GetHookTypeName(hook.HookType, hook.CustomValue)
-    hookTypeLabel.TextColor3 = Color3.fromRGB(0, 100, 200)
-    hookTypeLabel.Font = Enum.Font.SourceSans
-    hookTypeLabel.TextSize = 9
-    hookTypeLabel.TextXAlignment = Enum.TextXAlignment.Left
-    hookTypeLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    hookTypeLabel.ZIndex = 103
-    local callLabel = Instance.new("TextLabel", row)
-    callLabel.Size = UDim2.new(0.12, -4, 1, 0)
-    callLabel.Position = UDim2.new(0.78, 2, 0, 0)
-    callLabel.BackgroundTransparency = 1
-    callLabel.Text = tostring(hook.CallCount or 0)
-    callLabel.TextColor3 = self.Config.TEXT_GRAY
-    callLabel.Font = Enum.Font.SourceSans
-    callLabel.TextSize = 9
-    callLabel.TextXAlignment = Enum.TextXAlignment.Center
-    callLabel.ZIndex = 103
-    local removeBtn = self:_createButton(row, "×", UDim2.fromOffset(16, 16), UDim2.new(0.90, 2, 0.5, -8), function()
-        self:RemoveHook(hookId)
-    end)
-    removeBtn.ZIndex = 103
-    removeBtn.TextSize = 12
-    row.MouseEnter:Connect(function()
-        row.BackgroundColor3 = Color3.fromRGB(230, 240, 255)
-    end)
-    row.MouseLeave:Connect(function()
-        row.BackgroundColor3 = hook.Enabled and self.Config.BG_WHITE or Color3.fromRGB(240, 240, 240)
-    end)
-end
-    self:ScanModules()
-end
-function Modules.OverseerCE:ScanModules()
-    if not self.State.UI then return end
-    for _, child in ipairs(self.State.UI.ModuleScroll:GetChildren()) do
-        if not child:IsA("UIListLayout") then
-            child:Destroy()
-        end
-    end
-    self.State.ModuleList = {}
-    task.spawn(function()
-        local paths = {ReplicatedStorage, Players.LocalPlayer, Workspace}
-        for _, parent in ipairs(paths) do
-            if parent then
-                for _, obj in ipairs(parent:GetDescendants()) do
-                    if obj:IsA("ModuleScript") then
-                        self:AddModuleToList(obj)
-                    end
-                end
-                task.wait()
-            end
-        end
-        self:_showNotification("Scanned " .. #self.State.ModuleList .. " modules", "success")
-    end)
-end
-function Modules.OverseerCE:AddModuleToList(moduleScript)
-    if not moduleScript or not moduleScript.Parent then return end
-    if not self.State.UI then return end
-    local moduleName = moduleScript.Name
-    local modulePath = moduleScript:GetFullName()
-    local row = Instance.new("TextButton", self.State.UI.ModuleScroll)
-    row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
-    row.BackgroundColor3 = self.Config.BG_WHITE
-    row.Text = ""
-    row.BorderSizePixel = 0
-    row.AutoButtonColor = false
-    local nameLabel = Instance.new("TextLabel", row)
-    nameLabel.Size = UDim2.new(1, -8, 1, 0)
-    nameLabel.Position = UDim2.fromOffset(4, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = moduleName
-    nameLabel.TextColor3 = self.Config.TEXT_BLACK
-    nameLabel.Font = Enum.Font.SourceSans
-    nameLabel.TextSize = 10
-    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    row.MouseButton1Click:Connect(function()
-        self:LoadModule(moduleScript)
-        for _, child in ipairs(self.State.UI.ModuleScroll:GetChildren()) do
-            if child:IsA("TextButton") then
-                child.BackgroundColor3 = self.Config.BG_WHITE
-                for _, label in ipairs(child:GetChildren()) do
-                    if label:IsA("TextLabel") then
-                        label.TextColor3 = self.Config.TEXT_BLACK
-                    end
-                end
-            end
-        end
-        row.BackgroundColor3 = self.Config.HIGHLIGHT
-        nameLabel.TextColor3 = self.Config.BG_WHITE
-    end)
-    row.MouseEnter:Connect(function()
-        if row.BackgroundColor3 ~= self.Config.HIGHLIGHT then
-            row.BackgroundColor3 = self.Config.BG_LIGHT
-        end
-    end)
-    row.MouseLeave:Connect(function()
-        if row.BackgroundColor3 ~= self.Config.HIGHLIGHT then
-            row.BackgroundColor3 = self.Config.BG_WHITE
-        end
-    end)
-    table.insert(self.State.ModuleList, {
-        Script = moduleScript,
-        Row = row,
-        Name = moduleName,
-        Path = modulePath
-    })
-end
-function Modules.OverseerCE:LoadModule(moduleScript)
-    local success, result
-    local completed = false
-    task.spawn(function()
-        success, result = pcall(function()
-            return require(moduleScript)
-        end)
-        completed = true
-    end)
-    local timeout = 2
-    local elapsed = 0
-    while not completed and elapsed < timeout do
-        task.wait(0.1)
-        elapsed = elapsed + 0.1
-    end
-    if not completed then
-        self:_showNotification("Module load timeout: " .. moduleScript.Name .. " (may use WaitForChild)", "warning")
-        print("[Overseer CE] Module took too long to load:", moduleScript.Name)
-        return
-    end
-    if not success then
-        self:_showNotification("Failed to load module: " .. moduleScript.Name, "error")
-        print("[Overseer CE] Module load error:", result)
-        return
-    end
-    if result == nil then
-        self:_showNotification("Module returned nil: " .. moduleScript.Name, "warning")
-        result = {
-            ["[Module Name]"] = moduleScript.Name,
-            ["[Return Value]"] = "nil",
-            ["[Info]"] = "This module doesn't return a value"
-        }
-    end
-    local moduleContent = self:GetModuleContent(result)
-    if type(moduleContent) ~= "table" then
-        self:_showNotification("Module could not be displayed as table", "warning")
-        return
-    end
-    self.State.SelectedModule = moduleScript
-    self.State.CurrentTable = moduleContent
-    self.State.PathStack = {}
-    self.State.VisitedTables = {}
-    self:RefreshInspector()
-    local originalType = type(result)
-    if originalType == "nil" then
-        self:_showNotification("Loaded: " .. moduleScript.Name .. " [returns nil]", "info")
-    elseif originalType ~= "table" then
-        self:_showNotification("Loaded: " .. moduleScript.Name .. " [" .. originalType .. " → table wrapper]", "success")
-    else
-        self:_showNotification("Loaded: " .. moduleScript.Name, "success")
-    end
-end
-function Modules.OverseerCE:RefreshInspector()
-    if not self.State.UI or not self.State.CurrentTable then return end
-    for _, child in ipairs(self.State.UI.InspectorScroll:GetChildren()) do
-        if not child:IsA("UIListLayout") then
-            child:Destroy()
-        end
-    end
-    local pathText = "Root"
-    if #self.State.PathStack > 0 then
-        pathText = table.concat(self.State.PathStack, " > ")
-    end
-    self.State.UI.PathLabel.Text = pathText
-    self:PopulateTable(self.State.CurrentTable)
-    local chain = self:AnalyzeMetatableChain(self.State.CurrentTable)
-    self.State.MetatableChain = chain
-    if #chain > 0 then
-        self:DisplayMetatableChain(chain)
-    end
-end
-function Modules.OverseerCE:PopulateTable(tbl, isMetatable)
-    if not tbl or type(tbl) ~= "table" then 
-        warn("[Overseer] PopulateTable: invalid input")
-        return 
-    end
-    if self.State.VisitedTables[tbl] then 
-        return 
-    end
-    local entries = {}
-    local success, error = pcall(function()
-        for key, value in pairs(tbl) do
-            table.insert(entries, {Key = key, Value = value})
-        end
-    end)
-    if not success then
-        print("[Overseer] Cannot iterate table:", error)
-        self:CreateInspectorRow("[ERROR]", "Cannot read table: " .. tostring(error), tbl, isMetatable)
-        return
-    end
-    if #entries == 0 then
-        self:CreateInspectorRow("[EMPTY]", "This table has no entries", tbl, isMetatable)
-        self.State.VisitedTables[tbl] = true
-        return
-    end
-    self.State.VisitedTables[tbl] = true
-    table.sort(entries, function(a, b)
-        local aStr = tostring(a.Key)
-        local bStr = tostring(b.Key)
-        local aSpecial = aStr:match("^%[")
-        local bSpecial = bStr:match("^%[")
-        if aSpecial and not bSpecial then return false end
-        if bSpecial and not aSpecial then return true end
-        local aNum = tonumber(a.Key)
-        local bNum = tonumber(b.Key)
-        if aNum and bNum then return aNum < bNum end
-        if aNum then return true end
-        if bNum then return false end
-        return aStr < bStr
-    end)
-    for _, entry in ipairs(entries) do
-        self:CreateInspectorRow(entry.Key, entry.Value, tbl, isMetatable)
-    end
-    print(string.format("[Overseer] ✓ Populated table: %d entries", #entries))
-end
-function Modules.OverseerCE:CreateInspectorRow(key, value, parentTable, isMetatable)
-    if not self.State.UI then return end
-    local valueType = type(value)
-    local displayValue = self:GetDisplayValue(value, key)
-	if valueType == "table" then
-        local tableInfo = ""
-        local success, size = pcall(function()
-            local count = 0
-            for k, v in pairs(value) do 
-                count = count + 1
-                if count > 100 then break end
-            end
-            return count
-        end)
-        if success and size then
-            tableInfo = " (" .. size .. (size > 100 and "+" or "") .. " entries)"
-            displayValue = "{table" .. tableInfo .. "}"
-        else
-            displayValue = "{table: protected}"
-        end
-    end
-    local row = Instance.new("Frame", self.State.UI.InspectorScroll)
-    row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
-    row.BackgroundColor3 = isMetatable and self.Config.BG_LIGHT or self.Config.BG_WHITE
-    row.BorderSizePixel = 0
-    local isPatched = false
-    for _, patch in pairs(self.State.ActivePatches) do
-        if patch.Table == parentTable and patch.Key == key then
-            isPatched = true
-            if patch.Frozen then
-                row.BackgroundColor3 = Color3.fromRGB(255, 220, 220)
-            end
-            break
-        end
-    end
-    local activeBox = Instance.new("TextButton", row)
-    activeBox.Size = UDim2.fromOffset(12, 12)
-    activeBox.Position = UDim2.new(0.04, -6, 0.5, -6)
-    activeBox.BackgroundColor3 = self.Config.BG_WHITE
-    activeBox.Text = isPatched and "X" or ""
-    activeBox.TextColor3 = self.Config.TEXT_BLACK
-    activeBox.Font = Enum.Font.SourceSansBold
-    activeBox.TextSize = 10
-    activeBox.BorderSizePixel = 0
-    activeBox.AutoButtonColor = false
-    self:_createBorder(activeBox, true)
-    local keyLabel = Instance.new("TextLabel", row)
-    keyLabel.Size = UDim2.new(0.25, -4, 1, 0)
-    keyLabel.Position = UDim2.new(0.08, 2, 0, 0)
-    keyLabel.BackgroundTransparency = 1
-    keyLabel.Text = tostring(key)
-    keyLabel.TextColor3 = isMetatable and Color3.fromRGB(0, 0, 128) or self.Config.TEXT_BLACK
-    keyLabel.Font = isMetatable and Enum.Font.Code or Enum.Font.SourceSans
-    keyLabel.TextSize = 10
-    keyLabel.TextXAlignment = Enum.TextXAlignment.Left
-    keyLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    local typeLabel = Instance.new("TextLabel", row)
-    typeLabel.Size = UDim2.new(0.12, -4, 1, 0)
-    typeLabel.Position = UDim2.new(0.33, 2, 0, 0)
-    typeLabel.BackgroundTransparency = 1
-    typeLabel.Text = valueType
-    typeLabel.TextColor3 = self.Config.TEXT_GRAY
-    typeLabel.Font = Enum.Font.SourceSans
-    typeLabel.TextSize = 9
-    typeLabel.TextXAlignment = Enum.TextXAlignment.Left
-    local valueBox = Instance.new("TextBox", row)
-    valueBox.Size = UDim2.new(0.35, -4, 1, 0)
-    valueBox.Position = UDim2.new(0.45, 2, 0, 0)
-    valueBox.BackgroundTransparency = 1
-    valueBox.Text = displayValue
-    valueBox.TextColor3 = self.Config.TEXT_BLACK
-    valueBox.Font = Enum.Font.Code
-    valueBox.TextSize = 9
-    valueBox.TextXAlignment = Enum.TextXAlignment.Left
-    valueBox.TextTruncate = Enum.TextTruncate.AtEnd
-    valueBox.TextEditable = valueType ~= "table" and valueType ~= "function"
-    valueBox.ClearTextOnFocus = false
-    local patchBtn = self:_createButton(row, "Patch", UDim2.fromOffset(45, 16), UDim2.new(0.80, 2, 0.5, -8), function()
-        if valueType == "table" then
-            local success, err = pcall(function()
-                self:DrillDown(key, value)
-            end)
-            if not success then
-                self:_showNotification("Dive failed: " .. tostring(err), "error")
-                warn("[Overseer] Dive error:", err, debug.traceback())
-            end
-        elseif valueType == "function" then
-            self:ShowFunctionInfo(key, value, parentTable)
-        else
-            local newVal = self:ParseValue(valueBox.Text, valueType)
-            if newVal ~= nil then
-                self:CreatePatch(parentTable, key, newVal, false)
-            else
-                self:_showNotification("Invalid value for type: " .. valueType, "error")
-            end
-        end
-    end)
-    patchBtn.TextSize = 9
-    if valueType == "table" then
-        patchBtn.Text = "Dive"
-        patchBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
-    elseif valueType == "function" then
-        patchBtn.Text = "Hook"
-        patchBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 100)
-    end
-    local freezeBtn = self:_createButton(row, "Freeze", UDim2.fromOffset(45, 16), UDim2.new(0.88, 2, 0.5, -8), function()
-        local newVal = self:ParseValue(valueBox.Text, valueType)
-        if newVal ~= nil then
-            local patchId = self:CreatePatch(parentTable, key, newVal, true)
-        else
-            self:_showNotification("Invalid value for type: " .. valueType, "error")
-        end
-    end)
-    freezeBtn.TextSize = 9
-    if valueType == "table" then
-        patchBtn.Text = "Dive"
-    elseif valueType == "function" then
-        patchBtn.Text = "Hook"
-    end
-	if valueType == "table" then
-        local lastClick = 0
-        row.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                local now = tick()
-                if now - lastClick < 0.5 then
-                    pcall(function()
-                        self:DrillDown(key, value)
-                    end)
-                end
-                lastClick = now
-            end
-        end)
-    end
-    row.MouseEnter:Connect(function()
-        if row.BackgroundColor3 ~= self.Config.HIGHLIGHT then
-            row.BackgroundColor3 = Color3.fromRGB(230, 240, 255)
-        end
-    end)
-    row.MouseLeave:Connect(function()
-        if isPatched then
-            if patch and patch.Frozen then
-                row.BackgroundColor3 = Color3.fromRGB(255, 220, 220)
-            else
-                row.BackgroundColor3 = Color3.fromRGB(240, 255, 240)
-            end
-        else
-            row.BackgroundColor3 = isMetatable and self.Config.BG_LIGHT or self.Config.BG_WHITE
-        end
-    end)
-    valueBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed and valueType ~= "table" and valueType ~= "function" then
-            local newVal = self:ParseValue(valueBox.Text, valueType)
-            if newVal ~= nil then
-                self:CreatePatch(parentTable, key, newVal, false)
-            else
-                self:_showNotification("Invalid value for type: " .. valueType, "error")
-            end
-        end
-    end)
-end
-function Modules.OverseerCE:DisplayMetatableChain(chain)
-    if not self.State.UI or not chain or #chain == 0 then return end
-    for i, entry in ipairs(chain) do
-        local separator = Instance.new("Frame", self.State.UI.InspectorScroll)
-        separator.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
-        separator.BackgroundColor3 = entry.Locked and Color3.fromRGB(200, 100, 100) or self.Config.ACCENT_BLUE
-        separator.BorderSizePixel = 0
-        local lockIcon = entry.Locked and "🔒 " or "🔓 "
-        local statusText = entry.Locked and " [LOCKED]" or " [Unlocked]"
-        local sepLabel = Instance.new("TextLabel", separator)
-        sepLabel.Size = UDim2.new(1, -8, 1, 0)
-        sepLabel.Position = UDim2.fromOffset(4, 0)
-        sepLabel.BackgroundTransparency = 1
-        sepLabel.Text = lockIcon .. "METATABLE #" .. i .. " (Depth: " .. entry.Depth .. ")" .. statusText
-        sepLabel.TextColor3 = self.Config.BG_WHITE
-        sepLabel.Font = Enum.Font.SourceSansBold
-        sepLabel.TextSize = 10
-        sepLabel.TextXAlignment = Enum.TextXAlignment.Left
-        if entry.AccessMethod or entry.UnlockMessage then
-            local infoRow = Instance.new("Frame", self.State.UI.InspectorScroll)
-            infoRow.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
-            infoRow.BackgroundColor3 = Color3.fromRGB(240, 240, 200)
-            infoRow.BorderSizePixel = 0
-            local infoLabel = Instance.new("TextLabel", infoRow)
-            infoLabel.Size = UDim2.new(1, -8, 1, 0)
-            infoLabel.Position = UDim2.fromOffset(4, 0)
-            infoLabel.BackgroundTransparency = 1
-            infoLabel.Text = "  ℹ️ " .. (entry.UnlockMessage or ("Access: " .. entry.AccessMethod))
-            infoLabel.TextColor3 = Color3.fromRGB(100, 100, 0)
-            infoLabel.Font = Enum.Font.SourceSansItalic
-            infoLabel.TextSize = 9
-            infoLabel.TextXAlignment = Enum.TextXAlignment.Left
-        end
-        for _, field in ipairs(entry.Fields) do
-            self:CreateInspectorRow(field.Key, field.Value, entry.Metatable, true)
-        end
-    end
-end
-function Modules.OverseerCE:RefreshPatchList()
-    if not self.State.UI then return end
-    for _, child in ipairs(self.State.UI.PatchScroll:GetChildren()) do
-        if not child:IsA("UIListLayout") then
-            child:Destroy()
-        end
-    end
-    local patchCount = 0
-    for patchId, patch in pairs(self.State.ActivePatches) do
-        patchCount = patchCount + 1
-        self:CreatePatchRow(patchId, patch)
-    end
-    self.State.UI.PatchCount.Text = "Patches: " .. patchCount
-end
-function Modules.OverseerCE:CreatePatchRow(patchId, patch)
-    if not self.State.UI then return end
-    local row = Instance.new("Frame", self.State.UI.PatchScroll)
-    row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
-    row.BackgroundColor3 = patch.Frozen and Color3.fromRGB(255, 220, 220) or self.Config.BG_WHITE
-    row.BorderSizePixel = 0
-    local freezeBox = Instance.new("TextButton", row)
-    freezeBox.Size = UDim2.fromOffset(12, 12)
-    freezeBox.Position = UDim2.new(0.075, -6, 0.5, -6)
-    freezeBox.BackgroundColor3 = self.Config.BG_WHITE
-    freezeBox.Text = patch.Frozen and "X" or ""
-    freezeBox.TextColor3 = self.Config.FROZEN_RED
-    freezeBox.Font = Enum.Font.SourceSansBold
-    freezeBox.TextSize = 10
-    freezeBox.BorderSizePixel = 0
-    freezeBox.AutoButtonColor = false
-    self:_createBorder(freezeBox, true)
-    freezeBox.MouseButton1Click:Connect(function()
-        self:ToggleFreeze(patchId)
-    end)
-    local keyLabel = Instance.new("TextLabel", row)
-    keyLabel.Size = UDim2.new(0.35, -4, 1, 0)
-    keyLabel.Position = UDim2.new(0.15, 2, 0, 0)
-    keyLabel.BackgroundTransparency = 1
-    keyLabel.Text = tostring(patch.Key)
-    keyLabel.TextColor3 = self.Config.TEXT_BLACK
-    keyLabel.Font = Enum.Font.SourceSans
-    keyLabel.TextSize = 9
-    keyLabel.TextXAlignment = Enum.TextXAlignment.Left
-    keyLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    local valueLabel = Instance.new("TextLabel", row)
-    valueLabel.Size = UDim2.new(0.35, -4, 1, 0)
-    valueLabel.Position = UDim2.new(0.50, 2, 0, 0)
-    valueLabel.BackgroundTransparency = 1
-    valueLabel.Text = tostring(patch.NewValue):sub(1, 20)
-    valueLabel.TextColor3 = self.Config.TEXT_BLACK
-    valueLabel.Font = Enum.Font.Code
-    valueLabel.TextSize = 9
-    valueLabel.TextXAlignment = Enum.TextXAlignment.Left
-    valueLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    local delBtn = self:_createButton(row, "X", UDim2.fromOffset(16, 16), UDim2.new(0.88, 0, 0.5, -8), function()
-        self:RemovePatch(patchId)
-    end)
-    delBtn.TextSize = 10
-    delBtn.Font = Enum.Font.SourceSansBold
-    delBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 200)
-end
-function Modules.OverseerCE:DrillDown(name, tbl)
-    if type(tbl) ~= "table" then 
-        self:_showNotification("Cannot dive: " .. tostring(name) .. " is " .. type(tbl), "warning")
-        return 
-    end
-    local canIterate, iterError = pcall(function()
-        local test = next(tbl)
-        return test ~= nil
-    end)
-    if not canIterate then
-        self:_showNotification("Table is protected or empty: " .. tostring(name), "error")
-        print("[Overseer] DrillDown blocked:", iterError)
-        return
-    end
-    table.insert(self.State.PathStack, tostring(name))
-    self.State.CurrentTable = tbl
-    self.State.VisitedTables = {}
-    print("[Overseer] ✓ Dove into:", name)
-    self:RefreshInspector()
-    self:_showNotification("Viewing: " .. tostring(name), "info")
-end
-function Modules.OverseerCE:GoBack()
-    if #self.State.PathStack == 0 then return end
-    table.remove(self.State.PathStack)
-    local tbl = self.State.SelectedModule and require(self.State.SelectedModule) or nil
-    if not tbl then return end
-    for _, pathPart in ipairs(self.State.PathStack) do
-        tbl = tbl[pathPart]
-        if not tbl then return end
-    end
-    self.State.CurrentTable = tbl
-    self.State.VisitedTables = {}
-    self:RefreshInspector()
-end
-function Modules.OverseerCE:ParseValue(text, targetType)
-    if targetType == "number" then
-        local num = tonumber(text)
-        return num
-    elseif targetType == "boolean" then
-        return text:lower() == "true"
-    elseif targetType == "string" then
-        return text:match('^"(.*)"$') or text
-    end
-    return text
-end
-function Modules.OverseerCE:ShowFunctionInfo(key, func, parentTable)
-    self:ShowQuickHookMenu(func, parentTable, key)
-end
-function Modules.OverseerCE:FilterModules(query)
-    if not self.State.UI then return end
-    query = query:lower()
-    for _, moduleData in ipairs(self.State.ModuleList) do
-        if query == "" or moduleData.Name:lower():find(query, 1, true) then
-            moduleData.Row.Visible = true
-        else
-            moduleData.Row.Visible = false
-        end
-    end
-end
-function Modules.OverseerCE:OpenToolWindow(toolName)
-    if self.State.UI and self.State.UI.ScreenGui then
-        for _, child in ipairs(self.State.UI.ScreenGui:GetChildren()) do
-            if child.Name:match("Window$") and child ~= self.State.UI.Main then
-                child:Destroy()
-            end
-        end
-    end
-    local popup = Instance.new("Frame", self.State.UI.ScreenGui)
-    popup.Name = toolName .. "Window"
-    popup.Size = UDim2.fromOffset(500, 400)
-    popup.Position = UDim2.new(0.5, -250, 0.5, -200)
-    popup.BackgroundColor3 = self.Config.BG_PANEL
-    popup.BorderSizePixel = 0
-    popup.ZIndex = 100
-    self:_createBorder(popup, false)
-    local titleBar = Instance.new("Frame", popup)
-    titleBar.Size = UDim2.new(1, -2, 0, 24)
-    titleBar.Position = UDim2.fromOffset(1, 1)
-    titleBar.BackgroundColor3 = self.Config.ACCENT_BLUE
-    titleBar.BorderSizePixel = 0
-    titleBar.ZIndex = 101
-    local titleGradient = Instance.new("UIGradient", titleBar)
-    titleGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(49, 106, 197)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 190, 230))
-    }
-    titleGradient.Rotation = 90
-    local title = Instance.new("TextLabel", titleBar)
-    title.Size = UDim2.new(1, -50, 1, 0)
-    title.Position = UDim2.fromOffset(4, 0)
-    title.Text = toolName
-    title.TextColor3 = self.Config.BG_WHITE
-    title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 12
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.BackgroundTransparency = 1
-    title.ZIndex = 102
-    local closeBtn = self:_createButton(titleBar, "×", UDim2.fromOffset(20, 20), UDim2.new(1, -22, 0, 2), function()
-        popup:Destroy()
-    end)
-    closeBtn.ZIndex = 103
-    closeBtn.TextSize = 16
-    closeBtn.Font = Enum.Font.SourceSansBold
-    closeBtn.BackgroundColor3 = self.Config.BG_LIGHT
-    local contentArea = Instance.new("Frame", popup)
-    contentArea.Size = UDim2.new(1, -8, 1, -32)
-    contentArea.Position = UDim2.fromOffset(4, 28)
-    contentArea.BackgroundColor3 = self.Config.BG_PANEL
-    contentArea.BorderSizePixel = 0
-    contentArea.ZIndex = 100
-    if toolName == "Scanner" then
-        self:CreateScannerUI(contentArea)
-    elseif toolName == "Dumper" then
-        self:CreateDumperUI(contentArea)
-    elseif toolName == "Injector" then
-        self:CreateInjectorUI(contentArea)
-    elseif toolName == "Anti-Tamper" then
-        self:CreateAntiTamperUI(contentArea)
-    elseif toolName == "Hooks" then
-        self:CreateHookManagerPanel(contentArea)
-    elseif toolName == "Decompiler" then
-        self:CreateDecompilerPanel(contentArea)
-    elseif toolName == "Tools" then
-        self:CreateToolsMenuUI(contentArea)
-	elseif toolname == "Posions" then
-		self:CreatePoisonMenuUI(ContentArea)					
-    end
-    local dragging, dragStart, startPos
-    titleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = popup.Position
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            popup.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-end
-function Modules.OverseerCE:CreateScannerUI(parent)
-    local searchLabel = Instance.new("TextLabel", parent)
-    searchLabel.Size = UDim2.new(0, 100, 0, 22)
-    searchLabel.Position = UDim2.fromOffset(4, 4)
-    searchLabel.BackgroundTransparency = 1
-    searchLabel.Text = "Search Value:"
-    searchLabel.TextColor3 = self.Config.TEXT_BLACK
-    searchLabel.Font = Enum.Font.SourceSans
-    searchLabel.TextSize = 11
-    searchLabel.TextXAlignment = Enum.TextXAlignment.Left
-    searchLabel.ZIndex = 101
-    local searchBox = Instance.new("TextBox", parent)
-    searchBox.Size = UDim2.new(1, -110, 0, 22)
-    searchBox.Position = UDim2.fromOffset(106, 4)
-    searchBox.BackgroundColor3 = self.Config.BG_WHITE
-    searchBox.Text = ""
-    searchBox.PlaceholderText = "Enter value to search..."
-    searchBox.TextColor3 = self.Config.TEXT_BLACK
-    searchBox.Font = Enum.Font.SourceSans
-    searchBox.TextSize = 11
-    searchBox.TextXAlignment = Enum.TextXAlignment.Left
-    searchBox.BorderSizePixel = 0
-    searchBox.ZIndex = 101
-    searchBox.ClearTextOnFocus = false
-    local searchPadding = Instance.new("UIPadding", searchBox)
-    searchPadding.PaddingLeft = UDim.new(0, 4)
-    self:_createBorder(searchBox, true)
-    local typeLabel = Instance.new("TextLabel", parent)
-    typeLabel.Size = UDim2.new(0, 100, 0, 22)
-    typeLabel.Position = UDim2.fromOffset(4, 30)
-    typeLabel.BackgroundTransparency = 1
-    typeLabel.Text = "Value Type:"
-    typeLabel.TextColor3 = self.Config.TEXT_BLACK
-    typeLabel.Font = Enum.Font.SourceSans
-    typeLabel.TextSize = 11
-    typeLabel.TextXAlignment = Enum.TextXAlignment.Left
-    typeLabel.ZIndex = 101
-    local typeDropdown = Instance.new("TextButton", parent)
-    typeDropdown.Size = UDim2.new(0, 150, 0, 22)
-    typeDropdown.Position = UDim2.fromOffset(106, 30)
-    typeDropdown.BackgroundColor3 = self.Config.BG_WHITE
-    typeDropdown.Text = "any"
-    typeDropdown.TextColor3 = self.Config.TEXT_BLACK
-    typeDropdown.Font = Enum.Font.SourceSans
-    typeDropdown.TextSize = 11
-    typeDropdown.BorderSizePixel = 0
-    typeDropdown.ZIndex = 101
-    typeDropdown.AutoButtonColor = false
-    self:_createBorder(typeDropdown, true)
-    local selectedType = "any"
-    local types = {"any", "string", "number", "boolean", "table", "function"}
-    local typeIndex = 1
-    typeDropdown.MouseButton1Click:Connect(function()
-        typeIndex = (typeIndex % #types) + 1
-        selectedType = types[typeIndex]
-        typeDropdown.Text = selectedType
-    end)
-    local exactMatch = false
-    local exactCheckbox = Instance.new("TextButton", parent)
-    exactCheckbox.Size = UDim2.fromOffset(16, 16)
-    exactCheckbox.Position = UDim2.fromOffset(262, 33)
-    exactCheckbox.BackgroundColor3 = self.Config.BG_WHITE
-    exactCheckbox.Text = ""
-    exactCheckbox.TextColor3 = self.Config.TEXT_BLACK
-    exactCheckbox.Font = Enum.Font.SourceSansBold
-    exactCheckbox.TextSize = 10
-    exactCheckbox.BorderSizePixel = 0
-    exactCheckbox.ZIndex = 101
-    exactCheckbox.AutoButtonColor = false
-    self:_createBorder(exactCheckbox, true)
-    exactCheckbox.MouseButton1Click:Connect(function()
-        exactMatch = not exactMatch
-        exactCheckbox.Text = exactMatch and "X" or ""
-    end)
-    local exactLabel = Instance.new("TextLabel", parent)
-    exactLabel.Size = UDim2.new(0, 100, 0, 16)
-    exactLabel.Position = UDim2.fromOffset(282, 33)
-    exactLabel.BackgroundTransparency = 1
-    exactLabel.Text = "Exact Match"
-    exactLabel.TextColor3 = self.Config.TEXT_BLACK
-    exactLabel.Font = Enum.Font.SourceSans
-    exactLabel.TextSize = 10
-    exactLabel.TextXAlignment = Enum.TextXAlignment.Left
-    exactLabel.ZIndex = 101
-    local header = Instance.new("TextLabel", parent)
-    header.Name = "ResultsHeader"
-    header.Size = UDim2.new(1, -8, 0, 20)
-    header.Position = UDim2.fromOffset(4, 66)
-    header.BackgroundColor3 = self.Config.BG_DARK
-    header.Text = "Results: 0"
-    header.TextColor3 = self.Config.TEXT_BLACK
-    header.Font = Enum.Font.SourceSansBold
-    header.TextSize = 11
-    header.TextXAlignment = Enum.TextXAlignment.Left
-    header.BorderSizePixel = 0
-    header.ZIndex = 101
-    local headerPadding = Instance.new("UIPadding", header)
-    headerPadding.PaddingLeft = UDim.new(0, 4)
-    self:_createBorder(header, true)
-    local resultsScroll = Instance.new("ScrollingFrame", parent)
-    resultsScroll.Name = "ResultsScroll"
-    resultsScroll.Size = UDim2.new(1, -8, 1, -120)
-    resultsScroll.Position = UDim2.fromOffset(4, 88)
-    resultsScroll.BackgroundColor3 = self.Config.BG_WHITE
-    resultsScroll.BorderSizePixel = 0
-    resultsScroll.ScrollBarThickness = 12
-    resultsScroll.ScrollBarImageColor3 = self.Config.BG_DARK
-    resultsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    resultsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    resultsScroll.ZIndex = 101
-    self:_createBorder(resultsScroll, true)
-    local resultsList = Instance.new("UIListLayout", resultsScroll)
-    resultsList.Padding = UDim.new(0, 1)
-    local scanBtn = self:_createButton(parent, "Scan All Modules", UDim2.fromOffset(120, 24), UDim2.fromOffset(4, 58), function()
-        local searchValue = searchBox.Text
-        if searchValue == "" then
-            self:_showNotification("Please enter a search value", "warning")
-            return
-        end
-        if selectedType == "number" then
-            searchValue = tonumber(searchValue)
-            if not searchValue then
-                self:_showNotification("Invalid number format", "error")
-                return
-            end
-        elseif selectedType == "boolean" then
-            searchValue = searchBox.Text:lower() == "true"
-        end
-        self:_showNotification("Scanning modules...", "info")
-        task.spawn(function()
-            local results = self:ScanForConstant(searchValue, selectedType, exactMatch)
-            for _, child in ipairs(resultsScroll:GetChildren()) do
-                if not child:IsA("UIListLayout") then
-                    child:Destroy()
-                end
-            end
-            header.Text = "Results: " .. #results
-            for _, result in ipairs(results) do
-                local resultRow = Instance.new("TextButton", resultsScroll)
-                resultRow.Size = UDim2.new(1, -2, 0, 20)
-                resultRow.BackgroundColor3 = self.Config.BG_WHITE
-                resultRow.Text = ""
-                resultRow.BorderSizePixel = 0
-                resultRow.AutoButtonColor = false
-                resultRow.ZIndex = 102
-                local pathLabel = Instance.new("TextLabel", resultRow)
-                pathLabel.Size = UDim2.new(0.6, 0, 1, 0)
-                pathLabel.Position = UDim2.fromOffset(4, 0)
-                pathLabel.BackgroundTransparency = 1
-                pathLabel.Text = result.Path
-                pathLabel.TextColor3 = self.Config.TEXT_BLACK
-                pathLabel.Font = Enum.Font.Code
-                pathLabel.TextSize = 9
-                pathLabel.TextXAlignment = Enum.TextXAlignment.Left
-                pathLabel.TextTruncate = Enum.TextTruncate.AtEnd
-                pathLabel.ZIndex = 103
-                local valueLabel = Instance.new("TextLabel", resultRow)
-                valueLabel.Size = UDim2.new(0.4, -8, 1, 0)
-                valueLabel.Position = UDim2.new(0.6, 0, 0, 0)
-                valueLabel.BackgroundTransparency = 1
-                valueLabel.Text = tostring(result.Value):sub(1, 30)
-                valueLabel.TextColor3 = self.Config.ACCENT_BLUE
-                valueLabel.Font = Enum.Font.SourceSans
-                valueLabel.TextSize = 9
-                valueLabel.TextXAlignment = Enum.TextXAlignment.Left
-                valueLabel.TextTruncate = Enum.TextTruncate.AtEnd
-                valueLabel.ZIndex = 103
-                resultRow.MouseButton1Click:Connect(function()
-                    print("[Scanner] Selected:", result.Path)
-                    self:_setClipboard(result.Path)
-                    self:_showNotification("Path copied to clipboard", "success")
-                end)
-                resultRow.MouseEnter:Connect(function()
-                    resultRow.BackgroundColor3 = self.Config.BG_LIGHT
-                end)
-                resultRow.MouseLeave:Connect(function()
-                    resultRow.BackgroundColor3 = self.Config.BG_WHITE
-                end)
-            end
-            self:_showNotification("Scan complete: " .. #results .. " results", "success")
-        end)
-    end)
-    scanBtn.ZIndex = 101
-end
-function Modules.OverseerCE:CreateDumperUI(parent)
-    local infoLabel = Instance.new("TextLabel", parent)
-    infoLabel.Size = UDim2.new(1, -8, 0, 40)
-    infoLabel.Position = UDim2.fromOffset(4, 4)
-    infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = "Export module structures to JSON for offline analysis.\nIncludes tables, metatables, functions, and upvalues."
-    infoLabel.TextColor3 = self.Config.TEXT_BLACK
-    infoLabel.Font = Enum.Font.SourceSans
-    infoLabel.TextSize = 10
-    infoLabel.TextXAlignment = Enum.TextXAlignment.Left
-    infoLabel.TextYAlignment = Enum.TextYAlignment.Top
-    infoLabel.TextWrapped = true
-    infoLabel.ZIndex = 101
-    local includeMetatables = true
-    local includeFunctions = true
-    local maxDepth = 10
-    local mtCheckbox = Instance.new("TextButton", parent)
-    mtCheckbox.Size = UDim2.fromOffset(16, 16)
-    mtCheckbox.Position = UDim2.fromOffset(4, 50)
-    mtCheckbox.BackgroundColor3 = self.Config.BG_WHITE
-    mtCheckbox.Text = "X"
-    mtCheckbox.TextColor3 = self.Config.TEXT_BLACK
-    mtCheckbox.Font = Enum.Font.SourceSansBold
-    mtCheckbox.TextSize = 10
-    mtCheckbox.BorderSizePixel = 0
-    mtCheckbox.ZIndex = 101
-    mtCheckbox.AutoButtonColor = false
-    self:_createBorder(mtCheckbox, true)
-    mtCheckbox.MouseButton1Click:Connect(function()
-        includeMetatables = not includeMetatables
-        mtCheckbox.Text = includeMetatables and "X" or ""
-    end)
-    local mtLabel = Instance.new("TextLabel", parent)
-    mtLabel.Size = UDim2.new(0, 150, 0, 16)
-    mtLabel.Position = UDim2.fromOffset(24, 50)
-    mtLabel.BackgroundTransparency = 1
-    mtLabel.Text = "Include Metatables"
-    mtLabel.TextColor3 = self.Config.TEXT_BLACK
-    mtLabel.Font = Enum.Font.SourceSans
-    mtLabel.TextSize = 10
-    mtLabel.TextXAlignment = Enum.TextXAlignment.Left
-    mtLabel.ZIndex = 101
-    local funcCheckbox = Instance.new("TextButton", parent)
-    funcCheckbox.Size = UDim2.fromOffset(16, 16)
-    funcCheckbox.Position = UDim2.fromOffset(4, 72)
-    funcCheckbox.BackgroundColor3 = self.Config.BG_WHITE
-    funcCheckbox.Text = "X"
-    funcCheckbox.TextColor3 = self.Config.TEXT_BLACK
-    funcCheckbox.Font = Enum.Font.SourceSansBold
-    funcCheckbox.TextSize = 10
-    funcCheckbox.BorderSizePixel = 0
-    funcCheckbox.ZIndex = 101
-    funcCheckbox.AutoButtonColor = false
-    self:_createBorder(funcCheckbox, true)
-    funcCheckbox.MouseButton1Click:Connect(function()
-        includeFunctions = not includeFunctions
-        funcCheckbox.Text = includeFunctions and "X" or ""
-    end)
-    local funcLabel = Instance.new("TextLabel", parent)
-    funcLabel.Size = UDim2.new(0, 150, 0, 16)
-    funcLabel.Position = UDim2.fromOffset(24, 72)
-    funcLabel.BackgroundTransparency = 1
-    funcLabel.Text = "Include Functions"
-    funcLabel.TextColor3 = self.Config.TEXT_BLACK
-    funcLabel.Font = Enum.Font.SourceSans
-    funcLabel.TextSize = 10
-    funcLabel.TextXAlignment = Enum.TextXAlignment.Left
-    funcLabel.ZIndex = 101
-    local depthLabel = Instance.new("TextLabel", parent)
-    depthLabel.Size = UDim2.new(0, 100, 0, 22)
-    depthLabel.Position = UDim2.fromOffset(4, 94)
-    depthLabel.BackgroundTransparency = 1
-    depthLabel.Text = "Max Depth:"
-    depthLabel.TextColor3 = self.Config.TEXT_BLACK
-    depthLabel.Font = Enum.Font.SourceSans
-    depthLabel.TextSize = 10
-    depthLabel.TextXAlignment = Enum.TextXAlignment.Left
-    depthLabel.ZIndex = 101
-    local depthBox = Instance.new("TextBox", parent)
-    depthBox.Size = UDim2.fromOffset(60, 22)
-    depthBox.Position = UDim2.fromOffset(106, 94)
-    depthBox.BackgroundColor3 = self.Config.BG_WHITE
-    depthBox.Text = "10"
-    depthBox.TextColor3 = self.Config.TEXT_BLACK
-    depthBox.Font = Enum.Font.SourceSans
-    depthBox.TextSize = 10
-    depthBox.BorderSizePixel = 0
-    depthBox.ZIndex = 101
-    depthBox.ClearTextOnFocus = false
-    self:_createBorder(depthBox, true)
-    depthBox.FocusLost:Connect(function()
-        local num = tonumber(depthBox.Text)
-        if num then
-            maxDepth = math.clamp(num, 1, 20)
-            depthBox.Text = tostring(maxDepth)
-        else
-            depthBox.Text = "10"
-            maxDepth = 10
-        end
-    end)
-    local statusLabel = Instance.new("TextLabel", parent)
-    statusLabel.Size = UDim2.new(1, -8, 1, -152)
-    statusLabel.Position = UDim2.fromOffset(4, 152)
-    statusLabel.BackgroundColor3 = self.Config.BG_WHITE
-    statusLabel.Text = "Ready to dump.\nResults will be copied to clipboard."
-    statusLabel.TextColor3 = self.Config.TEXT_BLACK
-    statusLabel.Font = Enum.Font.Code
-    statusLabel.TextSize = 9
-    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-    statusLabel.TextYAlignment = Enum.TextYAlignment.Top
-    statusLabel.TextWrapped = true
-    statusLabel.BorderSizePixel = 0
-    statusLabel.ZIndex = 101
-    self:_createBorder(statusLabel, true)
-    local dumpSelectedBtn = self:_createButton(parent, "Dump Selected Module", UDim2.fromOffset(150, 24), UDim2.fromOffset(4, 122), function()
-        if not self.State.SelectedModule then
-            self:_showNotification("No module selected", "warning")
-            statusLabel.Text = "ERROR: No module selected.\nPlease select a module from the module list first."
-            return
-        end
-        statusLabel.Text = "Dumping module: " .. self.State.SelectedModule.Name .. "\nPlease wait..."
-        task.spawn(function()
-            local result = self:DumpModule(self.State.SelectedModule, includeMetatables, includeFunctions, maxDepth)
-            if result.Success then
-                self:ExportDump(result.Dump)
-                statusLabel.Text = "SUCCESS!\nExported: " .. self.State.SelectedModule.Name .. "\nCopied to clipboard."
-            else
-                self:_showNotification("Dump failed: " .. result.Error, "error")
-                statusLabel.Text = "ERROR: " .. result.Error
-            end
-        end)
-    end)
-    dumpSelectedBtn.ZIndex = 101
-    dumpSelectedBtn.TextSize = 10
-    local dumpAllBtn = self:_createButton(parent, "Dump All Modules", UDim2.fromOffset(150, 24), UDim2.fromOffset(158, 122), function()
-        statusLabel.Text = "Dumping all modules...\nThis may take a while..."
-        task.spawn(function()
-            local result = self:DumpAllModules()
-            if result.Success then
-                self:ExportDump(result)
-                statusLabel.Text = "SUCCESS!\nExported " .. result.TotalModules .. " modules\nCopied to clipboard."
-            else
-                self:_showNotification("Dump failed", "error")
-                statusLabel.Text = "ERROR: Failed to dump modules."
-            end
-        end)
-    end)
-    dumpAllBtn.ZIndex = 101
-    dumpAllBtn.TextSize = 10
-end
-function Modules.OverseerCE:CreateInjectorUI(parent)
-    local infoLabel = Instance.new("TextLabel", parent)
-    infoLabel.Size = UDim2.new(1, -8, 0, 30)
-    infoLabel.Position = UDim2.fromOffset(4, 4)
-    infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = "Execute code with access to module context and upvalues."
-    infoLabel.TextColor3 = self.Config.TEXT_BLACK
-    infoLabel.Font = Enum.Font.SourceSans
-    infoLabel.TextSize = 10
-    infoLabel.TextXAlignment = Enum.TextXAlignment.Left
-    infoLabel.TextYAlignment = Enum.TextYAlignment.Top
-    infoLabel.TextWrapped = true
-    infoLabel.ZIndex = 101
-    local codeScroll = Instance.new("ScrollingFrame", parent)
-    codeScroll.Size = UDim2.new(1, -8, 1, -80)
-    codeScroll.Position = UDim2.fromOffset(4, 38)
-    codeScroll.BackgroundColor3 = self.Config.BG_WHITE
-    codeScroll.BorderSizePixel = 0
-    codeScroll.ScrollBarThickness = 12
-    codeScroll.ScrollBarImageColor3 = self.Config.BG_DARK
-    codeScroll.AutomaticCanvasSize = Enum.AutomaticSize.XY
-    codeScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    codeScroll.ZIndex = 101
-    self:_createBorder(codeScroll, true)
-    local codeBox = Instance.new("TextBox", codeScroll)
-    codeBox.Size = UDim2.new(1, -4, 1, -4)
-    codeBox.Position = UDim2.fromOffset(2, 2)
-    codeBox.BackgroundTransparency = 1
-    codeBox.Text = "-- Enter code here\nprint('Injected!')\nreturn true"
-    codeBox.TextColor3 = self.Config.TEXT_BLACK
-    codeBox.Font = Enum.Font.Code
-    codeBox.TextSize = 10
-    codeBox.TextXAlignment = Enum.TextXAlignment.Left
-    codeBox.TextYAlignment = Enum.TextYAlignment.Top
-    codeBox.MultiLine = true
-    codeBox.ClearTextOnFocus = false
-    codeBox.TextEditable = true
-    codeBox.AutomaticSize = Enum.AutomaticSize.XY
-    codeBox.ZIndex = 102
-    local btnContainer = Instance.new("Frame", parent)
-    btnContainer.Size = UDim2.new(1, -8, 0, 28)
-    btnContainer.Position = UDim2.new(0, 4, 1, -32)
-    btnContainer.BackgroundTransparency = 1
-    btnContainer.ZIndex = 101
-    local executeBtn = self:_createButton(btnContainer, "Execute", UDim2.fromOffset(100, 24), UDim2.fromOffset(0, 0), function()
-        local code = codeBox.Text
-        if code == "" or code == "-- Enter code here\nprint('Injected!')\nreturn true" then
-            self:_showNotification("Please enter code to execute", "warning")
-            return
-        end
-        local targetModule = self.State.SelectedModule
-        local result = self:InjectCode(code, targetModule, true)
-        if result.Success then
-            self:_showNotification("Code executed successfully!", "success")
-            print("[Injector] Success! Result:", unpack(result.Result or {}))
-        else
-            self:_showNotification("Execution failed: " .. (result.Error or "Unknown error"), "error")
-            warn("[Injector] Error:", result.Error)
-        end
-    end)
-    executeBtn.ZIndex = 101
-    executeBtn.TextSize = 10
-    local clearBtn = self:_createButton(btnContainer, "Clear", UDim2.fromOffset(80, 24), UDim2.fromOffset(104, 0), function()
-        codeBox.Text = "-- Enter code here\n"
-    end)
-    clearBtn.ZIndex = 101
-    clearBtn.TextSize = 10
-    local templateBtn = self:_createButton(btnContainer, "Load Template", UDim2.fromOffset(100, 24), UDim2.fromOffset(188, 0), function()
-        codeBox.Text = [[
-print("Current module:", self.State.SelectedModule.Name)
-if moduleTable then
-    for k, v in pairs(moduleTable) do
-        print(k, "=", v)
-    end
-end
-return "Template loaded"]]
-    end)
-    templateBtn.ZIndex = 101
-    templateBtn.TextSize = 10
-end
-function Modules.OverseerCE:CreateAntiTamperUI(parent)
-    local infoLabel = Instance.new("TextLabel", parent)
-    infoLabel.Size = UDim2.new(1, -8, 0, 50)
-    infoLabel.Position = UDim2.fromOffset(4, 4)
-    infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = "Anti-tamper protection hides your modifications from detection.\nHooks getmetatable, setmetatable, rawset, type, and typeof to spoof normal behavior."
-    infoLabel.TextColor3 = self.Config.TEXT_BLACK
-    infoLabel.Font = Enum.Font.SourceSans
-    infoLabel.TextSize = 10
-    infoLabel.TextXAlignment = Enum.TextXAlignment.Left
-    infoLabel.TextYAlignment = Enum.TextYAlignment.Top
-    infoLabel.TextWrapped = true
-    infoLabel.ZIndex = 101
-    local statusLabel = Instance.new("TextLabel", parent)
-    statusLabel.Name = "StatusLabel"
-    statusLabel.Size = UDim2.new(1, -8, 0, 30)
-    statusLabel.Position = UDim2.fromOffset(4, 60)
-    statusLabel.BackgroundColor3 = self.State.AntiTamperActive and Color3.fromRGB(220, 255, 220) or Color3.fromRGB(255, 220, 220)
-    statusLabel.Text = self.State.AntiTamperActive and "Status: ACTIVE ✓" or "Status: INACTIVE ✗"
-    statusLabel.TextColor3 = self.Config.TEXT_BLACK
-    statusLabel.Font = Enum.Font.SourceSansBold
-    statusLabel.TextSize = 12
-    statusLabel.BorderSizePixel = 0
-    statusLabel.ZIndex = 101
-    self:_createBorder(statusLabel, true)
-    local toggleBtn = self:_createButton(parent, self.State.AntiTamperActive and "Disable Protection" or "Enable Protection", UDim2.fromOffset(150, 28), UDim2.fromOffset(4, 96), function()
-        if self.State.AntiTamperActive then
-            self:DisableAntiTamper()
-            toggleBtn.Text = "Enable Protection"
-            statusLabel.Text = "Status: INACTIVE ✗"
-            statusLabel.BackgroundColor3 = Color3.fromRGB(255, 220, 220)
-            self:_showNotification("Anti-tamper disabled", "info")
-        else
-            self:EnableAntiTamper()
-            toggleBtn.Text = "Disable Protection"
-            statusLabel.Text = "Status: ACTIVE ✓"
-            statusLabel.BackgroundColor3 = Color3.fromRGB(220, 255, 220)
-            self:_showNotification("Anti-tamper enabled", "success")
-        end
-    end)
-    toggleBtn.ZIndex = 101
-    toggleBtn.TextSize = 11
-    local detectBtn = self:_createButton(parent, "Scan for Anti-Cheat", UDim2.fromOffset(150, 28), UDim2.fromOffset(158, 96), function()
-        self:_showNotification("Scanning for anti-cheat...", "info")
-        task.spawn(function()
-            local result = self:DetectAntiCheat()
-            for _, child in ipairs(parent:GetChildren()) do
-                if child.Name == "DetectionScroll" then
-                    child:Destroy()
-                end
-            end
-            local detectionScroll = Instance.new("ScrollingFrame", parent)
-            detectionScroll.Name = "DetectionScroll"
-            detectionScroll.Size = UDim2.new(1, -8, 1, -134)
-            detectionScroll.Position = UDim2.fromOffset(4, 130)
-            detectionScroll.BackgroundColor3 = self.Config.BG_WHITE
-            detectionScroll.BorderSizePixel = 0
-            detectionScroll.ScrollBarThickness = 12
-            detectionScroll.ScrollBarImageColor3 = self.Config.BG_DARK
-            detectionScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            detectionScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-            detectionScroll.ZIndex = 101
-            self:_createBorder(detectionScroll, true)
-            local detectionList = Instance.new("UIListLayout", detectionScroll)
-            detectionList.Padding = UDim.new(0, 2)
-            for _, detection in ipairs(result.Detections) do
-                local detectionRow = Instance.new("Frame", detectionScroll)
-                detectionRow.Size = UDim2.new(1, -4, 0, 24)
-                detectionRow.BackgroundColor3 = detection.Detected and Color3.fromRGB(255, 200, 200) or Color3.fromRGB(200, 255, 200)
-                detectionRow.BorderSizePixel = 0
-                detectionRow.ZIndex = 102
-                self:_createBorder(detectionRow, true)
-                local nameLabel = Instance.new("TextLabel", detectionRow)
-                nameLabel.Size = UDim2.new(0.7, 0, 1, 0)
-                nameLabel.Position = UDim2.fromOffset(4, 0)
-                nameLabel.BackgroundTransparency = 1
-                nameLabel.Text = detection.Name
-                nameLabel.TextColor3 = self.Config.TEXT_BLACK
-                nameLabel.Font = Enum.Font.SourceSans
-                nameLabel.TextSize = 10
-                nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-                nameLabel.ZIndex = 103
-                local statusText = Instance.new("TextLabel", detectionRow)
-                statusText.Size = UDim2.new(0.3, -4, 1, 0)
-                statusText.Position = UDim2.new(0.7, 0, 0, 0)
-                statusText.BackgroundTransparency = 1
-                statusText.Text = detection.Detected and "DETECTED" or "Not Found"
-                statusText.TextColor3 = detection.Detected and Color3.fromRGB(200, 0, 0) or Color3.fromRGB(0, 150, 0)
-                statusText.Font = Enum.Font.SourceSansBold
-                statusText.TextSize = 10
-                statusText.TextXAlignment = Enum.TextXAlignment.Right
-                statusText.ZIndex = 103
-            end
-            local detectedCount = 0
-            for _, d in ipairs(result.Detections) do
-                if d.Detected then detectedCount = detectedCount + 1 end
-            end
-            self:_showNotification("Scan complete: " .. detectedCount .. " detections", detectedCount > 0 and "warning" or "success")
-        end)
-    end)
-    detectBtn.ZIndex = 101
-    detectBtn.TextSize = 11
-end
-function Modules.OverseerCE:CreatePoisonMenuUI(parent)
-    local title = Instance.new("TextLabel", parent)
-    title.Size = UDim2.new(1, -8, 0, 24)
-    title.Position = UDim2.fromOffset(4, 4)
-    title.BackgroundTransparency = 1
-    title.Text = "⚠ Poison System Manager"
-    title.TextColor3 = self.Config.POISON_PURPLE or Color3.fromRGB(138, 43, 226)
-    title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 14
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.ZIndex = 101
-    local statsFrame = Instance.new("Frame", parent)
-    statsFrame.Size = UDim2.new(1, -8, 0, 60)
-    statsFrame.Position = UDim2.fromOffset(4, 32)
-    statsFrame.BackgroundColor3 = self.Config.BG_PANEL
-    statsFrame.BorderSizePixel = 0
-    statsFrame.ZIndex = 101
-    self:_createBorder(statsFrame, true)
-    local function updateStats()
-        local stats = self:GetPoisonStats()
-        local statsText = string.format([[Active Poisons: %d / %d Total
-By Type:]], stats.Active, stats.Total)
-        local typeList = {}
-        for pType, count in pairs(stats.ByType) do
-            table.insert(typeList, string.format("  • %s: %d", pType, count))
-        end
-        if #typeList > 0 then
-            statsText = statsText .. "\n" .. table.concat(typeList, "\n")
-        end
-        local statsLabel = statsFrame:FindFirstChild("StatsLabel")
-        if not statsLabel then
-            statsLabel = Instance.new("TextLabel", statsFrame)
-            statsLabel.Name = "StatsLabel"
-            statsLabel.Size = UDim2.new(1, -8, 1, -8)
-            statsLabel.Position = UDim2.fromOffset(4, 4)
-            statsLabel.BackgroundTransparency = 1
-            statsLabel.TextColor3 = self.Config.TEXT_BLACK
-            statsLabel.Font = Enum.Font.SourceSans
-            statsLabel.TextSize = 10
-            statsLabel.TextXAlignment = Enum.TextXAlignment.Left
-            statsLabel.TextYAlignment = Enum.TextYAlignment.Top
-            statsLabel.ZIndex = 102
-        end
-        statsLabel.Text = statsText
-    end
-    updateStats()
-    local clearBtn = self:_createButton(parent, "Clear All Poisons", UDim2.fromOffset(150, 24), UDim2.fromOffset(4, 96), function()
-        local count = self:ClearAllPoisons()
-        updateStats()
-        self:_showNotification(string.format("Cleared %d poisons", count), "success")
-    end)
-    clearBtn.ZIndex = 101
-    local infoLabel = Instance.new("TextLabel", parent)
-    infoLabel.Size = UDim2.new(1, -8, 1, -130)
-    infoLabel.Position = UDim2.fromOffset(4, 124)
-    infoLabel.BackgroundColor3 = self.Config.BG_WHITE
-    infoLabel.Text = [[POISON SYSTEM READY
-Use console to apply poisons:
-Examples:
-  Modules.OverseerCE:PoisonTableHijack(module, {key = value})
-  Modules.OverseerCE.PoisonTemplates.AdminPoison(Modules.OverseerCE, module)
-See PoisonExamples.lua for full documentation.
-All 15 poison types are available!]]
-    infoLabel.TextColor3 = self.Config.TEXT_BLACK
-    infoLabel.Font = Enum.Font.Code
-    infoLabel.TextSize = 10
-    infoLabel.TextXAlignment = Enum.TextXAlignment.Left
-    infoLabel.TextYAlignment = Enum.TextYAlignment.Top
-    infoLabel.TextWrapped = true
-    infoLabel.ZIndex = 101
-    self:_createBorder(infoLabel, true)
-end
-function Modules.OverseerCE:CreateToolsMenuUI(parent)
-    local title = Instance.new("TextLabel", parent)
-    title.Size = UDim2.new(1, -8, 0, 30)
-    title.Position = UDim2.fromOffset(4, 4)
-    title.BackgroundTransparency = 1
-    title.Text = "Advanced Tools Overview"
-    title.TextColor3 = self.Config.TEXT_BLACK
-    title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 14
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.ZIndex = 101
-    local description = Instance.new("TextLabel", parent)
-    description.Size = UDim2.new(1, -8, 1, -40)
-    description.Position = UDim2.fromOffset(4, 38)
-    description.BackgroundTransparency = 1
-    description.Text = [[
-Scanner: Search for specific values across all loaded modules
-• Supports string, number, boolean, table, and function searches
-• Exact match or fuzzy matching
-• Deep recursive scanning through metatables
-• Click results to copy path to clipboard
-Dumper: Export module structures to JSON
-• Complete memory dumps with metatables
-• Function information and upvalue detection
-• Configurable depth for large modules
-• Results automatically copied to clipboard
-Injector: Execute code with module context
-• Full access to module environments
-• Upvalue modification support
-• Injection history tracking
-• Template code available for quick start
-Anti-Tamper: Hide modifications from detection
-• Hooks getmetatable/setmetatable
-• Spoofs type checking functions
-• Protects frozen patches from overwrites
-• Anti-cheat pattern detection & scanning
-Hooks: Quick function hooking system
-• Hook functions to return custom values
-• Block function execution
-• Log and passthrough for debugging
-• Enable/disable hooks without removing them
-Decompiler: Advanced function analysis & patching
-• Decompile functions to view source code
-• Inspect constants, upvalues, and nested functions
-• Patch function return values
-• Modify upvalues and constants
-• Track function calls with arguments
-• Replace entire closures
-• Export complete function information
-Metatable Unlocking: Automatic bypass for locked metatables
-! Locked metatables are shown in RED
-! Unlocked metatables are shown in BLUE
-• Automatically uses getrawmetatable when available
-• Tries multiple unlock methods (setrawmetatable, etc.)
-• Even locked metatables are readable via enhanced access
-• Shows access method used for each metatable
-Tips:
-• Use the scanner to find specific values before patching
-• Export dumps for offline reverse engineering
-• Enable anti-tamper before applying critical patches
-• Frozen patches are automatically refreshed every frame
-• Locked metatables can still be viewed and patched!
-• Use Decompiler for advanced function-level modifications
-    ]]
-    description.TextColor3 = self.Config.TEXT_BLACK
-    description.Font = Enum.Font.SourceSans
-    description.TextSize = 10
-    description.TextXAlignment = Enum.TextXAlignment.Left
-    description.TextYAlignment = Enum.TextYAlignment.Top
-    description.TextWrapped = true
-    description.ZIndex = 101
-end
-function Modules.OverseerCE:ExportPatches()
-    local export = {}
-    for patchId, patch in pairs(self.State.ActivePatches) do
-        table.insert(export, {
-            Key = tostring(patch.Key),
-            Original = tostring(patch.Original),
-            NewValue = tostring(patch.NewValue),
-            Type = patch.Type,
-            Frozen = patch.Frozen,
-            Timestamp = patch.Timestamp
-        })
-    end
-    if #export == 0 then
-        self:_showNotification("No patches to export", "warning")
-        return
-    end
-    local success, exportText = pcall(function()
-        return game:GetService("HttpService"):JSONEncode(export)
-    end)
-    if success then
-        local copied = self:_setClipboard(exportText)
-        if copied then
-            self:_showNotification("Exported " .. #export .. " patches to clipboard", "success")
-        else
-            self:_showNotification("Failed to copy to clipboard", "error")
-        end
-    else
-        self:_showNotification("JSON encoding failed", "error")
-    end
-end
-function Modules.OverseerCE:Initialize()
-    local module = self
-    RunService.Heartbeat:Connect(function()
-        for patchId, patch in pairs(module.State.FreezeList) do
-            pcall(function()
-                if setreadonly then setreadonly(patch.Table, false) 
-                elseif make_writeable then make_writeable(patch.Table) end
-                rawset(patch.Table, patch.Key, patch.NewValue)
-                if setreadonly then setreadonly(patch.Table, true) end
-            end)
-        end
-    end)
-    print("[Overseer CE] Initializing Enhanced Edition...")
-    print("[Overseer CE] Ready! Module inspector and patcher active.")
-end
-function Modules.OverseerCE:PoisonReturnOverride(module, newValue)
-    local success, moduleRef = pcall(function()
-        return typeof(module) == "Instance" and require(module) or module
-    end)
-    if not success then
-        return false, "Failed to load module: " .. tostring(moduleRef)
-    end
-    local poisonId = #self.State.ActivePoisons + 1
-    local originalModule = moduleRef
-    local poisonedFunc = function(...)
-        return newValue
-    end
-    local poisonData = {
-        Id = poisonId,
-        Type = "ReturnOverride",
-        Target = module,
-        OriginalModule = originalModule,
-        NewValue = newValue,
-        PoisonedFunction = poisonedFunc,
-        Timestamp = os.time(),
-        Active = true
-    }
-    table.insert(self.State.ActivePoisons, poisonData)
-    table.insert(self.State.PoisonHistory, {
-        Type = "ReturnOverride",
-        Target = tostring(module),
-        Timestamp = os.time()
-    })
-    return true, poisonId, poisonedFunc
-end
-function Modules.OverseerCE:PoisonTableHijack(moduleTable, overrides)
-    if type(moduleTable) ~= "table" then
-        return false, "Target must be a table"
-    end
-    local mt = self:GetRawMetatable(moduleTable) or {}
-    local oldIndex = mt.__index
-    local oldNewIndex = mt.__newindex
-    local originalMT = {
-        __index = oldIndex,
-        __newindex = oldNewIndex
-    }
-    local hijackedMT = {
-        __index = function(t, k)
-            if overrides[k] ~= nil then
-                return overrides[k]
-            end
-            if type(oldIndex) == "function" then
-                return oldIndex(t, k)
-            elseif type(oldIndex) == "table" then
-                return oldIndex[k]
-            end
-            return rawget(t, k)
-        end,
-        __newindex = function(t, k, v)
-            if overrides.Protect and overrides.Protect[k] then
-                return
-            end
-            if type(oldNewIndex) == "function" then
-                return oldNewIndex(t, k, v)
-            end
-            return rawset(t, k, v)
-        end,
-        __metatable = "Locked"
-    }
-    local applySuccess = pcall(function()
-        if setrawmetatable then
-            setrawmetatable(moduleTable, hijackedMT)
-        elseif setreadonly then
-            setreadonly(moduleTable, false)
-            setmetatable(moduleTable, hijackedMT)
-            setreadonly(moduleTable, true)
-        else
-            setmetatable(moduleTable, hijackedMT)
-        end
-    end)
-    if not applySuccess then
-        return false, "Failed to apply metatable hijack"
-    end
-    local poisonData = {
-        Id = #self.State.ActivePoisons + 1,
-        Type = "TableHijack",
-        Target = moduleTable,
-        Overrides = overrides,
-        OriginalMetatable = originalMT,
-        HijackedMetatable = hijackedMT,
-        Timestamp = os.time(),
-        Active = true
-    }
-    table.insert(self.State.ActivePoisons, poisonData)
-    return true, poisonData.Id
-end
-function Modules.OverseerCE:PoisonFunctionWrapper(func, wrapper)
-    if type(func) ~= "function" then
-        return false, "Target must be a function"
-    end
-    if type(wrapper) ~= "function" then
-        return false, "Wrapper must be a function"
-    end
-    local wrappedFunc = function(...)
-        local args = {...}
-        local results = {wrapper(func, args)}
-        return unpack(results)
-    end
-    local poisonData = {
-        Id = #self.State.ActivePoisons + 1,
-        Type = "FunctionWrapper",
-        OriginalFunction = func,
-        Wrapper = wrapper,
-        WrappedFunction = wrappedFunc,
-        Timestamp = os.time(),
-        Active = true
-    }
-    table.insert(self.State.ActivePoisons, poisonData)
-    return true, poisonData.Id, wrappedFunc
-end
-function Modules.OverseerCE:PoisonConstantPatch(func, constantMap)
-    if type(func) ~= "function" then
-        return false, "Target must be a function"
-    end
-    if not getconstants then
-        return false, "getconstants not available in executor"
-    end
-    if not setconstant then
-        return false, "setconstant not available in executor"
-    end
-    local success, constants = pcall(getconstants, func)
-    if not success then
-        return false, "Failed to get constants"
-    end
-    local patchedConstants = {}
-    for oldValue, newValue in pairs(constantMap) do
-        for i, const in ipairs(constants) do
-            if const == oldValue then
-                local patchSuccess = pcall(setconstant, func, i, newValue)
-                if patchSuccess then
-                    table.insert(patchedConstants, {
-                        Index = i,
-                        Old = oldValue,
-                        New = newValue
-                    })
-                end
-            end
-        end
-    end
-    if #patchedConstants == 0 then
-        return false, "No constants matched for patching"
-    end
-    local poisonData = {
-        Id = #self.State.ActivePoisons + 1,
-        Type = "ConstantPatch",
-        TargetFunction = func,
-        ConstantMap = constantMap,
-        PatchedConstants = patchedConstants,
-        Timestamp = os.time(),
-        Active = true
-    }
-    table.insert(self.State.ActivePoisons, poisonData)
-    table.insert(self.State.ConstantPatches, poisonData)
-    return true, poisonData.Id, patchedConstants
-end
-function Modules.OverseerCE:PoisonUpvalueInject(func, upvalueIndex, newValue)
-    if type(func) ~= "function" then
-        return false, "Target must be a function"
-    end
-    if not setupvalue then
-        return false, "setupvalue not available in executor"
-    end
-    if not getupvalue then
-        return false, "getupvalue not available in executor"
-    end
-    local success, originalValue = pcall(getupvalue, func, upvalueIndex)
-    if not success then
-        return false, "Failed to get upvalue at index " .. upvalueIndex
-    end
-    local setSuccess = pcall(setupvalue, func, upvalueIndex, newValue)
-    if not setSuccess then
-        return false, "Failed to set upvalue"
-    end
-    local poisonData = {
-        Id = #self.State.ActivePoisons + 1,
-        Type = "UpvalueInject",
-        TargetFunction = func,
-        UpvalueIndex = upvalueIndex,
-        OriginalValue = originalValue,
-        NewValue = newValue,
-        Timestamp = os.time(),
-        Active = true
-    }
-    table.insert(self.State.ActivePoisons, poisonData)
-    table.insert(self.State.UpvalueMonitors, poisonData)
-    return true, poisonData.Id
-end
-function Modules.OverseerCE:GetPoisonStats()
-    local stats = {
-        Total = #self.State.ActivePoisons,
-        Active = 0,
-        ByType = {}
-    }
-    for _, poison in pairs(self.State.ActivePoisons) do
-        if poison.Active then
-            stats.Active = stats.Active + 1
-            stats.ByType[poison.Type] = (stats.ByType[poison.Type] or 0) + 1
-        end
-    end
-    return stats
-end
-function Modules.OverseerCE:RemovePoison(poisonId)
-    local poison = self.State.ActivePoisons[poisonId]
-    if not poison then
-        return false, "Poison not found"
-    end
-    if poison.Type == "TableHijack" and poison.OriginalMetatable then
-        pcall(function()
-            if setrawmetatable then
-                setrawmetatable(poison.Target, poison.OriginalMetatable)
-            else
-                setmetatable(poison.Target, poison.OriginalMetatable)
-            end
-        end)
-    elseif poison.Type == "UpvalueInject" and poison.OriginalValue then
-        pcall(setupvalue, poison.TargetFunction, poison.UpvalueIndex, poison.OriginalValue)
-    elseif poison.Type == "RequireHook" and poison.OriginalRequire then
-        _G.require = poison.OriginalRequire
-    elseif poison.Type == "SelfHeal" and poison.SelfHealConnection then
-        poison.SelfHealConnection:Disconnect()
-    end
-    poison.Active = false
-    return true, "Poison removed"
-end
-function Modules.OverseerCE:ClearAllPoisons()
-    local count = 0
-    for id, poison in pairs(self.State.ActivePoisons) do
-        if poison.Active then
-            self:RemovePoison(id)
-            count = count + 1
-        end
-    end
-    self.State.ActivePoisons = {}
-    self.State.RequireHooks = {}
-    self.State.CoroutineHijacks = {}
-    self.State.MetatableTraps = {}
-    self.State.CascadeTriggers = {}
-    return count
-end
-function Modules.OverseerCE:ValidatePoison(poisonId, testFunc)
-    local poison = self.State.ActivePoisons[poisonId]
-    if not poison then
-        return false, "Poison not found"
-    end
-    if not poison.Active then
-        return false, "Poison is inactive"
-    end
-    local validationResult = {
-        PoisonId = poisonId,
-        Type = poison.Type,
-        Timestamp = os.time()
-    }
-    if poison.Type == "TableHijack" then
-        local testKey = next(poison.Overrides)
-        if testKey then
-            local success, value = pcall(function()
-                return poison.Target[testKey]
-            end)
-            validationResult.Success = success and value == poison.Overrides[testKey]
-            validationResult.TestedKey = testKey
-            validationResult.ExpectedValue = poison.Overrides[testKey]
-            validationResult.ActualValue = value
-        end
-    elseif poison.Type == "UpvalueInject" then
-        local success, currentValue = pcall(getupvalue, poison.TargetFunction, poison.UpvalueIndex)
-        validationResult.Success = success and currentValue == poison.NewValue
-        validationResult.ExpectedValue = poison.NewValue
-        validationResult.ActualValue = currentValue
-    elseif testFunc and type(testFunc) == "function" then
-        local success, result = pcall(testFunc, poison)
-        validationResult.Success = success and result
-        validationResult.CustomResult = result
-    else
-        validationResult.Success = poison.Active
-    end
-    table.insert(self.State.PoisonValidationResults, validationResult)
-    return validationResult.Success, validationResult
-end
-function Modules.OverseerCE:ExportPoisonConfig()
-    local export = {
-        Poisons = {},
-        Templates = {},
-        Timestamp = os.time()
-    }
-    for id, poison in pairs(self.State.ActivePoisons) do
-        if poison.Active then
-            table.insert(export.Poisons, {
-                Id = id,
-                Type = poison.Type,
-                Active = poison.Active,
-                Timestamp = poison.Timestamp
-            })
-        end
-    end
-    local success, jsonData = pcall(function()
-        return game:GetService("HttpService"):JSONEncode(export)
-    end)
-    if success then
-        return jsonData
-    else
-        return nil, "Failed to encode poison config"
-    end
-end
-Modules.OverseerCE.PoisonTemplates = {
-    AdminPoison = function(self, adminModule)
-        if type(adminModule) ~= "table" then
-            return false, "Admin module must be a table"
-        end
-        local poisons = {
-            Kick = function() return true end,
-            Ban = function() return true end,
-            Shutdown = function() end,
-            Kill = function() end,
-            Teleport = function() end
-        }
-        return self:PoisonTableHijack(adminModule, poisons)
-    end,
-    AntiCheatPoison = function(self, anticheatModule)
-        if type(anticheatModule) ~= "table" then
-            return false, "Anti-cheat module must be a table"
-        end
-        anticheatModule.Enabled = false
-        local disablePoisons = {
-            CheckPlayer = function() return true end,
-            Scan = function() return {} end,
-            Detect = function() return false end,
-            Ban = function() end,
-            Kick = function() end
-        }
-        return self:PoisonTableHijack(anticheatModule, disablePoisons)
-    end,
-    CurrencyPoison = function(self, currencyModule, amount)
-        amount = amount or math.huge
-        local currencyPoisons = {
-            GetBalance = function() return amount end,
-            CanAfford = function() return true end,
-            Deduct = function() return true end,
-            Add = function() return true end
-        }
-        return self:PoisonTableHijack(currencyModule, currencyPoisons)
-    end,
-    UnlockAllPoison = function(self, unlockModule)
-        local unlockPoisons = {
-            IsUnlocked = function() return true end,
-            HasAccess = function() return true end,
-            CanUse = function() return true end,
-            IsOwned = function() return true end
-        }
-        return self:PoisonTableHijack(unlockModule, unlockPoisons)
-    end
-}
-RegisterCommand({
-    Name = "OverseerUpdated",
-    Aliases = {"HexOS"},
-    Description = "Opens the ultimate Overseer module, Use at your own risk."
-}, function()
-    Modules.OverseerCE:CreateUI()
-end)
 Modules.ModelBring = {
     State = {
         IsEnabled = false,
@@ -25674,7 +17877,7 @@ function Modules.HumanShield:Initialize()
     local module = self
     RegisterCommand({
         Name = "bring",
-        Aliases = {"b", "shield"},
+        Aliases = {"b"},
         Description = "Positions a player in front of you (persists through respawns). Use 'all' to bring all players."
     }, function(args)
         if module.State.IsEnabled then
@@ -28270,186 +20473,193 @@ RegisterCommand({
 end)
 Modules.NetworkFling = {
     State = {
-        IsFlinging = false,
-        FlingPart = nil,
-        OriginalPartParent = nil,
-        OriginalPartCFrame = nil,
-        TargetPlayer = nil,
-        Connections = {}
+        IsFlinging          = false,
+        FlingPart           = nil,
+        OriginalPartParent  = nil,
+        OriginalPartCFrame  = nil,
+        OriginalPhysProps   = nil,
+        OriginalCanCollide  = nil,
+        TargetPlayer        = nil,
+        Connections         = {}
     },
     Config = {
-        FlingVelocity = 500,
-        JitterSpeed = 50,
-        JitterRadius = 3,
-        PartMass = 500,
-        OrbitMode = false,
-        OrbitSpeed = 10,
-        PreferredPartNames = {"Part", "Block", "Brick"}
+        FlingVelocity    = 500,
+        JitterRadius     = 3,
+        JitterSpeed      = 50,
+        PartDensity      = 0.7,
+        OrbitMode        = false,
+        OrbitRadius      = 5,
+        OrbitSpeed       = 6,
+        SearchRadius     = 120,
     }
 }
+local function IsCharacterPart(obj)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        local char = plr.Character
+        if char and obj:IsDescendantOf(char) then
+            return true
+        end
+    end
+    return false
+end
+local function TryClaim(part)
+    local ok = pcall(function()
+        part:SetNetworkOwner(LocalPlayer)
+    end)
+    return ok
+end
 function Modules.NetworkFling:_findClaimablePart()
-    local character = LocalPlayer.Character
-    if not character then return nil end
-    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local char = LocalPlayer.Character
+    if not char then return nil end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
-    local bestPart = nil
-    local closestDistance = math.huge
+    local best, bestDist = nil, math.huge
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and not obj.Anchored then
-            local isCharacterPart = false
-            local parent = obj.Parent
-            while parent do
-                if parent:FindFirstChild("Humanoid") then
-                    isCharacterPart = true
-                    break
-                end
-                parent = parent.Parent
-            end
-            if not isCharacterPart then
-                local canClaim = pcall(function()
-                    obj:SetNetworkOwner(LocalPlayer)
-                end)
-                if canClaim then
-                    local distance = (obj.Position - hrp.Position).Magnitude
-                    if distance < closestDistance and distance < 100 then
-                        closestDistance = distance
-                        bestPart = obj
-                    end
-                end
+        if obj:IsA("BasePart")
+            and not obj.Anchored
+            and not IsCharacterPart(obj)
+            and obj.AssemblyRootPart == obj
+        then
+            local dist = (obj.Position - hrp.Position).Magnitude
+            if dist < self.Config.SearchRadius and dist < bestDist then
+                bestDist = dist
+                best     = obj
             end
         end
     end
-    return bestPart
+    return best
 end
 function Modules.NetworkFling:_listClaimableParts()
-    local parts = {}
+    local char = LocalPlayer.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    local results = {}
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and not obj.Anchored then
-            local isCharacterPart = false
-            local parent = obj.Parent
-            while parent do
-                if parent:FindFirstChild("Humanoid") then
-                    isCharacterPart = true
-                    break
-                end
-                parent = parent.Parent
-            end
-            if not isCharacterPart then
-                local canClaim = pcall(function()
-                    obj:SetNetworkOwner(LocalPlayer)
-                end)
-                if canClaim then
-                    table.insert(parts, {
-                        Part = obj,
-                        Name = obj.Name,
-                        Path = obj:GetFullName(),
-                        Size = obj.Size
-                    })
-                end
-            end
+        if obj:IsA("BasePart") and not obj.Anchored and not IsCharacterPart(obj) then
+            local dist = hrp and (obj.Position - hrp.Position).Magnitude or math.huge
+            table.insert(results, {
+                Part = obj,
+                Name = obj.Name,
+                Path = obj:GetFullName(),
+                Size = obj.Size,
+                Dist = dist,
+            })
         end
     end
-    return parts
+    table.sort(results, function(a, b) return a.Dist < b.Dist end)
+    return results
 end
 function Modules.NetworkFling:_claimPart(part)
     if not part or not part:IsA("BasePart") then return false end
-    self.State.OriginalPartParent = part.Parent
-    self.State.OriginalPartCFrame = part.CFrame
-    local success = pcall(function()
-        part:SetNetworkOwner(LocalPlayer)
+    self.State.OriginalPartParent  = part.Parent
+    self.State.OriginalPartCFrame  = part.CFrame
+    self.State.OriginalPhysProps   = part.CustomPhysicalProperties
+    self.State.OriginalCanCollide  = part.CanCollide
+    TryClaim(part)
+    pcall(function()
+        part.CustomPhysicalProperties = PhysicalProperties.new(
+            self.Config.PartDensity,
+            0.1,
+            0.8,
+            0,
+            0
+        )
+        part.CanCollide = true
     end)
-    if not success then
-        return false
-    end
-    part.CustomPhysicalProperties = PhysicalProperties.new(
-        self.Config.PartMass,
-        0.3,
-        0.5,
-        1,
-        1
-    )
-    part.CanCollide = true
     return true
 end
 function Modules.NetworkFling:_restorePart(part)
     if not part then return end
     pcall(function()
         part:SetNetworkOwner(nil)
+    end)
+    pcall(function()
+        part.AssemblyLinearVelocity  = Vector3.zero
+        part.AssemblyAngularVelocity = Vector3.zero
+        part.CustomPhysicalProperties = self.State.OriginalPhysProps
+        part.CanCollide               = self.State.OriginalCanCollide
         if self.State.OriginalPartCFrame then
             part.CFrame = self.State.OriginalPartCFrame
         end
-        part.AssemblyLinearVelocity = Vector3.zero
-        part.AssemblyAngularVelocity = Vector3.zero
-        part.CustomPhysicalProperties = nil
     end)
 end
-function Modules.NetworkFling:_jitterPart(part, targetPos)
+function Modules.NetworkFling:_pushPart(part, targetPos)
     if not part or not part.Parent then return end
-    local time = tick() * self.Config.JitterSpeed
-    local jitterOffset = Vector3.new(
-        math.sin(time * 3.7) * self.Config.JitterRadius,
-        math.sin(time * 2.3) * self.Config.JitterRadius,
-        math.cos(time * 4.1) * self.Config.JitterRadius
+    local t  = tick()
+    local jr = self.Config.JitterRadius
+    local js = self.Config.JitterSpeed
+    local jitter = Vector3.new(
+        math.sin(t * js * 3.7 + 1) * jr,
+        math.sin(t * js * 2.3 + 2) * jr,
+        math.cos(t * js * 4.1 + 3) * jr
     )
-    local targetCFrame = CFrame.new(targetPos + jitterOffset)
-    local direction = (targetCFrame.Position - part.Position).Unit
-    part.AssemblyLinearVelocity = direction * self.Config.FlingVelocity + Vector3.new(
-        math.random(-50, 50),
-        math.random(-50, 50),
-        math.random(-50, 50)
-    )
-    part.AssemblyAngularVelocity = Vector3.new(
-        math.random(-20, 20),
-        math.random(-20, 20),
-        math.random(-20, 20)
-    )
+    local aimPos  = targetPos + jitter
+    local dir     = (aimPos - part.Position)
+    local mag     = dir.Magnitude
+    if mag < 0.5 then return end
+    local velocity = dir.Unit * self.Config.FlingVelocity
+    pcall(function()
+        part.AssemblyLinearVelocity  = velocity
+        part.AssemblyAngularVelocity = Vector3.new(
+            math.sin(t * 7) * 15,
+            math.cos(t * 5) * 15,
+            math.sin(t * 3) * 15
+        )
+    end)
 end
 function Modules.NetworkFling:_orbitPart(part, targetPos)
     if not part or not part.Parent then return end
-    local time = tick() * self.Config.OrbitSpeed
-    local orbitOffset = Vector3.new(
-        math.sin(time) * self.Config.JitterRadius,
-        0,
-        math.cos(time) * self.Config.JitterRadius
+    local t      = tick() * self.Config.OrbitSpeed
+    local radius = self.Config.OrbitRadius
+    local orbitTarget = targetPos + Vector3.new(
+        math.sin(t) * radius,
+        math.sin(t * 0.7) * (radius * 0.5),
+        math.cos(t) * radius
     )
-    local targetCFrame = CFrame.new(targetPos + orbitOffset)
-    local direction = (targetCFrame.Position - part.Position).Unit
-    part.AssemblyLinearVelocity = direction * self.Config.FlingVelocity
-    part.AssemblyAngularVelocity = Vector3.new(0, 50, 0)
+    local dir = (orbitTarget - part.Position)
+    local mag = dir.Magnitude
+    if mag < 0.5 then return end
+    pcall(function()
+        part.AssemblyLinearVelocity  = dir.Unit * self.Config.FlingVelocity
+        part.AssemblyAngularVelocity = Vector3.new(0, 30, 0)
+    end)
 end
 function Modules.NetworkFling:Start(playerName)
     if self.State.IsFlinging then
-        DoNotif("Already flinging someone", 3)
+        DoNotif("Already flinging — use ;stopfling first", 3)
         return
     end
     local targetPlayer = Utilities.findPlayer(playerName)
     if not targetPlayer then
-        DoNotif("Player not found", 3)
+        DoNotif("Player not found: " .. tostring(playerName), 3)
         return
     end
     if targetPlayer == LocalPlayer then
         DoNotif("Cannot fling yourself", 3)
         return
     end
-    DoNotif("Searching for claimable part...", 2)
-    local flingPart = self:_findClaimablePart()
+    local flingPart = self.State.FlingPart
+    if not flingPart or not flingPart.Parent then
+        DoNotif("Scanning for a part...", 1)
+        flingPart = self:_findClaimablePart()
+    end
     if not flingPart then
-        DoNotif("No claimable parts found nearby", 3)
-        DoNotif("Use ;listparts to see available parts", 2)
+        DoNotif("No usable unanchored parts found nearby (radius: " .. self.Config.SearchRadius .. ")", 3)
         return
     end
-    DoNotif("Found part: " .. flingPart.Name, 2)
     if not self:_claimPart(flingPart) then
-        DoNotif("Failed to claim part", 3)
+        DoNotif("Failed to set up part", 3)
         return
     end
-    self.State.FlingPart = flingPart
+    self.State.FlingPart    = flingPart
     self.State.TargetPlayer = targetPlayer
-    self.State.IsFlinging = true
-    DoNotif(string.format("Flinging %s with %s", targetPlayer.DisplayName, flingPart.Name), 2)
+    self.State.IsFlinging   = true
+    DoNotif(string.format(
+        "Flinging %s  [part: %s]",
+        targetPlayer.DisplayName, flingPart.Name
+    ), 3)
     self.State.Connections.FlingLoop = RunService.Heartbeat:Connect(function()
         if not self.State.TargetPlayer or not self.State.TargetPlayer.Parent then
-            DoNotif("Target left", 3)
+            DoNotif("Target left", 2)
             self:Stop()
             return
         end
@@ -28458,165 +20668,213 @@ function Modules.NetworkFling:Start(playerName)
         local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
         if not targetHRP then return end
         if not self.State.FlingPart or not self.State.FlingPart.Parent then
-            DoNotif("Fling part destroyed", 3)
+            DoNotif("Part was destroyed — stopping", 3)
             self:Stop()
             return
         end
         if self.Config.OrbitMode then
             self:_orbitPart(self.State.FlingPart, targetHRP.Position)
         else
-            self:_jitterPart(self.State.FlingPart, targetHRP.Position)
+            self:_pushPart(self.State.FlingPart, targetHRP.Position)
         end
     end)
 end
 function Modules.NetworkFling:Stop()
     if not self.State.IsFlinging then return end
-    self.State.IsFlinging = false
+    self.State.IsFlinging   = false
     self.State.TargetPlayer = nil
-    for _, conn in pairs(self.State.Connections) do
-        if conn then
-            conn:Disconnect()
-        end
+    for key, conn in pairs(self.State.Connections) do
+        pcall(function() conn:Disconnect() end)
+        self.State.Connections[key] = nil
     end
-    self.State.Connections = {}
     if self.State.FlingPart then
         self:_restorePart(self.State.FlingPart)
         self.State.FlingPart = nil
     end
-    DoNotif("Stopped flinging", 2)
+    self.State.OriginalPartParent = nil
+    self.State.OriginalPartCFrame = nil
+    self.State.OriginalPhysProps  = nil
+    self.State.OriginalCanCollide = nil
+    DoNotif("Fling stopped", 2)
 end
 function Modules.NetworkFling:ListParts()
-    DoNotif("Scanning for claimable parts...", 2)
     local parts = self:_listClaimableParts()
-    print("\n=== CLAIMABLE PARTS ===")
+    print("\n=== UNANCHORED PARTS (sorted by distance) ===")
     for i, data in ipairs(parts) do
-        print(string.format("%d. %s - Size: (%.1f, %.1f, %.1f) - %s", 
-            i, data.Name, 
+        print(string.format(
+            "%2d. %-24s  size: (%.1f,%.1f,%.1f)  dist: %.1f  %s",
+            i, data.Name,
             data.Size.X, data.Size.Y, data.Size.Z,
-            data.Path))
+            data.Dist,
+            data.Path
+        ))
     end
-    print(string.format("\nTotal: %d parts", #parts))
-    DoNotif(string.format("Found %d claimable parts (check console)", #parts), 2)
+    print(string.format("Total: %d parts\n", #parts))
+    DoNotif(string.format("%d unanchored parts found — check console", #parts), 3)
 end
 function Modules.NetworkFling:UseSpecificPart(partName)
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local best, bestDist = nil, math.huge
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Name:lower():find(partName:lower()) and not obj.Anchored then
-            local canClaim = pcall(function()
-                obj:SetNetworkOwner(LocalPlayer)
-            end)
-            if canClaim then
-                DoNotif("Will use part: " .. obj.Name, 2)
-                self.State.FlingPart = obj
-                return true
+        if obj:IsA("BasePart")
+            and not obj.Anchored
+            and not IsCharacterPart(obj)
+            and obj.Name:lower():find(partName:lower(), 1, true)
+        then
+            local dist = hrp and (obj.Position - hrp.Position).Magnitude or 0
+            if dist < bestDist then
+                bestDist = dist
+                best     = obj
             end
         end
     end
-    DoNotif("Part not found or not claimable", 3)
+    if best then
+        self.State.FlingPart = best
+        DoNotif(string.format("Selected: %s (%.1f studs away)", best.Name, bestDist), 2)
+        return true
+    end
+    DoNotif("No unanchored part matching '" .. partName .. "' found", 3)
     return false
 end
 RegisterCommand({
-    Name = "networkfling",
-    Aliases = {"netfling"},
-    Description = "Fling a player using existing parts. Usage: ;fling <player>"
+    Name        = "networkfling",
+    Aliases     = { "netfling", "nfling" },
+    Description = "Fling a player with a nearby part. Usage: ;fling <player>"
 }, function(args)
     if not args[1] then
         DoNotif("Usage: ;fling <player>", 3)
         return
     end
-    local playerName = table.concat(args, " ")
-    Modules.NetworkFling:Start(playerName)
+    Modules.NetworkFling:Start(table.concat(args, " "))
 end)
 RegisterCommand({
-    Name = "unnetfling",
-    Aliases = {"stopnfling"},
+    Name        = "stopnfling",
+    Aliases     = {},
     Description = "Stop flinging and restore the part"
 }, function()
     Modules.NetworkFling:Stop()
 end)
 RegisterCommand({
-    Name = "listparts",
-    Aliases = {"parts", "claimable"},
-    Description = "List all claimable parts in the game (prints to console)"
+    Name        = "listparts",
+    Aliases     = { "parts", "claimable" },
+    Description = "List all unanchored parts sorted by distance (prints to console)"
 }, function()
     Modules.NetworkFling:ListParts()
 end)
 RegisterCommand({
-    Name = "usepart",
-    Aliases = {"selectpart"},
-    Description = "Manually select a part to use for flinging. Usage: ;usepart <partName>"
+    Name        = "usepart",
+    Aliases     = { "selectpart" },
+    Description = "Pre-select a part by name for the next fling. Usage: ;usepart <name>"
 }, function(args)
     if not args[1] then
         DoNotif("Usage: ;usepart <partName>", 3)
         return
     end
-    local partName = table.concat(args, " ")
-    Modules.NetworkFling:UseSpecificPart(partName)
+    Modules.NetworkFling:UseSpecificPart(table.concat(args, " "))
 end)
 RegisterCommand({
-    Name = "flingvelocity",
-    Aliases = {"fvel"},
-    Description = "Set fling velocity. Usage: ;flingvelocity <velocity>"
+    Name        = "flingvelocity",
+    Aliases     = { "fvel" },
+    Description = "Get or set fling velocity. Usage: ;flingvelocity [value]"
 }, function(args)
     if not args[1] then
-        DoNotif(string.format("Current: %d", Modules.NetworkFling.Config.FlingVelocity), 2)
+        DoNotif("Fling velocity: " .. Modules.NetworkFling.Config.FlingVelocity, 2)
         return
     end
-    Modules.NetworkFling.Config.FlingVelocity = tonumber(args[1]) or 500
-    DoNotif("Fling velocity: " .. args[1], 2)
+    local v = tonumber(args[1])
+    if not v then DoNotif("Invalid number", 3) return end
+    Modules.NetworkFling.Config.FlingVelocity = v
+    DoNotif("Fling velocity set to " .. v, 2)
 end)
 RegisterCommand({
-    Name = "flingmass",
-    Aliases = {"fmass"},
-    Description = "Set part mass. Usage: ;flingmass <mass>"
+    Name        = "flingdensity",
+    Aliases     = { "fdensity" },
+    Description = "Set part density (0.1–5.0). Usage: ;flingdensity [value]"
 }, function(args)
     if not args[1] then
-        DoNotif(string.format("Current: %d", Modules.NetworkFling.Config.PartMass), 2)
+        DoNotif("Density: " .. Modules.NetworkFling.Config.PartDensity, 2)
         return
     end
-    Modules.NetworkFling.Config.PartMass = tonumber(args[1]) or 500
-    DoNotif("Part mass: " .. args[1], 2)
+    local v = tonumber(args[1])
+    if not v then DoNotif("Invalid number", 3) return end
+    Modules.NetworkFling.Config.PartDensity = math.clamp(v, 0.01, 100)
+    DoNotif("Part density set to " .. Modules.NetworkFling.Config.PartDensity, 2)
 end)
 RegisterCommand({
-    Name = "flingorbit",
-    Aliases = {"forbit"},
-    Description = "Toggle orbit mode"
+    Name        = "flingorbit",
+    Aliases     = { "forbit" },
+    Description = "Toggle orbit mode for flinging"
 }, function()
     Modules.NetworkFling.Config.OrbitMode = not Modules.NetworkFling.Config.OrbitMode
     DoNotif("Orbit mode: " .. (Modules.NetworkFling.Config.OrbitMode and "ON" or "OFF"), 2)
 end)
+RegisterCommand({
+    Name        = "flingsearch",
+    Aliases     = { "fsearch" },
+    Description = "Set part search radius in studs. Usage: ;flingsearch <radius>"
+}, function(args)
+    if not args[1] then
+        DoNotif("Search radius: " .. Modules.NetworkFling.Config.SearchRadius, 2)
+        return
+    end
+    local v = tonumber(args[1])
+    if not v then DoNotif("Invalid number", 3) return end
+    Modules.NetworkFling.Config.SearchRadius = v
+    DoNotif("Search radius set to " .. v, 2)
+end)
 Modules.AdonisPanel = {
     State = {
-        Visible = false,
-        Gui = nil,
-        TerminalLines = {},
-        CommandHistory = {},
-        HistoryIndex = 0,
-        MaxLines = 500,
-        Dragging = false,
-        DragStart = nil,
-        StartPos = nil,
-        ActiveEffect = nil,
-        Macros = {},
+        Visible         = false,
+        Gui             = nil,
+        TerminalLines   = {},
+        CommandHistory  = {},
+        HistoryIndex    = 0,
+        MaxLines        = 500,
+        Dragging        = false,
+        DragStart       = nil,
+        StartPos        = nil,
+        Macros          = {},
+        Resizing        = false,
+        ResizeStart     = nil,
+        ResizeStartSize = nil,
+        Snippets        = {},
+        ActiveSnippet   = nil,
+        ESPEnabled      = {},
+        ESPConnection   = nil,
+        ToastGui        = nil,
+        ToastQueue      = {},
+        ShowTimestamps  = false,
+        _cmdPool        = {},
+        _plrPool        = {},
     },
     Config = {
         Theme = {
-            Background    = Color3.fromRGB(31, 31, 31),
-            BackgroundDim = Color3.fromRGB(22, 22, 22),
-            TitleBar      = Color3.fromRGB(26, 26, 26),
-            Accent        = Color3.fromRGB(195, 33, 35),
+            Background    = Color3.fromRGB(31,  31,  31),
+            BackgroundDim = Color3.fromRGB(22,  22,  22),
+            TitleBar      = Color3.fromRGB(26,  26,  26),
+            Accent        = Color3.fromRGB(195, 33,  35),
             Text          = Color3.fromRGB(255, 255, 255),
             SubText       = Color3.fromRGB(178, 178, 178),
-            Border        = Color3.fromRGB(27, 42, 53),
-            InputBg       = Color3.fromRGB(28, 28, 28),
-            Green         = Color3.fromRGB(80, 200, 80),
+            Border        = Color3.fromRGB(27,  42,  53),
+            InputBg       = Color3.fromRGB(28,  28,  28),
+            Green         = Color3.fromRGB(80,  200, 80),
             Yellow        = Color3.fromRGB(255, 200, 50),
-            Red           = Color3.fromRGB(220, 60, 60),
-            Purple        = Color3.fromRGB(120, 60, 200),
-            Blue          = Color3.fromRGB(50, 100, 200),
+            Red           = Color3.fromRGB(220, 60,  60),
+            Purple        = Color3.fromRGB(120, 60,  200),
+            Blue          = Color3.fromRGB(50,  100, 200),
+            SynKeyword    = Color3.fromRGB(197, 134, 192),
+            SynString     = Color3.fromRGB(206, 145, 120),
+            SynNumber     = Color3.fromRGB(179, 213, 132),
+            SynComment    = Color3.fromRGB(106, 153, 85),
+            SynFunction   = Color3.fromRGB(220, 220, 170),
+            SynOperator   = Color3.fromRGB(212, 212, 212),
         },
-        Size = Vector2.new(540, 360),
-        Position = UDim2.new(0.5, -270, 0.5, -180),
-        ToggleKey = Enum.KeyCode.RightShift,
+        Size        = Vector2.new(580, 400),
+        Position    = UDim2.new(0.5, -290, 0.5, -200),
+        ToggleKey   = Enum.KeyCode.RightShift,
+        FontSize    = 14,
+        Opacity     = 0.08,
+        MinSize     = Vector2.new(400, 280),
     }
 }
 local function make(class, props, parent)
@@ -28625,223 +20883,788 @@ local function make(class, props, parent)
     if parent then inst.Parent = parent end
     return inst
 end
-local function corner(r, p) return make("UICorner", {CornerRadius = UDim.new(0, r)}, p) end
-local function stroke(t, c, p) return make("UIStroke", {Thickness=t, Color=c or Color3.fromRGB(60,60,60), ApplyStrokeMode=Enum.ApplyStrokeMode.Border}, p) end
+local function corner(r, p)  return make("UICorner", {CornerRadius=UDim.new(0,r)}, p) end
+local function stroke(t,c,p) return make("UIStroke",  {Thickness=t, Color=c or Color3.fromRGB(60,60,60), ApplyStrokeMode=Enum.ApplyStrokeMode.Border}, p) end
 local function scrollFrame(props, parent)
     local f = make("ScrollingFrame", {
-        BackgroundColor3 = props.BackgroundColor3 or Color3.fromRGB(22,22,22),
-        BorderSizePixel = 0,
-        ScrollBarThickness = 3,
-        ScrollBarImageColor3 = Color3.fromRGB(80,80,80),
-        CanvasSize = UDim2.new(0,0,0,0),
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        ScrollingDirection = Enum.ScrollingDirection.Y,
+        BackgroundColor3      = props.BackgroundColor3 or Color3.fromRGB(22,22,22),
+        BorderSizePixel       = 0,
+        ScrollBarThickness    = 3,
+        ScrollBarImageColor3  = Color3.fromRGB(80,80,80),
+        CanvasSize            = UDim2.new(0,0,0,0),
+        AutomaticCanvasSize   = Enum.AutomaticSize.Y,
+        ScrollingDirection    = Enum.ScrollingDirection.Y,
         BottomImage = "http://roblox.com/asset?id=158348114",
         MidImage    = "http://roblox.com/asset?id=158348114",
         TopImage    = "http://roblox.com/asset?id=158348114",
-        Size     = props.Size or UDim2.new(1,-10,1,-10),
+        Size     = props.Size     or UDim2.new(1,-10,1,-10),
         Position = props.Position or UDim2.new(0,5,0,5),
     }, parent)
     if props.Corner then corner(props.Corner, f) end
     make("UIListLayout", {SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0, props.Padding or 1)}, f)
-    make("UIPadding", {PaddingLeft=UDim.new(0,4), PaddingTop=UDim.new(0,4), PaddingBottom=UDim.new(0,4)}, f)
+    make("UIPadding",    {PaddingLeft=UDim.new(0,4), PaddingTop=UDim.new(0,4), PaddingBottom=UDim.new(0,4)}, f)
     return f
 end
-function Modules.AdonisPanel:_build()
+local function lineColor(text, T)
+    local lo = text:lower()
+    if lo:find("^error") or lo:find("^%[error%]") then
+        return T.Red,    Color3.fromRGB(50,20,20)
+    elseif lo:find("^warn") or lo:find("^%[warn%]") then
+        return T.Yellow, Color3.fromRGB(50,45,20)
+    elseif lo:find("^>") then
+        return T.Accent, nil
+    elseif lo:find("^  macro") then
+        return T.SubText, nil
+    end
+    return nil, nil
+end
+local LUA_KEYWORDS = {
+    ["and"]=true,["break"]=true,["do"]=true,["else"]=true,["elseif"]=true,
+    ["end"]=true,["false"]=true,["for"]=true,["function"]=true,["if"]=true,
+    ["in"]=true,["local"]=true,["nil"]=true,["not"]=true,["or"]=true,
+    ["repeat"]=true,["return"]=true,["then"]=true,["true"]=true,["until"]=true,
+    ["while"]=true,["goto"]=true,["self"]=true,
+}
+local function tokenizeLua(line)
+    local T = Modules.AdonisPanel.Config.Theme
+    local tokens = {}
+    local i = 1
+    local function push(txt, col) if txt~="" then table.insert(tokens,{text=txt,color=col}) end end
+    while i <= #line do
+        if line:sub(i,i+1) == "--" then
+            push(line:sub(i), T.SynComment) break
+        end
+        if line:sub(i,i) == '"' then
+            local j = line:find('"', i+1, true)
+            j = j or #line
+            push(line:sub(i,j), T.SynString) i=j+1
+        elseif line:sub(i,i) == "'" then
+            local j = line:find("'", i+1, true)
+            j = j or #line
+            push(line:sub(i,j), T.SynString) i=j+1
+        elseif line:sub(i,i):match("%d") then
+            local s,e = line:find("^%-?%d+%.?%d*", i)
+            if s then push(line:sub(s,e), T.SynNumber) i=e+1
+            else push(line:sub(i,i), T.SynOperator) i=i+1 end
+        elseif line:sub(i,i):match("[%a_]") then
+            local s,e = line:find("^[%a_][%w_]*", i)
+            local word = line:sub(s,e)
+            if LUA_KEYWORDS[word] then
+                push(word, T.SynKeyword)
+            elseif line:sub(e+1,e+1) == "(" then
+                push(word, T.SynFunction)
+            else
+                push(word, T.Text)
+            end
+            i = e+1
+        elseif line:sub(i,i):match("%s") then
+            local s,e = line:find("^%s+", i)
+            push(line:sub(s,e), T.Text) i=e+1
+        else
+            push(line:sub(i,i), T.SynOperator) i=i+1
+        end
+    end
+    return tokens
+end
+function Modules.AdonisPanel:_initToast()
+    if self.State.ToastGui then return end
+    local tg = make("ScreenGui", {
+        Name="ZukaToasts", DisplayOrder=997, ResetOnSpawn=false, IgnoreGuiInset=true,
+    }, game:GetService("CoreGui"))
+    self.State.ToastGui = tg
+end
+function Modules.AdonisPanel:_toast(msg, color)
+    self:_initToast()
     local T = self.Config.Theme
+    color = color or T.Yellow
+    local frame = make("Frame", {
+        Size=UDim2.new(0,280,0,34), Position=UDim2.new(1,-290,1,-50),
+        BackgroundColor3=Color3.fromRGB(28,28,28), BackgroundTransparency=0.15,
+        BorderSizePixel=0, ZIndex=10,
+    }, self.State.ToastGui)
+    corner(6, frame)
+    stroke(1, color, frame)
+    make("Frame", {
+        Size=UDim2.fromOffset(3,34), BackgroundColor3=color, BorderSizePixel=0, ZIndex=11,
+    }, frame)
+    make("TextLabel", {
+        Size=UDim2.new(1,-10,1,0), Position=UDim2.fromOffset(8,0),
+        BackgroundTransparency=1, Text=msg, TextColor3=T.Text,
+        Font=Enum.Font.SourceSans, TextSize=13,
+        TextXAlignment=Enum.TextXAlignment.Left, TextWrapped=true, ZIndex=11,
+    }, frame)
+    local toasts = self.State.ToastQueue
+    for _, f in ipairs(toasts) do
+        TweenService:Create(f, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+            Position = UDim2.new(f.Position.X.Scale, f.Position.X.Offset,
+                                 f.Position.Y.Scale, f.Position.Y.Offset - 40)
+        }):Play()
+    end
+    table.insert(toasts, frame)
+    frame.Position = UDim2.new(1,-290+300, 1,-50)
+    TweenService:Create(frame, TweenInfo.new(0.25,Enum.EasingStyle.Quad), {
+        Position=UDim2.new(1,-290,1,-50)
+    }):Play()
+    task.delay(4, function()
+        TweenService:Create(frame, TweenInfo.new(0.25,Enum.EasingStyle.Quad), {
+            Position=UDim2.new(1,-290+300,1,-50), BackgroundTransparency=1
+        }):Play()
+        task.wait(0.3)
+        frame:Destroy()
+        for i, f in ipairs(toasts) do
+            if f == frame then table.remove(toasts,i) break end
+        end
+    end)
+end
+function Modules.AdonisPanel:_espUpdate()
+    local Players = game:GetService("Players")
+    if self.State.ESPConnection then
+        self.State.ESPConnection:Disconnect()
+        self.State.ESPConnection = nil
+    end
+    for uid, data in pairs(self.State.ESPEnabled) do
+        if data.Drawings then
+            for _, d in pairs(data.Drawings) do
+                pcall(function() d:Remove() end)
+            end
+            data.Drawings = {}
+        end
+    end
+    local anyEnabled = false
+    for _, data in pairs(self.State.ESPEnabled) do
+        if data.Enabled then anyEnabled = true break end
+    end
+    if not anyEnabled then return end
+    self.State.ESPConnection = game:GetService("RunService").RenderStepped:Connect(function()
+        local camera = workspace.CurrentCamera
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr == LocalPlayer then continue end
+            local data = self.State.ESPEnabled[plr.UserId]
+            if not data or not data.Enabled then
+                if data and data.Drawings then
+                    for _, d in pairs(data.Drawings) do pcall(function() d.Visible=false end) end
+                end
+                continue
+            end
+            local char = plr.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            local hum  = char and char:FindFirstChildOfClass("Humanoid")
+            if not root then
+                if data.Drawings then
+                    for _, d in pairs(data.Drawings) do pcall(function() d.Visible=false end) end
+                end
+                continue
+            end
+            if not data.Drawings then data.Drawings = {} end
+            local dr = data.Drawings
+            if not dr.Box then
+                dr.Box       = Drawing.new("Square")
+                dr.Box.Thickness = 1
+                dr.Box.Filled = false
+            end
+            if not dr.Name then
+                dr.Name      = Drawing.new("Text")
+                dr.Name.Size = 14
+                dr.Name.Center = true
+                dr.Name.Outline = true
+            end
+            if not dr.Dist then
+                dr.Dist      = Drawing.new("Text")
+                dr.Dist.Size = 12
+                dr.Dist.Center = true
+                dr.Dist.Outline = true
+            end
+            if not dr.HealthBg then
+                dr.HealthBg  = Drawing.new("Square")
+                dr.HealthBg.Thickness = 1
+                dr.HealthBg.Filled = true
+                dr.HealthBg.Color  = Color3.fromRGB(20,20,20)
+            end
+            if not dr.HealthBar then
+                dr.HealthBar = Drawing.new("Square")
+                dr.HealthBar.Thickness = 1
+                dr.HealthBar.Filled = true
+            end
+            local col = data.Color or Color3.fromRGB(255,50,50)
+            local head = char:FindFirstChild("Head")
+            local topPos   = (head and head.Position + Vector3.new(0,0.6,0)) or root.Position + Vector3.new(0,2.6,0)
+            local botPos   = root.Position - Vector3.new(0,3,0)
+            local topScreen, topVis = camera:WorldToViewportPoint(topPos)
+            local botScreen, _      = camera:WorldToViewportPoint(botPos)
+            if not topVis then
+                for _, d in pairs(dr) do pcall(function() d.Visible=false end) end
+                continue
+            end
+            local h = math.abs(topScreen.Y - botScreen.Y)
+            local w = h * 0.5
+            local cx = topScreen.X
+            dr.Box.Visible  = true
+            dr.Box.Color    = col
+            dr.Box.Size     = Vector2.new(w, h)
+            dr.Box.Position = Vector2.new(cx - w/2, topScreen.Y)
+            dr.Name.Visible   = true
+            dr.Name.Color     = col
+            dr.Name.Text      = plr.DisplayName
+            dr.Name.Position  = Vector2.new(cx, topScreen.Y - 16)
+            local dist = (camera.CFrame.Position - root.Position).Magnitude
+            dr.Dist.Visible   = true
+            dr.Dist.Color     = Color3.fromRGB(200,200,200)
+            dr.Dist.Text      = string.format("[%.0fm]", dist)
+            dr.Dist.Position  = Vector2.new(cx, botScreen.Y + 2)
+            local hp    = hum and math.clamp(hum.Health/math.max(hum.MaxHealth,1),0,1) or 1
+            local barH  = h * hp
+            local barX  = cx - w/2 - 6
+            dr.HealthBg.Visible  = true
+            dr.HealthBg.Size     = Vector2.new(4, h)
+            dr.HealthBg.Position = Vector2.new(barX, topScreen.Y)
+            dr.HealthBar.Visible  = true
+            dr.HealthBar.Color    = Color3.fromRGB(80*2*(1-hp), 200*hp, 40)
+            dr.HealthBar.Size     = Vector2.new(4, barH)
+            dr.HealthBar.Position = Vector2.new(barX, topScreen.Y + (h - barH))
+        end
+    end)
+end
+function Modules.AdonisPanel:_build()
+    local T   = self.Config.Theme
     local UIS = game:GetService("UserInputService")
     local gui = make("ScreenGui", {
         Name="ZukaAdonisPanel", DisplayOrder=999,
         ResetOnSpawn=false, IgnoreGuiInset=true,
     }, game:GetService("CoreGui"))
     self.State.Gui = gui
+    local UIS_clickConn
+    UIS_clickConn = game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if not (self.State.InputBox and self.State.InputBox:IsFocused()) then return end
+        local mp = game:GetService("UserInputService"):GetMouseLocation()
+        local wp = win.AbsolutePosition
+        local ws = win.AbsoluteSize
+        local inside = mp.X >= wp.X and mp.X <= wp.X + ws.X
+                    and mp.Y >= wp.Y and mp.Y <= wp.Y + ws.Y
+        if not inside then
+            self.State.InputBox:ReleaseFocus(false)
+        end
+    end)
+    gui.Destroying:Connect(function() UIS_clickConn:Disconnect() end)
     local win = make("Frame", {
         Name="Window",
         Size=UDim2.fromOffset(self.Config.Size.X, self.Config.Size.Y),
         Position=self.Config.Position,
-        BackgroundColor3=T.Background, BackgroundTransparency=0.08,
-        BorderSizePixel=0, ClipsDescendants=true,
+        BackgroundColor3=T.Background, BackgroundTransparency=self.Config.Opacity,
+        BorderSizePixel=0, ClipsDescendants=true, ZIndex=2,
     }, gui)
     corner(6, win)
     stroke(1, T.Border, win)
     local titleBar = make("Frame", {
-        Size=UDim2.new(1,0,0,26), BackgroundColor3=T.TitleBar, BorderSizePixel=0,
+        Size=UDim2.new(1,0,0,26), BackgroundColor3=T.TitleBar, BorderSizePixel=0, ZIndex=3,
     }, win)
     corner(6, titleBar)
-    make("Frame", {Size=UDim2.new(1,0,0,6), Position=UDim2.new(0,0,1,-6), BackgroundColor3=T.TitleBar, BorderSizePixel=0}, titleBar)
-    make("TextLabel", {
-        Size=UDim2.new(1,-80,1,0), Position=UDim2.new(0,10,0,0), BackgroundTransparency=1,
-        Text="Adonis  //  Zuka's Panel", TextColor3=T.Text,
-        Font=Enum.Font.SourceSansLight, TextSize=15, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=2,
+    make("Frame", {
+        Size=UDim2.new(1,0,0,6), Position=UDim2.new(0,0,1,-6),
+        BackgroundColor3=T.TitleBar, BorderSizePixel=0, ZIndex=3,
+    }, titleBar)
+    local titleLabel = make("TextLabel", {
+        Size=UDim2.new(1,-80,1,0), Position=UDim2.new(0,10,0,0),
+        BackgroundTransparency=1, Text="Adonis  //  Zuka's Panel",
+        TextColor3=T.Text, Font=Enum.Font.SourceSansLight, TextSize=15,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=4,
     }, titleBar)
     local closeBtn = make("TextButton", {
         Size=UDim2.fromOffset(30,20), Position=UDim2.new(1,-35,0,3),
         BackgroundColor3=T.Accent, BackgroundTransparency=0.25, BorderSizePixel=0,
-        Text="x", TextColor3=Color3.fromRGB(220,220,220), Font=Enum.Font.Cartoon, TextSize=18, ZIndex=3,
+        Text="x", TextColor3=Color3.fromRGB(220,220,220),
+        Font=Enum.Font.Cartoon, TextSize=18, ZIndex=5,
     }, titleBar)
     corner(4, closeBtn)
     local minBtn = make("TextButton", {
         Size=UDim2.fromOffset(30,20), Position=UDim2.new(1,-70,0,3),
         BackgroundColor3=Color3.fromRGB(0,0,0), BackgroundTransparency=0.5, BorderSizePixel=0,
-        Text="-", TextColor3=T.Text, Font=Enum.Font.ArialBold, TextSize=14, ZIndex=3,
+        Text="-", TextColor3=T.Text, Font=Enum.Font.ArialBold, TextSize=14, ZIndex=5,
     }, titleBar)
     corner(4, minBtn)
     local tabRow = make("Frame", {
         Size=UDim2.new(1,0,0,26), Position=UDim2.new(0,0,0,26),
-        BackgroundColor3=Color3.fromRGB(20,20,20), BorderSizePixel=0,
+        BackgroundColor3=Color3.fromRGB(20,20,20), BorderSizePixel=0, ZIndex=3,
     }, win)
-    make("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,2)}, tabRow)
+    make("UIListLayout", {
+        FillDirection=Enum.FillDirection.Horizontal,
+        SortOrder=Enum.SortOrder.LayoutOrder,
+        Padding=UDim.new(0,2),
+    }, tabRow)
     make("UIPadding", {PaddingLeft=UDim.new(0,4), PaddingTop=UDim.new(0,3)}, tabRow)
     local content = make("Frame", {
         Size=UDim2.new(1,0,1,-52), Position=UDim2.new(0,0,0,52),
-        BackgroundTransparency=1, BorderSizePixel=0, ClipsDescendants=true,
+        BackgroundTransparency=1, BorderSizePixel=0, ClipsDescendants=true, ZIndex=2,
     }, win)
-    local termPage = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=true}, content)
-    local outputScroll = scrollFrame({Size=UDim2.new(1,-10,1,-40), Position=UDim2.new(0,5,0,5), Corner=4}, termPage)
+    local resizeHandle = make("TextButton", {
+        Size=UDim2.fromOffset(14,14),
+        Position=UDim2.new(1,-14,1,-14),
+        BackgroundColor3=Color3.fromRGB(80,80,80),
+        BackgroundTransparency=0.6, BorderSizePixel=0, Text="", ZIndex=10,
+    }, win)
+    corner(3, resizeHandle)
+    local termPage = make("Frame", {
+        Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=true, ZIndex=2,
+    }, content)
+    local outputScroll = scrollFrame({
+        Size=UDim2.new(1,-10,1,-68), Position=UDim2.new(0,5,0,5), Corner=4,
+    }, termPage)
+    local hintLabel = make("TextLabel", {
+        Size=UDim2.new(1,-10,0,16), Position=UDim2.new(0,5,1,-61),
+        BackgroundTransparency=1, Text="",
+        TextColor3=T.SubText, Font=Enum.Font.SourceSansItalic,
+        TextSize=12, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
+    }, termPage)
     local inputBar = make("Frame", {
-        Size=UDim2.new(1,-10,0,28), Position=UDim2.new(0,5,1,-33),
-        BackgroundColor3=T.InputBg, BorderSizePixel=0,
+        Size=UDim2.new(1,-10,0,28), Position=UDim2.new(0,5,1,-38),
+        BackgroundColor3=T.InputBg, BorderSizePixel=0, ZIndex=3,
     }, termPage)
     corner(4, inputBar)
     stroke(1, Color3.fromRGB(50,50,50), inputBar)
     make("TextLabel", {
-        Size=UDim2.fromOffset(20,28), BackgroundTransparency=1, Text=">",
-        TextColor3=T.Accent, Font=Enum.Font.SourceSansBold, TextSize=16, ZIndex=2,
+        Size=UDim2.fromOffset(20,28), BackgroundTransparency=1,
+        Text=">", TextColor3=T.Accent,
+        Font=Enum.Font.SourceSansBold, TextSize=16, ZIndex=4,
     }, inputBar)
     local inputBox = make("TextBox", {
         Size=UDim2.new(1,-25,1,0), Position=UDim2.new(0,20,0,0),
-        BackgroundTransparency=1, Text="", PlaceholderText="Enter command...",
-        PlaceholderColor3=T.SubText, TextColor3=T.Text,
-        Font=Enum.Font.SourceSans, TextSize=15,
-        TextXAlignment=Enum.TextXAlignment.Left, ClearTextOnFocus=false, ZIndex=2,
+        BackgroundTransparency=1, Text="",
+        PlaceholderText="Enter command...", PlaceholderColor3=T.SubText,
+        TextColor3=T.Text, Font=Enum.Font.SourceSans,
+        TextSize=self.Config.FontSize, TextXAlignment=Enum.TextXAlignment.Left,
+        ClearTextOnFocus=false, ZIndex=4,
     }, inputBar)
     make("UIPadding", {PaddingRight=UDim.new(0,5)}, inputBox)
-    local cmdPage = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false}, content)
+    local cmdPage = make("Frame", {
+        Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false, ZIndex=2,
+    }, content)
     local searchBox = make("TextBox", {
         Size=UDim2.new(1,-10,0,24), Position=UDim2.new(0,5,0,5),
         BackgroundColor3=T.InputBg, BorderSizePixel=0, Text="",
         PlaceholderText="Search commands...", PlaceholderColor3=T.SubText,
-        TextColor3=T.Text, Font=Enum.Font.SourceSans, TextSize=14, ClearTextOnFocus=false,
+        TextColor3=T.Text, Font=Enum.Font.SourceSans,
+        TextSize=14, ClearTextOnFocus=false, ZIndex=3,
     }, cmdPage)
     corner(4, searchBox)
     make("UIPadding", {PaddingLeft=UDim.new(0,6)}, searchBox)
-    local cmdScroll = scrollFrame({Size=UDim2.new(1,-10,1,-38), Position=UDim2.new(0,5,0,33), Corner=4}, cmdPage)
-    local plrPage = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false}, content)
-    local plrScroll = scrollFrame({Size=UDim2.new(1,-10,1,-10), Position=UDim2.new(0,5,0,5), Corner=4, Padding=2}, plrPage)
-    local fxPage = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false}, content)
-    local fxScroll = scrollFrame({Size=UDim2.new(1,-10,1,-10), Position=UDim2.new(0,5,0,5), Corner=4, Padding=4}, fxPage)
-    local EFFECTS = {
-        {Name="Trippy",         Desc="Random color flash",           Color=Color3.fromRGB(180,50,220)},
-        {Name="Strobe",         Desc="Black/white strobe",           Color=Color3.fromRGB(200,200,200)},
-        {Name="Blind",          Desc="Black screen overlay",         Color=Color3.fromRGB(40,40,40)},
-        {Name="Spooky",         Desc="Creepy images + sound",        Color=Color3.fromRGB(80,160,80)},
-        {Name="lifeoftheparty", Desc="Party images + music",         Color=Color3.fromRGB(255,150,50)},
-        {Name="trolling",       Desc="Trollface + sound",            Color=Color3.fromRGB(50,180,255)},
-        {Name="Pixelize",       Desc="Pixelate screen (raycast)",    Color=Color3.fromRGB(100,200,150)},
-        {Name="FadeOut",        Desc="Fade to black",                Color=Color3.fromRGB(120,120,120)},
-        {Name="Off",            Desc="Stop all active effects",      Color=Color3.fromRGB(80,80,80)},
-    }
-    for i, fx in ipairs(EFFECTS) do
-        local row = make("Frame", {
-            Size=UDim2.new(1,-5,0,44), BackgroundColor3=Color3.fromRGB(28,28,28),
-            BackgroundTransparency=0.2, BorderSizePixel=0, LayoutOrder=i, ZIndex=2,
-        }, fxScroll)
-        corner(5, row)
-        make("Frame", {Size=UDim2.fromOffset(4,44), BackgroundColor3=fx.Color, BorderSizePixel=0, ZIndex=3}, row)
-        make("TextLabel", {
-            Size=UDim2.new(1,-80,0,22), Position=UDim2.fromOffset(12,4),
-            BackgroundTransparency=1, Text=fx.Name, TextColor3=Color3.fromRGB(255,255,255),
-            Font=Enum.Font.SourceSansBold, TextSize=15, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
-        }, row)
-        make("TextLabel", {
-            Size=UDim2.new(1,-80,0,18), Position=UDim2.fromOffset(12,22),
-            BackgroundTransparency=1, Text=fx.Desc, TextColor3=T.SubText,
-            Font=Enum.Font.SourceSans, TextSize=12, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
-        }, row)
-        local applyBtn = make("TextButton", {
-            Size=UDim2.fromOffset(60,28), Position=UDim2.new(1,-68,0,8),
-            BackgroundColor3=fx.Color, BackgroundTransparency=0.3, BorderSizePixel=0,
-            Text=fx.Name=="Off" and "Stop" or "Apply",
-            TextColor3=Color3.fromRGB(255,255,255), Font=Enum.Font.SourceSansBold, TextSize=13, ZIndex=4,
-        }, row)
-        corner(4, applyBtn)
-        local fxName = fx.Name
-        applyBtn.MouseButton1Click:Connect(function() self:_applyEffect(fxName) end)
-    end
-    local logsPage = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false}, content)
+    local cmdScroll = scrollFrame({
+        Size=UDim2.new(1,-10,1,-38), Position=UDim2.new(0,5,0,33), Corner=4,
+    }, cmdPage)
+    local plrPage = make("Frame", {
+        Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false, ZIndex=2,
+    }, content)
+    local plrScroll = scrollFrame({
+        Size=UDim2.new(1,-10,1,-10), Position=UDim2.new(0,5,0,5), Corner=4, Padding=2,
+    }, plrPage)
+    local logsPage = make("Frame", {
+        Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false, ZIndex=2,
+    }, content)
     local logSearch = make("TextBox", {
-        Size=UDim2.new(1,-68,0,24), Position=UDim2.new(0,5,0,5),
+        Size=UDim2.new(1,-112,0,24), Position=UDim2.new(0,5,0,5),
         BackgroundColor3=T.InputBg, BorderSizePixel=0, Text="",
         PlaceholderText="Search logs...", PlaceholderColor3=T.SubText,
-        TextColor3=T.Text, Font=Enum.Font.SourceSans, TextSize=14, ClearTextOnFocus=false,
+        TextColor3=T.Text, Font=Enum.Font.SourceSans, TextSize=14, ClearTextOnFocus=false, ZIndex=3,
     }, logsPage)
     corner(4, logSearch)
     make("UIPadding", {PaddingLeft=UDim.new(0,6)}, logSearch)
     local logClearBtn = make("TextButton", {
         Size=UDim2.fromOffset(55,24), Position=UDim2.new(1,-60,0,5),
         BackgroundColor3=T.Red, BackgroundTransparency=0.4, BorderSizePixel=0,
-        Text="Clear", TextColor3=T.Text, Font=Enum.Font.SourceSansBold, TextSize=12,
+        Text="Clear", TextColor3=T.Text, Font=Enum.Font.SourceSansBold, TextSize=12, ZIndex=3,
     }, logsPage)
     corner(4, logClearBtn)
-    local logScroll = scrollFrame({Size=UDim2.new(1,-10,1,-38), Position=UDim2.new(0,5,0,33), Corner=4}, logsPage)
-    local macroPage = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false}, content)
-    local macroScroll = scrollFrame({Size=UDim2.new(1,-10,1,-42), Position=UDim2.new(0,5,0,5), Corner=4, Padding=3}, macroPage)
+    local tsBtn = make("TextButton", {
+        Size=UDim2.fromOffset(52,24), Position=UDim2.new(1,-118,0,5),
+        BackgroundColor3=Color3.fromRGB(50,50,50), BackgroundTransparency=0.4, BorderSizePixel=0,
+        Text="[ts off]", TextColor3=T.SubText, Font=Enum.Font.SourceSans, TextSize=11, ZIndex=3,
+    }, logsPage)
+    corner(4, tsBtn)
+    tsBtn.MouseButton1Click:Connect(function()
+        self.State.ShowTimestamps = not self.State.ShowTimestamps
+        tsBtn.Text = self.State.ShowTimestamps and "[ts on]" or "[ts off]"
+        tsBtn.TextColor3 = self.State.ShowTimestamps and T.Green or T.SubText
+        self:_populateLogs(logSearch.Text)
+    end)
+    local logScroll = scrollFrame({
+        Size=UDim2.new(1,-10,1,-38), Position=UDim2.new(0,5,0,33), Corner=4,
+    }, logsPage)
+    local macroPage = make("Frame", {
+        Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false, ZIndex=2,
+    }, content)
+    local macroScroll = scrollFrame({
+        Size=UDim2.new(1,-10,1,-42), Position=UDim2.new(0,5,0,5), Corner=4, Padding=3,
+    }, macroPage)
     local macroAddBar = make("Frame", {
         Size=UDim2.new(1,-10,0,32), Position=UDim2.new(0,5,1,-37),
-        BackgroundColor3=T.InputBg, BorderSizePixel=0,
+        BackgroundColor3=T.InputBg, BorderSizePixel=0, ZIndex=3,
     }, macroPage)
     corner(4, macroAddBar)
     stroke(1, Color3.fromRGB(50,50,50), macroAddBar)
     local aliasInput = make("TextBox", {
         Size=UDim2.new(0.25,0,1,0), BackgroundTransparency=1,
         Text="", PlaceholderText="alias", PlaceholderColor3=T.SubText,
-        TextColor3=T.Accent, Font=Enum.Font.SourceSansBold, TextSize=13, ClearTextOnFocus=false,
+        TextColor3=T.Accent, Font=Enum.Font.SourceSansBold, TextSize=13, ClearTextOnFocus=false, ZIndex=4,
     }, macroAddBar)
     make("UIPadding", {PaddingLeft=UDim.new(0,6)}, aliasInput)
     make("TextLabel", {
         Size=UDim2.fromOffset(12,32), Position=UDim2.new(0.25,0,0,0),
         BackgroundTransparency=1, Text="→", TextColor3=T.SubText,
-        Font=Enum.Font.SourceSansBold, TextSize=14,
+        Font=Enum.Font.SourceSansBold, TextSize=14, ZIndex=4,
     }, macroAddBar)
-    local cmdInput = make("TextBox", {
+    local cmdInput2 = make("TextBox", {
         Size=UDim2.new(0.6,-8,1,0), Position=UDim2.new(0.25,14,0,0),
         BackgroundTransparency=1, Text="",
         PlaceholderText="command (no prefix)", PlaceholderColor3=T.SubText,
-        TextColor3=T.Text, Font=Enum.Font.SourceSans, TextSize=13, ClearTextOnFocus=false,
+        TextColor3=T.Text, Font=Enum.Font.SourceSans, TextSize=13, ClearTextOnFocus=false, ZIndex=4,
     }, macroAddBar)
     local macroAddBtn = make("TextButton", {
         Size=UDim2.new(0.15,-4,1,-8), Position=UDim2.new(0.85,0,0,4),
         BackgroundColor3=T.Green, BackgroundTransparency=0.3, BorderSizePixel=0,
-        Text="+", TextColor3=T.Text, Font=Enum.Font.SourceSansBold, TextSize=18,
+        Text="+", TextColor3=T.Text, Font=Enum.Font.SourceSansBold, TextSize=18, ZIndex=4,
     }, macroAddBar)
     corner(4, macroAddBtn)
-    self.State.Win          = win
-    self.State.OutputScroll = outputScroll
-    self.State.InputBox     = inputBox
-    self.State.CmdScroll    = cmdScroll
-    self.State.SearchBox    = searchBox
-    self.State.PlrScroll    = plrScroll
-    self.State.LogScroll    = logScroll
-    self.State.LogSearch    = logSearch
-    self.State.MacroScroll  = macroScroll
-    self.State.AliasInput   = aliasInput
-    self.State.CmdInput     = cmdInput
-    self.State.Pages = {
-        Terminal = termPage,
-        Commands = cmdPage,
-        Players  = plrPage,
-        Effects  = fxPage,
-        Logs     = logsPage,
-        Macros   = macroPage,
+    local scriptPage = make("Frame", {
+        Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false, ZIndex=2,
+    }, content)
+    local scriptBar = make("Frame", {
+        Size=UDim2.new(1,0,0,30), BackgroundColor3=Color3.fromRGB(20,20,20), BorderSizePixel=0, ZIndex=3,
+    }, scriptPage)
+    local snippetDropLabel = make("TextButton", {
+        Size=UDim2.new(0,120,1,-6), Position=UDim2.fromOffset(5,3),
+        BackgroundColor3=T.InputBg, BorderSizePixel=0,
+        Text="▾ New Script", TextColor3=T.Text,
+        Font=Enum.Font.SourceSans, TextSize=13, ZIndex=4,
+    }, scriptBar)
+    corner(4, snippetDropLabel)
+    local saveBtn = make("TextButton", {
+        Size=UDim2.fromOffset(52,24), Position=UDim2.fromOffset(130,3),
+        BackgroundColor3=T.Blue, BackgroundTransparency=0.3, BorderSizePixel=0,
+        Text="Save", TextColor3=T.Text, Font=Enum.Font.SourceSansBold, TextSize=13, ZIndex=4,
+    }, scriptBar)
+    corner(4, saveBtn)
+    local runBtn = make("TextButton", {
+        Size=UDim2.fromOffset(52,24), Position=UDim2.fromOffset(186,3),
+        BackgroundColor3=T.Green, BackgroundTransparency=0.3, BorderSizePixel=0,
+        Text="▶ Run", TextColor3=T.Text, Font=Enum.Font.SourceSansBold, TextSize=13, ZIndex=4,
+    }, scriptBar)
+    corner(4, runBtn)
+    local clearScriptBtn = make("TextButton", {
+        Size=UDim2.fromOffset(44,24), Position=UDim2.fromOffset(242,3),
+        BackgroundColor3=T.Red, BackgroundTransparency=0.4, BorderSizePixel=0,
+        Text="Clear", TextColor3=T.Text, Font=Enum.Font.SourceSans, TextSize=12, ZIndex=4,
+    }, scriptBar)
+    corner(4, clearScriptBtn)
+    local snippetPanel = make("ScrollingFrame", {
+        Size=UDim2.new(0,110,1,-30), Position=UDim2.fromOffset(0,30),
+        BackgroundColor3=Color3.fromRGB(20,20,20), BorderSizePixel=0,
+        ScrollBarThickness=2, ScrollBarImageColor3=Color3.fromRGB(60,60,60),
+        CanvasSize=UDim2.new(0,0,0,0), AutomaticCanvasSize=Enum.AutomaticSize.Y,
+        ZIndex=3,
+    }, scriptPage)
+    make("UIListLayout", {SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,1)}, snippetPanel)
+    local editorHolder = make("Frame", {
+        Size=UDim2.new(1,-114,1,-30), Position=UDim2.fromOffset(114,30),
+        BackgroundColor3=Color3.fromRGB(20,20,20), BorderSizePixel=0,
+        ClipsDescendants=true, ZIndex=3,
+    }, scriptPage)
+    local lineNumScroll = make("ScrollingFrame", {
+        Size=UDim2.new(0,28,1,0), Position=UDim2.new(0,0,0,0),
+        BackgroundColor3=Color3.fromRGB(24,24,24), BorderSizePixel=0,
+        ScrollBarThickness=0, CanvasSize=UDim2.new(0,0,0,0),
+        AutomaticCanvasSize=Enum.AutomaticSize.Y,
+        ScrollingEnabled=false, ZIndex=4,
+    }, editorHolder)
+    make("UIListLayout", {SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,0)}, lineNumScroll)
+    local hlScroll = make("ScrollingFrame", {
+        Size=UDim2.new(1,-28,1,0), Position=UDim2.new(0,28,0,0),
+        BackgroundTransparency=1, BorderSizePixel=0,
+        ScrollBarThickness=0, CanvasSize=UDim2.new(0,0,0,0),
+        AutomaticCanvasSize=Enum.AutomaticSize.Y,
+        ScrollingEnabled=false, ZIndex=4,
+    }, editorHolder)
+    make("UIListLayout", {SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,0)}, hlScroll)
+    local codeInput = make("TextBox", {
+        Size=UDim2.new(1,-28,1,0), Position=UDim2.new(0,28,0,0),
+        BackgroundTransparency=1,
+        Text="-- write your script here\n",
+        TextColor3=Color3.fromRGB(0,0,0,0),
+        PlaceholderText="", PlaceholderColor3=Color3.fromRGB(0,0,0),
+        Font=Enum.Font.Code, TextSize=13,
+        TextXAlignment=Enum.TextXAlignment.Left,
+        TextYAlignment=Enum.TextYAlignment.Top,
+        MultiLine=true, ClearTextOnFocus=false,
+        ZIndex=5,
+    }, editorHolder)
+    make("UIPadding", {PaddingLeft=UDim.new(0,4), PaddingTop=UDim.new(0,2)}, codeInput)
+    local hlOverlay = make("TextLabel", {
+        Size=UDim2.new(1,-28,1,0), Position=UDim2.new(0,28,0,0),
+        BackgroundTransparency=1,
+        Text="", RichText=true,
+        TextColor3=T.Text, Font=Enum.Font.Code, TextSize=13,
+        TextXAlignment=Enum.TextXAlignment.Left,
+        TextYAlignment=Enum.TextYAlignment.Top,
+        TextWrapped=false, ZIndex=4,
+    }, editorHolder)
+    make("UIPadding", {PaddingLeft=UDim.new(0,4), PaddingTop=UDim.new(0,2)}, hlOverlay)
+    codeInput.TextColor3 = Color3.fromRGB(20,20,20)
+    local function colorToHex(c)
+        return string.format("%02X%02X%02X",
+            math.floor(c.R*255), math.floor(c.G*255), math.floor(c.B*255))
+    end
+    local function escapeRich(s)
+        s = s:gsub("&","&amp;")
+        s = s:gsub("<","&lt;")
+        s = s:gsub(">","&gt;")
+        return s
+    end
+    local function updateHighlight(code)
+        local lines = code:split("\n")
+        for _, c in ipairs(lineNumScroll:GetChildren()) do
+            if c:IsA("TextLabel") then c:Destroy() end
+        end
+        local richLines = {}
+        for i, line in ipairs(lines) do
+            make("TextLabel", {
+                Size=UDim2.new(1,0,0,16), BackgroundTransparency=1,
+                Text=tostring(i), TextColor3=Color3.fromRGB(90,90,90),
+                Font=Enum.Font.Code, TextSize=13,
+                TextXAlignment=Enum.TextXAlignment.Right, LayoutOrder=i, ZIndex=5,
+            }, lineNumScroll)
+            make("UIPadding", {PaddingRight=UDim.new(0,3)}, lineNumScroll:GetChildren()[#lineNumScroll:GetChildren()])
+            local tokens = tokenizeLua(line)
+            local richLine = ""
+            for _, tok in ipairs(tokens) do
+                local hex = colorToHex(tok.color)
+                richLine = richLine..('<font color="#'..hex..'">'..escapeRich(tok.text)..'</font>')
+            end
+            table.insert(richLines, richLine)
+        end
+        hlOverlay.Text = table.concat(richLines, "\n")
+    end
+    codeInput:GetPropertyChangedSignal("Text"):Connect(function()
+        updateHighlight(codeInput.Text)
+    end)
+    updateHighlight(codeInput.Text)
+    local function refreshSnippetList()
+        for _, c in ipairs(snippetPanel:GetChildren()) do
+            if c:IsA("TextButton") then c:Destroy() end
+        end
+        for i, sn in ipairs(self.State.Snippets) do
+            local btn = make("TextButton", {
+                Size=UDim2.new(1,0,0,26), BackgroundColor3=Color3.fromRGB(28,28,28),
+                BackgroundTransparency=0.2, BorderSizePixel=0,
+                Text=sn.name, TextColor3=T.Text,
+                Font=Enum.Font.SourceSans, TextSize=12,
+                TextXAlignment=Enum.TextXAlignment.Left,
+                LayoutOrder=i, ZIndex=4,
+            }, snippetPanel)
+            make("UIPadding", {PaddingLeft=UDim.new(0,6)}, btn)
+            btn.MouseButton1Click:Connect(function()
+                self.State.ActiveSnippet = i
+                codeInput.Text = sn.code
+                snippetDropLabel.Text = "▾ "..sn.name
+            end)
+        end
+    end
+    self.State.RefreshSnippets = refreshSnippetList
+    saveBtn.MouseButton1Click:Connect(function()
+        local name
+        if self.State.ActiveSnippet then
+            name = self.State.Snippets[self.State.ActiveSnippet].name
+        else
+            name = "Script "..tostring(#self.State.Snippets+1)
+        end
+        local entry = {name=name, code=codeInput.Text}
+        if self.State.ActiveSnippet then
+            self.State.Snippets[self.State.ActiveSnippet] = entry
+        else
+            table.insert(self.State.Snippets, entry)
+            self.State.ActiveSnippet = #self.State.Snippets
+        end
+        snippetDropLabel.Text = "▾ "..name
+        refreshSnippetList()
+        self:Print("Snippet saved: "..name, T.Green)
+    end)
+    snippetDropLabel.MouseButton1Click:Connect(function()
+        self.State.ActiveSnippet = nil
+        local newName = "Script "..tostring(#self.State.Snippets+1)
+        snippetDropLabel.Text = "▾ "..newName
+        codeInput.Text = "-- "..newName.."\n"
+    end)
+    clearScriptBtn.MouseButton1Click:Connect(function()
+        codeInput.Text = ""
+    end)
+    runBtn.MouseButton1Click:Connect(function()
+        local code = codeInput.Text
+        if code:match("^%s*$") then return end
+        self:Print("▶ Executing script...", T.Green)
+        local fn, err = loadstring(code)
+        if not fn then
+            self:Print("Syntax error: "..tostring(err), T.Red)
+            self:_toast("Syntax error — check terminal", T.Red)
+        else
+            local ok, runErr = pcall(fn)
+            if not ok then
+                self:Print("Runtime error: "..tostring(runErr), T.Red)
+                self:_toast("Runtime error — check terminal", T.Red)
+            else
+                self:Print("Script executed OK.", T.Green)
+                self:_toast("Script executed OK", T.Green)
+            end
+        end
+    end)
+    local settingsPage = make("Frame", {
+        Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, Visible=false, ZIndex=2,
+    }, content)
+    local settingsScroll = scrollFrame({
+        Size=UDim2.new(1,-10,1,-10), Position=UDim2.new(0,5,0,5), Corner=4, Padding=6,
+    }, settingsPage)
+    local function settingRow(label)
+        local row = make("Frame", {
+            Size=UDim2.new(1,-5,0,36),
+            BackgroundColor3=Color3.fromRGB(28,28,28), BackgroundTransparency=0.25,
+            BorderSizePixel=0, ZIndex=3,
+        }, settingsScroll)
+        corner(4, row)
+        make("TextLabel", {
+            Size=UDim2.new(0.5,0,1,0), Position=UDim2.fromOffset(8,0),
+            BackgroundTransparency=1, Text=label, TextColor3=T.Text,
+            Font=Enum.Font.SourceSans, TextSize=14,
+            TextXAlignment=Enum.TextXAlignment.Left, ZIndex=4,
+        }, row)
+        return row
+    end
+    local accentRow = settingRow("Accent Color")
+    local accentColors = {
+        Color3.fromRGB(195,33,35),
+        Color3.fromRGB(50,150,255),
+        Color3.fromRGB(80,200,80),
+        Color3.fromRGB(200,120,50),
+        Color3.fromRGB(180,50,220),
+        Color3.fromRGB(255,200,50),
     }
+    for i, col in ipairs(accentColors) do
+        local dot = make("TextButton", {
+            Size=UDim2.fromOffset(20,20),
+            Position=UDim2.new(0.5, (i-1)*24, 0, 8),
+            BackgroundColor3=col, BorderSizePixel=0, Text="", ZIndex=5,
+        }, accentRow)
+        corner(10, dot)
+        dot.MouseButton1Click:Connect(function()
+            T.Accent = col
+            closeBtn.BackgroundColor3 = col
+            self:Print("Accent changed.", col)
+            for _, tab in ipairs(self._tabDefs or {}) do
+                if tab.Btn and tab.Page and tab.Page.Visible then
+                    tab.Btn.BackgroundColor3 = col
+                end
+            end
+        end)
+    end
+    local keyRow = settingRow("Toggle Key")
+    local keyBox = make("TextBox", {
+        Size=UDim2.new(0.45,0,1,-8), Position=UDim2.new(0.52,0,0,4),
+        BackgroundColor3=T.InputBg, BorderSizePixel=0,
+        Text=self.Config.ToggleKey.Name,
+        TextColor3=T.Accent, Font=Enum.Font.SourceSansBold,
+        TextSize=13, ClearTextOnFocus=false, ZIndex=5,
+    }, keyRow)
+    corner(4, keyBox)
+    keyBox.FocusLost:Connect(function()
+        local key = Enum.KeyCode[keyBox.Text]
+        if key then
+            self.Config.ToggleKey = key
+            self:Print("Toggle key → "..keyBox.Text, T.SubText)
+        else
+            keyBox.Text = self.Config.ToggleKey.Name
+        end
+    end)
+    local fsRow = settingRow("Font Size  ("..self.Config.FontSize..")")
+    local fsSizes = {12,13,14,15,16,18}
+    for i, sz in ipairs(fsSizes) do
+        local btn = make("TextButton", {
+            Size=UDim2.fromOffset(28,22), Position=UDim2.new(0.5,(i-1)*32,0,7),
+            BackgroundColor3=sz==self.Config.FontSize and T.Accent or Color3.fromRGB(45,45,45),
+            BackgroundTransparency=0.3, BorderSizePixel=0,
+            Text=tostring(sz), TextColor3=T.Text,
+            Font=Enum.Font.SourceSansBold, TextSize=12, ZIndex=5,
+        }, fsRow)
+        corner(3, btn)
+        btn.MouseButton1Click:Connect(function()
+            self.Config.FontSize = sz
+            inputBox.TextSize = sz
+            fsRow:FindFirstChild("TextLabel").Text = "Font Size  ("..sz..")"
+            for _, c in ipairs(fsRow:GetChildren()) do
+                if c:IsA("TextButton") then
+                    c.BackgroundColor3 = (tonumber(c.Text)==sz) and T.Accent or Color3.fromRGB(45,45,45)
+                end
+            end
+        end)
+    end
+    local mlRow = settingRow("Max Lines  ("..self.State.MaxLines..")")
+    local mlOptions = {100, 250, 500, 1000}
+    for i, ml in ipairs(mlOptions) do
+        local btn = make("TextButton", {
+            Size=UDim2.fromOffset(40,22), Position=UDim2.new(0.5,(i-1)*44,0,7),
+            BackgroundColor3=ml==self.State.MaxLines and T.Accent or Color3.fromRGB(45,45,45),
+            BackgroundTransparency=0.3, BorderSizePixel=0,
+            Text=tostring(ml), TextColor3=T.Text,
+            Font=Enum.Font.SourceSans, TextSize=12, ZIndex=5,
+        }, mlRow)
+        corner(3, btn)
+        btn.MouseButton1Click:Connect(function()
+            self.State.MaxLines = ml
+            mlRow:FindFirstChild("TextLabel").Text = "Max Lines  ("..ml..")"
+            for _, c in ipairs(mlRow:GetChildren()) do
+                if c:IsA("TextButton") then
+                    c.BackgroundColor3 = (tonumber(c.Text)==ml) and T.Accent or Color3.fromRGB(45,45,45)
+                end
+            end
+        end)
+    end
+    local opRow = settingRow("Window Opacity")
+    local opSteps = {0, 0.08, 0.2, 0.4, 0.6}
+    local opLabels = {"0%","8%","20%","40%","60%"}
+    for i, op in ipairs(opSteps) do
+        local btn = make("TextButton", {
+            Size=UDim2.fromOffset(34,22), Position=UDim2.new(0.5,(i-1)*38,0,7),
+            BackgroundColor3=op==self.Config.Opacity and T.Accent or Color3.fromRGB(45,45,45),
+            BackgroundTransparency=0.3, BorderSizePixel=0,
+            Text=opLabels[i], TextColor3=T.Text,
+            Font=Enum.Font.SourceSans, TextSize=11, ZIndex=5,
+        }, opRow)
+        corner(3, btn)
+        btn.MouseButton1Click:Connect(function()
+            self.Config.Opacity = op
+            win.BackgroundTransparency = op
+            for _, c in ipairs(opRow:GetChildren()) do
+                if c:IsA("TextButton") then
+                    c.BackgroundColor3 = (c.Text==opLabels[opSteps[i] and 1 or 1]) and T.Accent or Color3.fromRGB(45,45,45)
+                end
+            end
+            for j, o in ipairs(opSteps) do
+                if o == op then
+                    for _, c in ipairs(opRow:GetChildren()) do
+                        if c:IsA("TextButton") then
+                            c.BackgroundColor3 = (c.Text==opLabels[j]) and T.Accent or Color3.fromRGB(45,45,45)
+                        end
+                    end
+                    break
+                end
+            end
+        end)
+    end
     local tabDefs = {
         {Name="Terminal", Page=termPage},
         {Name="Commands", Page=cmdPage},
         {Name="Players",  Page=plrPage},
-        {Name="Effects",  Page=fxPage},
         {Name="Logs",     Page=logsPage},
         {Name="Macros",   Page=macroPage},
+        {Name="Scripts",  Page=scriptPage},
+        {Name="Settings", Page=settingsPage},
     }
+    self._tabDefs = tabDefs
     local function setTab(tab)
         for _, t in ipairs(tabDefs) do
             t.Page.Visible = (t == tab)
@@ -28854,14 +21677,17 @@ function Modules.AdonisPanel:_build()
         if tab.Name == "Players"  then self:_populatePlayers()  end
         if tab.Name == "Logs"     then self:_populateLogs()     end
         if tab.Name == "Macros"   then self:_populateMacros()   end
+        if tab.Name == "Scripts"  then refreshSnippetList()     end
     end
     for i, tab in ipairs(tabDefs) do
         local btn = make("TextButton", {
-            Name=tab.Name.."Tab", Size=UDim2.fromOffset(76,20),
+            Name=tab.Name.."Tab",
+            Size=UDim2.fromOffset(66,20),
             BackgroundColor3=i==1 and T.Accent or Color3.fromRGB(40,40,40),
             BackgroundTransparency=i==1 and 0.2 or 0.6,
             BorderSizePixel=0, Text=tab.Name, TextColor3=T.Text,
-            Font=Enum.Font.SourceSansBold, TextSize=12, LayoutOrder=i, ZIndex=2,
+            Font=Enum.Font.SourceSansBold, TextSize=11,
+            LayoutOrder=i, ZIndex=4,
         }, tabRow)
         corner(4, btn)
         tab.Btn = btn
@@ -28870,9 +21696,9 @@ function Modules.AdonisPanel:_build()
     titleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or
            input.UserInputType == Enum.UserInputType.Touch then
-            self.State.Dragging = true
+            self.State.Dragging  = true
             self.State.DragStart = input.Position
-            self.State.StartPos = win.Position
+            self.State.StartPos  = win.Position
         end
     end)
     UIS.InputChanged:Connect(function(input)
@@ -28889,7 +21715,23 @@ function Modules.AdonisPanel:_build()
     UIS.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or
            input.UserInputType == Enum.UserInputType.Touch then
-            self.State.Dragging = false
+            self.State.Dragging  = false
+            self.State.Resizing  = false
+        end
+    end)
+    resizeHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            self.State.Resizing       = true
+            self.State.ResizeStart    = input.Position
+            self.State.ResizeStartSize = Vector2.new(win.AbsoluteSize.X, win.AbsoluteSize.Y)
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if self.State.Resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local d = input.Position - self.State.ResizeStart
+            local newW = math.max(self.Config.MinSize.X, self.State.ResizeStartSize.X + d.X)
+            local newH = math.max(self.Config.MinSize.Y, self.State.ResizeStartSize.Y + d.Y)
+            win.Size = UDim2.fromOffset(newW, newH)
         end
     end)
     closeBtn.MouseButton1Click:Connect(function() self:Hide() end)
@@ -28899,16 +21741,37 @@ function Modules.AdonisPanel:_build()
         TweenService:Create(win, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
             Size = minimized
                 and UDim2.fromOffset(self.Config.Size.X, 26)
-                or  UDim2.fromOffset(self.Config.Size.X, self.Config.Size.Y)
+                or  UDim2.fromOffset(win.AbsoluteSize.X, math.max(win.AbsoluteSize.Y, self.Config.Size.Y))
         }):Play()
         content.Visible = not minimized
-        tabRow.Visible = not minimized
-        minBtn.Text = minimized and "+" or "-"
+        tabRow.Visible  = not minimized
+        minBtn.Text     = minimized and "+" or "-"
+    end)
+    inputBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local txt = inputBox.Text:lower()
+        if txt == "" then hintLabel.Text = "" return end
+        local firstWord = txt:match("^(%S+)")
+        if not firstWord then hintLabel.Text = "" return end
+        local matches = {}
+        for name in pairs(Commands) do
+            if name:lower():sub(1,#firstWord) == firstWord then
+                table.insert(matches, name)
+            end
+        end
+        table.sort(matches)
+        if #matches == 0 then
+            hintLabel.Text = ""
+        elseif #matches <= 4 then
+            hintLabel.Text = "→ "..table.concat(matches, "  |  ")
+        else
+            hintLabel.Text = "→ "..table.concat({table.unpack(matches,1,4)}, "  |  ").."  +"..tostring(#matches-4).." more"
+        end
     end)
     inputBox.FocusLost:Connect(function(entered)
         if entered and inputBox.Text ~= "" then
             local cmd = inputBox.Text
             inputBox.Text = ""
+            hintLabel.Text = ""
             table.insert(self.State.CommandHistory, 1, cmd)
             if #self.State.CommandHistory > 50 then table.remove(self.State.CommandHistory) end
             self.State.HistoryIndex = 0
@@ -28920,7 +21783,7 @@ function Modules.AdonisPanel:_build()
                 self:Print("  macro → "..cmd, T.SubText)
             end
             local ok, err = pcall(function()
-                processCommand(Prefix..cmd:gsub("^"..Prefix, ""))
+                processCommand(Prefix..cmd:gsub("^"..Prefix,""))
             end)
             if not ok then self:Print("Error: "..tostring(err), T.Red) end
         end
@@ -28934,6 +21797,14 @@ function Modules.AdonisPanel:_build()
         elseif input.KeyCode == Enum.KeyCode.Down then
             self.State.HistoryIndex = math.max(self.State.HistoryIndex-1, 0)
             inputBox.Text = self.State.HistoryIndex==0 and "" or (self.State.CommandHistory[self.State.HistoryIndex] or "")
+        elseif input.KeyCode == Enum.KeyCode.Tab then
+            local txt = inputBox.Text:lower():match("^(%S+)") or ""
+            for name in pairs(Commands) do
+                if name:lower():sub(1,#txt) == txt and name:lower() ~= txt then
+                    inputBox.Text = name.." "
+                    break
+                end
+            end
         end
     end)
     searchBox:GetPropertyChangedSignal("Text"):Connect(function()
@@ -28952,11 +21823,11 @@ function Modules.AdonisPanel:_build()
     end)
     macroAddBtn.MouseButton1Click:Connect(function()
         local alias   = aliasInput.Text:lower():match("^(%S+)")
-        local command = cmdInput.Text:match("^(.-)%s*$")
+        local command = cmdInput2.Text:match("^(.-)%s*$")
         if alias and alias~="" and command and command~="" then
             self.State.Macros[alias] = command
             aliasInput.Text = ""
-            cmdInput.Text = ""
+            cmdInput2.Text  = ""
             self:_populateMacros()
             self:Print("Macro added: "..alias.." → "..command, T.Green)
             RegisterCommand({Name=alias, Aliases={}, Description="Macro: "..command}, function(args)
@@ -28972,26 +21843,54 @@ function Modules.AdonisPanel:_build()
         if gp then return end
         if input.KeyCode == self.Config.ToggleKey then self:Toggle() end
     end)
+    self.State.Win          = win
+    self.State.OutputScroll = outputScroll
+    self.State.InputBox     = inputBox
+    self.State.CmdScroll    = cmdScroll
+    self.State.SearchBox    = searchBox
+    self.State.PlrScroll    = plrScroll
+    self.State.LogScroll    = logScroll
+    self.State.LogSearch    = logSearch
+    self.State.MacroScroll  = macroScroll
+    self.State.AliasInput   = aliasInput
+    self.State.CmdInput     = cmdInput2
+    self.State.Pages        = {
+        Terminal = termPage, Commands = cmdPage, Players = plrPage,
+        Logs     = logsPage, Macros   = macroPage,
+        Scripts  = scriptPage, Settings = settingsPage,
+    }
     win.Visible = false
-    self:Print("Adonis  //  Zuka's Panel", T.Accent)
-    self:Print("Toggle: RightShift  |  Prefix: "..Prefix, T.SubText)
+    self:Print("Adonis  //  Zuka's Panel  v2", T.Accent)
+    self:Print("Toggle: "..self.Config.ToggleKey.Name.."  |  Prefix: "..Prefix, T.SubText)
     self:Print(string.rep("─", 52), Color3.fromRGB(55,55,55))
 end
 function Modules.AdonisPanel:Print(text, color)
     local T = self.Config.Theme
-    color = color or T.Text
-    table.insert(self.State.TerminalLines, {Text=text, Color=color, Time=os.time()})
+    local autoColor, rowBg = lineColor(text, T)
+    color = color or autoColor or T.Text
+    table.insert(self.State.TerminalLines, {Text=text, Color=color, RowBg=rowBg, Time=os.time()})
     if #self.State.TerminalLines > self.State.MaxLines then
         table.remove(self.State.TerminalLines, 1)
     end
     if not self.State.OutputScroll then return end
-    make("TextLabel", {
+    local lbl = make("TextLabel", {
         Size=UDim2.new(1,-5,0,0), AutomaticSize=Enum.AutomaticSize.Y,
-        BackgroundTransparency=1, Text=text, TextColor3=color,
-        Font=Enum.Font.SourceSans, TextSize=14,
+        BackgroundTransparency=rowBg and 0.35 or 1,
+        BackgroundColor3=rowBg or Color3.fromRGB(0,0,0),
+        Text=text, TextColor3=color,
+        Font=Enum.Font.SourceSans, TextSize=self.Config.FontSize,
         TextXAlignment=Enum.TextXAlignment.Left, TextWrapped=true,
         LayoutOrder=#self.State.TerminalLines, ZIndex=2,
     }, self.State.OutputScroll)
+    if rowBg then corner(3, lbl) end
+    lbl.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            if setclipboard then
+                pcall(setclipboard, text)
+                self:_toast("Copied to clipboard", T.SubText)
+            end
+        end
+    end)
     task.defer(function()
         if self.State.OutputScroll then
             self.State.OutputScroll.CanvasPosition = Vector2.new(0, math.huge)
@@ -29010,36 +21909,47 @@ end
 function Modules.AdonisPanel:_populateCommands(filter)
     if not self.State.CmdScroll then return end
     filter = filter and filter:lower() or ""
-    for _, c in ipairs(self.State.CmdScroll:GetChildren()) do
-        if c:IsA("TextButton") or c:IsA("TextLabel") then c:Destroy() end
-    end
     local T = self.Config.Theme
-    local count = 0
-    for name in pairs(Commands) do
-        if filter=="" or name:lower():find(filter,1,true) then
-            count += 1
-            local row = make("TextButton", {
-                Size=UDim2.new(1,-5,0,22),
-                BackgroundColor3=count%2==0 and Color3.fromRGB(28,28,28) or Color3.fromRGB(34,34,34),
-                BackgroundTransparency=0.2, BorderSizePixel=0,
-                Text=" "..Prefix..name, TextColor3=T.Text,
-                Font=Enum.Font.SourceSans, TextSize=14,
-                TextXAlignment=Enum.TextXAlignment.Left, LayoutOrder=count, ZIndex=2,
-            }, self.State.CmdScroll)
-            corner(3, row)
-            row.MouseButton1Click:Connect(function()
-                self.State.InputBox.Text = name.." "
-                self.State.InputBox:CaptureFocus()
-                for _, p in pairs(self.State.Pages) do p.Visible = false end
-                self.State.Pages.Terminal.Visible = true
-            end)
+    for _, c in ipairs(self.State.CmdScroll:GetChildren()) do
+        if c:IsA("TextButton") or c:IsA("TextLabel") then
+            c:Destroy()
         end
     end
-    if count == 0 then
+    self.State._cmdPool = {}
+    local names = {}
+    for name in pairs(Commands) do
+        if filter == "" or name:lower():find(filter, 1, true) then
+            table.insert(names, name)
+        end
+    end
+    table.sort(names)
+    for i, name in ipairs(names) do
+        local row = make("TextButton", {
+            Size        = UDim2.new(1,-5,0,22),
+            BackgroundColor3 = i%2==0 and Color3.fromRGB(28,28,28) or Color3.fromRGB(34,34,34),
+            BackgroundTransparency = 0.2, BorderSizePixel = 0,
+            Text        = " "..Prefix..name,
+            TextColor3  = T.Text,
+            Font        = Enum.Font.SourceSans, TextSize = 14,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            LayoutOrder = i, ZIndex = 2,
+        }, self.State.CmdScroll)
+        corner(3, row)
+        row:SetAttribute("CmdName", name)
+        self.State._cmdPool[i] = row
+        row.MouseButton1Click:Connect(function()
+            self.State.InputBox.Text = row:GetAttribute("CmdName").." "
+            self.State.InputBox:CaptureFocus()
+            for _, p in pairs(self.State.Pages) do p.Visible = false end
+            self.State.Pages.Terminal.Visible = true
+        end)
+    end
+    if #names == 0 then
         make("TextLabel", {
-            Size=UDim2.new(1,-5,0,22), BackgroundTransparency=1,
-            Text=" No commands found", TextColor3=T.SubText,
-            Font=Enum.Font.SourceSans, TextSize=14, TextXAlignment=Enum.TextXAlignment.Left,
+            Size = UDim2.new(1,-5,0,22), BackgroundTransparency = 1,
+            Text = " No commands found", TextColor3 = T.SubText,
+            Font = Enum.Font.SourceSans, TextSize = 14,
+            TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 1,
         }, self.State.CmdScroll)
     end
 end
@@ -29049,38 +21959,84 @@ function Modules.AdonisPanel:_populatePlayers()
         if c:IsA("Frame") then c:Destroy() end
     end
     local T = self.Config.Theme
-    for i, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+    local Players = game:GetService("Players")
+    for i, plr in ipairs(Players:GetPlayers()) do
         local isLocal = plr == LocalPlayer
+        local uid     = plr.UserId
+        if not self.State.ESPEnabled[uid] then
+            self.State.ESPEnabled[uid] = {Enabled=false, Color=Color3.fromRGB(255,50,50), Drawings={}}
+        end
+        local espData = self.State.ESPEnabled[uid]
         local row = make("Frame", {
-            Size=UDim2.new(1,-5,0,46),
+            Size=UDim2.new(1,-5,0,56),
             BackgroundColor3=isLocal and Color3.fromRGB(30,40,30) or Color3.fromRGB(30,30,30),
             BackgroundTransparency=0.3, BorderSizePixel=0, LayoutOrder=i, ZIndex=2,
         }, self.State.PlrScroll)
         corner(4, row)
         local thumb = make("ImageLabel", {
-            Size=UDim2.fromOffset(38,38), Position=UDim2.fromOffset(4,4),
+            Size=UDim2.fromOffset(42,42), Position=UDim2.fromOffset(4,7),
             BackgroundColor3=Color3.fromRGB(20,20,20), BorderSizePixel=0,
-            Image=("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=48&height=48&format=png"):format(plr.UserId),
+            Image=("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=48&height=48&format=png"):format(uid),
             ZIndex=3,
         }, row)
-        corner(19, thumb)
+        corner(21, thumb)
         make("TextLabel", {
-            Size=UDim2.new(1,-110,0,20), Position=UDim2.fromOffset(48,4), BackgroundTransparency=1,
+            Size=UDim2.new(1,-160,0,18), Position=UDim2.fromOffset(52,6),
+            BackgroundTransparency=1,
             Text=plr.DisplayName..(isLocal and "  (you)" or ""),
-            TextColor3=isLocal and T.Green or T.Text, Font=Enum.Font.SourceSansBold,
-            TextSize=14, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
+            TextColor3=isLocal and T.Green or T.Text,
+            Font=Enum.Font.SourceSansBold, TextSize=14,
+            TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
         }, row)
         make("TextLabel", {
-            Size=UDim2.new(1,-110,0,16), Position=UDim2.fromOffset(48,24), BackgroundTransparency=1,
-            Text="@"..plr.Name.."  |  "..tostring(plr.UserId),
-            TextColor3=T.SubText, Font=Enum.Font.SourceSans,
-            TextSize=12, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
+            Size=UDim2.new(1,-160,0,14), Position=UDim2.fromOffset(52,24),
+            BackgroundTransparency=1,
+            Text="@"..plr.Name.."  |  "..tostring(uid),
+            TextColor3=T.SubText, Font=Enum.Font.SourceSans, TextSize=12,
+            TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
         }, row)
+        if not isLocal then
+            local espCheck = make("TextButton", {
+                Size=UDim2.fromOffset(42,18), Position=UDim2.fromOffset(52,38),
+                BackgroundColor3=espData.Enabled and T.Green or Color3.fromRGB(50,50,50),
+                BackgroundTransparency=0.3, BorderSizePixel=0,
+                Text=espData.Enabled and "ESP ON" or "ESP OFF",
+                TextColor3=T.Text, Font=Enum.Font.SourceSansBold, TextSize=10, ZIndex=4,
+            }, row)
+            corner(3, espCheck)
+            espCheck.MouseButton1Click:Connect(function()
+                espData.Enabled = not espData.Enabled
+                espCheck.Text = espData.Enabled and "ESP ON" or "ESP OFF"
+                espCheck.BackgroundColor3 = espData.Enabled and T.Green or Color3.fromRGB(50,50,50)
+                self:_espUpdate()
+            end)
+            local espCols = {
+                Color3.fromRGB(255,50,50),
+                Color3.fromRGB(50,200,255),
+                Color3.fromRGB(255,200,50),
+                Color3.fromRGB(80,255,80),
+            }
+            for ci, col in ipairs(espCols) do
+                local dot = make("TextButton", {
+                    Size=UDim2.fromOffset(14,14),
+                    Position=UDim2.fromOffset(98+(ci-1)*18, 40),
+                    BackgroundColor3=col, BorderSizePixel=0, Text="", ZIndex=4,
+                }, row)
+                corner(7, dot)
+                dot.MouseButton1Click:Connect(function()
+                    espData.Color = col
+                    if espData.Drawings and espData.Drawings.Box then
+                        espData.Drawings.Box.Color = col
+                    end
+                end)
+            end
+        end
         local function quickBtn(label, xOff, clr, cmd)
             local b = make("TextButton", {
-                Size=UDim2.fromOffset(30,20), Position=UDim2.new(1,xOff,0,13),
+                Size=UDim2.fromOffset(30,22), Position=UDim2.new(1,xOff,0,10),
                 BackgroundColor3=clr, BackgroundTransparency=0.3, BorderSizePixel=0,
-                Text=label, TextColor3=T.Text, Font=Enum.Font.SourceSansBold, TextSize=11, ZIndex=4,
+                Text=label, TextColor3=T.Text,
+                Font=Enum.Font.SourceSansBold, TextSize=11, ZIndex=4,
             }, row)
             corner(3, b)
             b.MouseButton1Click:Connect(function()
@@ -29089,8 +22045,8 @@ function Modules.AdonisPanel:_populatePlayers()
             end)
         end
         quickBtn("TP",  -96, T.Blue,   "tp me")
-        quickBtn("SPY", -62, T.Purple, "esp")
-        quickBtn("KIL", -28, T.Red,    "kill")
+        quickBtn("KIL", -62, T.Red,    "kill")
+        quickBtn("BAN", -28, T.Purple, "ban")
     end
 end
 function Modules.AdonisPanel:_populateLogs(filter)
@@ -29108,23 +22064,23 @@ function Modules.AdonisPanel:_populateLogs(filter)
         local p1, p2 = {}, {}
         for _, line in ipairs(lines) do
             local t = line.Text:lower()
-            if t == filter then
-                table.insert(p1, line)
-            elseif t:find(filter, 1, true) then
-                table.insert(p2, line)
-            end
+            if t == filter then table.insert(p1, line)
+            elseif t:find(filter,1,true) then table.insert(p2, line) end
         end
         for _, v in ipairs(p1) do table.insert(results, v) end
         for _, v in ipairs(p2) do table.insert(results, v) end
     end
     for i, line in ipairs(results) do
         local timeStr = ""
-        if line.Time then
-            timeStr = string.format("[%02d:%02d] ", math.floor(line.Time/3600)%24, math.floor(line.Time/60)%60)
+        if self.State.ShowTimestamps and line.Time then
+            timeStr = string.format("[%02d:%02d:%02d] ",
+                math.floor(line.Time/3600)%24,
+                math.floor(line.Time/60)%60,
+                line.Time%60)
         end
         make("TextLabel", {
             Size=UDim2.new(1,-5,0,0), AutomaticSize=Enum.AutomaticSize.Y,
-            BackgroundTransparency=i%2==0 and 0.85 or 1,
+            BackgroundTransparency=i%2==0 and 0.75 or 1,
             BackgroundColor3=Color3.fromRGB(35,35,35),
             Text=timeStr..line.Text, TextColor3=line.Color or T.Text,
             Font=Enum.Font.SourceSans, TextSize=13,
@@ -29166,14 +22122,16 @@ function Modules.AdonisPanel:_populateMacros()
         }, self.State.MacroScroll)
         corner(4, row)
         make("TextLabel", {
-            Size=UDim2.new(0.28,0,1,0), Position=UDim2.fromOffset(8,0), BackgroundTransparency=1,
-            Text=Prefix..alias, TextColor3=T.Accent,
-            Font=Enum.Font.SourceSansBold, TextSize=14, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
+            Size=UDim2.new(0.28,0,1,0), Position=UDim2.fromOffset(8,0),
+            BackgroundTransparency=1, Text=Prefix..alias, TextColor3=T.Accent,
+            Font=Enum.Font.SourceSansBold, TextSize=14,
+            TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
         }, row)
         make("TextLabel", {
-            Size=UDim2.new(0.6,0,1,0), Position=UDim2.new(0.28,12,0,0), BackgroundTransparency=1,
-            Text="→ "..Prefix..command, TextColor3=T.SubText,
-            Font=Enum.Font.SourceSans, TextSize=13, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
+            Size=UDim2.new(0.6,0,1,0), Position=UDim2.new(0.28,12,0,0),
+            BackgroundTransparency=1, Text="→ "..Prefix..command, TextColor3=T.SubText,
+            Font=Enum.Font.SourceSans, TextSize=13,
+            TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3,
         }, row)
         local delBtn = make("TextButton", {
             Size=UDim2.fromOffset(24,20), Position=UDim2.new(1,-30,0,7),
@@ -29188,125 +22146,6 @@ function Modules.AdonisPanel:_populateMacros()
             self:Print("Macro removed: "..capturedAlias, T.SubText)
             self:_populateMacros()
         end)
-    end
-end
-function Modules.AdonisPanel:_applyEffect(mode)
-    local T = self.Config.Theme
-    if self.State.ActiveEffect then
-        pcall(function() self.State.ActiveEffect:Destroy() end)
-        self.State.ActiveEffect = nil
-    end
-    if mode == "Off" then
-        self:Print("Effects off.", T.SubText)
-        return
-    end
-    local effectGui = make("ScreenGui", {
-        Name="ZukaEffect_"..mode, DisplayOrder=998, ResetOnSpawn=false, IgnoreGuiInset=true,
-    }, game:GetService("CoreGui"))
-    self.State.ActiveEffect = effectGui
-    self:Print("Effect: "..mode, T.Yellow)
-    if mode == "Blind" then
-        make("Frame", {
-            Size=UDim2.new(10,0,10,0), Position=UDim2.new(-5,0,-5,0),
-            BackgroundColor3=Color3.new(0,0,0), ZIndex=10,
-        }, effectGui)
-    elseif mode == "Strobe" then
-        local bg = make("Frame", {Size=UDim2.new(10,0,10,0), Position=UDim2.new(-5,0,-5,0), BackgroundColor3=Color3.new(0,0,0), ZIndex=10}, effectGui)
-        task.spawn(function()
-            while effectGui.Parent do
-                task.wait(1/44) if not effectGui.Parent then break end
-                bg.BackgroundColor3 = Color3.new(1,1,1)
-                task.wait(1/44) if not effectGui.Parent then break end
-                bg.BackgroundColor3 = Color3.new(0,0,0)
-            end
-        end)
-    elseif mode == "Trippy" then
-        local bg = make("Frame", {Size=UDim2.new(10,0,10,0), Position=UDim2.new(-5,0,-5,0), BackgroundColor3=Color3.new(0,0,0), ZIndex=10}, effectGui)
-        task.spawn(function()
-            while effectGui.Parent do
-                task.wait(1/44) if not effectGui.Parent then break end
-                bg.BackgroundColor3 = Color3.new(math.random(), math.random(), math.random())
-            end
-        end)
-    elseif mode == "Spooky" then
-        local textures = {299735022,299735054,299735082,299735103,299735133,299735156,299735177,299735198,299735219,299735245,299735269,299735289,299735304,299735320,299735332,299735361,299735379}
-        local frame = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0)}, effectGui)
-        local img = make("ImageLabel", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0), BorderSizePixel=0}, frame)
-        local snd = make("Sound", {SoundId="rbxassetid://174270407", Looped=true}, effectGui)
-        snd:Play()
-        task.spawn(function()
-            local last
-            while effectGui.Parent do
-                local image = "rbxassetid://"..textures[math.floor(os.clock()/0.1)%#textures+1]
-                if image~=last then img.Image,last=image,image end
-                task.wait()
-            end
-            snd:Stop()
-        end)
-    elseif mode == "lifeoftheparty" then
-        local textures = {299733203,299733248,299733284,299733309,299733355,299733386,299733404,299733425,299733472,299733489,299733501,299733523,299733544,299733551,299733564,299733570,299733581,299733597,299733609,299733621,299733632,299733640,299733648,299733663,299733674,299733694}
-        local frame = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0)}, effectGui)
-        local img = make("ImageLabel", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0), BorderSizePixel=0}, frame)
-        local snd = make("Sound", {SoundId="rbxassetid://172906410", Looped=true}, effectGui)
-        snd:Play()
-        task.spawn(function()
-            local last
-            while effectGui.Parent do
-                local image = "rbxassetid://"..textures[math.floor(os.clock()/0.1)%#textures+1]
-                if image~=last then img.Image,last=image,image end
-                task.wait()
-            end
-            snd:Stop()
-        end)
-    elseif mode == "trolling" then
-        local textures = {"6172043688","6172044478","6172045193","6172045797","6172046490","6172047172","6172047947","6172048674","6172050195","6172050892","6172051669","6172053085","6172054752","6172054752","6172053085","6172051669","6172050892","6172050195","6172048674","6172047947","6172047172","6172046490","6172045797","6172045193","6172044478","6172043688"}
-        local frame = make("Frame", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0)}, effectGui)
-        local img = make("ImageLabel", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0), BorderSizePixel=0}, frame)
-        local snd = make("Sound", {SoundId="rbxassetid://229681899", Looped=true}, effectGui)
-        snd:Play()
-        task.spawn(function()
-            local last
-            while effectGui.Parent do
-                local image = "rbxassetid://"..textures[math.floor(os.clock()/0.13)%#textures+1]
-                if image~=last then img.Image,last=image,image end
-                task.wait()
-            end
-            snd:Stop()
-        end)
-    elseif mode == "Pixelize" then
-        local camera = workspace.CurrentCamera
-        local resX, resY = 20, 20
-        local frame = make("Frame", {Size=UDim2.new(1,0,1,0)}, effectGui)
-        local pixels = {}
-        for y=0, effectGui.AbsoluteSize.Y, resY do
-            for x=0, effectGui.AbsoluteSize.X, resX do
-                local px = make("Frame", {
-                    Parent=frame, BorderSizePixel=0,
-                    Size=UDim2.fromOffset(resX,resY),
-                    Position=UDim2.fromOffset(x-(resX/2),y-(resY/2)),
-                    BackgroundColor3=Color3.fromRGB(105,170,255),
-                })
-                table.insert(pixels, {Pixel=px, X=x, Y=y})
-            end
-        end
-        task.spawn(function()
-            while effectGui.Parent do
-                for _, p in ipairs(pixels) do
-                    local ray = camera:ScreenPointToRay(p.X, p.Y, 0)
-                    local res = workspace:Raycast(ray.Origin, ray.Direction*128)
-                    p.Pixel.BackgroundColor3 = (res and res.Instance and res.Instance.Transparency<1)
-                        and res.Instance.BrickColor.Color
-                        or Color3.fromRGB(105,170,255)
-                end
-                task.wait()
-            end
-        end)
-    elseif mode == "FadeOut" then
-        local frame = make("Frame", {
-            Size=UDim2.new(2,0,2,0), Position=UDim2.new(-1,0,-1,0),
-            BackgroundColor3=Color3.new(0,0,0), BackgroundTransparency=1,
-        }, effectGui)
-        TweenService:Create(frame, TweenInfo.new(3), {BackgroundTransparency=0}):Play()
     end
 end
 function Modules.AdonisPanel:Show()
@@ -29327,6 +22166,7 @@ end
 local _origDoNotif = DoNotif
 DoNotif = function(msg, duration, color)
     _origDoNotif(msg, duration, color)
+    Modules.AdonisPanel:_toast(msg, Modules.AdonisPanel.Config.Theme.Yellow)
     if Modules.AdonisPanel.State.Gui then
         Modules.AdonisPanel:Print(msg, Modules.AdonisPanel.Config.Theme.Yellow)
     end
@@ -29343,21 +22183,64 @@ RegisterCommand({Name="panelclear", Aliases={"cls"}, Description="Clear panel te
         Modules.AdonisPanel:Print("Cleared.", Modules.AdonisPanel.Config.Theme.SubText)
     end
 end)
-RegisterCommand({Name="effect", Aliases={"fx"}, Description="Apply visual effect. ;effect <name>"}, function(args)
-    if not args[1] then
-        DoNotif("Effects: Trippy Strobe Blind Spooky lifeoftheparty trolling Pixelize FadeOut Off", 5)
-        return
+RegisterCommand({Name="espoff", Aliases={}, Description="Disable all ESP"}, function()
+    for uid, data in pairs(Modules.AdonisPanel.State.ESPEnabled) do
+        data.Enabled = false
     end
-    Modules.AdonisPanel:_applyEffect(args[1])
+    Modules.AdonisPanel:_espUpdate()
+    Modules.AdonisPanel:Print("All ESP disabled.", Modules.AdonisPanel.Config.Theme.SubText)
 end)
-RegisterCommand({Name="effectoff", Aliases={"fxoff"}, Description="Stop active effect"}, function()
-    Modules.AdonisPanel:_applyEffect("Off")
-end)
+function Modules.AdonisPanel:_watchPlayer(plr)
+    local T = self.Config.Theme
+    local function onCharAdded(char)
+        local hum = char:WaitForChild("Humanoid", 10)
+        if not hum then return end
+        local function getKiller()
+            local tag = hum:FindFirstChild("creator")
+            if tag then
+                local killer = tag.Value
+                if killer and killer ~= "" then
+                    if typeof(killer) == "Instance" and killer:IsA("Player") then
+                        return killer.DisplayName.." (@"..killer.Name..")"
+                    else
+                        return tostring(killer)
+                    end
+                end
+            end
+            local weaponTag = hum:FindFirstChild("weapon")
+            if weaponTag then return "weapon: "..tostring(weaponTag.Value) end
+            return "unknown"
+        end
+        hum.Died:Connect(function()
+            local killer = getKiller()
+            local isLocal = plr == LocalPlayer
+            local nameStr = isLocal
+                and ("You ("..plr.DisplayName..")")
+                or  (plr.DisplayName.." (@"..plr.Name..")")
+            local msg = "☠ "..nameStr.." died  —  killer: "..killer
+            local col = isLocal and T.Red or T.Yellow
+            self:Print(msg, col)
+            self:_toast(msg, col)
+        end)
+    end
+    if plr.Character then onCharAdded(plr.Character) end
+    plr.CharacterAdded:Connect(onCharAdded)
+end
+function Modules.AdonisPanel:_initDeathLogger()
+    local Players = game:GetService("Players")
+    for _, plr in ipairs(Players:GetPlayers()) do
+        self:_watchPlayer(plr)
+    end
+    Players.PlayerAdded:Connect(function(plr)
+        self:_watchPlayer(plr)
+    end)
+end
 function Modules.AdonisPanel:Initialize()
     task.spawn(function()
         task.wait(1)
         self:_build()
-        warn("[AdonisPanel] Ready — RightShift or ;apanel")
+        self:_initDeathLogger()
+        warn("[AdonisPanel] v2 Ready — "..self.Config.ToggleKey.Name.." or ;apanel")
     end)
 end
 
@@ -31349,1558 +24232,7 @@ RegisterCommand({
 }, function()
     Modules.LocalScriptEdit:Toggle()
 end)
-Modules.GUICreator = {
-    State = {
-        IsEnabled      = false,
-        UI             = nil,
-        Connections    = {},
-        CreatedGUIs    = {},
-        SelectedElement= nil,
-        PropertyPanel  = nil,
-        HierarchyPanel = nil,
-        GridFrame      = nil,
-        UndoStack      = {},
-        RedoStack      = {},
-        CurrentProject = { Name = "Untitled", Elements = {} }
-    },
-    Config = {
-        GridSize    = 20,
-        SnapToGrid  = false,
-        ShowGrid    = true,
-        DefaultSize = UDim2.fromOffset(200, 100)
-    }
-}
-local TweenService     = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local Players          = game:GetService("Players")
-local LocalPlayer      = Players.LocalPlayer
-function Modules.GUICreator:PushUndo(action)
-    table.insert(self.State.UndoStack, action)
-    self.State.RedoStack = {}
-    if #self.State.UndoStack > 50 then
-        table.remove(self.State.UndoStack, 1)
-    end
-end
-function Modules.GUICreator:Undo()
-    local action = table.remove(self.State.UndoStack)
-    if not action then print("[GUICreator] Nothing to undo") return end
-    table.insert(self.State.RedoStack, action)
-    action.Undo()
-    self:RefreshHierarchy()
-end
-function Modules.GUICreator:Redo()
-    local action = table.remove(self.State.RedoStack)
-    if not action then print("[GUICreator] Nothing to redo") return end
-    table.insert(self.State.UndoStack, action)
-    action.Do()
-    self:RefreshHierarchy()
-end
-function Modules.GUICreator:SnapValue(v)
-    if not self.Config.SnapToGrid then return v end
-    local g = self.Config.GridSize
-    return math.floor((v + g / 2) / g) * g
-end
-function Modules.GUICreator:GetDataForElement(element)
-    for _, d in ipairs(self.State.CreatedGUIs) do
-        if d.Element == element then return d end
-    end
-    return nil
-end
-function Modules.GUICreator:CreateButton(text, color, parent)
-    local btn = Instance.new("TextButton", parent)
-    btn.Size = UDim2.fromOffset(110, 26)
-    btn.BackgroundColor3 = color
-    btn.BorderSizePixel = 0
-    btn.Font = Enum.Font.GothamBold
-    btn.Text = text
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.TextSize = 10
-    btn.AutoButtonColor = false
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-    btn.MouseEnter:Connect(function()
-        local h, s, v = color:ToHSV()
-        btn.BackgroundColor3 = Color3.fromHSV(h, s, math.min(v + 0.12, 1))
-    end)
-    btn.MouseLeave:Connect(function()
-        btn.BackgroundColor3 = color
-    end)
-    return btn
-end
-function Modules.GUICreator:_createUI()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "GUICreator_Zuka"
-    screenGui.ResetOnSpawn = false
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    self.State.UI = screenGui
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.fromOffset(1200, 700)
-    mainFrame.Position = UDim2.fromScale(0.5, 0.5)
-    mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Parent = screenGui
-    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
-    local stroke = Instance.new("UIStroke", mainFrame)
-    stroke.Color = Color3.fromRGB(90, 140, 255)
-    stroke.Thickness = 2
-    local titleBar = Instance.new("Frame", mainFrame)
-    titleBar.Name = "TitleBar"
-    titleBar.Size = UDim2.new(1, 0, 0, 40)
-    titleBar.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
-    titleBar.BorderSizePixel = 0
-    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
-    local title = Instance.new("TextLabel", titleBar)
-    title.Size = UDim2.new(0.5, 0, 1, 0)
-    title.Position = UDim2.fromOffset(15, 0)
-    title.BackgroundTransparency = 1
-    title.Font = Enum.Font.Code
-    title.Text = "▸ GUI CREATOR  —  Ctrl+Z Undo  |  Ctrl+Y Redo  |  Ctrl+D Dup  |  Del Delete"
-    title.TextColor3 = Color3.fromRGB(90, 140, 255)
-    title.TextSize = 13
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    local projLabel = Instance.new("TextLabel", titleBar)
-    projLabel.Size = UDim2.fromOffset(60, 20)
-    projLabel.Position = UDim2.new(0.5, 0, 0.5, -10)
-    projLabel.BackgroundTransparency = 1
-    projLabel.Font = Enum.Font.GothamBold
-    projLabel.Text = "Project:"
-    projLabel.TextColor3 = Color3.fromRGB(140, 140, 160)
-    projLabel.TextSize = 10
-    projLabel.TextXAlignment = Enum.TextXAlignment.Right
-    local projInput = Instance.new("TextBox", titleBar)
-    projInput.Size = UDim2.fromOffset(120, 22)
-    projInput.Position = UDim2.new(0.5, 64, 0.5, -11)
-    projInput.BackgroundColor3 = Color3.fromRGB(30, 30, 44)
-    projInput.BorderSizePixel = 0
-    projInput.Font = Enum.Font.Code
-    projInput.Text = self.State.CurrentProject.Name
-    projInput.TextColor3 = Color3.fromRGB(220, 220, 255)
-    projInput.TextSize = 11
-    projInput.ClearTextOnFocus = false
-    Instance.new("UICorner", projInput).CornerRadius = UDim.new(0, 4)
-    projInput.FocusLost:Connect(function()
-        self.State.CurrentProject.Name = projInput.Text ~= "" and projInput.Text or "Untitled"
-        projInput.Text = self.State.CurrentProject.Name
-    end)
-    local closeBtn = Instance.new("TextButton", titleBar)
-    closeBtn.Size = UDim2.fromOffset(30, 30)
-    closeBtn.Position = UDim2.new(1, -35, 0, 5)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
-    closeBtn.BorderSizePixel = 0
-    closeBtn.Text = "×"
-    closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 20
-    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
-    closeBtn.MouseButton1Click:Connect(function() self:Disable() end)
-    self:MakeDraggable(titleBar, mainFrame)
-    local topBar = Instance.new("Frame", mainFrame)
-    topBar.Name = "TopBar"
-    topBar.Size = UDim2.new(1, -20, 0, 36)
-    topBar.Position = UDim2.fromOffset(10, 44)
-    topBar.BackgroundColor3 = Color3.fromRGB(32, 32, 44)
-    topBar.BorderSizePixel = 0
-    topBar.ZIndex = 10
-    Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 6)
-    local topLayout = Instance.new("UIListLayout", topBar)
-    topLayout.FillDirection = Enum.FillDirection.Horizontal
-    topLayout.Padding = UDim.new(0, 6)
-    topLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-    Instance.new("UIPadding", topBar).PaddingLeft = UDim.new(0, 10)
-    local exportBtn = self:CreateButton("⬆ EXPORT CODE", Color3.fromRGB(0, 190, 95), topBar)
-    exportBtn.MouseButton1Click:Connect(function() self:ExportCode() end)
-    local undoBtn = self:CreateButton("↩ UNDO", Color3.fromRGB(90, 140, 255), topBar)
-    undoBtn.Size = UDim2.fromOffset(80, 26)
-    undoBtn.MouseButton1Click:Connect(function() self:Undo() end)
-    local redoBtn = self:CreateButton("↪ REDO", Color3.fromRGB(90, 140, 255), topBar)
-    redoBtn.Size = UDim2.fromOffset(80, 26)
-    redoBtn.MouseButton1Click:Connect(function() self:Redo() end)
-    local clearBtn = self:CreateButton("🗑 CLEAR", Color3.fromRGB(230, 80, 50), topBar)
-    clearBtn.Size = UDim2.fromOffset(80, 26)
-    clearBtn.MouseButton1Click:Connect(function() self:ClearCanvas() end)
-    local gridBtn = self:CreateButton("GRID: ON", Color3.fromRGB(80, 80, 180), topBar)
-    gridBtn.Size = UDim2.fromOffset(90, 26)
-    gridBtn.MouseButton1Click:Connect(function()
-        self.Config.ShowGrid = not self.Config.ShowGrid
-        gridBtn.Text = "GRID: " .. (self.Config.ShowGrid and "ON" or "OFF")
-        self:DrawGrid()
-    end)
-    local snapBtn = self:CreateButton("SNAP: OFF", Color3.fromRGB(120, 80, 200), topBar)
-    snapBtn.Size = UDim2.fromOffset(90, 26)
-    snapBtn.MouseButton1Click:Connect(function()
-        self.Config.SnapToGrid = not self.Config.SnapToGrid
-        snapBtn.Text = "SNAP: " .. (self.Config.SnapToGrid and "ON" or "OFF")
-        snapBtn.BackgroundColor3 = self.Config.SnapToGrid
-            and Color3.fromRGB(180, 80, 255)
-            or  Color3.fromRGB(120, 80, 200)
-    end)
-    local leftPanel = Instance.new("Frame", mainFrame)
-    leftPanel.Name = "Toolbox"
-    leftPanel.Size = UDim2.new(0, 165, 1, -90)
-    leftPanel.Position = UDim2.fromOffset(10, 86)
-    leftPanel.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
-    leftPanel.BorderSizePixel = 0
-    Instance.new("UICorner", leftPanel).CornerRadius = UDim.new(0, 8)
-    local toolboxLabel = Instance.new("TextLabel", leftPanel)
-    toolboxLabel.Size = UDim2.new(1, 0, 0, 28)
-    toolboxLabel.BackgroundTransparency = 1
-    toolboxLabel.Font = Enum.Font.GothamBold
-    toolboxLabel.Text = "ELEMENTS"
-    toolboxLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
-    toolboxLabel.TextSize = 12
-    local toolboxScroll = Instance.new("ScrollingFrame", leftPanel)
-    toolboxScroll.Size = UDim2.new(1, -8, 1, -34)
-    toolboxScroll.Position = UDim2.fromOffset(4, 30)
-    toolboxScroll.BackgroundTransparency = 1
-    toolboxScroll.BorderSizePixel = 0
-    toolboxScroll.ScrollBarThickness = 3
-    toolboxScroll.ScrollBarImageColor3 = Color3.fromRGB(90, 140, 255)
-    toolboxScroll.CanvasSize = UDim2.fromOffset(0, 0)
-    toolboxScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    local toolboxLayout = Instance.new("UIListLayout", toolboxScroll)
-    toolboxLayout.Padding = UDim.new(0, 4)
-    toolboxLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    local canvasPanel = Instance.new("Frame", mainFrame)
-    canvasPanel.Name = "Canvas"
-    canvasPanel.Size = UDim2.new(1, -560, 1, -90)
-    canvasPanel.Position = UDim2.fromOffset(183, 86)
-    canvasPanel.BackgroundColor3 = Color3.fromRGB(36, 36, 48)
-    canvasPanel.BorderSizePixel = 0
-    Instance.new("UICorner", canvasPanel).CornerRadius = UDim.new(0, 8)
-    canvasPanel.ClipsDescendants = false
-    local canvasLabel = Instance.new("TextLabel", canvasPanel)
-    canvasLabel.Size = UDim2.new(1, 0, 0, 24)
-    canvasLabel.BackgroundTransparency = 1
-    canvasLabel.Font = Enum.Font.GothamBold
-    canvasLabel.Text = "CANVAS  (480 × 360)"
-    canvasLabel.TextColor3 = Color3.fromRGB(120, 120, 140)
-    canvasLabel.TextSize = 11
-    local workspace = Instance.new("Frame", canvasPanel)
-    workspace.Name = "Workspace"
-    workspace.Size = UDim2.fromOffset(480, 360)
-    workspace.Position = UDim2.new(0.5, 0, 0.5, 0)
-    workspace.AnchorPoint = Vector2.new(0.5, 0.5)
-    workspace.BackgroundColor3 = Color3.fromRGB(46, 46, 58)
-    workspace.BorderSizePixel = 0
-    workspace.ClipsDescendants = true
-    local wsStroke = Instance.new("UIStroke", workspace)
-    wsStroke.Color = Color3.fromRGB(80, 80, 110)
-    wsStroke.Thickness = 2
-    local gridFrame = Instance.new("Frame", workspace)
-    gridFrame.Name = "GridOverlay"
-    gridFrame.Size = UDim2.new(1, 0, 1, 0)
-    gridFrame.BackgroundTransparency = 1
-    gridFrame.BorderSizePixel = 0
-    gridFrame.ZIndex = 1
-    self.State.GridFrame = gridFrame
-    self:DrawGrid()
-    local rightCol = Instance.new("Frame", mainFrame)
-    rightCol.Name = "RightCol"
-    rightCol.Size = UDim2.new(0, 240, 1, -90)
-    rightCol.Position = UDim2.new(1, -250, 0, 86)
-    rightCol.BackgroundTransparency = 1
-    rightCol.BorderSizePixel = 0
-    local rightPanel = Instance.new("Frame", rightCol)
-    rightPanel.Name = "Properties"
-    rightPanel.Size = UDim2.new(1, 0, 0.52, -4)
-    rightPanel.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
-    rightPanel.BorderSizePixel = 0
-    Instance.new("UICorner", rightPanel).CornerRadius = UDim.new(0, 8)
-    local propertiesLabel = Instance.new("TextLabel", rightPanel)
-    propertiesLabel.Size = UDim2.new(1, 0, 0, 28)
-    propertiesLabel.BackgroundTransparency = 1
-    propertiesLabel.Font = Enum.Font.GothamBold
-    propertiesLabel.Text = "PROPERTIES"
-    propertiesLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
-    propertiesLabel.TextSize = 12
-    local propertiesScroll = Instance.new("ScrollingFrame", rightPanel)
-    propertiesScroll.Name = "PropertiesScroll"
-    propertiesScroll.Size = UDim2.new(1, -8, 1, -32)
-    propertiesScroll.Position = UDim2.fromOffset(4, 30)
-    propertiesScroll.BackgroundTransparency = 1
-    propertiesScroll.BorderSizePixel = 0
-    propertiesScroll.ScrollBarThickness = 3
-    propertiesScroll.ScrollBarImageColor3 = Color3.fromRGB(90, 140, 255)
-    propertiesScroll.CanvasSize = UDim2.fromOffset(0, 0)
-    propertiesScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    local propLayout = Instance.new("UIListLayout", propertiesScroll)
-    propLayout.Padding = UDim.new(0, 6)
-    propLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    self.State.PropertyPanel = propertiesScroll
-    local hierPanel = Instance.new("Frame", rightCol)
-    hierPanel.Name = "Hierarchy"
-    hierPanel.Size = UDim2.new(1, 0, 0.48, -4)
-    hierPanel.Position = UDim2.new(0, 0, 0.52, 4)
-    hierPanel.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
-    hierPanel.BorderSizePixel = 0
-    Instance.new("UICorner", hierPanel).CornerRadius = UDim.new(0, 8)
-    local hierLabel = Instance.new("TextLabel", hierPanel)
-    hierLabel.Size = UDim2.new(1, 0, 0, 28)
-    hierLabel.BackgroundTransparency = 1
-    hierLabel.Font = Enum.Font.GothamBold
-    hierLabel.Text = "HIERARCHY"
-    hierLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
-    hierLabel.TextSize = 12
-    local hierScroll = Instance.new("ScrollingFrame", hierPanel)
-    hierScroll.Name = "HierarchyScroll"
-    hierScroll.Size = UDim2.new(1, -8, 1, -32)
-    hierScroll.Position = UDim2.fromOffset(4, 30)
-    hierScroll.BackgroundTransparency = 1
-    hierScroll.BorderSizePixel = 0
-    hierScroll.ScrollBarThickness = 3
-    hierScroll.ScrollBarImageColor3 = Color3.fromRGB(90, 140, 255)
-    hierScroll.CanvasSize = UDim2.fromOffset(0, 0)
-    hierScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    local hierLayout = Instance.new("UIListLayout", hierScroll)
-    hierLayout.Padding = UDim.new(0, 3)
-    hierLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    self.State.HierarchyPanel = hierScroll
-    screenGui.Parent = game:GetService("CoreGui")
-    self:PopulateToolbox(toolboxScroll)
-    self:_bindKeyboard()
-    return workspace
-end
-function Modules.GUICreator:DrawGrid()
-    local gf = self.State.GridFrame
-    if not gf then return end
-    for _, c in ipairs(gf:GetChildren()) do c:Destroy() end
-    if not self.Config.ShowGrid then return end
-    local W, H = 480, 360
-    local g = self.Config.GridSize
-    local lineColor = Color3.fromRGB(65, 65, 85)
-    local function makeLine(x, y, w, h)
-        local f = Instance.new("Frame", gf)
-        f.BorderSizePixel = 0
-        f.BackgroundColor3 = lineColor
-        f.Size = UDim2.fromOffset(w, h)
-        f.Position = UDim2.fromOffset(x, y)
-        f.ZIndex = 1
-    end
-    local x = g
-    while x < W do makeLine(x, 0, 1, H) ; x = x + g end
-    local y = g
-    while y < H do makeLine(0, y, W, 1) ; y = y + g end
-end
-function Modules.GUICreator:_bindKeyboard()
-    local conn = UserInputService.InputBegan:Connect(function(input, gpe)
-        if gpe then return end
-        local ctrl = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
-            or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)
-        if ctrl and input.KeyCode == Enum.KeyCode.Z then self:Undo() end
-        if ctrl and input.KeyCode == Enum.KeyCode.Y then self:Redo() end
-        if ctrl and input.KeyCode == Enum.KeyCode.D then
-            if self.State.SelectedElement then
-                self:DuplicateElement(self.State.SelectedElement)
-            end
-        end
-        if input.KeyCode == Enum.KeyCode.Delete then
-            if self.State.SelectedElement then
-                self:DeleteElement(self.State.SelectedElement)
-            end
-        end
-    end)
-    table.insert(self.State.Connections, conn)
-end
-function Modules.GUICreator:MakeDraggable(handle, object)
-    local dragging, dragStart, startPos = false, nil, nil
-    handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging  = true
-            dragStart = input.Position
-            startPos  = object.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local d = input.Position - dragStart
-            object.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + d.X,
-                startPos.Y.Scale, startPos.Y.Offset + d.Y
-            )
-        end
-    end)
-end
-Modules.GUICreator.ELEMENT_DEFS = {
-    { Group="CONTAINERS", Name="Frame",                   Color=Color3.fromRGB(100,150,220), Icon="▭" },
-    { Group="CONTAINERS", Name="ScrollingFrame",          Color=Color3.fromRGB( 80,200,150), Icon="⇅" },
-    { Group="CONTAINERS", Name="CanvasGroup",             Color=Color3.fromRGB(120,180,255), Icon="⬚" },
-    { Group="CONTAINERS", Name="ViewportFrame",           Color=Color3.fromRGB(180,120,255), Icon="⬛" },
-    { Group="TEXT",       Name="TextLabel",               Color=Color3.fromRGB(140,210, 90), Icon="T" },
-    { Group="TEXT",       Name="TextButton",              Color=Color3.fromRGB(220,150, 80), Icon="B" },
-    { Group="TEXT",       Name="TextBox",                 Color=Color3.fromRGB(210, 90,150), Icon="I" },
-    { Group="IMAGE",      Name="ImageLabel",              Color=Color3.fromRGB(150, 90,220), Icon="🖼" },
-    { Group="IMAGE",      Name="ImageButton",             Color=Color3.fromRGB(200, 80,180), Icon="🖱" },
-    { Group="VIDEO",      Name="VideoFrame",              Color=Color3.fromRGB(255,180, 50), Icon="" },
-    { Group="MODIFIERS",  Name="UICorner",                Color=Color3.fromRGB(100,220,180), Icon="◜", IsModifier=true },
-    { Group="MODIFIERS",  Name="UIStroke",                Color=Color3.fromRGB(100,180,255), Icon="⊡", IsModifier=true },
-    { Group="MODIFIERS",  Name="UIGradient",              Color=Color3.fromRGB(255,160,100), Icon="≋", IsModifier=true },
-    { Group="MODIFIERS",  Name="UIPadding",               Color=Color3.fromRGB(160,255,160), Icon="⊞", IsModifier=true },
-    { Group="MODIFIERS",  Name="UIScale",                 Color=Color3.fromRGB(255,220,100), Icon="⤡", IsModifier=true },
-    { Group="MODIFIERS",  Name="UIAspectRatioConstraint", Color=Color3.fromRGB(220,180,255), Icon="⊠", IsModifier=true },
-    { Group="MODIFIERS",  Name="UISizeConstraint",        Color=Color3.fromRGB(180,255,220), Icon="⊟", IsModifier=true },
-    { Group="LAYOUTS",    Name="UIListLayout",            Color=Color3.fromRGB(255,130,130), Icon="☰", IsModifier=true },
-    { Group="LAYOUTS",    Name="UIGridLayout",            Color=Color3.fromRGB(255,160,160), Icon="⊞", IsModifier=true },
-    { Group="LAYOUTS",    Name="UITableLayout",           Color=Color3.fromRGB(255,190,190), Icon="⊟", IsModifier=true },
-    { Group="LAYOUTS",    Name="UIPageLayout",            Color=Color3.fromRGB(255,210,210), Icon="⊳", IsModifier=true },
-}
-function Modules.GUICreator:PopulateToolbox(parent)
-    local lastGroup = nil
-    for _, elem in ipairs(self.ELEMENT_DEFS) do
-        if elem.Group ~= lastGroup then
-            lastGroup = elem.Group
-            local header = Instance.new("TextLabel", parent)
-            header.Size = UDim2.new(1, 0, 0, 20)
-            header.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-            header.BorderSizePixel = 0
-            header.Font = Enum.Font.GothamBold
-            header.Text = "  " .. elem.Group
-            header.TextColor3 = Color3.fromRGB(110, 110, 140)
-            header.TextSize = 9
-            header.TextXAlignment = Enum.TextXAlignment.Left
-            Instance.new("UICorner", header).CornerRadius = UDim.new(0, 4)
-        end
-        local btn = Instance.new("TextButton", parent)
-        btn.Size = UDim2.new(1, 0, 0, 32)
-        btn.BackgroundColor3 = Color3.fromRGB(36, 36, 48)
-        btn.BorderSizePixel = 0
-        btn.Font = Enum.Font.GothamBold
-        btn.Text = elem.Icon .. "  " .. elem.Name
-        btn.TextColor3 = elem.Color
-        btn.TextSize = 10
-        btn.TextXAlignment = Enum.TextXAlignment.Left
-        btn.AutoButtonColor = false
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-        Instance.new("UIPadding", btn).PaddingLeft = UDim.new(0, 12)
-        btn.MouseButton1Click:Connect(function()
-            if elem.IsModifier then
-                self:AddModifier(elem.Name)
-            else
-                self:CreateElement(elem.Name)
-            end
-        end)
-        btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(50, 50, 66) end)
-        btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(36, 36, 48) end)
-    end
-end
-function Modules.GUICreator:CreateElement(elementType, snapshot)
-    local workspace = self.State.UI.MainFrame.Canvas.Workspace
-    local element = Instance.new(elementType)
-    local idx = #self.State.CreatedGUIs + 1
-    element.Name             = elementType .. "_" .. idx
-    element.Size             = snapshot and snapshot.Size     or self.Config.DefaultSize
-    element.Position         = snapshot and snapshot.Position or UDim2.fromOffset(
-        self:SnapValue(math.random(40, 260)),
-        self:SnapValue(math.random(40, 180))
-    )
-    element.BackgroundColor3 = snapshot and snapshot.BackgroundColor3
-        or Color3.fromRGB(math.random(90,200), math.random(90,200), math.random(90,200))
-    element.BorderSizePixel  = 0
-    element.ZIndex           = snapshot and snapshot.ZIndex or idx + 2
-    if elementType == "TextLabel" or elementType == "TextButton" or elementType == "TextBox" then
-        element.Text       = snapshot and snapshot.Text      or element.Name
-        element.TextColor3 = snapshot and snapshot.TextColor3 or Color3.new(1,1,1)
-        element.Font       = Enum.Font.Gotham
-        element.TextSize   = snapshot and snapshot.TextSize  or 14
-    end
-    if elementType == "TextBox" then
-        element.PlaceholderText  = snapshot and snapshot.PlaceholderText or "Enter text…"
-        element.ClearTextOnFocus = false
-    end
-    if elementType == "ImageLabel" or elementType == "ImageButton" then
-        element.Image = snapshot and snapshot.Image
-            or "rbxasset://textures/ui/GuiImagePlaceholder.png"
-        element.ScaleType = Enum.ScaleType.Fit
-        if elementType == "ImageButton" then
-            element.Text = ""
-        end
-    end
-    if elementType == "ScrollingFrame" then
-        element.ScrollingEnabled      = false
-        element.ScrollBarThickness    = snapshot and snapshot.ScrollBarThickness or 6
-        element.ScrollBarImageColor3  = snapshot and snapshot.ScrollBarImageColor3 or Color3.fromRGB(90,140,255)
-        element.CanvasSize            = snapshot and snapshot.CanvasSize or UDim2.fromOffset(480, 720)
-        element.HorizontalScrollBarInset = Enum.ScrollBarInset.ScrollBar
-    end
-    if elementType == "CanvasGroup" then
-        element.GroupTransparency = snapshot and snapshot.GroupTransparency or 0
-        element.GroupColor3       = snapshot and snapshot.GroupColor3 or Color3.new(1,1,1)
-    end
-    if elementType == "ViewportFrame" then
-        element.Ambient          = snapshot and snapshot.Ambient or Color3.fromRGB(200,200,200)
-        element.LightColor       = snapshot and snapshot.LightColor or Color3.fromRGB(255,255,255)
-        element.LightDirection   = snapshot and snapshot.LightDirection or Vector3.new(-1,-1,-1)
-        element.ImageTransparency = 0
-    end
-    if elementType == "VideoFrame" then
-        element.Video  = snapshot and snapshot.Video or ""
-        element.Looped = true
-        element.Volume = 0.5
-    end
-    local cornerRadius = (snapshot and snapshot.CornerRadius) or 8
-    local corner = Instance.new("UICorner", element)
-    corner.CornerRadius = UDim.new(0, cornerRadius)
-    element.Parent = workspace
-    local data = {
-        Element       = element,
-        Type          = elementType,
-        CornerRadius  = cornerRadius,
-        Connections   = {}
-    }
-    table.insert(self.State.CreatedGUIs, data)
-    self:MakeElementInteractive(element, data)
-    self:RefreshHierarchy()
-    self:SelectElement(element)
-    if not snapshot then
-        self:PushUndo({
-            Do = function()
-                element.Parent = workspace
-                table.insert(self.State.CreatedGUIs, data)
-                self:RefreshHierarchy()
-            end,
-            Undo = function()
-                element.Parent = nil
-                for i, d in ipairs(self.State.CreatedGUIs) do
-                    if d.Element == element then table.remove(self.State.CreatedGUIs, i) break end
-                end
-                if self.State.SelectedElement == element then
-                    self.State.SelectedElement = nil
-                    self:UpdatePropertiesPanel(nil)
-                end
-                self:RefreshHierarchy()
-            end
-        })
-    end
-    print(string.format("[GUICreator] ✓ Created %s", element.Name))
-    return element
-end
-function Modules.GUICreator:DuplicateElement(element)
-    local data = self:GetDataForElement(element)
-    local snap = {
-        Size             = UDim2.fromOffset(element.Size.X.Offset,          element.Size.Y.Offset),
-        Position         = UDim2.fromOffset(element.Position.X.Offset + 15,  element.Position.Y.Offset + 15),
-        BackgroundColor3 = element.BackgroundColor3,
-        ZIndex           = element.ZIndex,
-        CornerRadius     = data and data.CornerRadius or 8,
-    }
-    if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
-        snap.Text       = element.Text
-        snap.TextColor3 = element.TextColor3
-        snap.TextSize   = element.TextSize
-        if element:IsA("TextBox") then
-            snap.PlaceholderText = element.PlaceholderText
-        end
-    end
-    if element:IsA("ImageLabel") or element:IsA("ImageButton") then
-        snap.Image = element.Image
-    end
-    if element:IsA("ScrollingFrame") then
-        snap.CanvasSize            = UDim2.fromOffset(element.CanvasSize.X.Offset, element.CanvasSize.Y.Offset)
-        snap.ScrollBarThickness    = element.ScrollBarThickness
-        snap.ScrollBarImageColor3  = element.ScrollBarImageColor3
-    end
-    if element:IsA("CanvasGroup") then
-        snap.GroupTransparency = element.GroupTransparency
-        snap.GroupColor3       = element.GroupColor3
-    end
-    if element:IsA("ViewportFrame") then
-        snap.Ambient        = element.Ambient
-        snap.LightColor     = element.LightColor
-        snap.LightDirection = element.LightDirection
-    end
-    if element:IsA("VideoFrame") then
-        snap.Video  = element.Video
-    end
-    local elemType = data and data.Type or "Frame"
-    self:CreateElement(elemType, snap)
-    print("[GUICreator] ✓ Duplicated element (Ctrl+D)")
-end
-function Modules.GUICreator:AddModifier(modType)
-    local element = self.State.SelectedElement
-    if not element then
-        print("[GUICreator] ✗ Select an element first before adding a modifier.")
-        return
-    end
-    local existing = element:FindFirstChildOfClass(modType)
-    if existing then existing:Destroy() end
-    local mod = Instance.new(modType)
-    if modType == "UICorner" then
-        mod.CornerRadius = UDim.new(0, 8)
-    elseif modType == "UIStroke" then
-        mod.Color     = Color3.fromRGB(90, 140, 255)
-        mod.Thickness = 2
-        mod.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    elseif modType == "UIGradient" then
-        mod.Color    = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(90,140,255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(200,80,255))
-        })
-        mod.Rotation = 45
-    elseif modType == "UIPadding" then
-        mod.PaddingLeft   = UDim.new(0, 8)
-        mod.PaddingRight  = UDim.new(0, 8)
-        mod.PaddingTop    = UDim.new(0, 8)
-        mod.PaddingBottom = UDim.new(0, 8)
-    elseif modType == "UIScale" then
-        mod.Scale = 1
-    elseif modType == "UIAspectRatioConstraint" then
-        mod.AspectRatio = 1
-        mod.AspectType  = Enum.AspectType.FitWithinMaxSize
-    elseif modType == "UISizeConstraint" then
-        mod.MinSize = Vector2.new(50, 50)
-        mod.MaxSize = Vector2.new(math.huge, math.huge)
-    elseif modType == "UIListLayout" then
-        mod.FillDirection      = Enum.FillDirection.Vertical
-        mod.HorizontalAlignment= Enum.HorizontalAlignment.Center
-        mod.VerticalAlignment  = Enum.VerticalAlignment.Top
-        mod.Padding            = UDim.new(0, 6)
-        mod.SortOrder          = Enum.SortOrder.LayoutOrder
-    elseif modType == "UIGridLayout" then
-        mod.CellSize              = UDim2.fromOffset(80, 80)
-        mod.CellPaddingHorizontal = UDim.new(0, 6)
-        mod.CellPaddingVertical   = UDim.new(0, 6)
-        mod.SortOrder             = Enum.SortOrder.LayoutOrder
-    elseif modType == "UITableLayout" then
-        mod.FillDirection      = Enum.FillDirection.Vertical
-        mod.Padding            = UDim.new(0, 4)
-    elseif modType == "UIPageLayout" then
-        mod.Animated           = true
-        mod.EasingStyle        = Enum.EasingStyle.Quad
-        mod.Padding            = UDim.new(0, 0)
-    end
-    mod.Parent = element
-    local data = self:GetDataForElement(element)
-    if data then
-        if not data.Modifiers then data.Modifiers = {} end
-        data.Modifiers[modType] = mod
-    end
-    self:UpdatePropertiesPanel(element)
-    self:PushUndo({
-        Do   = function() mod.Parent = element end,
-        Undo = function() mod.Parent = nil end,
-    })
-    print(string.format("[GUICreator] ✓ Added %s to %s", modType, element.Name))
-end
-function Modules.GUICreator:MakeElementInteractive(element, data)
-    local canvasPanel = self.State.UI.MainFrame.Canvas
-    local selBox = Instance.new("Frame", canvasPanel)
-    selBox.Name = "SelectionBox_" .. element.Name
-    selBox.BackgroundTransparency = 1
-    selBox.BorderSizePixel = 0
-    selBox.Visible = false
-    selBox.ZIndex = 200
-    local selStroke = Instance.new("UIStroke", selBox)
-    selStroke.Color = Color3.fromRGB(0, 230, 255)
-    selStroke.Thickness = 2
-    local function syncSelBox()
-        if not element or not element.Parent then return end
-        local ws     = self.State.UI.MainFrame.Canvas.Workspace
-        local wsAbs  = ws.AbsolutePosition
-        local cpAbs  = canvasPanel.AbsolutePosition
-        local eAbs   = element.AbsolutePosition
-        local eSize  = element.AbsoluteSize
-        local ox     = (wsAbs.X - cpAbs.X) + element.Position.X.Offset
-        local oy     = (wsAbs.Y - cpAbs.Y) + element.Position.Y.Offset
-        selBox.Size     = UDim2.fromOffset(eSize.X + 6, eSize.Y + 6)
-        selBox.Position = UDim2.fromOffset(ox - 3, oy - 3)
-    end
-    local handles = {
-        {name="NW", ax=0,   ay=0,   cx=true,  cy=true},
-        {name="N",  ax=0.5, ay=0,   cx=false, cy=true},
-        {name="NE", ax=1,   ay=0,   cx=true,  cy=true},
-        {name="W",  ax=0,   ay=0.5, cx=true,  cy=false},
-        {name="E",  ax=1,   ay=0.5, cx=true,  cy=false},
-        {name="SW", ax=0,   ay=1,   cx=true,  cy=true},
-        {name="S",  ax=0.5, ay=1,   cx=false, cy=true},
-        {name="SE", ax=1,   ay=1,   cx=true,  cy=true},
-    }
-    local handleInstances = {}
-    for _, hd in ipairs(handles) do
-        local h = Instance.new("TextButton", selBox)
-        h.Name = "Handle_" .. hd.name
-        h.Size = UDim2.fromOffset(10, 10)
-        h.AnchorPoint = Vector2.new(0.5, 0.5)
-        h.Position = UDim2.new(hd.ax, 0, hd.ay, 0)
-        h.BackgroundColor3 = Color3.fromRGB(0, 230, 255)
-        h.BorderSizePixel = 0
-        h.ZIndex = 201
-        h.Text = ""
-        h.AutoButtonColor = false
-        Instance.new("UICorner", h).CornerRadius = UDim.new(0, 2)
-        handleInstances[hd.name] = {frame = h, meta = hd}
-    end
-    local resizing     = false
-    local dragging     = false
-    local resizeHandle = nil
-    local dragStart    = nil
-    local startPos     = nil
-    local startSize    = nil
-    for _, hdata in pairs(handleInstances) do
-        hdata.frame.MouseButton1Down:Connect(function()
-            self:SelectElement(element)
-            resizing     = true
-            dragging     = false
-            resizeHandle = hdata.meta
-            dragStart    = UserInputService:GetMouseLocation()
-            startPos     = {X = element.Position.X.Offset, Y = element.Position.Y.Offset}
-            startSize    = {W = element.Size.X.Offset,     H = element.Size.Y.Offset}
-        end)
-    end
-    local elemConn = element.InputBegan:Connect(function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-        if resizing then return end
-        self:SelectElement(element)
-        dragging  = true
-        dragStart = input.Position
-        startPos  = {X = element.Position.X.Offset, Y = element.Position.Y.Offset}
-        startSize = {W = element.Size.X.Offset,     H = element.Size.Y.Offset}
-    end)
-    local moveConn = UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-        if resizing and resizeHandle then
-            local mouseNow = UserInputService:GetMouseLocation()
-            local delta    = mouseNow - dragStart
-            local h        = resizeHandle
-            local nx, ny   = startPos.X, startPos.Y
-            local nw, nh   = startSize.W, startSize.H
-            if h.cx then
-                if h.ax == 0 then
-                    nw = math.max(20, startSize.W - delta.X)
-                    nx = startPos.X + (startSize.W - nw)
-                else
-                    nw = math.max(20, startSize.W + delta.X)
-                end
-            end
-            if h.cy then
-                if h.ay == 0 then
-                    nh = math.max(20, startSize.H - delta.Y)
-                    ny = startPos.Y + (startSize.H - nh)
-                else
-                    nh = math.max(20, startSize.H + delta.Y)
-                end
-            end
-            nx = self:SnapValue(nx) ; ny = self:SnapValue(ny)
-            nw = self:SnapValue(nw) ; nh = self:SnapValue(nh)
-            element.Position = UDim2.fromOffset(nx, ny)
-            element.Size     = UDim2.fromOffset(nw, nh)
-            syncSelBox()
-            self:UpdatePropertiesPanel(element)
-        elseif dragging then
-            local delta = input.Position - dragStart
-            local nx = self:SnapValue(startPos.X + delta.X)
-            local ny = self:SnapValue(startPos.Y + delta.Y)
-            element.Position = UDim2.fromOffset(nx, ny)
-            syncSelBox()
-        end
-    end)
-    local releaseConn = UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-        if (dragging or resizing) and startPos and startSize then
-            local oldPos  = UDim2.fromOffset(startPos.X, startPos.Y)
-            local oldSize = UDim2.fromOffset(startSize.W, startSize.H)
-            local newPos  = element.Position
-            local newSize = element.Size
-            if oldPos ~= newPos or oldSize ~= newSize then
-                self:PushUndo({
-                    Do = function()
-                        element.Position = newPos ; element.Size = newSize
-                        syncSelBox()
-                        self:UpdatePropertiesPanel(element)
-                    end,
-                    Undo = function()
-                        element.Position = oldPos ; element.Size = oldSize
-                        syncSelBox()
-                        self:UpdatePropertiesPanel(element)
-                    end
-                })
-            end
-        end
-        dragging     = false
-        resizing     = false
-        resizeHandle = nil
-    end)
-    data.Connections = {elemConn, moveConn, releaseConn}
-    data.SelectionBox = selBox
-    data.SyncSelBox   = syncSelBox
-end
-function Modules.GUICreator:SelectElement(element)
-    if self.State.SelectedElement == element then return end
-    if self.State.SelectedElement then
-        local oldData = self:GetDataForElement(self.State.SelectedElement)
-        if oldData and oldData.SelectionBox then
-            oldData.SelectionBox.Visible = false
-        end
-    end
-    self.State.SelectedElement = element
-    local data = self:GetDataForElement(element)
-    if data then
-        if data.SelectionBox then
-            data.SyncSelBox()
-            data.SelectionBox.Visible = true
-        end
-    end
-    self:UpdatePropertiesPanel(element)
-    self:RefreshHierarchy()
-end
-function Modules.GUICreator:RefreshHierarchy()
-    local panel = self.State.HierarchyPanel
-    if not panel then return end
-    for _, c in ipairs(panel:GetChildren()) do
-        if not c:IsA("UIListLayout") then c:Destroy() end
-    end
-    for _, data in ipairs(self.State.CreatedGUIs) do
-        local elem = data.Element
-        if not elem or not elem.Parent then continue end
-        local row = Instance.new("TextButton", panel)
-        row.Size = UDim2.new(1, -6, 0, 26)
-        row.BorderSizePixel = 0
-        row.Font = Enum.Font.Code
-        row.TextSize = 11
-        row.TextXAlignment = Enum.TextXAlignment.Left
-        row.AutoButtonColor = false
-        local isSel = (self.State.SelectedElement == elem)
-        row.BackgroundColor3 = isSel and Color3.fromRGB(50,80,160) or Color3.fromRGB(36,36,50)
-        row.TextColor3       = isSel and Color3.new(1,1,1)         or Color3.fromRGB(180,180,200)
-        row.Text = "  [Z:" .. tostring(elem.ZIndex) .. "]  " .. elem.Name
-        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
-        row.MouseButton1Click:Connect(function() self:SelectElement(elem) end)
-        local function makeZBtn(label, offset, delta)
-            local b = Instance.new("TextButton", row)
-            b.Size = UDim2.fromOffset(18, 18)
-            b.Position = UDim2.new(1, offset, 0.5, -9)
-            b.BackgroundColor3 = Color3.fromRGB(70,70,100)
-            b.BorderSizePixel = 0
-            b.Font = Enum.Font.GothamBold
-            b.Text = label
-            b.TextSize = 9
-            b.TextColor3 = Color3.new(1,1,1)
-            Instance.new("UICorner", b).CornerRadius = UDim.new(0,3)
-            b.MouseButton1Click:Connect(function() self:ChangeZIndex(elem, delta) end)
-        end
-        makeZBtn("▲", -42, 1)
-        makeZBtn("▼", -21, -1)
-    end
-end
-function Modules.GUICreator:ChangeZIndex(element, delta)
-    local oldZ = element.ZIndex
-    local newZ = math.max(3, oldZ + delta)
-    element.ZIndex = newZ
-    self:PushUndo({
-        Do   = function() element.ZIndex = newZ ; self:RefreshHierarchy() end,
-        Undo = function() element.ZIndex = oldZ ; self:RefreshHierarchy() end
-    })
-    self:RefreshHierarchy()
-    self:UpdatePropertiesPanel(element)
-end
-function Modules.GUICreator:UpdatePropertiesPanel(element)
-    local panel = self.State.PropertyPanel
-    for _, child in ipairs(panel:GetChildren()) do
-        if not child:IsA("UIListLayout") then child:Destroy() end
-    end
-    if not element then return end
-    local data = self:GetDataForElement(element)
-    self:CreateProperty(panel, "Name", element.Name, function(v)
-        local old = element.Name
-        element.Name = v
-        if data and data.SelectionBox then
-            data.SelectionBox.Name = "SelectionBox_" .. v
-        end
-        self:PushUndo({
-            Do   = function() element.Name = v   ; self:RefreshHierarchy() end,
-            Undo = function() element.Name = old ; self:RefreshHierarchy() end
-        })
-        self:RefreshHierarchy()
-    end)
-    self:CreateProperty(panel, "Size X", tostring(element.Size.X.Offset), function(v)
-        element.Size = UDim2.fromOffset(tonumber(v) or 200, element.Size.Y.Offset)
-        if data then data.SyncSelBox() end
-    end)
-    self:CreateProperty(panel, "Size Y", tostring(element.Size.Y.Offset), function(v)
-        element.Size = UDim2.fromOffset(element.Size.X.Offset, tonumber(v) or 100)
-        if data then data.SyncSelBox() end
-    end)
-    self:CreateProperty(panel, "Pos X", tostring(element.Position.X.Offset), function(v)
-        element.Position = UDim2.fromOffset(tonumber(v) or 0, element.Position.Y.Offset)
-        if data then data.SyncSelBox() end
-    end)
-    self:CreateProperty(panel, "Pos Y", tostring(element.Position.Y.Offset), function(v)
-        element.Position = UDim2.fromOffset(element.Position.X.Offset, tonumber(v) or 0)
-        if data then data.SyncSelBox() end
-    end)
-    self:CreateProperty(panel, "ZIndex", tostring(element.ZIndex), function(v)
-        local old = element.ZIndex
-        local nz  = math.max(3, tonumber(v) or 3)
-        element.ZIndex = nz
-        self:PushUndo({
-            Do   = function() element.ZIndex = nz  ; self:RefreshHierarchy() end,
-            Undo = function() element.ZIndex = old ; self:RefreshHierarchy() end
-        })
-        self:RefreshHierarchy()
-    end)
-    self:CreateProperty(panel, "CornerRadius", tostring(data and data.CornerRadius or 8), function(v)
-        local r = math.max(0, tonumber(v) or 8)
-        if data then data.CornerRadius = r end
-        local corner = element:FindFirstChildOfClass("UICorner")
-        if corner then corner.CornerRadius = UDim.new(0, r) end
-    end)
-    self:CreateProperty(panel, "AnchorPoint X", tostring(element.AnchorPoint.X), function(v)
-        element.AnchorPoint = Vector2.new(math.clamp(tonumber(v) or 0, 0, 1), element.AnchorPoint.Y)
-        if data then data.SyncSelBox() end
-    end)
-    self:CreateProperty(panel, "AnchorPoint Y", tostring(element.AnchorPoint.Y), function(v)
-        element.AnchorPoint = Vector2.new(element.AnchorPoint.X, math.clamp(tonumber(v) or 0, 0, 1))
-        if data then data.SyncSelBox() end
-    end)
-    self:CreateColorProperty(panel, "BG Color", element.BackgroundColor3, function(c)
-        element.BackgroundColor3 = c
-    end)
-    self:CreateProperty(panel, "Transparency", tostring(element.BackgroundTransparency), function(v)
-        element.BackgroundTransparency = math.clamp(tonumber(v) or 0, 0, 1)
-    end)
-    self:CreateToggleProperty(panel, "Visible", element.Visible, function(v)
-        element.Visible = v
-    end)
-    if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
-        self:CreateProperty(panel, "Text", element.Text, function(v) element.Text = v end)
-        self:CreateProperty(panel, "TextSize", tostring(element.TextSize), function(v)
-            element.TextSize = tonumber(v) or 14
-        end)
-        self:CreateColorProperty(panel, "Text Color", element.TextColor3, function(c)
-            element.TextColor3 = c
-        end)
-    end
-    if element:IsA("ImageLabel") or element:IsA("ImageButton") then
-        self:CreateProperty(panel, "Image ID", element.Image, function(v)
-            element.Image = v
-        end)
-        self:CreateProperty(panel, "ImageTransparency", tostring(element.ImageTransparency), function(v)
-            element.ImageTransparency = math.clamp(tonumber(v) or 0, 0, 1)
-        end)
-        self:CreateColorProperty(panel, "ImageColor3", element.ImageColor3, function(c)
-            element.ImageColor3 = c
-        end)
-        self:CreateProperty(panel, "ScaleType (Fit/Crop/Stretch/Tile/Slice)", tostring(element.ScaleType):gsub("Enum%.ScaleType%.",""), function(v)
-            local map = {Fit=Enum.ScaleType.Fit,Crop=Enum.ScaleType.Crop,Stretch=Enum.ScaleType.Stretch,Tile=Enum.ScaleType.Tile,Slice=Enum.ScaleType.Slice}
-            if map[v] then element.ScaleType = map[v] end
-        end)
-    end
-    if element:IsA("ScrollingFrame") then
-        self:CreateProperty(panel, "Canvas W", tostring(element.CanvasSize.X.Offset), function(v)
-            element.CanvasSize = UDim2.fromOffset(tonumber(v) or 480, element.CanvasSize.Y.Offset)
-        end)
-        self:CreateProperty(panel, "Canvas H", tostring(element.CanvasSize.Y.Offset), function(v)
-            element.CanvasSize = UDim2.fromOffset(element.CanvasSize.X.Offset, tonumber(v) or 720)
-        end)
-        self:CreateProperty(panel, "ScrollBarThickness", tostring(element.ScrollBarThickness), function(v)
-            element.ScrollBarThickness = tonumber(v) or 6
-        end)
-        self:CreateColorProperty(panel, "ScrollBar Color", element.ScrollBarImageColor3, function(c)
-            element.ScrollBarImageColor3 = c
-        end)
-        self:CreateToggleProperty(panel, "ScrollingEnabled (export)", false, function(v)
-            local data2 = self:GetDataForElement(element)
-            if data2 then data2.ExportScrollingEnabled = v end
-        end)
-        self:CreateToggleProperty(panel, "AutomaticCanvasSize", element.AutomaticCanvasSize ~= Enum.AutomaticSize.None, function(v)
-            element.AutomaticCanvasSize = v and Enum.AutomaticSize.XY or Enum.AutomaticSize.None
-        end)
-    end
-    if element:IsA("CanvasGroup") then
-        self:CreateProperty(panel, "GroupTransparency", tostring(element.GroupTransparency), function(v)
-            element.GroupTransparency = math.clamp(tonumber(v) or 0, 0, 1)
-        end)
-        self:CreateColorProperty(panel, "GroupColor3", element.GroupColor3, function(c)
-            element.GroupColor3 = c
-        end)
-    end
-    if element:IsA("ViewportFrame") then
-        self:CreateColorProperty(panel, "Ambient", element.Ambient, function(c)
-            element.Ambient = c
-        end)
-        self:CreateColorProperty(panel, "LightColor", element.LightColor, function(c)
-            element.LightColor = c
-        end)
-        self:CreateProperty(panel, "LightDir X", tostring(element.LightDirection.X), function(v)
-            element.LightDirection = Vector3.new(tonumber(v) or -1, element.LightDirection.Y, element.LightDirection.Z)
-        end)
-        self:CreateProperty(panel, "LightDir Y", tostring(element.LightDirection.Y), function(v)
-            element.LightDirection = Vector3.new(element.LightDirection.X, tonumber(v) or -1, element.LightDirection.Z)
-        end)
-        self:CreateProperty(panel, "LightDir Z", tostring(element.LightDirection.Z), function(v)
-            element.LightDirection = Vector3.new(element.LightDirection.X, element.LightDirection.Y, tonumber(v) or -1)
-        end)
-        self:CreateProperty(panel, "ImageTransparency", tostring(element.ImageTransparency), function(v)
-            element.ImageTransparency = math.clamp(tonumber(v) or 0, 0, 1)
-        end)
-    end
-    if element:IsA("VideoFrame") then
-        self:CreateProperty(panel, "Video (rbxassetid://)", element.Video, function(v)
-            element.Video = v
-        end)
-        self:CreateProperty(panel, "Volume (0-1)", tostring(element.Volume), function(v)
-            element.Volume = math.clamp(tonumber(v) or 0.5, 0, 1)
-        end)
-        self:CreateToggleProperty(panel, "Looped", element.Looped, function(v)
-            element.Looped = v
-        end)
-        self:CreateToggleProperty(panel, "Playing", element.IsPlaying, function(v)
-            if v then element:Play() else element:Pause() end
-        end)
-    end
-    self:_buildModifierSubPanel(panel, element)
-    local deleteBtn = Instance.new("TextButton", panel)
-    deleteBtn.Size = UDim2.new(1,-6,0,32)
-    deleteBtn.BackgroundColor3 = Color3.fromRGB(220,45,90)
-    deleteBtn.BorderSizePixel = 0
-    deleteBtn.Font = Enum.Font.GothamBold
-    deleteBtn.Text = "🗑  DELETE ELEMENT"
-    deleteBtn.TextColor3 = Color3.new(1,1,1)
-    deleteBtn.TextSize = 11
-    Instance.new("UICorner", deleteBtn).CornerRadius = UDim.new(0,6)
-    deleteBtn.MouseButton1Click:Connect(function() self:DeleteElement(element) end)
-    local dupBtn = Instance.new("TextButton", panel)
-    dupBtn.Size = UDim2.new(1,-6,0,32)
-    dupBtn.BackgroundColor3 = Color3.fromRGB(70,130,220)
-    dupBtn.BorderSizePixel = 0
-    dupBtn.Font = Enum.Font.GothamBold
-    dupBtn.Text = "⧉  DUPLICATE (Ctrl+D)"
-    dupBtn.TextColor3 = Color3.new(1,1,1)
-    dupBtn.TextSize = 11
-    Instance.new("UICorner", dupBtn).CornerRadius = UDim.new(0,6)
-    dupBtn.MouseButton1Click:Connect(function() self:DuplicateElement(element) end)
-end
-function Modules.GUICreator:_buildModifierSubPanel(panel, element)
-    local modifierTypes = {
-        "UICorner","UIStroke","UIGradient","UIPadding","UIScale",
-        "UIAspectRatioConstraint","UISizeConstraint",
-        "UIListLayout","UIGridLayout","UITableLayout","UIPageLayout"
-    }
-    for _, modType in ipairs(modifierTypes) do
-        local mod = element:FindFirstChildOfClass(modType)
-        if not mod then continue end
-        local sectionLabel = Instance.new("TextLabel", panel)
-        sectionLabel.Size = UDim2.new(1,-6,0,22)
-        sectionLabel.BackgroundColor3 = Color3.fromRGB(20,20,30)
-        sectionLabel.BorderSizePixel = 0
-        sectionLabel.Font = Enum.Font.GothamBold
-        sectionLabel.Text = "  ⬡ " .. modType
-        sectionLabel.TextColor3 = Color3.fromRGB(90,140,255)
-        sectionLabel.TextSize = 10
-        sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
-        Instance.new("UICorner", sectionLabel).CornerRadius = UDim.new(0,4)
-        local removeBtn = Instance.new("TextButton", panel)
-        removeBtn.Size = UDim2.new(1,-6,0,22)
-        removeBtn.BackgroundColor3 = Color3.fromRGB(130,30,50)
-        removeBtn.BorderSizePixel = 0
-        removeBtn.Font = Enum.Font.GothamBold
-        removeBtn.Text = "✕  Remove " .. modType
-        removeBtn.TextColor3 = Color3.new(1,1,1)
-        removeBtn.TextSize = 9
-        Instance.new("UICorner", removeBtn).CornerRadius = UDim.new(0,4)
-        removeBtn.MouseButton1Click:Connect(function()
-            local data = self:GetDataForElement(element)
-            self:PushUndo({
-                Do   = function() if mod and mod.Parent then mod:Destroy() end end,
-                Undo = function() mod.Parent = element end,
-            })
-            mod:Destroy()
-            if data and data.Modifiers then data.Modifiers[modType] = nil end
-            self:UpdatePropertiesPanel(element)
-        end)
-        if modType == "UICorner" then
-            self:CreateProperty(panel, "CornerRadius", tostring(mod.CornerRadius.Offset), function(v)
-                mod.CornerRadius = UDim.new(0, math.max(0, tonumber(v) or 8))
-                local data = self:GetDataForElement(element)
-                if data then data.CornerRadius = mod.CornerRadius.Offset end
-            end)
-        elseif modType == "UIStroke" then
-            self:CreateColorProperty(panel, "Stroke Color", mod.Color, function(c) mod.Color = c end)
-            self:CreateProperty(panel, "Stroke Thickness", tostring(mod.Thickness), function(v)
-                mod.Thickness = tonumber(v) or 2
-            end)
-            self:CreateProperty(panel, "Transparency", tostring(mod.Transparency), function(v)
-                mod.Transparency = math.clamp(tonumber(v) or 0, 0, 1)
-            end)
-            self:CreateToggleProperty(panel, "ApplyStrokeMode=Border", mod.ApplyStrokeMode == Enum.ApplyStrokeMode.Border, function(v)
-                mod.ApplyStrokeMode = v and Enum.ApplyStrokeMode.Border or Enum.ApplyStrokeMode.Contextual
-            end)
-        elseif modType == "UIGradient" then
-            self:CreateProperty(panel, "Rotation (deg)", tostring(mod.Rotation), function(v)
-                mod.Rotation = tonumber(v) or 0
-            end)
-            self:CreateProperty(panel, "Offset X", tostring(mod.Offset.X), function(v)
-                mod.Offset = Vector2.new(tonumber(v) or 0, mod.Offset.Y)
-            end)
-            self:CreateProperty(panel, "Offset Y", tostring(mod.Offset.Y), function(v)
-                mod.Offset = Vector2.new(mod.Offset.X, tonumber(v) or 0)
-            end)
-            self:CreateToggleProperty(panel, "Enabled", mod.Enabled, function(v) mod.Enabled = v end)
-        elseif modType == "UIPadding" then
-            self:CreateProperty(panel, "Pad Left",   tostring(mod.PaddingLeft.Offset),   function(v) mod.PaddingLeft   = UDim.new(0, tonumber(v) or 0) end)
-            self:CreateProperty(panel, "Pad Right",  tostring(mod.PaddingRight.Offset),  function(v) mod.PaddingRight  = UDim.new(0, tonumber(v) or 0) end)
-            self:CreateProperty(panel, "Pad Top",    tostring(mod.PaddingTop.Offset),    function(v) mod.PaddingTop    = UDim.new(0, tonumber(v) or 0) end)
-            self:CreateProperty(panel, "Pad Bottom", tostring(mod.PaddingBottom.Offset), function(v) mod.PaddingBottom = UDim.new(0, tonumber(v) or 0) end)
-        elseif modType == "UIScale" then
-            self:CreateProperty(panel, "Scale", tostring(mod.Scale), function(v)
-                mod.Scale = tonumber(v) or 1
-            end)
-        elseif modType == "UIAspectRatioConstraint" then
-            self:CreateProperty(panel, "AspectRatio", tostring(mod.AspectRatio), function(v)
-                mod.AspectRatio = tonumber(v) or 1
-            end)
-        elseif modType == "UISizeConstraint" then
-            self:CreateProperty(panel, "MinSize X", tostring(mod.MinSize.X), function(v)
-                mod.MinSize = Vector2.new(tonumber(v) or 0, mod.MinSize.Y)
-            end)
-            self:CreateProperty(panel, "MinSize Y", tostring(mod.MinSize.Y), function(v)
-                mod.MinSize = Vector2.new(mod.MinSize.X, tonumber(v) or 0)
-            end)
-            self:CreateProperty(panel, "MaxSize X (0=inf)", tostring(mod.MaxSize.X == math.huge and 0 or mod.MaxSize.X), function(v)
-                local n = tonumber(v) or 0
-                mod.MaxSize = Vector2.new(n == 0 and math.huge or n, mod.MaxSize.Y)
-            end)
-            self:CreateProperty(panel, "MaxSize Y (0=inf)", tostring(mod.MaxSize.Y == math.huge and 0 or mod.MaxSize.Y), function(v)
-                local n = tonumber(v) or 0
-                mod.MaxSize = Vector2.new(mod.MaxSize.X, n == 0 and math.huge or n)
-            end)
-        elseif modType == "UIListLayout" then
-            self:CreateProperty(panel, "Padding", tostring(mod.Padding.Offset), function(v)
-                mod.Padding = UDim.new(0, tonumber(v) or 6)
-            end)
-            self:CreateToggleProperty(panel, "Horizontal (else Vertical)", mod.FillDirection == Enum.FillDirection.Horizontal, function(v)
-                mod.FillDirection = v and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical
-            end)
-            self:CreateToggleProperty(panel, "Reverse FillDir", mod.VerticalAlignment == Enum.VerticalAlignment.Bottom, function(v)
-                if mod.FillDirection == Enum.FillDirection.Vertical then
-                    mod.VerticalAlignment = v and Enum.VerticalAlignment.Bottom or Enum.VerticalAlignment.Top
-                else
-                    mod.HorizontalAlignment = v and Enum.HorizontalAlignment.Right or Enum.HorizontalAlignment.Left
-                end
-            end)
-            self:CreateToggleProperty(panel, "SortOrder=Name (else LayoutOrder)", mod.SortOrder == Enum.SortOrder.Name, function(v)
-                mod.SortOrder = v and Enum.SortOrder.Name or Enum.SortOrder.LayoutOrder
-            end)
-        elseif modType == "UIGridLayout" then
-            self:CreateProperty(panel, "Cell W", tostring(mod.CellSize.X.Offset), function(v)
-                mod.CellSize = UDim2.fromOffset(tonumber(v) or 80, mod.CellSize.Y.Offset)
-            end)
-            self:CreateProperty(panel, "Cell H", tostring(mod.CellSize.Y.Offset), function(v)
-                mod.CellSize = UDim2.fromOffset(mod.CellSize.X.Offset, tonumber(v) or 80)
-            end)
-            self:CreateProperty(panel, "Cell Pad H", tostring(mod.CellPaddingHorizontal.Offset), function(v)
-                mod.CellPaddingHorizontal = UDim.new(0, tonumber(v) or 6)
-            end)
-            self:CreateProperty(panel, "Cell Pad V", tostring(mod.CellPaddingVertical.Offset), function(v)
-                mod.CellPaddingVertical = UDim.new(0, tonumber(v) or 6)
-            end)
-        elseif modType == "UIPageLayout" then
-            self:CreateToggleProperty(panel, "Animated", mod.Animated, function(v) mod.Animated = v end)
-            self:CreateProperty(panel, "TweenTime", tostring(mod.TweenTime), function(v)
-                mod.TweenTime = tonumber(v) or 0.2
-            end)
-            self:CreateToggleProperty(panel, "Horizontal (else Vertical)", mod.FillDirection == Enum.FillDirection.Horizontal, function(v)
-                mod.FillDirection = v and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical
-            end)
-        end
-    end
-end
-function Modules.GUICreator:CreateProperty(panel, name, value, onChange)
-    local container = Instance.new("Frame", panel)
-    container.Size = UDim2.new(1,-6,0,48)
-    container.BackgroundColor3 = Color3.fromRGB(36,36,50)
-    container.BorderSizePixel = 0
-    Instance.new("UICorner", container).CornerRadius = UDim.new(0,5)
-    local label = Instance.new("TextLabel", container)
-    label.Size = UDim2.new(1,-10,0,18)
-    label.Position = UDim2.fromOffset(6,4)
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.GothamBold
-    label.Text = name
-    label.TextColor3 = Color3.fromRGB(180,180,200)
-    label.TextSize = 10
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    local input = Instance.new("TextBox", container)
-    input.Size = UDim2.new(1,-12,0,20)
-    input.Position = UDim2.fromOffset(6,24)
-    input.BackgroundColor3 = Color3.fromRGB(26,26,38)
-    input.BorderSizePixel = 0
-    input.Font = Enum.Font.Code
-    input.Text = tostring(value)
-    input.TextColor3 = Color3.new(1,1,1)
-    input.TextSize = 10
-    input.ClearTextOnFocus = false
-    Instance.new("UICorner", input).CornerRadius = UDim.new(0,4)
-    input.FocusLost:Connect(function() onChange(input.Text) end)
-end
-function Modules.GUICreator:CreateColorProperty(panel, name, color, onChange)
-    local container = Instance.new("Frame", panel)
-    container.Size = UDim2.new(1,-6,0,48)
-    container.BackgroundColor3 = Color3.fromRGB(36,36,50)
-    container.BorderSizePixel = 0
-    Instance.new("UICorner", container).CornerRadius = UDim.new(0,5)
-    local label = Instance.new("TextLabel", container)
-    label.Size = UDim2.new(1,-46,0,18)
-    label.Position = UDim2.fromOffset(6,4)
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.GothamBold
-    label.Text = name
-    label.TextColor3 = Color3.fromRGB(180,180,200)
-    label.TextSize = 10
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    local preview = Instance.new("Frame", container)
-    preview.Size = UDim2.fromOffset(22,22)
-    preview.Position = UDim2.new(1,-28,0,4)
-    preview.BackgroundColor3 = color
-    preview.BorderSizePixel = 0
-    Instance.new("UICorner", preview).CornerRadius = UDim.new(0,4)
-    local input = Instance.new("TextBox", container)
-    input.Size = UDim2.new(1,-12,0,20)
-    input.Position = UDim2.fromOffset(6,24)
-    input.BackgroundColor3 = Color3.fromRGB(26,26,38)
-    input.BorderSizePixel = 0
-    input.Font = Enum.Font.Code
-    input.Text = string.format("%d,%d,%d", color.R*255, color.G*255, color.B*255)
-    input.TextColor3 = Color3.new(1,1,1)
-    input.TextSize = 10
-    input.PlaceholderText = "R,G,B"
-    input.ClearTextOnFocus = false
-    Instance.new("UICorner", input).CornerRadius = UDim.new(0,4)
-    input.FocusLost:Connect(function()
-        local p = string.split(input.Text, ",")
-        if #p == 3 then
-            local r,g,b = tonumber(p[1]),tonumber(p[2]),tonumber(p[3])
-            if r and g and b then
-                local nc = Color3.fromRGB(r,g,b)
-                preview.BackgroundColor3 = nc
-                onChange(nc)
-            end
-        end
-    end)
-end
-function Modules.GUICreator:CreateToggleProperty(panel, name, currentValue, onChange)
-    local container = Instance.new("Frame", panel)
-    container.Size = UDim2.new(1,-6,0,34)
-    container.BackgroundColor3 = Color3.fromRGB(36,36,50)
-    container.BorderSizePixel = 0
-    Instance.new("UICorner", container).CornerRadius = UDim.new(0,5)
-    local label = Instance.new("TextLabel", container)
-    label.Size = UDim2.new(1,-50,1,0)
-    label.Position = UDim2.fromOffset(6,0)
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.GothamBold
-    label.Text = name
-    label.TextColor3 = Color3.fromRGB(180,180,200)
-    label.TextSize = 10
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    local val = currentValue
-    local toggleBtn = Instance.new("TextButton", container)
-    toggleBtn.Size = UDim2.fromOffset(44, 22)
-    toggleBtn.Position = UDim2.new(1,-50,0.5,-11)
-    toggleBtn.BorderSizePixel = 0
-    toggleBtn.Font = Enum.Font.GothamBold
-    toggleBtn.TextSize = 10
-    toggleBtn.TextColor3 = Color3.new(1,1,1)
-    toggleBtn.AutoButtonColor = false
-    Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0,4)
-    local function refresh()
-        toggleBtn.Text = val and "ON" or "OFF"
-        toggleBtn.BackgroundColor3 = val and Color3.fromRGB(0,180,90) or Color3.fromRGB(140,40,60)
-    end
-    refresh()
-    toggleBtn.MouseButton1Click:Connect(function()
-        val = not val
-        refresh()
-        onChange(val)
-    end)
-end
-function Modules.GUICreator:DeleteElement(element)
-    local savedType, savedData
-    local savedIdx
-    for i, data in ipairs(self.State.CreatedGUIs) do
-        if data.Element == element then
-            savedType = data.Type
-            savedData = data
-            savedIdx  = i
-            table.remove(self.State.CreatedGUIs, i)
-            break
-        end
-    end
-    if savedData and savedData.Connections then
-        for _, c in ipairs(savedData.Connections) do
-            if c then c:Disconnect() end
-        end
-    end
-    if savedData and savedData.SelectionBox then
-        savedData.SelectionBox:Destroy()
-    end
-    local snap = {
-        Size             = element.Size,
-        Position         = element.Position,
-        BackgroundColor3 = element.BackgroundColor3,
-        ZIndex           = element.ZIndex,
-        CornerRadius     = savedData and savedData.CornerRadius or 8,
-    }
-    if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
-        snap.Text       = element.Text
-        snap.TextColor3 = element.TextColor3
-        snap.TextSize   = element.TextSize
-    end
-    if element:IsA("ImageLabel") or element:IsA("ImageButton") then
-        snap.Image             = element.Image
-        snap.ImageTransparency = element.ImageTransparency
-        snap.ImageColor3       = element.ImageColor3
-    end
-    if element:IsA("ScrollingFrame") then
-        snap.CanvasSize           = UDim2.fromOffset(element.CanvasSize.X.Offset, element.CanvasSize.Y.Offset)
-        snap.ScrollBarThickness   = element.ScrollBarThickness
-        snap.ScrollBarImageColor3 = element.ScrollBarImageColor3
-    end
-    if element:IsA("CanvasGroup") then
-        snap.GroupTransparency = element.GroupTransparency
-        snap.GroupColor3       = element.GroupColor3
-    end
-    if element:IsA("ViewportFrame") then
-        snap.Ambient        = element.Ambient
-        snap.LightColor     = element.LightColor
-        snap.LightDirection = element.LightDirection
-    end
-    if element:IsA("VideoFrame") then
-        snap.Video  = element.Video
-    end
-    element:Destroy()
-    self.State.SelectedElement = nil
-    self:UpdatePropertiesPanel(nil)
-    self:RefreshHierarchy()
-    self:PushUndo({
-        Undo = function()
-            self:CreateElement(savedType, snap)
-        end,
-        Do = function()
-            local latest = self.State.CreatedGUIs[#self.State.CreatedGUIs]
-            if latest then self:DeleteElement(latest.Element) end
-        end
-    })
-    print("[GUICreator] ✓ Deleted element")
-end
-function Modules.GUICreator:ClearCanvas()
-    for _, data in ipairs(self.State.CreatedGUIs) do
-        if data.Connections then
-            for _, c in ipairs(data.Connections) do if c then c:Disconnect() end end
-        end
-        if data.SelectionBox then data.SelectionBox:Destroy() end
-        if data.Element then data.Element:Destroy() end
-    end
-    self.State.CreatedGUIs     = {}
-    self.State.UndoStack       = {}
-    self.State.RedoStack       = {}
-    self.State.SelectedElement = nil
-    self:UpdatePropertiesPanel(nil)
-    self:RefreshHierarchy()
-    print("[GUICreator] ✓ Cleared canvas")
-end
-function Modules.GUICreator:ExportCode()
-    local lines = {}
-    local function w(s) table.insert(lines, s) end
-    w("-- ════════════════════════════════════════")
-    w("-- Generated by GUI Creator (Zuka)")
-    w("-- Project: " .. self.State.CurrentProject.Name)
-    w("-- ════════════════════════════════════════")
-    w("local Players     = game:GetService('Players')")
-    w("local LocalPlayer = Players.LocalPlayer")
-    w("")
-    w("local ScreenGui = Instance.new('ScreenGui')")
-    w("ScreenGui.Name            = '" .. self.State.CurrentProject.Name .. "'")
-    w("ScreenGui.ResetOnSpawn    = false")
-    w("ScreenGui.ZIndexBehavior  = Enum.ZIndexBehavior.Sibling")
-    w("ScreenGui.Parent          = LocalPlayer:WaitForChild('PlayerGui')")
-    w("")
-    for _, data in ipairs(self.State.CreatedGUIs) do
-        local e = data.Element
-        if not e or not e.Parent then continue end
-        local n = e.Name
-        w(string.format("-- %s", n))
-        w(string.format("local %s = Instance.new('%s')", n, data.Type))
-        w(string.format("%s.Name                   = '%s'",   n, n))
-        w(string.format("%s.Size                   = UDim2.fromOffset(%d, %d)", n, e.Size.X.Offset, e.Size.Y.Offset))
-        w(string.format("%s.Position               = UDim2.fromOffset(%d, %d)", n, e.Position.X.Offset, e.Position.Y.Offset))
-        w(string.format("%s.AnchorPoint            = Vector2.new(%g, %g)",      n, e.AnchorPoint.X, e.AnchorPoint.Y))
-        w(string.format("%s.BackgroundColor3       = Color3.fromRGB(%d, %d, %d)",
-            n, math.round(e.BackgroundColor3.R*255), math.round(e.BackgroundColor3.G*255), math.round(e.BackgroundColor3.B*255)))
-        w(string.format("%s.BackgroundTransparency = %g",  n, e.BackgroundTransparency))
-        w(string.format("%s.BorderSizePixel        = 0",   n))
-        w(string.format("%s.ZIndex                 = %d",  n, e.ZIndex))
-        w(string.format("%s.Visible                = %s",  n, tostring(e.Visible)))
-        if e:IsA("TextLabel") or e:IsA("TextButton") or e:IsA("TextBox") then
-            local safe = e.Text:gsub("'", "\\'")
-            w(string.format("%s.Text                   = '%s'",  n, safe))
-            w(string.format("%s.TextColor3             = Color3.fromRGB(%d, %d, %d)",
-                n, math.round(e.TextColor3.R*255), math.round(e.TextColor3.G*255), math.round(e.TextColor3.B*255)))
-            w(string.format("%s.TextSize               = %d",    n, e.TextSize))
-            w(string.format("%s.Font                   = Enum.Font.%s",
-                n, tostring(e.Font):gsub("Enum%.Font%.", "")))
-            w(string.format("%s.TextXAlignment         = Enum.TextXAlignment.Left", n))
-        end
-        if e:IsA("ImageLabel") or e:IsA("ImageButton") then
-            w(string.format("%s.Image              = '%s'",   n, e.Image))
-            w(string.format("%s.ImageTransparency  = %g",    n, e.ImageTransparency))
-            w(string.format("%s.ImageColor3        = Color3.fromRGB(%d,%d,%d)",
-                n, math.round(e.ImageColor3.R*255), math.round(e.ImageColor3.G*255), math.round(e.ImageColor3.B*255)))
-            w(string.format("%s.ScaleType          = Enum.ScaleType.%s",
-                n, tostring(e.ScaleType):gsub("Enum%.ScaleType%.","")))
-            if e:IsA("ImageButton") then
-                w(string.format("%s.Text = ''", n))
-            end
-        end
-        if e:IsA("ScrollingFrame") then
-            local scrollEnabled = true
-            if data.ExportScrollingEnabled ~= nil then scrollEnabled = data.ExportScrollingEnabled end
-            w(string.format("%s.ScrollBarThickness   = %d",           n, e.ScrollBarThickness))
-            w(string.format("%s.ScrollBarImageColor3 = Color3.fromRGB(%d,%d,%d)",
-                n, math.round(e.ScrollBarImageColor3.R*255), math.round(e.ScrollBarImageColor3.G*255), math.round(e.ScrollBarImageColor3.B*255)))
-            w(string.format("%s.CanvasSize           = UDim2.fromOffset(%d, %d)",
-                n, e.CanvasSize.X.Offset, e.CanvasSize.Y.Offset))
-            w(string.format("%s.ScrollingEnabled     = %s",           n, tostring(scrollEnabled)))
-            w(string.format("%s.AutomaticCanvasSize  = Enum.AutomaticSize.%s",
-                n, tostring(e.AutomaticCanvasSize):gsub("Enum%.AutomaticSize%.","")))
-        end
-        if e:IsA("CanvasGroup") then
-            w(string.format("%s.GroupTransparency = %g",   n, e.GroupTransparency))
-            w(string.format("%s.GroupColor3       = Color3.fromRGB(%d,%d,%d)",
-                n, math.round(e.GroupColor3.R*255), math.round(e.GroupColor3.G*255), math.round(e.GroupColor3.B*255)))
-        end
-        if e:IsA("ViewportFrame") then
-            w(string.format("%s.Ambient          = Color3.fromRGB(%d,%d,%d)",
-                n, math.round(e.Ambient.R*255), math.round(e.Ambient.G*255), math.round(e.Ambient.B*255)))
-            w(string.format("%s.LightColor       = Color3.fromRGB(%d,%d,%d)",
-                n, math.round(e.LightColor.R*255), math.round(e.LightColor.G*255), math.round(e.LightColor.B*255)))
-            w(string.format("%s.LightDirection   = Vector3.new(%g,%g,%g)",
-                n, e.LightDirection.X, e.LightDirection.Y, e.LightDirection.Z))
-            w(string.format("%s.ImageTransparency = %g", n, e.ImageTransparency))
-        end
-        if e:IsA("VideoFrame") then
-            w(string.format("%s.Video   = '%s'",   n, e.Video))
-            w(string.format("%s.Looped  = %s",     n, tostring(e.Looped)))
-            w(string.format("%s.Volume  = %g",     n, e.Volume))
-        end
-        local modifierTypes = {
-            "UICorner","UIStroke","UIGradient","UIPadding","UIScale",
-            "UIAspectRatioConstraint","UISizeConstraint",
-            "UIListLayout","UIGridLayout","UITableLayout","UIPageLayout"
-        }
-        for _, modType in ipairs(modifierTypes) do
-            local mod = e:FindFirstChildOfClass(modType)
-            if not mod then continue end
-            local mn = n .. "_" .. modType
-            w(string.format("do -- %s on %s", modType, n))
-            w(string.format("  local %s = Instance.new('%s', %s)", mn, modType, n))
-            if modType == "UICorner" then
-                w(string.format("  %s.CornerRadius = UDim.new(0,%d)", mn, mod.CornerRadius.Offset))
-            elseif modType == "UIStroke" then
-                w(string.format("  %s.Color         = Color3.fromRGB(%d,%d,%d)",
-                    mn, math.round(mod.Color.R*255), math.round(mod.Color.G*255), math.round(mod.Color.B*255)))
-                w(string.format("  %s.Thickness     = %g",     mn, mod.Thickness))
-                w(string.format("  %s.Transparency  = %g",     mn, mod.Transparency))
-                w(string.format("  %s.ApplyStrokeMode = Enum.ApplyStrokeMode.%s",
-                    mn, tostring(mod.ApplyStrokeMode):gsub("Enum%.ApplyStrokeMode%.","")))
-            elseif modType == "UIGradient" then
-                w(string.format("  %s.Rotation = %g", mn, mod.Rotation))
-                w(string.format("  %s.Offset   = Vector2.new(%g,%g)", mn, mod.Offset.X, mod.Offset.Y))
-                w(string.format("  %s.Enabled  = %s", mn, tostring(mod.Enabled)))
-            elseif modType == "UIPadding" then
-                w(string.format("  %s.PaddingLeft   = UDim.new(0,%d)", mn, mod.PaddingLeft.Offset))
-                w(string.format("  %s.PaddingRight  = UDim.new(0,%d)", mn, mod.PaddingRight.Offset))
-                w(string.format("  %s.PaddingTop    = UDim.new(0,%d)", mn, mod.PaddingTop.Offset))
-                w(string.format("  %s.PaddingBottom = UDim.new(0,%d)", mn, mod.PaddingBottom.Offset))
-            elseif modType == "UIScale" then
-                w(string.format("  %s.Scale = %g", mn, mod.Scale))
-            elseif modType == "UIAspectRatioConstraint" then
-                w(string.format("  %s.AspectRatio = %g", mn, mod.AspectRatio))
-                w(string.format("  %s.AspectType  = Enum.AspectType.%s",
-                    mn, tostring(mod.AspectType):gsub("Enum%.AspectType%.","")))
-            elseif modType == "UISizeConstraint" then
-                local minX, minY = mod.MinSize.X, mod.MinSize.Y
-                local maxX = mod.MaxSize.X == math.huge and "math.huge" or tostring(mod.MaxSize.X)
-                local maxY = mod.MaxSize.Y == math.huge and "math.huge" or tostring(mod.MaxSize.Y)
-                w(string.format("  %s.MinSize = Vector2.new(%g,%g)", mn, minX, minY))
-                w(string.format("  %s.MaxSize = Vector2.new(%s,%s)", mn, maxX, maxY))
-            elseif modType == "UIListLayout" then
-                w(string.format("  %s.Padding             = UDim.new(0,%d)", mn, mod.Padding.Offset))
-                w(string.format("  %s.FillDirection       = Enum.FillDirection.%s",
-                    mn, tostring(mod.FillDirection):gsub("Enum%.FillDirection%.","")))
-                w(string.format("  %s.HorizontalAlignment = Enum.HorizontalAlignment.%s",
-                    mn, tostring(mod.HorizontalAlignment):gsub("Enum%.HorizontalAlignment%.","")))
-                w(string.format("  %s.VerticalAlignment   = Enum.VerticalAlignment.%s",
-                    mn, tostring(mod.VerticalAlignment):gsub("Enum%.VerticalAlignment%.","")))
-                w(string.format("  %s.SortOrder           = Enum.SortOrder.%s",
-                    mn, tostring(mod.SortOrder):gsub("Enum%.SortOrder%.","")))
-            elseif modType == "UIGridLayout" then
-                w(string.format("  %s.CellSize               = UDim2.fromOffset(%d,%d)", mn, mod.CellSize.X.Offset, mod.CellSize.Y.Offset))
-                w(string.format("  %s.CellPaddingHorizontal  = UDim.new(0,%d)", mn, mod.CellPaddingHorizontal.Offset))
-                w(string.format("  %s.CellPaddingVertical    = UDim.new(0,%d)", mn, mod.CellPaddingVertical.Offset))
-                w(string.format("  %s.SortOrder              = Enum.SortOrder.%s",
-                    mn, tostring(mod.SortOrder):gsub("Enum%.SortOrder%.","")))
-            elseif modType == "UITableLayout" then
-                w(string.format("  %s.FillDirection = Enum.FillDirection.%s",
-                    mn, tostring(mod.FillDirection):gsub("Enum%.FillDirection%.","")))
-                w(string.format("  %s.Padding       = UDim.new(0,%d)", mn, mod.Padding.Offset))
-            elseif modType == "UIPageLayout" then
-                w(string.format("  %s.Animated     = %s", mn, tostring(mod.Animated)))
-                w(string.format("  %s.TweenTime    = %g", mn, mod.TweenTime))
-                w(string.format("  %s.FillDirection = Enum.FillDirection.%s",
-                    mn, tostring(mod.FillDirection):gsub("Enum%.FillDirection%.","")))
-            end
-            w("end")
-        end
-        w(string.format("%s.Parent = ScreenGui", n))
-        w("")
-    end
-    local code = table.concat(lines, "\n")
-    if setclipboard then
-        setclipboard(code)
-        print("[GUICreator] ✓ Code copied to clipboard!")
-    else
-        print(code)
-        print("[GUICreator] ✓ Code printed to console (F9)")
-    end
-end
-function Modules.GUICreator:Enable()
-    if self.State.IsEnabled then return end
-    self.State.IsEnabled = true
-    self:_createUI()
-    print("[GUICreator] ✓ Enabled")
-    print("  Drag | Resize via handles | Ctrl+Z/Y | Ctrl+D dup | Del delete | ScrollingFrame fully resizable")
-end
-function Modules.GUICreator:Disable()
-    if not self.State.IsEnabled then return end
-    self.State.IsEnabled = false
-    for _, conn in pairs(self.State.Connections) do
-        if conn then conn:Disconnect() end
-    end
-    table.clear(self.State.Connections)
-    for _, data in ipairs(self.State.CreatedGUIs) do
-        if data.Connections then
-            for _, c in ipairs(data.Connections) do if c then c:Disconnect() end end
-        end
-    end
-    if self.State.UI then
-        self.State.UI:Destroy()
-        self.State.UI = nil
-    end
-    self.State.CreatedGUIs     = {}
-    self.State.UndoStack       = {}
-    self.State.RedoStack       = {}
-    self.State.SelectedElement = nil
-    self.State.GridFrame       = nil
-    print("[GUICreator] ✓ Disabled")
-end
-function Modules.GUICreator:Toggle()
-    if self.State.IsEnabled then self:Disable() else self:Enable() end
-end
+
 Modules.ActionRemoteForcer = {
     State = {
         GenericRemotes = {},
@@ -37041,52 +28373,118 @@ function Modules.ProximityPromptTools:Initialize()
 end
 Modules.HDAdmin = {
     State = {
-        AntiClientCommands  = false,
-        AntiDeath           = false,
-        AntiJail            = false,
-        AntiMute            = false,
-        ClientCommandConn   = nil,
-        DeathConn           = nil,
-        CharAddedConn       = nil,
-        AntiJailThread      = nil,
-        AntiMuteThread      = nil,
+        AntiClientCommands   = false,
+        AntiDeath            = false,
+        AntiJail             = false,
+        AntiMute             = false,
+        AntiFling            = false,
+        AntiFreeze           = false,
+        AntiExplosion        = false,
+        AntiSpeedManip       = false,
+        AntiInvis            = false,
+        AntiNoclipLock       = false,
+        ClientCommandConn    = nil,
+        DeathConn            = nil,
+        CharAddedConn        = nil,
+        AntiJailThread       = nil,
+        AntiMuteThread       = nil,
+        AntiFlingThread      = nil,
+        AntiFreezeThread     = nil,
+        AntiExplosionConn    = nil,
+        AntiSpeedThread      = nil,
+        AntiInvisThread      = nil,
+        AntiNoclipLockThread = nil,
     }
 }
-function Modules.HDAdmin:_getAPI()
-    local rs = game:GetService("ReplicatedStorage")
-    return rs:FindFirstChild("HDAdminHDClient") or rs:FindFirstChild("HDAdminClient")
-end
 function Modules.HDAdmin:_getRequest()
-    local api = self:_getAPI()
-    if not api then return nil end
-    local signals = api:FindFirstChild("Signals")
-    if not signals then return nil end
-    return signals:FindFirstChild("RequestCommandSilent")
-        or signals:FindFirstChild("RequestCommand")
+    local rs = game:GetService("ReplicatedStorage")
+    local setup = rs:FindFirstChild("HDAdminSetup")
+        or rs:FindFirstChild("HDAdmin")
+        or rs:FindFirstChild("MainModule")
+    if setup then
+        local ok, main = pcall(require, setup)
+        if ok and type(main) == "table" then
+            local ok2, cf = pcall(function() return main:GetClientFolder() end)
+            if ok2 and cf then
+                for _, obj in ipairs(cf:GetDescendants()) do
+                    if obj.Name == "RequestCommandSilent" or obj.Name == "RequestCommand" then
+                        return obj
+                    end
+                end
+            end
+            local ok3, mainMod = pcall(function() return main:GetMain() end)
+            if ok3 and mainMod and mainMod.sss then
+                local sss = mainMod.sss
+                if typeof(sss) == "Instance" then
+                    for _, obj in ipairs(sss:GetDescendants()) do
+                        if obj.Name == "RequestCommandSilent" or obj.Name == "RequestCommand" then
+                            return obj
+                        end
+                    end
+                end
+            end
+        end
+    end
+    for _, child in ipairs(rs:GetChildren()) do
+        if child.Name:lower():find("hdadmin") then
+            for _, obj in ipairs(child:GetDescendants()) do
+                if obj.Name == "RequestCommandSilent" or obj.Name == "RequestCommand" then
+                    return obj
+                end
+            end
+        end
+    end
+    for _, obj in ipairs(rs:GetDescendants()) do
+        if obj.Name == "RequestCommandSilent" or obj.Name == "RequestCommand" then
+            return obj
+        end
+    end
+    return nil
 end
 function Modules.HDAdmin:_invoke(cmd)
     local request = self:_getRequest()
-    if request and request:IsA("RemoteFunction") then
-        pcall(function() request:InvokeServer(cmd) end)
+    if not request then
+        DoNotif("HDAdmin: remote not found", 2)
+        return
     end
+    pcall(function()
+        if request:IsA("RemoteEvent") then
+            request:FireServer(cmd)
+        elseif request:IsA("RemoteFunction") then
+            request:InvokeServer(cmd)
+        end
+    end)
 end
 function Modules.HDAdmin:EnableAntiClientCommands()
     if self.State.AntiClientCommands then return end
     self.State.AntiClientCommands = true
-    self.State.ClientCommandConn = LocalPlayer.PlayerGui.ChildAdded:Connect(function(obj)
-        if obj:IsA("LocalScript") then
-            task.wait()
-            pcall(function() obj:Destroy() end)
-            DoNotif("Anti CC: blocked client command", 2)
-        end
-    end)
+    local watched = {
+        LocalPlayer.PlayerGui,
+        LocalPlayer.Backpack,
+        LocalPlayer.PlayerScripts,
+    }
+    local conns = {}
+    for _, container in ipairs(watched) do
+        table.insert(conns, container.DescendantAdded:Connect(function(obj)
+            if not self.State.AntiClientCommands then return end
+            if obj:IsA("LocalScript") or obj:IsA("Script") or obj:IsA("ModuleScript") then
+                task.defer(function()
+                    pcall(function() obj:Destroy() end)
+                end)
+                DoNotif("Anti CC: blocked script in " .. container.Name, 2)
+            end
+        end))
+    end
+    self.State.ClientCommandConn = conns
     DoNotif("Anti Client Commands: ENABLED", 2)
 end
 function Modules.HDAdmin:DisableAntiClientCommands()
     if not self.State.AntiClientCommands then return end
     self.State.AntiClientCommands = false
     if self.State.ClientCommandConn then
-        self.State.ClientCommandConn:Disconnect()
+        for _, conn in ipairs(self.State.ClientCommandConn) do
+            conn:Disconnect()
+        end
         self.State.ClientCommandConn = nil
     end
     DoNotif("Anti Client Commands: DISABLED", 2)
@@ -37102,9 +28500,9 @@ function Modules.HDAdmin:EnableAntiDeath()
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if hum then
             self.State.DeathConn = hum.Died:Connect(function()
-                if self.State.AntiDeath then
-                    self:_invoke(";re me")
-                end
+                if not self.State.AntiDeath then return end
+                task.wait(0.1)
+                self:_invoke(";re me")
             end)
         end
     end
@@ -37134,6 +28532,7 @@ function Modules.HDAdmin:EnableAntiJail()
             if Workspace:FindFirstChild(jailName) then
                 self:_invoke(";unjail me")
                 DoNotif("Anti Jail: escaped jail", 2)
+                task.wait(1)
             end
             task.wait(0.5)
         end
@@ -37143,7 +28542,10 @@ end
 function Modules.HDAdmin:DisableAntiJail()
     if not self.State.AntiJail then return end
     self.State.AntiJail = false
-    self.State.AntiJailThread = nil
+    if self.State.AntiJailThread then
+        task.cancel(self.State.AntiJailThread)
+        self.State.AntiJailThread = nil
+    end
     DoNotif("Anti Jail: DISABLED", 2)
 end
 function Modules.HDAdmin:EnableAntiMute()
@@ -37163,133 +28565,349 @@ end
 function Modules.HDAdmin:DisableAntiMute()
     if not self.State.AntiMute then return end
     self.State.AntiMute = false
-    self.State.AntiMuteThread = nil
+    if self.State.AntiMuteThread then
+        task.cancel(self.State.AntiMuteThread)
+        self.State.AntiMuteThread = nil
+    end
     DoNotif("Anti Mute: DISABLED", 2)
 end
-function Modules.HDAdmin:RemoveBlurs()
-    local Lighting = game:GetService("Lighting")
-    local cam = Workspace.CurrentCamera
-    for _, obj in ipairs(Lighting:GetChildren()) do
-        if obj:IsA("BlurEffect") then obj:Destroy() end
-    end
-    if cam then
-        for _, obj in ipairs(cam:GetChildren()) do
-            if obj:IsA("BlurEffect") then obj:Destroy() end
-        end
-    end
-    DoNotif("Blurs removed.", 2)
-end
-function Modules.HDAdmin:GivePeriastrons()
-    local ids = {
-        159229806, 80661504, 99119240, 69499437,
-        120307951, 108158379, 73829193, 93136802,
-        139577901, 233520257, 2544549379, 80597060
-    }
-    for _, id in ipairs(ids) do
-        task.spawn(function()
-            self:_invoke(";gear me " .. id)
-        end)
-    end
-    DoNotif("Periastrons: giving all " .. #ids, 2)
-end
-function Modules.HDAdmin:GiveAllGears()
-    local ids = {10468797,10468915,10469910,10472779,10510024,10727852,10730984,10758456,10760425,10831489,10831509,10884288,10910681,11115851,11373617,11377306,11419319,11419882,11450664,11452821,11453385,11563251,11719016,11885154,11895536,11956382,11999235,11999247,11999279,12145515,12187319,12187348,12187431,12504077,12547976,12562390,12562394,12562495,12775410,12848902,12890798,12902404,12909278,13206856,13206887,13206984,13207169,13477890,13477940,13478015,13745494,13838639,13841367,14130887,14131296,14131602,14492601,14516975,14719505,14864611,14876573,15176169,15177716,15179006,15397778,15470183,15470222,15470359,15642486,15668963,15731350,15932306,15970544,15973049,15973059,16200199,16200204,16200373,16200402,16200420,16200508,16201421,16201628,16214845,16216702,16433862,16435306,16435368,16469499,16641274,16688968,16722267,16726030,16726984,16895215,16924676,16951083,16979083,16986649,16986805,16987194,17237662,17237675,17237692,17407931,17527921,17527923,17680660,18010691,18017365,18210455,18268645,18409191,18426536,18446258,18446266,18462637,18466105,18474459,18479357,18479966,18481407,18482562,18482570,18776718,18971349,19111869,19111883}
-    for _, id in ipairs(ids) do
-        task.spawn(function()
-            task.wait(0.1)
-            self:_invoke(";gear me " .. id)
-        end)
-    end
-    DoNotif("Gears: firing " .. #ids .. " gear commands", 3)
-end
-function Modules.HDAdmin:SpawnDoges(count)
-    count = count or 25
-    for i = 1, count do
-        self:_invoke(";insert 257489726")
-    end
-    DoNotif("Doge army: spawned " .. count, 2)
-end
-function Modules.HDAdmin:SpawnMeteors(count)
-    count = count or 25
-    for i = 1, count do
-        task.spawn(function()
-            self:_invoke(";insert 86374494")
-            self:_invoke(";insert 12221636")
-        end)
-    end
-    DoNotif("Meteors: spawned " .. count, 2)
-end
-function Modules.HDAdmin:Goner()
-    local gonerChar = "OverZuka"
-    self:_invoke(";r6 me")
-    self:_invoke(";speed me 10")
-    task.wait(1)
-    self:_invoke(";char me " .. gonerChar)
-    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        local debounce = false
-        hrp.Touched:Connect(function(hit)
-            if debounce then return end
-            local hum = hit.Parent and hit.Parent:FindFirstChildOfClass("Humanoid")
-            if hum then
-                local victim = Players:GetPlayerFromCharacter(hit.Parent)
-                if victim and victim ~= LocalPlayer then
-                    debounce = true
-                    self:_invoke(";kill " .. victim.Name)
-                    task.wait(1)
-                    debounce = false
+function Modules.HDAdmin:EnableAntiFling()
+    if self.State.AntiFling then return end
+    self.State.AntiFling = true
+    self.State.AntiFlingThread = task.spawn(function()
+        while self.State.AntiFling do
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp and hrp:IsA("BasePart") then
+                if hrp.AssemblyLinearVelocity.Magnitude > 200 then
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                    hrp.AssemblyAngularVelocity = Vector3.zero
+                    DoNotif("Anti Fling: caught fling", 2)
                 end
             end
-        end)
-    end
-    DoNotif("Goner: activated", 2)
+            task.wait(0.05)
+        end
+    end)
+    DoNotif("Anti Fling: ENABLED", 2)
 end
-RegisterCommand({ Name = "anticc",    Aliases = {"anticlientcmd"},  Description = "Toggle anti client commands (HD Admin)" }, function()
-    if Modules.HDAdmin.State.AntiClientCommands then
-        Modules.HDAdmin:DisableAntiClientCommands()
-    else
-        Modules.HDAdmin:EnableAntiClientCommands()
+function Modules.HDAdmin:DisableAntiFling()
+    if not self.State.AntiFling then return end
+    self.State.AntiFling = false
+    if self.State.AntiFlingThread then
+        task.cancel(self.State.AntiFlingThread)
+        self.State.AntiFlingThread = nil
     end
-end)
-RegisterCommand({ Name = "antideath", Aliases = {"nodeath", "nd"}, Description = "Toggle anti death via HD Admin respawn" }, function()
-    if Modules.HDAdmin.State.AntiDeath then
-        Modules.HDAdmin:DisableAntiDeath()
-    else
-        Modules.HDAdmin:EnableAntiDeath()
+    DoNotif("Anti Fling: DISABLED", 2)
+end
+function Modules.HDAdmin:EnableAntiFreeze()
+    if self.State.AntiFreeze then return end
+    self.State.AntiFreeze = true
+    self.State.AntiFreezeThread = task.spawn(function()
+        while self.State.AntiFreeze do
+            local char = LocalPlayer.Character
+            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+            local hum  = char and char:FindFirstChildOfClass("Humanoid")
+            if hrp and hum then
+                if hrp.Anchored then
+                    hrp.Anchored = false
+                    DoNotif("Anti Freeze: unanchored HRP", 2)
+                end
+                if hum.WalkSpeed == 0 and hum.Health > 0 then
+                    self:_invoke(";speed me 16")
+                    DoNotif("Anti Freeze: restored walkspeed", 2)
+                    task.wait(1)
+                end
+            end
+            task.wait(0.2)
+        end
+    end)
+    DoNotif("Anti Freeze: ENABLED", 2)
+end
+function Modules.HDAdmin:DisableAntiFreeze()
+    if not self.State.AntiFreeze then return end
+    self.State.AntiFreeze = false
+    if self.State.AntiFreezeThread then
+        task.cancel(self.State.AntiFreezeThread)
+        self.State.AntiFreezeThread = nil
     end
-end)
-RegisterCommand({ Name = "antijail",  Aliases = {"nojail", "unjail"}, Description = "Toggle anti jail loop (HD Admin)" }, function()
-    if Modules.HDAdmin.State.AntiJail then
-        Modules.HDAdmin:DisableAntiJail()
-    else
-        Modules.HDAdmin:EnableAntiJail()
+    DoNotif("Anti Freeze: DISABLED", 2)
+end
+function Modules.HDAdmin:EnableAntiExplosion()
+    if self.State.AntiExplosion then return end
+    self.State.AntiExplosion = true
+    self.State.AntiExplosionConn = Workspace.DescendantAdded:Connect(function(obj)
+        if not self.State.AntiExplosion then return end
+        if obj:IsA("Explosion") then
+            local char = LocalPlayer.Character
+            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp and (obj.Position - hrp.Position).Magnitude < 30 then
+                pcall(function() obj:Destroy() end)
+                DoNotif("Anti Explosion: blocked explosion", 2)
+            end
+        end
+    end)
+    DoNotif("Anti Explosion: ENABLED", 2)
+end
+function Modules.HDAdmin:DisableAntiExplosion()
+    if not self.State.AntiExplosion then return end
+    self.State.AntiExplosion = false
+    if self.State.AntiExplosionConn then
+        self.State.AntiExplosionConn:Disconnect()
+        self.State.AntiExplosionConn = nil
     end
-end)
-RegisterCommand({ Name = "antimu",  Aliases = {"nomute"},         Description = "Toggle anti mute (HD Admin)" }, function()
-    if Modules.HDAdmin.State.AntiMute then
-        Modules.HDAdmin:DisableAntiMute()
-    else
-        Modules.HDAdmin:EnableAntiMute()
+    DoNotif("Anti Explosion: DISABLED", 2)
+end
+function Modules.HDAdmin:EnableAntiSpeedManip()
+    if self.State.AntiSpeedManip then return end
+    self.State.AntiSpeedManip = true
+    local NORMAL_SPEED   = 16
+    local NORMAL_JUMP    = 50
+    local NORMAL_GRAVITY = 196.2
+    self.State.AntiSpeedThread = task.spawn(function()
+        while self.State.AntiSpeedManip do
+            local char = LocalPlayer.Character
+            local hum  = char and char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                if hum.WalkSpeed == 0 or hum.WalkSpeed > 500 then
+                    hum.WalkSpeed = NORMAL_SPEED
+                    DoNotif("Anti Manip: restored WalkSpeed", 2)
+                end
+                if hum.JumpPower == 0 or hum.JumpPower > 500 then
+                    hum.JumpPower = NORMAL_JUMP
+                    DoNotif("Anti Manip: restored JumpPower", 2)
+                end
+            end
+            if workspace.Gravity < 10 or workspace.Gravity > 1000 then
+                workspace.Gravity = NORMAL_GRAVITY
+                DoNotif("Anti Manip: restored Gravity", 2)
+            end
+            task.wait(0.2)
+        end
+    end)
+    DoNotif("Anti Speed/Gravity Manip: ENABLED", 2)
+end
+function Modules.HDAdmin:DisableAntiSpeedManip()
+    if not self.State.AntiSpeedManip then return end
+    self.State.AntiSpeedManip = false
+    if self.State.AntiSpeedThread then
+        task.cancel(self.State.AntiSpeedThread)
+        self.State.AntiSpeedThread = nil
     end
+    DoNotif("Anti Speed/Gravity Manip: DISABLED", 2)
+end
+function Modules.HDAdmin:EnableAntiInvis()
+    if self.State.AntiInvis then return end
+    self.State.AntiInvis = true
+    self.State.AntiInvisThread = task.spawn(function()
+        while self.State.AntiInvis do
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        if part.Transparency >= 1 then
+                            part.Transparency = 0
+                            DoNotif("Anti Invis: restored part visibility", 2)
+                        end
+                    end
+                end
+            end
+            task.wait(0.3)
+        end
+    end)
+    DoNotif("Anti Invisible: ENABLED", 2)
+end
+function Modules.HDAdmin:DisableAntiInvis()
+    if not self.State.AntiInvis then return end
+    self.State.AntiInvis = false
+    if self.State.AntiInvisThread then
+        task.cancel(self.State.AntiInvisThread)
+        self.State.AntiInvisThread = nil
+    end
+    DoNotif("Anti Invisible: DISABLED", 2)
+end
+function Modules.HDAdmin:EnableAntiNoclipLock()
+    if self.State.AntiNoclipLock then return end
+    self.State.AntiNoclipLock = true
+    self.State.AntiNoclipLockThread = task.spawn(function()
+        while self.State.AntiNoclipLock do
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        if not part.CanCollide then
+                            part.CanCollide = true
+                        end
+                    end
+                end
+            end
+            task.wait(0.2)
+        end
+    end)
+    DoNotif("Anti Noclip Lock: ENABLED", 2)
+end
+function Modules.HDAdmin:DisableAntiNoclipLock()
+    if not self.State.AntiNoclipLock then return end
+    self.State.AntiNoclipLock = false
+    if self.State.AntiNoclipLockThread then
+        task.cancel(self.State.AntiNoclipLockThread)
+        self.State.AntiNoclipLockThread = nil
+    end
+    DoNotif("Anti Noclip Lock: DISABLED", 2)
+end
+function Modules.HDAdmin:EnableFullShield()
+    self:EnableAntiClientCommands()
+    self:EnableAntiDeath()
+    self:EnableAntiJail()
+    self:EnableAntiMute()
+    self:EnableAntiFling()
+    self:EnableAntiFreeze()
+    self:EnableAntiExplosion()
+    self:EnableAntiSpeedManip()
+    self:EnableAntiInvis()
+    self:EnableAntiNoclipLock()
+    DoNotif("FULL SHIELD: all protections ENABLED", 3)
+end
+function Modules.HDAdmin:DisableFullShield()
+    self:DisableAntiClientCommands()
+    self:DisableAntiDeath()
+    self:DisableAntiJail()
+    self:DisableAntiMute()
+    self:DisableAntiFling()
+    self:DisableAntiFreeze()
+    self:DisableAntiExplosion()
+    self:DisableAntiSpeedManip()
+    self:DisableAntiInvis()
+    self:DisableAntiNoclipLock()
+    DoNotif("FULL SHIELD: all protections DISABLED", 3)
+end
+RegisterCommand({ Name = "anticc",      Aliases = {"anticlientcmd"},  Description = "Toggle anti client commands" }, function()
+    if Modules.HDAdmin.State.AntiClientCommands then Modules.HDAdmin:DisableAntiClientCommands()
+    else Modules.HDAdmin:EnableAntiClientCommands() end
 end)
-RegisterCommand({ Name = "removeblurs", Aliases = {}, Description = "Remove all blur effects from Lighting and Camera" }, function()
-    Modules.HDAdmin:RemoveBlurs()
+RegisterCommand({ Name = "antideath",   Aliases = {"nodeath", "nd"},  Description = "Toggle anti death" }, function()
+    if Modules.HDAdmin.State.AntiDeath then Modules.HDAdmin:DisableAntiDeath()
+    else Modules.HDAdmin:EnableAntiDeath() end
 end)
-RegisterCommand({ Name = "hdperiastrons", Aliases = {"periastrons"}, Description = "Give yourself all Periastrons via HD Admin" }, function()
-    Modules.HDAdmin:GivePeriastrons()
+RegisterCommand({ Name = "antijail",    Aliases = {"nojail"},         Description = "Toggle anti jail" }, function()
+    if Modules.HDAdmin.State.AntiJail then Modules.HDAdmin:DisableAntiJail()
+    else Modules.HDAdmin:EnableAntiJail() end
 end)
-RegisterCommand({ Name = "hdgears", Aliases = {"allgears"},          Description = "Give yourself all gears via HD Admin (~2000 IDs)" }, function()
-    Modules.HDAdmin:GiveAllGears()
+RegisterCommand({ Name = "antimu",      Aliases = {"nomute"},         Description = "Toggle anti mute" }, function()
+    if Modules.HDAdmin.State.AntiMute then Modules.HDAdmin:DisableAntiMute()
+    else Modules.HDAdmin:EnableAntiMute() end
 end)
-RegisterCommand({ Name = "doges",    Aliases = {"doge"},             Description = "Spawn doge army via HD Admin. Usage: doges [count]" }, function(args)
-    Modules.HDAdmin:SpawnDoges(tonumber(args[1]) or 25)
+RegisterCommand({ Name = "stopfling",   Aliases = {},        Description = "Toggle anti fling" }, function()
+    if Modules.HDAdmin.State.AntiFling then Modules.HDAdmin:DisableAntiFling()
+    else Modules.HDAdmin:EnableAntiFling() end
 end)
-RegisterCommand({ Name = "meteors",  Aliases = {"meteor"},           Description = "Spawn meteors via HD Admin. Usage: meteors [count]" }, function(args)
-    Modules.HDAdmin:SpawnMeteors(tonumber(args[1]) or 25)
+RegisterCommand({ Name = "antifreeze",  Aliases = {"nofreeze"},       Description = "Toggle anti freeze" }, function()
+    if Modules.HDAdmin.State.AntiFreeze then Modules.HDAdmin:DisableAntiFreeze()
+    else Modules.HDAdmin:EnableAntiFreeze() end
 end)
-RegisterCommand({ Name = "goner",    Aliases = {},                   Description = "Goner morph with touch kill via HD Admin" }, function()
-    Modules.HDAdmin:Goner()
+RegisterCommand({ Name = "antiexplode", Aliases = {"noexplode"},      Description = "Toggle anti explosion" }, function()
+    if Modules.HDAdmin.State.AntiExplosion then Modules.HDAdmin:DisableAntiExplosion()
+    else Modules.HDAdmin:EnableAntiExplosion() end
+end)
+RegisterCommand({ Name = "antispeed",   Aliases = {"nospeedmanip"},   Description = "Toggle anti speed/gravity manip" }, function()
+    if Modules.HDAdmin.State.AntiSpeedManip then Modules.HDAdmin:DisableAntiSpeedManip()
+    else Modules.HDAdmin:EnableAntiSpeedManip() end
+end)
+RegisterCommand({ Name = "antiinvis",   Aliases = {"noinvis"},        Description = "Toggle anti invisibility" }, function()
+    if Modules.HDAdmin.State.AntiInvis then Modules.HDAdmin:DisableAntiInvis()
+    else Modules.HDAdmin:EnableAntiInvis() end
+end)
+RegisterCommand({ Name = "antinoclip",  Aliases = {"nonocliplock"},   Description = "Toggle anti noclip lock" }, function()
+    if Modules.HDAdmin.State.AntiNoclipLock then Modules.HDAdmin:DisableAntiNoclipLock()
+    else Modules.HDAdmin:EnableAntiNoclipLock() end
+end)
+RegisterCommand({ Name = "shield", Aliases = {"fullshield"}, Description = "Toggle ALL anti-abuse protections" }, function()
+    local s = Modules.HDAdmin.State
+    local anyOn = s.AntiClientCommands or s.AntiDeath or s.AntiJail
+        or s.AntiMute or s.AntiFling or s.AntiFreeze
+        or s.AntiExplosion or s.AntiSpeedManip
+        or s.AntiInvis or s.AntiNoclipLock
+    if anyOn then Modules.HDAdmin:DisableFullShield()
+    else Modules.HDAdmin:EnableFullShield() end
+end)
+RegisterCommand({
+    Name        = "seatlock",
+    Aliases     = {"seatlo", "lockseat"},
+    Description = "Movement in seats",
+    ArgsDesc    = {},
+    Permissions = {},
+}, function(args, speaker)
+    local SeatLock = {
+        Active = false,
+        SeatLockConn = nil,
+        HumConn = nil,
+    }
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    function SeatLock:Enable()
+        if self.Active then return end
+        self.Active = true
+        local function lockSeat(seat)
+            if seat and seat:IsA("VehicleSeat") then
+                seat.Disabled = true
+            end
+        end
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.SeatPart then
+                lockSeat(hum.SeatPart)
+            end
+            self.HumConn = hum and hum:GetPropertyChangedSignal("SeatPart"):Connect(function()
+                if not self.Active then return end
+                lockSeat(hum.SeatPart)
+            end)
+        end
+        self.CharConn = LocalPlayer.CharacterAdded:Connect(function(newChar)
+            if self.HumConn then
+                self.HumConn:Disconnect()
+                self.HumConn = nil
+            end
+            local hum = newChar:WaitForChild("Humanoid")
+            self.HumConn = hum:GetPropertyChangedSignal("SeatPart"):Connect(function()
+                if not self.Active then return end
+                lockSeat(hum.SeatPart)
+            end)
+        end)
+        print("Seat Lock: ENABLED")
+    end
+    function SeatLock:Disable()
+        if not self.Active then return end
+        self.Active = false
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("VehicleSeat") and obj.Disabled then
+                obj.Disabled = false
+            end
+        end
+        if self.HumConn then
+            self.HumConn:Disconnect()
+            self.HumConn = nil
+        end
+        if self.CharConn then
+            self.CharConn:Disconnect()
+            self.CharConn = nil
+        end
+        print("Seat Lock: DISABLED")
+    end
+    function SeatLock:Toggle()
+        if self.Active then
+            self:Disable()
+        else
+            self:Enable()
+        end
+    end
+    local UIS = game:GetService("UserInputService")
+    UIS.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == Enum.KeyCode.F then
+            SeatLock:Toggle()
+        end
+    end)
+    print("Seat Lock loaded — press F to toggle")
 end)
 Modules.RevealInvisible = {
     State = {
@@ -38566,7 +30184,7 @@ Modules.FixCamera = {
 }
 RegisterCommand({
     Name = "fixcam",
-    Aliases = {"unlockcam", "freecam"},
+    Aliases = {},
     Description = "Unlocks camera, allows zooming through walls, and forces third-person."
 }, function(args)
     if not LocalPlayer then 
@@ -42843,1902 +34461,6 @@ addcmd('antiabuse', {'nahadmin', 'bladmin'},
         end
     end
 )
-
-RegisterCommand({
-    Name        = "partflingv2",
-    Aliases     = {"brib", "fepart"},
-    Description = "better and optimizeed",
-    ArgsDesc    = {},
-    Permissions = {},
-}, function(args, speaker)
-    if getgenv().ClaimBring_Loaded then
-        pcall(function()
-            if getgenv().ClaimBring_Module then
-                getgenv().ClaimBring_Module:Disable()
-            end
-        end)
-    end
-    getgenv().ClaimBring_Loaded = true
-    local TweenService     = game:GetService("TweenService")
-    local RunService       = game:GetService("RunService")
-    local Players          = game:GetService("Players")
-    local UserInputService = game:GetService("UserInputService")
-    local Workspace        = game:GetService("Workspace")
-    local LocalPlayer      = Players.LocalPlayer
-    local CoreGui          = game:GetService("CoreGui")
-    LocalPlayer.ReplicationFocus = Workspace
-    pcall(function()
-        CoreGui.RobloxGui["CoreScripts/NetworkPause"]:Destroy()
-    end)
-    if not getgenv().Network then
-        getgenv().Network = { BaseParts = {} }
-        RunService.Heartbeat:Connect(function()
-            sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
-        end)
-    end
-    local _bhFolder     = Instance.new("Folder", Workspace)
-    local _bhAnchorPart = Instance.new("Part",   _bhFolder)
-    local _bhAttachment = Instance.new("Attachment", _bhAnchorPart)
-    _bhAnchorPart.Anchored     = false
-    _bhAnchorPart.CanCollide   = true
-    _bhAnchorPart.Transparency = 1
-    local overlapParams = OverlapParams.new()
-    overlapParams.FilterType = Enum.RaycastFilterType.Exclude
-    overlapParams.MaxParts   = 500
-    local NetworkClaim = {
-        State = {
-            IsEnabled      = false,
-            ClaimedObjects = {},
-            SelectedObject = nil,
-            UI             = nil,
-            Connections    = {},
-            AutoClaim      = false,
-        },
-        Config = {
-            HighlightColor = Color3.fromRGB(255, 100, 0),
-            ClaimMethod    = "ownership",
-            UpdateRate     = 0.03,
-            ShowVisuals    = true,
-        },
-    }
-    local BH = {
-        TARGET_PARTS        = {},
-        CONNECTIONS         = {},
-        sendTarget          = nil,
-        blackHoleActive     = false,
-        spectateActive      = false,
-        targetMode          = "Players",
-        cycleIndex          = 1,
-        cycleLastSwap       = 0,
-        cycleConnection     = nil,
-        spectateMonitorConn = nil,
-        DescendantAddedConn = nil,
-        originalCameraType    = nil,
-        originalCameraSubject = nil,
-        lastUpdate          = 0,
-        CONFIG = {
-            UPDATE_INTERVAL = 0.01,
-            MAX_PARTS       = 800,
-            VELOCITY        = 500,
-            MIN_SIZE        = 0,
-            SWEEP_RADIUS    = 0,
-            OWNER_RETRY_DUR = 0.6,
-        },
-        ORBIT = {
-            Active      = false,
-            Parts       = {},
-            Connections = {},
-            Radius      = 8,
-            Speed       = 10,
-            Rings       = 1,
-            MaxParts    = 60,
-        },
-        MISSILE = {
-            Active       = false,
-            Part         = nil,
-            bv           = nil,
-            Conn         = nil,
-            Force        = 9e5,
-            SelectionBox = nil,
-        },
-    }
-    local function bhReleasePart(part)
-        local data = BH.TARGET_PARTS[part]
-        if not data then return end
-        if data.conn           then data.conn:Disconnect()           end
-        if data.ownerRetryConn then data.ownerRetryConn:Disconnect() end
-        pcall(function()
-            if data.bv and data.bv.Parent then data.bv:Destroy() end
-            part:SetNetworkOwnershipAuto()
-        end)
-        BH.TARGET_PARTS[part] = nil
-    end
-    local function bhPartPassesFilters(part)
-        if not part:IsA("BasePart")                                       then return false end
-        if part.Anchored                                                   then return false end
-        local anc = part.Parent
-        while anc and anc ~= Workspace do
-            if anc:IsA("Model") and anc:FindFirstChildOfClass("Humanoid") then return false end
-            anc = anc.Parent
-        end
-        local char = LocalPlayer.Character
-        if char and part:IsDescendantOf(char) then return false end
-        if part.Name == "Handle"              then return false end
-        if BH.CONFIG.MIN_SIZE > 0 then
-            local s = part.Size
-            if s.X < BH.CONFIG.MIN_SIZE
-            and s.Y < BH.CONFIG.MIN_SIZE
-            and s.Z < BH.CONFIG.MIN_SIZE then return false end
-        end
-        local count = 0
-        for _ in pairs(BH.TARGET_PARTS) do count += 1 end
-        if count >= BH.CONFIG.MAX_PARTS then return false end
-        if BH.CONFIG.SWEEP_RADIUS > 0 and BH.sendTarget then
-            local tc    = BH.sendTarget.Character
-            local tRoot = tc and tc:FindFirstChild("HumanoidRootPart")
-            if tRoot and (part.Position - tRoot.Position).Magnitude > BH.CONFIG.SWEEP_RADIUS then
-                return false
-            end
-        end
-        return true
-    end
-    local function bhForcePart(part)
-        if BH.TARGET_PARTS[part] then return end
-        if not bhPartPassesFilters(part) then return end
-        pcall(function()
-            for _, c in ipairs(part:GetChildren()) do
-                if c:IsA("BodyMover") or c:IsA("RocketPropulsion")
-                or c:IsA("LinearVelocity") or c:IsA("VectorForce")
-                or c:IsA("BodyVelocity")   or c:IsA("BodyForce") then
-                    c:Destroy()
-                end
-            end
-        end)
-        part.CanCollide = true
-        part.Massless   = false
-        pcall(function() part:SetNetworkOwner(LocalPlayer) end)
-        local bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-        bv.Velocity = Vector3.zero
-        bv.Parent   = part
-        local startTime = tick()
-        local ownerRetryConn
-        ownerRetryConn = RunService.Heartbeat:Connect(function()
-            if tick() - startTime > BH.CONFIG.OWNER_RETRY_DUR then
-                ownerRetryConn:Disconnect()
-                if BH.TARGET_PARTS[part] then
-                    BH.TARGET_PARTS[part].ownerRetryConn = nil
-                end
-                return
-            end
-            pcall(function() part:SetNetworkOwner(LocalPlayer) end)
-        end)
-        local conn
-        conn = RunService.Heartbeat:Connect(function()
-            if not part.Parent then bhReleasePart(part); return end
-            if not BH.blackHoleActive then bhReleasePart(part); return end
-            if not BH.sendTarget then return end
-            local tc    = BH.sendTarget.Character
-            local tRoot = tc and tc:FindFirstChild("HumanoidRootPart")
-            if not tRoot then return end
-            local dir = (tRoot.Position - part.Position)
-            bv.Velocity = dir.Magnitude > 0.1
-                and dir.Unit * BH.CONFIG.VELOCITY
-                or  Vector3.new(0, BH.CONFIG.VELOCITY, 0)
-        end)
-        BH.TARGET_PARTS[part] = {
-            conn           = conn,
-            bv             = bv,
-            ownerRetryConn = ownerRetryConn,
-        }
-    end
-    local function bhCleanupStale()
-        for part in pairs(BH.TARGET_PARTS) do
-            if not part.Parent then bhReleasePart(part) end
-        end
-    end
-    RunService.Heartbeat:Connect(function()
-        local now = tick()
-        if now - BH.lastUpdate < BH.CONFIG.UPDATE_INTERVAL then return end
-        BH.lastUpdate = now
-        bhCleanupStale()
-    end)
-    local function bhGetPlayer(name)
-        local q = name:lower()
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then
-                if p.Name:lower():find(q, 1, true)
-                or p.DisplayName:lower():find(q, 1, true) then
-                    return p
-                end
-            end
-        end
-    end
-    local function bhGetValidPlayers()
-        local valid = {}
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer
-            and p.Character
-            and p.Character:FindFirstChild("HumanoidRootPart") then
-                table.insert(valid, p)
-            end
-        end
-        return valid
-    end
-    local function bhIsTargetValid(t)
-        return t
-            and t.Character
-            and t.Character:FindFirstChildOfClass("Humanoid")
-            and t.Character.Humanoid.Health > 0
-    end
-    local function bhStartSpectating()
-        if not bhIsTargetValid(BH.sendTarget) then return end
-        local hum = BH.sendTarget.Character:FindFirstChildOfClass("Humanoid")
-        if not hum then return end
-        local cam = Workspace.CurrentCamera
-        if not BH.originalCameraType then
-            BH.originalCameraType    = cam.CameraType
-            BH.originalCameraSubject = cam.CameraSubject
-        end
-        cam.CameraType    = Enum.CameraType.Custom
-        cam.CameraSubject = hum
-    end
-    local function bhStopSpectating()
-        local cam = Workspace.CurrentCamera
-        if BH.originalCameraType and BH.originalCameraSubject then
-            cam.CameraType    = BH.originalCameraType
-            cam.CameraSubject = BH.originalCameraSubject
-        else
-            cam.CameraType    = Enum.CameraType.Custom
-            cam.CameraSubject = LocalPlayer.Character
-                and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        end
-        BH.originalCameraType    = nil
-        BH.originalCameraSubject = nil
-    end
-    local function orbitReleasePart(entry)
-        if not entry then return end
-        pcall(function()
-            if entry.conn then entry.conn:Disconnect() end
-            if entry.bv and entry.bv.Parent then entry.bv:Destroy() end
-            if entry.part and entry.part.Parent then
-                entry.part.CanCollide = true
-                entry.part.Massless   = false
-                entry.part:SetNetworkOwnershipAuto()
-            end
-        end)
-    end
-    local function orbitStop()
-        BH.ORBIT.Active = false
-        for _, entry in ipairs(BH.ORBIT.Parts) do
-            orbitReleasePart(entry)
-        end
-        BH.ORBIT.Parts = {}
-        if BH.ORBIT.Connections.loop then
-            BH.ORBIT.Connections.loop:Disconnect()
-            BH.ORBIT.Connections.loop = nil
-        end
-        if BH.ORBIT.Connections.added then
-            BH.ORBIT.Connections.added:Disconnect()
-            BH.ORBIT.Connections.added = nil
-        end
-    end
-    local function orbitAddPart(part)
-        if not part:IsA("BasePart")  then return end
-        if part.Anchored             then return end
-        local anc2 = part.Parent
-        while anc2 and anc2 ~= Workspace do
-            if anc2:IsA("Model") and anc2:FindFirstChildOfClass("Humanoid") then return end
-            anc2 = anc2.Parent
-        end
-        local char2 = LocalPlayer.Character
-        if char2 and part:IsDescendantOf(char2) then return end
-        if part.Name == "Handle"                then return end
-        if #BH.ORBIT.Parts >= BH.ORBIT.MaxParts then return end
-        for _, e in ipairs(BH.ORBIT.Parts) do if e.part == part then return end end
-        pcall(function()
-            for _, c in ipairs(part:GetChildren()) do
-                if c:IsA("BodyMover") or c:IsA("BodyVelocity") or c:IsA("LinearVelocity")
-                or c:IsA("BodyForce") or c:IsA("VectorForce")  or c:IsA("RocketPropulsion") then
-                    c:Destroy()
-                end
-            end
-        end)
-        pcall(function() part:SetNetworkOwner(LocalPlayer) end)
-        part.CanCollide = false
-        part.Massless   = true
-        local bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-        bv.Velocity = Vector3.zero
-        bv.Parent   = part
-        local idx        = #BH.ORBIT.Parts
-        local ringIdx    = idx % BH.ORBIT.Rings
-        local ringOffset = (ringIdx / BH.ORBIT.Rings) * math.pi
-        local angle      = (idx / math.max(1, BH.ORBIT.MaxParts)) * (math.pi * 2)
-        table.insert(BH.ORBIT.Parts, {
-            part       = part,
-            bv         = bv,
-            angle      = angle,
-            ringOffset = ringOffset,
-        })
-    end
-    local function orbitStart()
-        BH.ORBIT.Active = true
-        task.spawn(function()
-            for _, v in ipairs(Workspace:GetDescendants()) do
-                if BH.ORBIT.Active then orbitAddPart(v) end
-            end
-        end)
-        BH.ORBIT.Connections.added = Workspace.DescendantAdded:Connect(function(v)
-            if BH.ORBIT.Active then task.spawn(orbitAddPart, v) end
-        end)
-        local clock = 0
-        BH.ORBIT.Connections.loop = RunService.Heartbeat:Connect(function(dt)
-            if not BH.ORBIT.Active then return end
-            local hrp = LocalPlayer.Character
-                and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
-            clock = clock + dt * BH.ORBIT.Speed
-            local center = hrp.Position
-            local r      = BH.ORBIT.Radius
-            local total  = #BH.ORBIT.Parts
-            for i = #BH.ORBIT.Parts, 1, -1 do
-                local e = BH.ORBIT.Parts[i]
-                if not e.part or not e.part.Parent then
-                    orbitReleasePart(e)
-                    table.remove(BH.ORBIT.Parts, i)
-                end
-            end
-            for i, e in ipairs(BH.ORBIT.Parts) do
-                local baseAngle = ((i - 1) / math.max(1, total)) * (math.pi * 2)
-                local a         = clock + baseAngle
-                local yOff      = math.sin(a + e.ringOffset) * (r * 0.35)
-                local target    = center + Vector3.new(
-                    math.cos(a) * r,
-                    yOff,
-                    math.sin(a) * r
-                )
-                local diff = target - e.part.Position
-                if e.bv and e.bv.Parent then
-                    local speed = math.clamp(diff.Magnitude * 14, 0, 280)
-                    e.bv.Velocity = diff.Magnitude > 0.05
-                        and (diff.Unit * speed)
-                        or  Vector3.zero
-                end
-            end
-        end)
-    end
-    local function missileStop()
-        BH.MISSILE.Active = false
-        if BH.MISSILE.Conn then BH.MISSILE.Conn:Disconnect(); BH.MISSILE.Conn = nil end
-        pcall(function()
-            if BH.MISSILE.SelectionBox and BH.MISSILE.SelectionBox.Parent then
-                BH.MISSILE.SelectionBox:Destroy()
-            end
-        end)
-        BH.MISSILE.SelectionBox = nil
-        pcall(function()
-            if BH.MISSILE.bv and BH.MISSILE.bv.Parent then BH.MISSILE.bv:Destroy() end
-        end)
-        BH.MISSILE.bv = nil
-        if BH.MISSILE.Part and BH.MISSILE.Part.Parent then
-            pcall(function()
-                BH.MISSILE.Part.CanCollide = true
-                BH.MISSILE.Part.Massless   = false
-                BH.MISSILE.Part:SetNetworkOwnershipAuto()
-            end)
-        end
-    end
-    local function missileSetPart(part)
-        if BH.MISSILE.SelectionBox then
-            pcall(function() BH.MISSILE.SelectionBox:Destroy() end)
-            BH.MISSILE.SelectionBox = nil
-        end
-        if BH.MISSILE.Active then missileStop() end
-        if not part or not part:IsA("BasePart") then
-            BH.MISSILE.Part = nil
-            return
-        end
-        BH.MISSILE.Part = part
-        local box = Instance.new("SelectionBox")
-        box.Name                = "Missile_Selection"
-        box.Adornee             = part
-        box.LineThickness       = 0.07
-        box.Color3              = Color3.fromRGB(255, 60, 60)
-        box.SurfaceColor3       = Color3.fromRGB(255, 60, 60)
-        box.SurfaceTransparency = 0.7
-        box.Parent              = CoreGui
-        BH.MISSILE.SelectionBox = box
-    end
-    local function missileStart()
-        local part = BH.MISSILE.Part
-        if not part or not part.Parent      then return end
-        if not BH.sendTarget               then return end
-        if not BH.sendTarget.Character     then return end
-        pcall(function()
-            for _, c in ipairs(part:GetChildren()) do
-                if c:IsA("BodyMover")        or c:IsA("BodyVelocity")
-                or c:IsA("LinearVelocity")   or c:IsA("BodyForce")
-                or c:IsA("VectorForce")      or c:IsA("AngularVelocity")
-                or c:IsA("BodyAngularVelocity") or c:IsA("RocketPropulsion") then
-                    c:Destroy()
-                end
-            end
-        end)
-        pcall(function() part:SetNetworkOwner(LocalPlayer) end)
-        part.CanCollide  = true
-        part.Massless    = false
-        part.CustomPhysicalProperties = PhysicalProperties.new(100, 0.3, 0.5, 100, 100)
-        local bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-        bv.Velocity = Vector3.zero
-        bv.Parent   = part
-        BH.MISSILE.bv     = bv
-        BH.MISSILE.Active = true
-        local phase       = "approach"
-        local phaseTimer  = 0
-        local spawnOffset = Vector3.zero
-        local missileOwnerStart = tick()
-        local missileOwnerConn
-        missileOwnerConn = RunService.Heartbeat:Connect(function()
-            if tick() - missileOwnerStart > BH.CONFIG.OWNER_RETRY_DUR then
-                missileOwnerConn:Disconnect()
-                return
-            end
-            pcall(function() part:SetNetworkOwner(LocalPlayer) end)
-        end)
-        BH.MISSILE.Conn = RunService.Heartbeat:Connect(function(dt)
-            if not BH.MISSILE.Active        then return end
-            if not part or not part.Parent  then missileStop(); return end
-            local tc    = BH.sendTarget and BH.sendTarget.Character
-            local tRoot = tc and tc:FindFirstChild("HumanoidRootPart")
-            if not tRoot then return end
-            local tPos = tRoot.Position
-            local pPos = part.Position
-            local dist = (tPos - pPos).Magnitude
-            phaseTimer = phaseTimer + dt
-            if phase == "approach" then
-                local dir = tPos - pPos
-                if dir.Magnitude > 0.01 then
-                    bv.Velocity = dir.Unit * BH.MISSILE.Force
-                end
-                if dist < 6 or phaseTimer > 1.5 then
-                    phase = "teleport"; phaseTimer = 0
-                end
-            elseif phase == "teleport" then
-                local t  = tick()
-                local offset = Vector3.new(
-                    math.sin(t * 17) * 0.8,
-                    math.cos(t * 11) * 0.8,
-                    math.sin(t * 23) * 0.8
-                )
-                pcall(function()
-                    part.CFrame = CFrame.new(tPos + offset)
-                        * CFrame.Angles(t*5, t*7, t*3)
-                end)
-                local outDir = pPos - tPos
-                bv.Velocity = outDir.Magnitude > 0.01
-                    and outDir.Unit * BH.MISSILE.Force * 2
-                    or  Vector3.new(0, BH.MISSILE.Force, 0)
-                if phaseTimer > 0.4 then
-                    phase = "retreat"; phaseTimer = 0
-                    spawnOffset = Vector3.new(
-                        math.random(-20, 20),
-                        math.random(2,  8),
-                        math.random(-20, 20)
-                    )
-                end
-            elseif phase == "retreat" then
-                local retreatTarget = tPos + spawnOffset
-                local dir = retreatTarget - pPos
-                if dir.Magnitude > 0.01 then
-                    bv.Velocity = dir.Unit * BH.MISSILE.Force * 1.5
-                end
-                if phaseTimer > 0.3 then
-                    phase = "approach"; phaseTimer = 0
-                end
-            end
-        end)
-    end
-    function NetworkClaim:GetAllParts(obj)
-        local parts = {}
-        if obj:IsA("BasePart") then
-            table.insert(parts, obj)
-        elseif obj:IsA("Model") then
-            for _, p in pairs(obj:GetDescendants()) do
-                if p:IsA("BasePart") then table.insert(parts, p) end
-            end
-        end
-        return parts
-    end
-    function NetworkClaim:ClaimPart(part)
-        if not part:IsA("BasePart") then return nil end
-        local method     = self.Config.ClaimMethod
-        local connection = nil
-        if method == "ownership" then
-            local ok = pcall(function() part:SetNetworkOwner(LocalPlayer) end)
-            local startT = tick()
-            connection = RunService.Heartbeat:Connect(function()
-                if not part or not part.Parent then return end
-                if tick() - startT < BH.CONFIG.OWNER_RETRY_DUR then
-                    pcall(function() part:SetNetworkOwner(LocalPlayer) end)
-                else
-                    part.Velocity = Vector3.new(0, 0.01, 0)
-                end
-            end)
-        elseif method == "velocity" then
-            connection = RunService.Heartbeat:Connect(function()
-                if part and part.Parent then
-                    part.Velocity    = Vector3.new(0, 0.01, 0)
-                    part.RotVelocity = Vector3.zero
-                end
-            end)
-        elseif method == "cframe" then
-            local cf = part.CFrame
-            connection = RunService.Heartbeat:Connect(function()
-                if part and part.Parent then part.CFrame = cf end
-            end)
-        end
-        return connection
-    end
-    local MASS_CLAIMED    = {}
-    local massClaimActive = false
-    local noCollideActive = false
-    local noCollideConn   = nil
-    local function isCharacterPart(part)
-        local ancestor = part.Parent
-        while ancestor and ancestor ~= Workspace do
-            if ancestor:IsA("Model") and ancestor:FindFirstChildOfClass("Humanoid") then
-                return true
-            end
-            ancestor = ancestor.Parent
-        end
-        local char = LocalPlayer.Character
-        if char and (part == char or part:IsDescendantOf(char)) then return true end
-        return false
-    end
-    local function tripleReleasePart(part)
-        local data = MASS_CLAIMED[part]
-        if not data then return end
-        if data.ownerConn then data.ownerConn:Disconnect() end
-        if data.velConn   then data.velConn:Disconnect()   end
-        if data.cfConn    then data.cfConn:Disconnect()    end
-        pcall(function()
-            part.CanCollide = true
-            part:SetNetworkOwnershipAuto()
-        end)
-        MASS_CLAIMED[part] = nil
-    end
-    local function setNoCollide(enabled)
-        noCollideActive = enabled
-        if noCollideConn then noCollideConn:Disconnect(); noCollideConn = nil end
-        if not enabled then
-            local char = LocalPlayer.Character
-            if char then
-                for _, p in ipairs(char:GetDescendants()) do
-                    if p:IsA("BasePart") then pcall(function() p.CanCollide = true end) end
-                end
-            end
-            for part in pairs(MASS_CLAIMED) do
-                pcall(function() part.CanCollide = true end)
-            end
-            return
-        end
-        noCollideConn = RunService.Heartbeat:Connect(function()
-            local char = LocalPlayer.Character
-            if char then
-                for _, p in ipairs(char:GetDescendants()) do
-                    if p:IsA("BasePart") and p.CanCollide then
-                        pcall(function() p.CanCollide = false end)
-                    end
-                end
-            end
-            for part in pairs(MASS_CLAIMED) do
-                if part.Parent and part.CanCollide then
-                    pcall(function() part.CanCollide = false end)
-                end
-            end
-        end)
-    end
-    local function tripleClaimPart(part)
-        if not part:IsA("BasePart") then return end
-        if part.Anchored             then return end
-        if isCharacterPart(part)     then return end
-        if MASS_CLAIMED[part]        then return end
-        pcall(function()
-            for _, c in ipairs(part:GetChildren()) do
-                if c:IsA("BodyMover") or c:IsA("BodyVelocity") or c:IsA("LinearVelocity")
-                or c:IsA("BodyForce") or c:IsA("VectorForce")  or c:IsA("RocketPropulsion") then
-                    c:Destroy()
-                end
-            end
-        end)
-        local startCF  = part.CFrame
-        local startT   = tick()
-        local RETRY_DUR = BH.CONFIG.OWNER_RETRY_DUR
-        pcall(function() part:SetNetworkOwner(LocalPlayer) end)
-        local ownerConn = RunService.Heartbeat:Connect(function()
-            if not part.Parent            then tripleReleasePart(part); return end
-            if not massClaimActive        then tripleReleasePart(part); return end
-            local age = tick() - startT
-            if age < RETRY_DUR or age % 0.5 < 0.02 then
-                pcall(function() part:SetNetworkOwner(LocalPlayer) end)
-            end
-        end)
-        local velConn = RunService.Heartbeat:Connect(function()
-            if not part.Parent     then return end
-            if not massClaimActive then return end
-            pcall(function()
-                part.Velocity    = Vector3.new(0, 0.001, 0)
-                part.RotVelocity = Vector3.zero
-            end)
-        end)
-        local cfConn = RunService.Heartbeat:Connect(function()
-            if not part.Parent     then return end
-            if not massClaimActive then return end
-            pcall(function() part.CFrame = startCF end)
-        end)
-        MASS_CLAIMED[part] = {
-            ownerConn = ownerConn,
-            velConn   = velConn,
-            cfConn    = cfConn,
-        }
-    end
-    function NetworkClaim:ClaimAllWorkspace()
-        if massClaimActive then
-            massClaimActive = false
-            if self.State._massAddedConn then
-                self.State._massAddedConn:Disconnect()
-                self.State._massAddedConn = nil
-            end
-            local n = 0
-            for part in pairs(MASS_CLAIMED) do
-                tripleReleasePart(part)
-                n += 1
-            end
-            print(string.format("✓ Released %d workspace parts", n))
-            return
-        end
-        massClaimActive = true
-        task.spawn(function()
-            local scanned = 0
-            for _, v in ipairs(Workspace:GetDescendants()) do
-                if not massClaimActive then break end
-                tripleClaimPart(v)
-                scanned += 1
-                if scanned % 200 == 0 then task.wait() end
-            end
-            local held = 0
-            for _ in pairs(MASS_CLAIMED) do held += 1 end
-            print(string.format("✓ Triple-claimed %d workspace parts", held))
-        end)
-        if self.State._massAddedConn then
-            self.State._massAddedConn:Disconnect()
-        end
-        self.State._massAddedConn = Workspace.DescendantAdded:Connect(function(v)
-            if massClaimActive then task.spawn(tripleClaimPart, v) end
-        end)
-    end
-    function NetworkClaim:ClaimSelected()
-        local obj = self.State.SelectedObject
-        if not obj then print("⚠ No object selected"); return end
-        local parts = self:GetAllParts(obj)
-        if #parts == 0 then print("✗ No valid parts found"); return end
-        for _, data in pairs(self.State.ClaimedObjects) do
-            if data.Object == obj then print("⚠ Already claimed"); return end
-        end
-        local connections = {}
-        for _, part in ipairs(parts) do
-            local conn = self:ClaimPart(part)
-            if conn then table.insert(connections, conn) end
-        end
-        local hl = Instance.new("Highlight")
-        hl.Name                = "NetworkClaim_Highlight"
-        hl.FillColor           = self.Config.HighlightColor
-        hl.OutlineColor        = self.Config.HighlightColor
-        hl.FillTransparency    = 0.5
-        hl.OutlineTransparency = 0
-        hl.Adornee             = obj
-        hl.Parent              = obj
-        table.insert(self.State.ClaimedObjects, {
-            Object      = obj,
-            Connections = connections,
-            Highlight   = hl,
-            Name        = obj.Name,
-            PartCount   = #parts,
-        })
-        print(string.format("✓ Claimed: %s (%d parts)", obj.Name, #parts))
-        self:UpdateDisplay()
-    end
-    function NetworkClaim:ClaimEntireModel()
-        local obj = self.State.SelectedObject
-        if not obj then print("⚠ No object selected"); return end
-        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-        if not model then print("⚠ Not in a model"); return end
-        self.State.SelectedObject = model
-        self:ClaimSelected()
-    end
-    function NetworkClaim:ClaimAllDescendants()
-        local obj = self.State.SelectedObject
-        if not obj then print("⚠ No object selected"); return end
-        local n = 0
-        for _, d in ipairs(obj:GetDescendants()) do
-            if d:IsA("BasePart") then self:ClaimPart(d); n += 1 end
-        end
-        print(string.format("✓ Claimed %d descendants", n))
-    end
-    function NetworkClaim:ReleaseSelected()
-        local obj = self.State.SelectedObject
-        if not obj then print("⚠ No object selected"); return end
-        for i, data in ipairs(self.State.ClaimedObjects) do
-            if data.Object == obj then
-                for _, c in ipairs(data.Connections) do if c then c:Disconnect() end end
-                if data.Highlight and data.Highlight.Parent then
-                    data.Highlight:Destroy()
-                end
-                for _, part in ipairs(self:GetAllParts(data.Object)) do
-                    pcall(function() part:SetNetworkOwnershipAuto() end)
-                end
-                table.remove(self.State.ClaimedObjects, i)
-                print(string.format("✓ Released: %s", data.Name))
-                self:UpdateDisplay()
-                return
-            end
-        end
-        print("⚠ Object not claimed")
-    end
-    function NetworkClaim:ReleaseAll()
-        if #self.State.ClaimedObjects == 0 then print("⚠ Nothing to release"); return end
-        local n = #self.State.ClaimedObjects
-        for _, data in ipairs(self.State.ClaimedObjects) do
-            for _, c in ipairs(data.Connections) do if c then c:Disconnect() end end
-            if data.Highlight and data.Highlight.Parent then
-                data.Highlight:Destroy()
-            end
-            for _, part in ipairs(self:GetAllParts(data.Object)) do
-                pcall(function() part:SetNetworkOwnershipAuto() end)
-            end
-        end
-        self.State.ClaimedObjects = {}
-        print(string.format("✓ Released %d objects", n))
-        self:UpdateDisplay()
-    end
-    function NetworkClaim:SelectObject(obj)
-        if not obj or (not obj:IsA("Model") and not obj:IsA("BasePart")) then
-            print("⚠ Invalid selection"); return
-        end
-        if self.State.SelectedObject then
-            local old = self.State.SelectedObject:FindFirstChild("NetworkClaim_Selection")
-            if old then old:Destroy() end
-        end
-        self.State.SelectedObject = obj
-        local box = Instance.new("SelectionBox")
-        box.Name         = "NetworkClaim_Selection"
-        box.Adornee      = obj
-        box.LineThickness = 0.05
-        box.Color3       = Color3.fromRGB(255, 255, 0)
-        box.Parent       = obj
-        print(string.format("✓ Selected: %s", obj.Name))
-        self:UpdateDisplay()
-    end
-    function NetworkClaim:UpdateDisplay()
-        if not self.State.UI then return end
-        local mf   = self.State.UI.MainFrame
-        local sel  = mf.Content.SelectionLabel
-        local si   = mf.TitleBar.StatusIndicator
-        local list = mf.Content.ClaimedList
-        if self.State.SelectedObject then
-            local t = self.State.SelectedObject:IsA("Model") and "Model" or "Part"
-            sel.Text       = string.format("Selected: %s (%s)", self.State.SelectedObject.Name, t)
-            sel.TextColor3 = Color3.fromRGB(100, 255, 100)
-        else
-            sel.Text       = "Click an object in-world to select"
-            sel.TextColor3 = Color3.fromRGB(200, 200, 200)
-        end
-        local count = #self.State.ClaimedObjects
-        si.Text             = count .. " CLAIMED"
-        si.BackgroundColor3 = count > 0 and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(50, 50, 50)
-        si.TextColor3       = count > 0 and Color3.new(1, 1, 1) or Color3.fromRGB(200, 200, 200)
-        for _, c in pairs(list:GetChildren()) do
-            if not c:IsA("UIListLayout") then c:Destroy() end
-        end
-        for i, data in ipairs(self.State.ClaimedObjects) do
-            local entry = Instance.new("TextButton", list)
-            entry.LayoutOrder      = i
-            entry.Size             = UDim2.new(1, -5, 0, 28)
-            entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-            entry.BorderSizePixel  = 0
-            entry.Font             = Enum.Font.Code
-            entry.Text             = string.format("[%d] %s (%d pts)", i, data.Name, data.PartCount)
-            entry.TextColor3       = Color3.fromRGB(255, 150, 0)
-            entry.TextSize         = 10
-            entry.TextXAlignment   = Enum.TextXAlignment.Left
-            entry.AutoButtonColor  = false
-            Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 4)
-            local ep = Instance.new("UIPadding", entry)
-            ep.PaddingLeft = UDim.new(0, 8)
-            entry.MouseButton1Click:Connect(function() self:SelectObject(data.Object) end)
-            entry.MouseEnter:Connect(function() entry.BackgroundColor3 = Color3.fromRGB(50, 50, 60) end)
-            entry.MouseLeave:Connect(function() entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50) end)
-        end
-    end
-    function NetworkClaim:_createUI()
-        local screenGui = Instance.new("ScreenGui")
-        screenGui.Name           = "NetworkClaim_Zuka"
-        screenGui.ResetOnSpawn   = false
-        screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-        self.State.UI = screenGui
-        local mainFrame = Instance.new("Frame", screenGui)
-        mainFrame.Name             = "MainFrame"
-        mainFrame.Size             = UDim2.fromOffset(400, 740)
-        mainFrame.Position         = UDim2.new(1, -412, 0.5, -370)
-        mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-        mainFrame.BorderSizePixel  = 0
-        Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
-        local stroke = Instance.new("UIStroke", mainFrame)
-        stroke.Color     = Color3.fromRGB(255, 100, 0)
-        stroke.Thickness = 2
-        TweenService:Create(stroke,
-            TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-            { Thickness = 3 }):Play()
-        local titleBar = Instance.new("Frame", mainFrame)
-        titleBar.Name             = "TitleBar"
-        titleBar.Size             = UDim2.new(1, 0, 0, 35)
-        titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-        titleBar.BorderSizePixel  = 0
-        Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
-        local title = Instance.new("TextLabel", titleBar)
-        title.Size               = UDim2.new(1, -120, 1, 0)
-        title.Position           = UDim2.fromOffset(10, 0)
-        title.BackgroundTransparency = 1
-        title.Font               = Enum.Font.Code
-        title.Text               = "orbit"
-        title.TextColor3         = Color3.fromRGB(255, 100, 0)
-        title.TextSize           = 14
-        title.TextXAlignment     = Enum.TextXAlignment.Left
-        local statusIndicator = Instance.new("TextLabel", titleBar)
-        statusIndicator.Name             = "StatusIndicator"
-        statusIndicator.Size             = UDim2.fromOffset(90, 20)
-        statusIndicator.Position         = UDim2.new(1, -160, 0.5, -10)
-        statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        statusIndicator.BorderSizePixel  = 0
-        statusIndicator.Font             = Enum.Font.GothamBold
-        statusIndicator.Text             = "0 CLAIMED"
-        statusIndicator.TextColor3       = Color3.fromRGB(200, 200, 200)
-        statusIndicator.TextSize         = 10
-        Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
-        local closeBtn = Instance.new("TextButton", titleBar)
-        closeBtn.Size             = UDim2.fromOffset(30, 30)
-        closeBtn.Position         = UDim2.new(1, -32, 0, 2)
-        closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
-        closeBtn.BorderSizePixel  = 0
-        closeBtn.Text             = "×"
-        closeBtn.TextColor3       = Color3.new(1, 1, 1)
-        closeBtn.Font             = Enum.Font.GothamBold
-        closeBtn.TextSize         = 20
-        Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
-        closeBtn.MouseButton1Click:Connect(function() self:Disable() end)
-        do
-            local dragStart, startPos
-            titleBar.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragStart = input.Position
-                    startPos  = mainFrame.Position
-                    local mc, ec
-                    mc = UserInputService.InputChanged:Connect(function(mi)
-                        if mi.UserInputType == Enum.UserInputType.MouseMovement then
-                            local d = mi.Position - dragStart
-                            mainFrame.Position = UDim2.new(
-                                startPos.X.Scale, startPos.X.Offset + d.X,
-                                startPos.Y.Scale, startPos.Y.Offset + d.Y)
-                        end
-                    end)
-                    ec = UserInputService.InputEnded:Connect(function(ei)
-                        if ei.UserInputType == Enum.UserInputType.MouseButton1 then
-                            mc:Disconnect(); ec:Disconnect()
-                        end
-                    end)
-                end
-            end)
-        end
-        local scroll = Instance.new("ScrollingFrame", mainFrame)
-        scroll.Name                = "Content"
-        scroll.Size                = UDim2.new(1, -10, 1, -45)
-        scroll.Position            = UDim2.fromOffset(5, 40)
-        scroll.BackgroundTransparency = 1
-        scroll.BorderSizePixel     = 0
-        scroll.ScrollBarThickness  = 4
-        scroll.ScrollBarImageColor3 = Color3.fromRGB(255, 100, 0)
-        scroll.CanvasSize          = UDim2.fromOffset(0, 0)
-        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        local layout = Instance.new("UIListLayout", scroll)
-        layout.Padding   = UDim.new(0, 8)
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-        local pad = Instance.new("UIPadding", scroll)
-        pad.PaddingLeft   = UDim.new(0, 6)
-        pad.PaddingRight  = UDim.new(0, 6)
-        pad.PaddingTop    = UDim.new(0, 6)
-        pad.PaddingBottom = UDim.new(0, 10)
-        local function sectionHeader(text, order)
-            local lbl = Instance.new("TextLabel", scroll)
-            lbl.LayoutOrder      = order
-            lbl.Size             = UDim2.new(1, 0, 0, 22)
-            lbl.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
-            lbl.BorderSizePixel  = 0
-            lbl.Font             = Enum.Font.GothamBold
-            lbl.Text             = "  " .. text
-            lbl.TextColor3       = Color3.fromRGB(255, 100, 0)
-            lbl.TextSize         = 11
-            lbl.TextXAlignment   = Enum.TextXAlignment.Left
-            Instance.new("UICorner", lbl).CornerRadius = UDim.new(0, 4)
-            return lbl
-        end
-        local function mkBtn(parent, text, bg, order)
-            local btn = Instance.new("TextButton", parent)
-            btn.LayoutOrder      = order or 0
-            btn.Size             = UDim2.new(1, 0, 0, 34)
-            btn.BackgroundColor3 = bg or Color3.fromRGB(50, 50, 65)
-            btn.BorderSizePixel  = 0
-            btn.Font             = Enum.Font.GothamBold
-            btn.Text             = text
-            btn.TextColor3       = Color3.new(1, 1, 1)
-            btn.TextSize         = 12
-            btn.AutoButtonColor  = false
-            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-            return btn
-        end
-        local function mkHalfRow(order)
-            local row = Instance.new("Frame", scroll)
-            row.LayoutOrder            = order
-            row.Size                   = UDim2.new(1, 0, 0, 34)
-            row.BackgroundTransparency = 1
-            local rl = Instance.new("UIListLayout", row)
-            rl.FillDirection = Enum.FillDirection.Horizontal
-            rl.Padding       = UDim.new(0, 6)
-            return row
-        end
-        local function makeSliderBtn(parent, symbol)
-            local b = Instance.new("TextButton", parent)
-            b.Size             = UDim2.new(0, 28, 1, 0)
-            b.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-            b.BorderSizePixel  = 0
-            b.Font             = Enum.Font.GothamBold
-            b.Text             = symbol
-            b.TextColor3       = Color3.new(1, 1, 1)
-            b.TextSize         = 14
-            b.AutoButtonColor  = false
-            Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
-            return b
-        end
-        sectionHeader("NETWORK CLAIM", 1)
-        local selectionLabel = Instance.new("TextLabel", scroll)
-        selectionLabel.LayoutOrder      = 2
-        selectionLabel.Name             = "SelectionLabel"
-        selectionLabel.Size             = UDim2.new(1, 0, 0, 34)
-        selectionLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-        selectionLabel.BorderSizePixel  = 0
-        selectionLabel.Font             = Enum.Font.GothamMedium
-        selectionLabel.Text             = "Click an object in-world to select"
-        selectionLabel.TextColor3       = Color3.fromRGB(200, 200, 200)
-        selectionLabel.TextSize         = 12
-        Instance.new("UICorner", selectionLabel).CornerRadius = UDim.new(0, 6)
-        local methodRow = Instance.new("Frame", scroll)
-        methodRow.LayoutOrder           = 3
-        methodRow.Size                  = UDim2.new(1, 0, 0, 46)
-        methodRow.BackgroundTransparency = 1
-        local methodHL = Instance.new("UIListLayout", methodRow)
-        methodHL.FillDirection = Enum.FillDirection.Horizontal
-        methodHL.Padding       = UDim.new(0, 4)
-        local methodButtons = {}
-        local methods = {
-            { id = "ownership", name = "OWNERSHIP", desc = "Set network owner" },
-            { id = "velocity",  name = "VELOCITY",  desc = "Spam velocity"     },
-            { id = "cframe",    name = "CFRAME",    desc = "Spam CFrame"       },
-        }
-        for _, m in ipairs(methods) do
-            local col = Instance.new("Frame", methodRow)
-            col.Size               = UDim2.new(0.333, -4, 1, 0)
-            col.BackgroundTransparency = 1
-            local btn = Instance.new("TextButton", col)
-            btn.Size             = UDim2.new(1, 0, 0, 30)
-            btn.BackgroundColor3 = m.id == "ownership"
-                and Color3.fromRGB(255, 100, 0)
-                or  Color3.fromRGB(50, 50, 65)
-            btn.BorderSizePixel  = 0
-            btn.Font             = Enum.Font.GothamSemibold
-            btn.Text             = m.name
-            btn.TextColor3       = Color3.new(1, 1, 1)
-            btn.TextSize         = 10
-            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-            local tip = Instance.new("TextLabel", col)
-            tip.Size               = UDim2.new(1, 0, 0, 12)
-            tip.Position           = UDim2.fromOffset(0, 32)
-            tip.BackgroundTransparency = 1
-            tip.Font               = Enum.Font.Gotham
-            tip.Text               = m.desc
-            tip.TextColor3         = Color3.fromRGB(130, 130, 130)
-            tip.TextSize           = 8
-            methodButtons[m.id]    = btn
-            btn.MouseButton1Click:Connect(function()
-                self.Config.ClaimMethod = m.id
-                for id, b in pairs(methodButtons) do
-                    b.BackgroundColor3 = id == m.id
-                        and Color3.fromRGB(255, 100, 0)
-                        or  Color3.fromRGB(50, 50, 65)
-                end
-            end)
-        end
-        local autoClaimBtn = mkBtn(scroll, "AUTO-CLAIM: OFF", Color3.fromRGB(50, 50, 65), 4)
-        autoClaimBtn.MouseButton1Click:Connect(function()
-            self.State.AutoClaim = not self.State.AutoClaim
-            autoClaimBtn.Text             = "AUTO-CLAIM: " .. (self.State.AutoClaim and "ON" or "OFF")
-            autoClaimBtn.BackgroundColor3 = self.State.AutoClaim
-                and Color3.fromRGB(0, 200, 100)
-                or  Color3.fromRGB(50, 50, 65)
-        end)
-        local claimBtn = mkBtn(scroll, "CLAIM SELECTED", Color3.fromRGB(255, 150, 0), 5)
-        claimBtn.MouseButton1Click:Connect(function() self:ClaimSelected() end)
-        local hrRow = mkHalfRow(6)
-        local releaseBtn = Instance.new("TextButton", hrRow)
-        releaseBtn.Size             = UDim2.new(0.5, -3, 1, 0)
-        releaseBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
-        releaseBtn.BorderSizePixel  = 0
-        releaseBtn.Font             = Enum.Font.GothamBold
-        releaseBtn.Text             = "RELEASE"
-        releaseBtn.TextColor3       = Color3.new(1, 1, 1)
-        releaseBtn.TextSize         = 12
-        releaseBtn.AutoButtonColor  = false
-        Instance.new("UICorner", releaseBtn).CornerRadius = UDim.new(0, 6)
-        releaseBtn.MouseButton1Click:Connect(function() self:ReleaseSelected() end)
-        local releaseAllBtn = Instance.new("TextButton", hrRow)
-        releaseAllBtn.Size             = UDim2.new(0.5, -3, 1, 0)
-        releaseAllBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
-        releaseAllBtn.BorderSizePixel  = 0
-        releaseAllBtn.Font             = Enum.Font.GothamBold
-        releaseAllBtn.Text             = "RELEASE ALL"
-        releaseAllBtn.TextColor3       = Color3.new(1, 1, 1)
-        releaseAllBtn.TextSize         = 12
-        releaseAllBtn.AutoButtonColor  = false
-        Instance.new("UICorner", releaseAllBtn).CornerRadius = UDim.new(0, 6)
-        releaseAllBtn.MouseButton1Click:Connect(function() self:ReleaseAll() end)
-        local claimModelBtn = mkBtn(scroll, "CLAIM ENTIRE MODEL",     Color3.fromRGB(150, 80,  200), 7)
-        local claimDescBtn  = mkBtn(scroll, "CLAIM ALL DESCENDANTS",  Color3.fromRGB(100, 150, 200), 8)
-        claimModelBtn.MouseButton1Click:Connect(function() self:ClaimEntireModel()      end)
-        claimDescBtn.MouseButton1Click:Connect(function()  self:ClaimAllDescendants()   end)
-        local claimAllBtn = mkBtn(scroll, "⚡ CLAIM ALL WORKSPACE: OFF", Color3.fromRGB(30, 60, 30), 8.5)
-        do
-            local stroke2 = Instance.new("UIStroke", claimAllBtn)
-            stroke2.Color     = Color3.fromRGB(0, 220, 80)
-            stroke2.Thickness = 1.5
-        end
-        local massCounter = Instance.new("TextLabel", scroll)
-        massCounter.LayoutOrder            = 8.6
-        massCounter.Size                   = UDim2.new(1, 0, 0, 18)
-        massCounter.BackgroundTransparency = 1
-        massCounter.Font                   = Enum.Font.Code
-        massCounter.Text                   = ""
-        massCounter.TextColor3             = Color3.fromRGB(0, 200, 80)
-        massCounter.TextSize               = 10
-        massCounter.TextXAlignment         = Enum.TextXAlignment.Left
-        RunService.Heartbeat:Connect(function()
-            if massClaimActive then
-                local n = 0
-                for _ in pairs(MASS_CLAIMED) do n += 1 end
-                massCounter.Text = "holding: " .. n .. " workspace parts (triple-locked)"
-            else
-                massCounter.Text = ""
-            end
-        end)
-        claimAllBtn.MouseButton1Click:Connect(function()
-            self:ClaimAllWorkspace()
-            if massClaimActive then
-                claimAllBtn.Text             = "⚡ CLAIM ALL WORKSPACE: ON"
-                claimAllBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 30)
-            else
-                claimAllBtn.Text             = "⚡ CLAIM ALL WORKSPACE: OFF"
-                claimAllBtn.BackgroundColor3 = Color3.fromRGB(30, 60, 30)
-            end
-        end)
-        local claimedListLabel = Instance.new("TextLabel", scroll)
-        claimedListLabel.LayoutOrder          = 9
-        claimedListLabel.Size                 = UDim2.new(1, 0, 0, 18)
-        claimedListLabel.BackgroundTransparency = 1
-        claimedListLabel.Font                 = Enum.Font.GothamBold
-        claimedListLabel.Text                 = "Claimed Objects:"
-        claimedListLabel.TextColor3           = Color3.new(1, 1, 1)
-        claimedListLabel.TextSize             = 12
-        claimedListLabel.TextXAlignment       = Enum.TextXAlignment.Left
-        local claimedList = Instance.new("ScrollingFrame", scroll)
-        claimedList.Name                = "ClaimedList"
-        claimedList.LayoutOrder         = 10
-        claimedList.Size                = UDim2.new(1, 0, 0, 120)
-        claimedList.BackgroundColor3    = Color3.fromRGB(30, 30, 40)
-        claimedList.BorderSizePixel     = 0
-        claimedList.ScrollBarThickness  = 4
-        claimedList.ScrollBarImageColor3 = Color3.fromRGB(255, 100, 0)
-        claimedList.CanvasSize          = UDim2.fromOffset(0, 0)
-        claimedList.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        Instance.new("UICorner", claimedList).CornerRadius = UDim.new(0, 6)
-        local listLayout = Instance.new("UIListLayout", claimedList)
-        listLayout.Padding   = UDim.new(0, 3)
-        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        sectionHeader("PART FLINGER", 20)
-        local flingerInputRow = Instance.new("Frame", scroll)
-        flingerInputRow.LayoutOrder           = 21
-        flingerInputRow.Size                  = UDim2.new(1, 0, 0, 32)
-        flingerInputRow.BackgroundTransparency = 1
-        local filRL = Instance.new("UIListLayout", flingerInputRow)
-        filRL.FillDirection = Enum.FillDirection.Horizontal
-        filRL.Padding       = UDim.new(0, 6)
-        local inputBox = Instance.new("TextBox", flingerInputRow)
-        inputBox.Size              = UDim2.new(1, -80, 1, 0)
-        inputBox.BackgroundColor3  = Color3.fromRGB(24, 24, 35)
-        inputBox.BorderSizePixel   = 0
-        inputBox.PlaceholderText   = "player name..."
-        inputBox.PlaceholderColor3 = Color3.fromRGB(65, 65, 80)
-        inputBox.Text              = ""
-        inputBox.TextColor3        = Color3.fromRGB(210, 210, 210)
-        inputBox.TextSize          = 13
-        inputBox.Font              = Enum.Font.Code
-        inputBox.ClearTextOnFocus  = false
-        Instance.new("UICorner", inputBox).CornerRadius = UDim.new(0, 6)
-        local inputStroke = Instance.new("UIStroke", inputBox)
-        inputStroke.Color     = Color3.fromRGB(60, 60, 80)
-        inputStroke.Thickness = 1
-        local modeBtn = Instance.new("TextButton", flingerInputRow)
-        modeBtn.Size             = UDim2.new(0, 74, 1, 0)
-        modeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-        modeBtn.BorderSizePixel  = 0
-        modeBtn.Font             = Enum.Font.GothamBold
-        modeBtn.Text             = "Players"
-        modeBtn.TextColor3       = Color3.fromRGB(200, 200, 200)
-        modeBtn.TextSize         = 12
-        modeBtn.AutoButtonColor  = false
-        Instance.new("UICorner", modeBtn).CornerRadius = UDim.new(0, 6)
-        local bsRow = mkHalfRow(22)
-        local bringBtn = Instance.new("TextButton", bsRow)
-        bringBtn.Size             = UDim2.new(0.5, -3, 1, 0)
-        bringBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-        bringBtn.BorderSizePixel  = 0
-        bringBtn.Font             = Enum.Font.GothamBold
-        bringBtn.Text             = "Bring: Off"
-        bringBtn.TextColor3       = Color3.new(1, 1, 1)
-        bringBtn.TextSize         = 12
-        bringBtn.AutoButtonColor  = false
-        Instance.new("UICorner", bringBtn).CornerRadius = UDim.new(0, 6)
-        local spectateBtn = Instance.new("TextButton", bsRow)
-        spectateBtn.Size             = UDim2.new(0.5, -3, 1, 0)
-        spectateBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-        spectateBtn.BorderSizePixel  = 0
-        spectateBtn.Font             = Enum.Font.GothamBold
-        spectateBtn.Text             = "Spectate: Off"
-        spectateBtn.TextColor3       = Color3.new(1, 1, 1)
-        spectateBtn.TextSize         = 12
-        spectateBtn.AutoButtonColor  = false
-        Instance.new("UICorner", spectateBtn).CornerRadius = UDim.new(0, 6)
-        local flingerStatus = Instance.new("TextLabel", scroll)
-        flingerStatus.LayoutOrder            = 23
-        flingerStatus.Size                   = UDim2.new(1, 0, 0, 26)
-        flingerStatus.BackgroundColor3       = Color3.fromRGB(20, 20, 30)
-        flingerStatus.BackgroundTransparency = 0.1
-        flingerStatus.BorderSizePixel        = 0
-        flingerStatus.Font                   = Enum.Font.Code
-        flingerStatus.Text                   = "idle"
-        flingerStatus.TextColor3             = Color3.fromRGB(80, 80, 100)
-        flingerStatus.TextSize               = 11
-        flingerStatus.TextXAlignment         = Enum.TextXAlignment.Left
-        Instance.new("UICorner", flingerStatus).CornerRadius = UDim.new(0, 6)
-        local fsPad = Instance.new("UIPadding", flingerStatus)
-        fsPad.PaddingLeft = UDim.new(0, 8)
-        local partsCounter = Instance.new("TextLabel", scroll)
-        partsCounter.LayoutOrder           = 24
-        partsCounter.Size                  = UDim2.new(1, 0, 0, 18)
-        partsCounter.BackgroundTransparency = 1
-        partsCounter.Font                  = Enum.Font.Code
-        partsCounter.Text                  = ""
-        partsCounter.TextColor3            = Color3.fromRGB(80, 80, 100)
-        partsCounter.TextSize              = 10
-        partsCounter.TextXAlignment        = Enum.TextXAlignment.Left
-        local velLabel = Instance.new("TextLabel", scroll)
-        velLabel.LayoutOrder            = 25
-        velLabel.Size                   = UDim2.new(1, 0, 0, 16)
-        velLabel.BackgroundTransparency = 1
-        velLabel.Font                   = Enum.Font.GothamBold
-        velLabel.Text                   = "Velocity: 900"
-        velLabel.TextColor3             = Color3.new(1, 1, 1)
-        velLabel.TextSize               = 11
-        velLabel.TextXAlignment         = Enum.TextXAlignment.Left
-        local velRow = Instance.new("Frame", scroll)
-        velRow.LayoutOrder            = 26
-        velRow.Size                   = UDim2.new(1, 0, 0, 28)
-        velRow.BackgroundTransparency = 1
-        local velRL = Instance.new("UIListLayout", velRow)
-        velRL.FillDirection     = Enum.FillDirection.Horizontal
-        velRL.Padding           = UDim.new(0, 6)
-        velRL.VerticalAlignment = Enum.VerticalAlignment.Center
-        local velDown1  = makeSliderBtn(velRow, "−")
-        local velDown10 = makeSliderBtn(velRow, "−−")
-        local velBar    = Instance.new("Frame", velRow)
-        velBar.Size             = UDim2.new(1, -4*(28+6), 1, 0)
-        velBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-        velBar.BorderSizePixel  = 0
-        Instance.new("UICorner", velBar).CornerRadius = UDim.new(0, 6)
-        local velFill = Instance.new("Frame", velBar)
-        velFill.Size             = UDim2.new(900/5000, 0, 1, 0)
-        velFill.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
-        velFill.BorderSizePixel  = 0
-        Instance.new("UICorner", velFill).CornerRadius = UDim.new(0, 6)
-        local velUp10 = makeSliderBtn(velRow, "++")
-        local velUp1  = makeSliderBtn(velRow, "+")
-        local function updateVel(delta)
-            BH.CONFIG.VELOCITY = math.clamp(BH.CONFIG.VELOCITY + delta, 50, 5000)
-            velLabel.Text = "Velocity: " .. BH.CONFIG.VELOCITY
-            velFill.Size  = UDim2.new(BH.CONFIG.VELOCITY / 5000, 0, 1, 0)
-        end
-        velDown1.MouseButton1Click:Connect(function()  updateVel(-100) end)
-        velDown10.MouseButton1Click:Connect(function() updateVel(-500) end)
-        velUp1.MouseButton1Click:Connect(function()    updateVel(100)  end)
-        velUp10.MouseButton1Click:Connect(function()   updateVel(500)  end)
-        local sizeLabel = Instance.new("TextLabel", scroll)
-        sizeLabel.LayoutOrder            = 27
-        sizeLabel.Size                   = UDim2.new(1, 0, 0, 16)
-        sizeLabel.BackgroundTransparency = 1
-        sizeLabel.Font                   = Enum.Font.GothamBold
-        sizeLabel.Text                   = "Min Part Size: off"
-        sizeLabel.TextColor3             = Color3.new(1, 1, 1)
-        sizeLabel.TextSize               = 11
-        sizeLabel.TextXAlignment         = Enum.TextXAlignment.Left
-        local sizeRow = Instance.new("Frame", scroll)
-        sizeRow.LayoutOrder            = 28
-        sizeRow.Size                   = UDim2.new(1, 0, 0, 28)
-        sizeRow.BackgroundTransparency = 1
-        local sizeRL = Instance.new("UIListLayout", sizeRow)
-        sizeRL.FillDirection     = Enum.FillDirection.Horizontal
-        sizeRL.Padding           = UDim.new(0, 6)
-        sizeRL.VerticalAlignment = Enum.VerticalAlignment.Center
-        local sizeDown = makeSliderBtn(sizeRow, "−")
-        local sizeBar  = Instance.new("Frame", sizeRow)
-        sizeBar.Size             = UDim2.new(1, -2*(28+6), 1, 0)
-        sizeBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-        sizeBar.BorderSizePixel  = 0
-        Instance.new("UICorner", sizeBar).CornerRadius = UDim.new(0, 6)
-        local sizeFill = Instance.new("Frame", sizeBar)
-        sizeFill.Size             = UDim2.new(0, 0, 1, 0)
-        sizeFill.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
-        sizeFill.BorderSizePixel  = 0
-        Instance.new("UICorner", sizeFill).CornerRadius = UDim.new(0, 6)
-        local sizeUp = makeSliderBtn(sizeRow, "+")
-        local function updateSize(delta)
-            BH.CONFIG.MIN_SIZE = math.clamp(BH.CONFIG.MIN_SIZE + delta, 0, 50)
-            sizeLabel.Text = BH.CONFIG.MIN_SIZE == 0
-                and "Min Part Size: off"
-                or  "Min Part Size: " .. BH.CONFIG.MIN_SIZE .. " st"
-            sizeFill.Size = UDim2.new(BH.CONFIG.MIN_SIZE / 50, 0, 1, 0)
-        end
-        sizeDown.MouseButton1Click:Connect(function() updateSize(-1) end)
-        sizeUp.MouseButton1Click:Connect(function()   updateSize(1)  end)
-        local sweepLabel = Instance.new("TextLabel", scroll)
-        sweepLabel.LayoutOrder            = 29
-        sweepLabel.Size                   = UDim2.new(1, 0, 0, 16)
-        sweepLabel.BackgroundTransparency = 1
-        sweepLabel.Font                   = Enum.Font.GothamBold
-        sweepLabel.Text                   = "Sweep Radius: off"
-        sweepLabel.TextColor3             = Color3.new(1, 1, 1)
-        sweepLabel.TextSize               = 11
-        sweepLabel.TextXAlignment         = Enum.TextXAlignment.Left
-        local sweepRow = Instance.new("Frame", scroll)
-        sweepRow.LayoutOrder            = 30
-        sweepRow.Size                   = UDim2.new(1, 0, 0, 28)
-        sweepRow.BackgroundTransparency = 1
-        local sweepRL = Instance.new("UIListLayout", sweepRow)
-        sweepRL.FillDirection     = Enum.FillDirection.Horizontal
-        sweepRL.Padding           = UDim.new(0, 6)
-        sweepRL.VerticalAlignment = Enum.VerticalAlignment.Center
-        local sweepDown = makeSliderBtn(sweepRow, "−")
-        local sweepBar  = Instance.new("Frame", sweepRow)
-        sweepBar.Size             = UDim2.new(1, -2*(28+6), 1, 0)
-        sweepBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-        sweepBar.BorderSizePixel  = 0
-        Instance.new("UICorner", sweepBar).CornerRadius = UDim.new(0, 6)
-        local sweepFill = Instance.new("Frame", sweepBar)
-        sweepFill.Size             = UDim2.new(0, 0, 1, 0)
-        sweepFill.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
-        sweepFill.BorderSizePixel  = 0
-        Instance.new("UICorner", sweepFill).CornerRadius = UDim.new(0, 6)
-        local sweepUp = makeSliderBtn(sweepRow, "+")
-        local MAX_SWEEP = 500
-        local function updateSweep(delta)
-            BH.CONFIG.SWEEP_RADIUS = math.clamp(BH.CONFIG.SWEEP_RADIUS + delta, 0, MAX_SWEEP)
-            sweepLabel.Text = BH.CONFIG.SWEEP_RADIUS == 0
-                and "Sweep Radius: off"
-                or  "Sweep Radius: " .. BH.CONFIG.SWEEP_RADIUS .. " st"
-            sweepFill.Size = UDim2.new(BH.CONFIG.SWEEP_RADIUS / MAX_SWEEP, 0, 1, 0)
-        end
-        sweepDown.MouseButton1Click:Connect(function() updateSweep(-25) end)
-        sweepUp.MouseButton1Click:Connect(function()   updateSweep(25)  end)
-        sectionHeader("ORBIT SHIELD", 40)
-        local orbitToggleBtn = mkBtn(scroll, "ORBIT SHIELD: OFF", Color3.fromRGB(50, 50, 70), 41)
-        local orbitRadLabel = Instance.new("TextLabel", scroll)
-        orbitRadLabel.LayoutOrder            = 42
-        orbitRadLabel.Size                   = UDim2.new(1, 0, 0, 16)
-        orbitRadLabel.BackgroundTransparency = 1
-        orbitRadLabel.Font                   = Enum.Font.GothamBold
-        orbitRadLabel.Text                   = "Radius: " .. BH.ORBIT.Radius .. " st"
-        orbitRadLabel.TextColor3             = Color3.new(1, 1, 1)
-        orbitRadLabel.TextSize               = 11
-        orbitRadLabel.TextXAlignment         = Enum.TextXAlignment.Left
-        local orbitRadRow = Instance.new("Frame", scroll)
-        orbitRadRow.LayoutOrder            = 43
-        orbitRadRow.Size                   = UDim2.new(1, 0, 0, 28)
-        orbitRadRow.BackgroundTransparency = 1
-        local orrRL = Instance.new("UIListLayout", orbitRadRow)
-        orrRL.FillDirection     = Enum.FillDirection.Horizontal
-        orrRL.Padding           = UDim.new(0, 6)
-        orrRL.VerticalAlignment = Enum.VerticalAlignment.Center
-        local orRadDown = makeSliderBtn(orbitRadRow, "−")
-        local orRadBar  = Instance.new("Frame", orbitRadRow)
-        orRadBar.Size             = UDim2.new(1, -2*(28+6), 1, 0)
-        orRadBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-        orRadBar.BorderSizePixel  = 0
-        Instance.new("UICorner", orRadBar).CornerRadius = UDim.new(0, 6)
-        local orRadFill = Instance.new("Frame", orRadBar)
-        orRadFill.Size             = UDim2.new(BH.ORBIT.Radius/50, 0, 1, 0)
-        orRadFill.BackgroundColor3 = Color3.fromRGB(180, 80, 255)
-        orRadFill.BorderSizePixel  = 0
-        Instance.new("UICorner", orRadFill).CornerRadius = UDim.new(0, 6)
-        local orRadUp = makeSliderBtn(orbitRadRow, "+")
-        local function updateOrbitRadius(delta)
-            BH.ORBIT.Radius = math.clamp(BH.ORBIT.Radius + delta, 2, 50)
-            orbitRadLabel.Text = "Radius: " .. BH.ORBIT.Radius .. " st"
-            orRadFill.Size = UDim2.new(BH.ORBIT.Radius/50, 0, 1, 0)
-        end
-        orRadDown.MouseButton1Click:Connect(function() updateOrbitRadius(-1) end)
-        orRadUp.MouseButton1Click:Connect(function()   updateOrbitRadius(1)  end)
-        local orbitSpdLabel = Instance.new("TextLabel", scroll)
-        orbitSpdLabel.LayoutOrder            = 44
-        orbitSpdLabel.Size                   = UDim2.new(1, 0, 0, 16)
-        orbitSpdLabel.BackgroundTransparency = 1
-        orbitSpdLabel.Font                   = Enum.Font.GothamBold
-        orbitSpdLabel.Text                   = "Speed: " .. BH.ORBIT.Speed .. "x"
-        orbitSpdLabel.TextColor3             = Color3.new(1, 1, 1)
-        orbitSpdLabel.TextSize               = 11
-        orbitSpdLabel.TextXAlignment         = Enum.TextXAlignment.Left
-        local orbitSpdRow = Instance.new("Frame", scroll)
-        orbitSpdRow.LayoutOrder            = 45
-        orbitSpdRow.Size                   = UDim2.new(1, 0, 0, 28)
-        orbitSpdRow.BackgroundTransparency = 1
-        local orsRL = Instance.new("UIListLayout", orbitSpdRow)
-        orsRL.FillDirection     = Enum.FillDirection.Horizontal
-        orsRL.Padding           = UDim.new(0, 6)
-        orsRL.VerticalAlignment = Enum.VerticalAlignment.Center
-        local orSpdDown = makeSliderBtn(orbitSpdRow, "−")
-        local orSpdBar  = Instance.new("Frame", orbitSpdRow)
-        orSpdBar.Size             = UDim2.new(1, -2*(28+6), 1, 0)
-        orSpdBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-        orSpdBar.BorderSizePixel  = 0
-        Instance.new("UICorner", orSpdBar).CornerRadius = UDim.new(0, 6)
-        local orSpdFill = Instance.new("Frame", orSpdBar)
-        orSpdFill.Size             = UDim2.new(BH.ORBIT.Speed/20, 0, 1, 0)
-        orSpdFill.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
-        orSpdFill.BorderSizePixel  = 0
-        Instance.new("UICorner", orSpdFill).CornerRadius = UDim.new(0, 6)
-        local orSpdUp = makeSliderBtn(orbitSpdRow, "+")
-        local function updateOrbitSpeed(delta)
-            BH.ORBIT.Speed = math.clamp(BH.ORBIT.Speed + delta, 0.5, 20)
-            orbitSpdLabel.Text = "Speed: " .. BH.ORBIT.Speed .. "x"
-            orSpdFill.Size = UDim2.new(BH.ORBIT.Speed/20, 0, 1, 0)
-        end
-        orSpdDown.MouseButton1Click:Connect(function() updateOrbitSpeed(-0.5) end)
-        orSpdUp.MouseButton1Click:Connect(function()   updateOrbitSpeed(0.5)  end)
-        local orbitRingsLabel = Instance.new("TextLabel", scroll)
-        orbitRingsLabel.LayoutOrder            = 46
-        orbitRingsLabel.Size                   = UDim2.new(1, 0, 0, 16)
-        orbitRingsLabel.BackgroundTransparency = 1
-        orbitRingsLabel.Font                   = Enum.Font.GothamBold
-        orbitRingsLabel.Text                   = "Rings: " .. BH.ORBIT.Rings
-        orbitRingsLabel.TextColor3             = Color3.new(1, 1, 1)
-        orbitRingsLabel.TextSize               = 11
-        orbitRingsLabel.TextXAlignment         = Enum.TextXAlignment.Left
-        local orbitRingsRow = Instance.new("Frame", scroll)
-        orbitRingsRow.LayoutOrder            = 47
-        orbitRingsRow.Size                   = UDim2.new(1, 0, 0, 28)
-        orbitRingsRow.BackgroundTransparency = 1
-        local orringsRL = Instance.new("UIListLayout", orbitRingsRow)
-        orringsRL.FillDirection     = Enum.FillDirection.Horizontal
-        orringsRL.Padding           = UDim.new(0, 6)
-        orringsRL.VerticalAlignment = Enum.VerticalAlignment.Center
-        local orRingsDown = makeSliderBtn(orbitRingsRow, "−")
-        local orRingsBar  = Instance.new("Frame", orbitRingsRow)
-        orRingsBar.Size             = UDim2.new(1, -2*(28+6), 1, 0)
-        orRingsBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-        orRingsBar.BorderSizePixel  = 0
-        Instance.new("UICorner", orRingsBar).CornerRadius = UDim.new(0, 6)
-        local orRingsFill = Instance.new("Frame", orRingsBar)
-        orRingsFill.Size             = UDim2.new(BH.ORBIT.Rings/5, 0, 1, 0)
-        orRingsFill.BackgroundColor3 = Color3.fromRGB(80, 220, 180)
-        orRingsFill.BorderSizePixel  = 0
-        Instance.new("UICorner", orRingsFill).CornerRadius = UDim.new(0, 6)
-        local orRingsUp = makeSliderBtn(orbitRingsRow, "+")
-        local function updateOrbitRings(delta)
-            BH.ORBIT.Rings = math.clamp(BH.ORBIT.Rings + delta, 1, 5)
-            orbitRingsLabel.Text = "Rings: " .. BH.ORBIT.Rings
-            orRingsFill.Size = UDim2.new(BH.ORBIT.Rings/5, 0, 1, 0)
-            for i, e in ipairs(BH.ORBIT.Parts) do
-                e.ringOffset = ((i % BH.ORBIT.Rings) / BH.ORBIT.Rings) * math.pi
-            end
-        end
-        orRingsDown.MouseButton1Click:Connect(function() updateOrbitRings(-1) end)
-        orRingsUp.MouseButton1Click:Connect(function()   updateOrbitRings(1)  end)
-        local orbitCountLabel = Instance.new("TextLabel", scroll)
-        orbitCountLabel.LayoutOrder            = 48
-        orbitCountLabel.Size                   = UDim2.new(1, 0, 0, 16)
-        orbitCountLabel.BackgroundTransparency = 1
-        orbitCountLabel.Font                   = Enum.Font.Code
-        orbitCountLabel.Text                   = ""
-        orbitCountLabel.TextColor3             = Color3.fromRGB(80, 80, 100)
-        orbitCountLabel.TextSize               = 10
-        orbitCountLabel.TextXAlignment         = Enum.TextXAlignment.Left
-        RunService.Heartbeat:Connect(function()
-            orbitCountLabel.Text = BH.ORBIT.Active
-                and ("orbiting: " .. #BH.ORBIT.Parts .. " parts")
-                or  ""
-        end)
-        orbitToggleBtn.MouseButton1Click:Connect(function()
-            if BH.ORBIT.Active then
-                orbitStop()
-                orbitToggleBtn.Text             = "ORBIT SHIELD: OFF"
-                orbitToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-            else
-                orbitStart()
-                orbitToggleBtn.Text             = "ORBIT SHIELD: ON"
-                orbitToggleBtn.BackgroundColor3 = Color3.fromRGB(120, 40, 200)
-            end
-        end)
-        sectionHeader("MISSILE PART", 50)
-        local missilePartLabel = Instance.new("TextLabel", scroll)
-        missilePartLabel.LayoutOrder      = 51
-        missilePartLabel.Name             = "MissilePartLabel"
-        missilePartLabel.Size             = UDim2.new(1, 0, 0, 30)
-        missilePartLabel.BackgroundColor3 = Color3.fromRGB(35, 20, 20)
-        missilePartLabel.BorderSizePixel  = 0
-        missilePartLabel.Font             = Enum.Font.Code
-        missilePartLabel.Text             = "no part selected"
-        missilePartLabel.TextColor3       = Color3.fromRGB(150, 150, 150)
-        missilePartLabel.TextSize         = 11
-        missilePartLabel.TextXAlignment   = Enum.TextXAlignment.Left
-        Instance.new("UICorner", missilePartLabel).CornerRadius = UDim.new(0, 6)
-        local mlPad = Instance.new("UIPadding", missilePartLabel)
-        mlPad.PaddingLeft = UDim.new(0, 8)
-        local missileLaunchBtn
-        local setMissileBtn = mkBtn(scroll, "SET AS MISSILE PART", Color3.fromRGB(160, 40, 40), 52)
-        setMissileBtn.MouseButton1Click:Connect(function()
-            local sel  = NetworkClaim.State.SelectedObject
-            local part = nil
-            if sel then
-                if sel:IsA("BasePart") then
-                    part = sel
-                elseif sel:IsA("Model") then
-                    part = sel:FindFirstChildOfClass("BasePart") or sel.PrimaryPart
-                end
-            end
-            if not part then
-                missilePartLabel.Text       = "select a BasePart first"
-                missilePartLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-                return
-            end
-            if BH.MISSILE.Active then
-                missileStop()
-                missileLaunchBtn.Text             = "LAUNCH: OFF"
-                missileLaunchBtn.BackgroundColor3 = Color3.fromRGB(120, 30, 30)
-            end
-            missileSetPart(part)
-            missilePartLabel.Text       = "missile: " .. part.Name
-            missilePartLabel.TextColor3 = Color3.fromRGB(255, 100, 60)
-        end)
-        local missileClearBtn = mkBtn(scroll, "CLEAR MISSILE PART", Color3.fromRGB(60, 30, 30), 53)
-        missileClearBtn.MouseButton1Click:Connect(function()
-            if BH.MISSILE.Active then
-                missileStop()
-                missileLaunchBtn.Text             = "LAUNCH: OFF"
-                missileLaunchBtn.BackgroundColor3 = Color3.fromRGB(120, 30, 30)
-            end
-            missileSetPart(nil)
-            missilePartLabel.Text       = "no part selected"
-            missilePartLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-        end)
-        local missileForceLabel = Instance.new("TextLabel", scroll)
-        missileForceLabel.LayoutOrder            = 54
-        missileForceLabel.Size                   = UDim2.new(1, 0, 0, 16)
-        missileForceLabel.BackgroundTransparency = 1
-        missileForceLabel.Font                   = Enum.Font.GothamBold
-        missileForceLabel.Text                   = "Force: " .. BH.MISSILE.Force
-        missileForceLabel.TextColor3             = Color3.new(1, 1, 1)
-        missileForceLabel.TextSize               = 11
-        missileForceLabel.TextXAlignment         = Enum.TextXAlignment.Left
-        local missileForceRow = Instance.new("Frame", scroll)
-        missileForceRow.LayoutOrder            = 55
-        missileForceRow.Size                   = UDim2.new(1, 0, 0, 28)
-        missileForceRow.BackgroundTransparency = 1
-        local mfrRL = Instance.new("UIListLayout", missileForceRow)
-        mfrRL.FillDirection     = Enum.FillDirection.Horizontal
-        mfrRL.Padding           = UDim.new(0, 6)
-        mfrRL.VerticalAlignment = Enum.VerticalAlignment.Center
-        local mfDown1  = makeSliderBtn(missileForceRow, "−")
-        local mfDown10 = makeSliderBtn(missileForceRow, "−−")
-        local mfBar    = Instance.new("Frame", missileForceRow)
-        mfBar.Size             = UDim2.new(1, -4*(28+6), 1, 0)
-        mfBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-        mfBar.BorderSizePixel  = 0
-        Instance.new("UICorner", mfBar).CornerRadius = UDim.new(0, 6)
-        local MAX_MFORCE = 5e6
-        local mfFill = Instance.new("Frame", mfBar)
-        mfFill.Size             = UDim2.new(BH.MISSILE.Force/MAX_MFORCE, 0, 1, 0)
-        mfFill.BackgroundColor3 = Color3.fromRGB(255, 80, 40)
-        mfFill.BorderSizePixel  = 0
-        Instance.new("UICorner", mfFill).CornerRadius = UDim.new(0, 6)
-        local mfUp10 = makeSliderBtn(missileForceRow, "++")
-        local mfUp1  = makeSliderBtn(missileForceRow, "+")
-        local function updateMissileForce(delta)
-            BH.MISSILE.Force = math.clamp(BH.MISSILE.Force + delta, 1e4, MAX_MFORCE)
-            missileForceLabel.Text = "Force: " .. string.format("%.0f", BH.MISSILE.Force)
-            mfFill.Size = UDim2.new(BH.MISSILE.Force/MAX_MFORCE, 0, 1, 0)
-        end
-        mfDown1.MouseButton1Click:Connect(function()  updateMissileForce(-1e5) end)
-        mfDown10.MouseButton1Click:Connect(function() updateMissileForce(-5e5) end)
-        mfUp1.MouseButton1Click:Connect(function()    updateMissileForce(1e5)  end)
-        mfUp10.MouseButton1Click:Connect(function()   updateMissileForce(5e5)  end)
-        missileLaunchBtn = mkBtn(scroll, "LAUNCH: OFF", Color3.fromRGB(120, 30, 30), 56)
-        missileLaunchBtn.MouseButton1Click:Connect(function()
-            if BH.MISSILE.Active then
-                missileStop()
-                missileLaunchBtn.Text             = "LAUNCH: OFF"
-                missileLaunchBtn.BackgroundColor3 = Color3.fromRGB(120, 30, 30)
-            else
-                if not BH.MISSILE.Part or not BH.MISSILE.Part.Parent then
-                    missilePartLabel.Text       = "set a missile part first"
-                    missilePartLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-                    return
-                end
-                if not BH.sendTarget then
-                    missilePartLabel.Text       = "set a target in PART FLINGER first"
-                    missilePartLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-                    return
-                end
-                missileStart()
-                missileLaunchBtn.Text             = "LAUNCH: ON  🔴"
-                missileLaunchBtn.BackgroundColor3 = Color3.fromRGB(220, 40, 40)
-                task.spawn(function()
-                    while BH.MISSILE.Active do task.wait(0.5) end
-                    missileLaunchBtn.Text             = "LAUNCH: OFF"
-                    missileLaunchBtn.BackgroundColor3 = Color3.fromRGB(120, 30, 30)
-                end)
-            end
-        end)
-        local function setFlingerStatus(msg, color)
-            flingerStatus.Text       = msg
-            flingerStatus.TextColor3 = color or Color3.fromRGB(80, 80, 100)
-        end
-        local function setBHTarget(player)
-            BH.sendTarget = player
-            if player then
-                setFlingerStatus("→ " .. player.Name .. " (" .. player.DisplayName .. ")",
-                    Color3.fromRGB(200, 80, 80))
-            else
-                setFlingerStatus("idle")
-            end
-        end
-        local function stopBlackhole()
-            BH.blackHoleActive = false
-            bringBtn.Text             = "Bring: Off"
-            bringBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-            if BH.DescendantAddedConn then
-                BH.DescendantAddedConn:Disconnect()
-                BH.DescendantAddedConn = nil
-            end
-            if BH.cycleConnection then
-                BH.cycleConnection:Disconnect()
-                BH.cycleConnection = nil
-            end
-            for part in pairs(BH.TARGET_PARTS) do bhReleasePart(part) end
-        end
-        local function startBlackhole()
-            if not BH.sendTarget then return end
-            BH.blackHoleActive = true
-            bringBtn.Text             = "Bring: On"
-            bringBtn.BackgroundColor3 = Color3.fromRGB(160, 35, 35)
-            local tc    = BH.sendTarget.Character
-            local tRoot = tc and tc:FindFirstChild("HumanoidRootPart")
-            if tRoot then _bhAttachment.WorldCFrame = tRoot.CFrame end
-            task.spawn(function()
-                for _, v in ipairs(Workspace:GetDescendants()) do bhForcePart(v) end
-            end)
-            BH.DescendantAddedConn = Workspace.DescendantAdded:Connect(function(v)
-                if BH.blackHoleActive then task.spawn(bhForcePart, v) end
-            end)
-            if BH.targetMode == "All" then
-                BH.cycleConnection = RunService.Heartbeat:Connect(function()
-                    local now = tick()
-                    if now - BH.cycleLastSwap >= 3 then
-                        BH.cycleLastSwap = now
-                        local players = bhGetValidPlayers()
-                        if #players > 0 then
-                            BH.cycleIndex = (BH.cycleIndex % #players) + 1
-                            setBHTarget(players[BH.cycleIndex])
-                        end
-                    end
-                end)
-            end
-        end
-        local function toggleSpectate()
-            if not BH.sendTarget then return end
-            BH.spectateActive = not BH.spectateActive
-            spectateBtn.Text             = BH.spectateActive and "Spectate: On" or "Spectate: Off"
-            spectateBtn.BackgroundColor3 = BH.spectateActive
-                and Color3.fromRGB(40, 80, 140)
-                or  Color3.fromRGB(50, 50, 70)
-            if BH.spectateActive then
-                bhStartSpectating()
-                if BH.spectateMonitorConn then BH.spectateMonitorConn:Disconnect() end
-                BH.spectateMonitorConn = RunService.Heartbeat:Connect(function()
-                    if not BH.spectateActive then
-                        BH.spectateMonitorConn:Disconnect(); return
-                    end
-                    if not bhIsTargetValid(BH.sendTarget) then
-                        bhStopSpectating()
-                        BH.spectateActive    = false
-                        spectateBtn.Text     = "Spectate: Off"
-                        spectateBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-                    elseif Workspace.CurrentCamera.CameraSubject
-                        ~= BH.sendTarget.Character:FindFirstChildOfClass("Humanoid") then
-                        bhStartSpectating()
-                    end
-                end)
-            else
-                bhStopSpectating()
-                if BH.spectateMonitorConn then
-                    BH.spectateMonitorConn:Disconnect()
-                    BH.spectateMonitorConn = nil
-                end
-            end
-        end
-        RunService.Heartbeat:Connect(function()
-            if BH.blackHoleActive then
-                local n = 0
-                for _ in pairs(BH.TARGET_PARTS) do n += 1 end
-                partsCounter.Text = "parts claimed: " .. n
-            else
-                partsCounter.Text = ""
-            end
-        end)
-        bringBtn.MouseButton1Click:Connect(function()
-            if BH.blackHoleActive then
-                stopBlackhole()
-            else
-                if BH.targetMode == "Players" then
-                    local p = bhGetPlayer(inputBox.Text)
-                    if not p then
-                        setFlingerStatus("not found: " .. inputBox.Text, Color3.fromRGB(200, 80, 80))
-                        return
-                    end
-                    setBHTarget(p)
-                else
-                    local players = bhGetValidPlayers()
-                    if #players == 0 then
-                        setFlingerStatus("no valid players", Color3.fromRGB(200, 80, 80))
-                        return
-                    end
-                    setBHTarget(players[1])
-                end
-                startBlackhole()
-            end
-        end)
-        spectateBtn.MouseButton1Click:Connect(toggleSpectate)
-        modeBtn.MouseButton1Click:Connect(function()
-            BH.targetMode = BH.targetMode == "Players" and "All" or "Players"
-            modeBtn.Text      = BH.targetMode
-            inputBox.Visible  = BH.targetMode == "Players"
-            if BH.blackHoleActive then
-                stopBlackhole()
-                if BH.targetMode == "All" then
-                    local players = bhGetValidPlayers()
-                    if #players > 0 then setBHTarget(players[1]); startBlackhole() end
-                end
-            end
-        end)
-        inputBox.FocusLost:Connect(function(enter)
-            if not enter then return end
-            local p = bhGetPlayer(inputBox.Text)
-            if p then
-                inputBox.Text = p.Name
-                if not BH.blackHoleActive then setBHTarget(p) end
-            else
-                setFlingerStatus("not found: " .. inputBox.Text, Color3.fromRGB(200, 80, 80))
-            end
-        end)
-        Players.PlayerRemoving:Connect(function(p)
-            if p ~= BH.sendTarget then return end
-            if BH.spectateActive then
-                bhStopSpectating()
-                BH.spectateActive    = false
-                spectateBtn.Text     = "Spectate: Off"
-                spectateBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-            end
-            if BH.blackHoleActive and BH.targetMode == "All" then
-                local players = bhGetValidPlayers()
-                if #players > 0 then setBHTarget(players[1])
-                else stopBlackhole(); setFlingerStatus("no players left") end
-            elseif BH.blackHoleActive then
-                stopBlackhole(); setFlingerStatus("target left")
-            else
-                setBHTarget(nil)
-            end
-        end)
-        local guiVisible = true
-        UserInputService.InputBegan:Connect(function(input, gpe)
-            if gpe then return end
-            if input.KeyCode == Enum.KeyCode.RightControl then
-                guiVisible = not guiVisible
-                TweenService:Create(mainFrame, TweenInfo.new(0.25),
-                    { BackgroundTransparency = guiVisible and 0 or 1 }):Play()
-                for _, child in ipairs(mainFrame:GetDescendants()) do
-                    if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
-                        TweenService:Create(child, TweenInfo.new(0.25), {
-                            TextTransparency       = guiVisible and 0 or 1,
-                            BackgroundTransparency = guiVisible and 0 or 1,
-                        }):Play()
-                    end
-                end
-                mainFrame.Active = guiVisible
-            end
-        end)
-        sectionHeader("NO COLLISION", 60)
-        local noCollideRow = mkHalfRow(61)
-        local noCollidePlayerBtn = Instance.new("TextButton", noCollideRow)
-        noCollidePlayerBtn.Size             = UDim2.new(0.5, -3, 1, 0)
-        noCollidePlayerBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-        noCollidePlayerBtn.BorderSizePixel  = 0
-        noCollidePlayerBtn.Font             = Enum.Font.GothamBold
-        noCollidePlayerBtn.Text             = "Player: Off"
-        noCollidePlayerBtn.TextColor3       = Color3.new(1, 1, 1)
-        noCollidePlayerBtn.TextSize         = 12
-        noCollidePlayerBtn.AutoButtonColor  = false
-        Instance.new("UICorner", noCollidePlayerBtn).CornerRadius = UDim.new(0, 6)
-        local noCollidePartsBtn = Instance.new("TextButton", noCollideRow)
-        noCollidePartsBtn.Size             = UDim2.new(0.5, -3, 1, 0)
-        noCollidePartsBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-        noCollidePartsBtn.BorderSizePixel  = 0
-        noCollidePartsBtn.Font             = Enum.Font.GothamBold
-        noCollidePartsBtn.Text             = "Parts: Off"
-        noCollidePartsBtn.TextColor3       = Color3.new(1, 1, 1)
-        noCollidePartsBtn.TextSize         = 12
-        noCollidePartsBtn.AutoButtonColor  = false
-        Instance.new("UICorner", noCollidePartsBtn).CornerRadius = UDim.new(0, 6)
-        local noCollidePlayer = false
-        local noCollideParts  = false
-        local playerNoCollideConn = nil
-        local partsNoCollideConn  = nil
-        noCollidePlayerBtn.MouseButton1Click:Connect(function()
-            noCollidePlayer = not noCollidePlayer
-            noCollidePlayerBtn.Text             = "Player: " .. (noCollidePlayer and "On" or "Off")
-            noCollidePlayerBtn.BackgroundColor3 = noCollidePlayer
-                and Color3.fromRGB(60, 20, 120)
-                or  Color3.fromRGB(40, 40, 60)
-            if playerNoCollideConn then playerNoCollideConn:Disconnect(); playerNoCollideConn = nil end
-            if noCollidePlayer then
-                playerNoCollideConn = RunService.Heartbeat:Connect(function()
-                    local char = LocalPlayer.Character
-                    if not char then return end
-                    for _, p in ipairs(char:GetDescendants()) do
-                        if p:IsA("BasePart") and p.CanCollide then
-                            pcall(function() p.CanCollide = false end)
-                        end
-                    end
-                end)
-            else
-                local char = LocalPlayer.Character
-                if char then
-                    for _, p in ipairs(char:GetDescendants()) do
-                        if p:IsA("BasePart") then
-                            pcall(function() p.CanCollide = true end)
-                        end
-                    end
-                end
-            end
-        end)
-        noCollidePartsBtn.MouseButton1Click:Connect(function()
-            noCollideParts = not noCollideParts
-            noCollidePartsBtn.Text             = "Parts: " .. (noCollideParts and "On" or "Off")
-            noCollidePartsBtn.BackgroundColor3 = noCollideParts
-                and Color3.fromRGB(60, 20, 120)
-                or  Color3.fromRGB(40, 40, 60)
-            if partsNoCollideConn then partsNoCollideConn:Disconnect(); partsNoCollideConn = nil end
-            if noCollideParts then
-                partsNoCollideConn = RunService.Heartbeat:Connect(function()
-                    for part in pairs(MASS_CLAIMED) do
-                        if part.Parent and part.CanCollide then
-                            pcall(function() part.CanCollide = false end)
-                        end
-                    end
-                    for part in pairs(BH.TARGET_PARTS) do
-                        if part.Parent and part.CanCollide then
-                            pcall(function() part.CanCollide = false end)
-                        end
-                    end
-                end)
-            else
-                for part in pairs(MASS_CLAIMED) do
-                    pcall(function() part.CanCollide = true end)
-                end
-                for part in pairs(BH.TARGET_PARTS) do
-                    pcall(function() part.CanCollide = true end)
-                end
-            end
-        end)
-        screenGui.Parent = CoreGui
-        return selectionLabel, statusIndicator, claimedList
-    end
-    function NetworkClaim:Enable()
-        if self.State.IsEnabled then return end
-        self.State.IsEnabled = true
-        self:_createUI()
-        self.State.Connections.MouseClick = UserInputService.InputBegan:Connect(function(input, gp)
-            if gp then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                local target = LocalPlayer:GetMouse().Target
-                if target then
-                    local obj = target:IsA("Model") and target or target.Parent
-                    if obj and (obj:IsA("Model") or obj:IsA("BasePart")) then
-                        self:SelectObject(obj)
-                        if self.State.AutoClaim then
-                            task.wait(0.1)
-                            self:ClaimSelected()
-                        end
-                    end
-                end
-            end
-        end)
-        print("✓ NetworkClaim+Flinger enabled — click objects to select")
-    end
-    function NetworkClaim:Disable()
-        if not self.State.IsEnabled then return end
-        self:ReleaseAll()
-        self.State.IsEnabled = false
-        if self.State.SelectedObject then
-            local sel = self.State.SelectedObject:FindFirstChild("NetworkClaim_Selection")
-            if sel then sel:Destroy() end
-        end
-        for _, conn in pairs(self.State.Connections) do
-            if conn then conn:Disconnect() end
-        end
-        table.clear(self.State.Connections)
-        if BH.blackHoleActive then
-            BH.blackHoleActive = false
-            for part in pairs(BH.TARGET_PARTS) do bhReleasePart(part) end
-        end
-        if BH.ORBIT.Active then orbitStop() end
-        if BH.MISSILE.Active then missileStop() end
-        if massClaimActive then
-            massClaimActive = false
-            for part in pairs(MASS_CLAIMED) do tripleReleasePart(part) end
-        end
-        if self.State._massAddedConn then
-            self.State._massAddedConn:Disconnect()
-            self.State._massAddedConn = nil
-        end
-        if self.State.UI then
-            self.State.UI:Destroy()
-            self.State.UI = nil
-        end
-        self.State.SelectedObject = nil
-        print("✓ NetworkClaim+Flinger disabled")
-    end
-    function NetworkClaim:Toggle()
-        if self.State.IsEnabled then self:Disable() else self:Enable() end
-    end
-    getgenv().ClaimBring_Module = NetworkClaim
-    NetworkClaim:Enable()
-end)
-
 RegisterCommand({
     Name        = "voidtrap",
     Aliases     = {"void", "vt"},
@@ -45954,535 +35676,6 @@ function Modules.AdonisBypass:Initialize()
         module:Execute()
     end)
 end]]
-RegisterCommand({
-    Name        = "partbring",
-    Aliases     = {"pb", "sendpart"},
-    Description = "WIP Sends unanchored parts to a target",
-    ArgsDesc    = {},
-    Permissions = {},
-}, function(args, speaker)
-    local TweenService = game:GetService("TweenService")
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local UserInputService = game:GetService("UserInputService")
-    local Workspace = game:GetService("Workspace")
-    local Debris = game:GetService("Debris")
-    local Camera = Workspace.CurrentCamera
-    local LocalPlayer = Players.LocalPlayer
-    LocalPlayer.ReplicationFocus = Workspace
-    pcall(function()
-    	game:GetService("CoreGui").RobloxGui["CoreScripts/NetworkPause"]:Destroy()
-    end)
-    if not getgenv().Network then
-    	getgenv().Network = { BaseParts = {} }
-    	RunService.Heartbeat:Connect(function()
-    		sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
-    	end)
-    end
-    local CONFIG = {
-    	UPDATE_INTERVAL = 0.01,
-    	MAX_PARTS = 800,
-    }
-    local TARGET_PARTS = {}
-    local CONNECTIONS = {}
-    local sendTarget = nil
-    local blackHoleActive = false
-    local spectateActive = false
-    local targetMode = "Players"
-    local cycleIndex = 1
-    local cycleConnection = nil
-    local spectateMonitorConnection = nil
-    local DescendantAddedConnection = nil
-    local originalCameraType = nil
-    local originalCameraSubject = nil
-    local lastUpdate = 0
-    local Folder = Instance.new("Folder", Workspace)
-    local AnchorPart = Instance.new("Part", Folder)
-    local Attachment1 = Instance.new("Attachment", AnchorPart)
-    AnchorPart.Anchored = false
-    AnchorPart.CanCollide = true
-    AnchorPart.Transparency = 1
-    local overlapParams = OverlapParams.new()
-    overlapParams.FilterType = Enum.RaycastFilterType.Exclude
-    overlapParams.MaxParts = 500
-    local function getPartsInRadius(centerPos, radius)
-    	local char = LocalPlayer.Character
-    	overlapParams.FilterDescendantsInstances = char and { char } or {}
-    	local parts = Workspace:GetPartBoundsInRadius(centerPos, radius, overlapParams)
-    	-- also sweep around the target so we grab parts near them too
-    	if sendTarget then
-    		local targetChar = sendTarget.Character
-    		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    		if targetRoot then
-    			local targetParts = Workspace:GetPartBoundsInRadius(targetRoot.Position, CONFIG.RADIUS, overlapParams)
-    			for _, p in ipairs(targetParts) do
-    				table.insert(parts, p)
-    			end
-    		end
-    	end
-    	return parts
-    end
-    local function releasePart(part)
-    	local data = TARGET_PARTS[part]
-    	if not data then return end
-    	if data.conn then data.conn:Disconnect() end
-    	pcall(function()
-    		local bv = part:FindFirstChildOfClass("BodyVelocity")
-    		if bv then bv:Destroy() end
-    		if data.alignPos and data.alignPos.Parent then data.alignPos:Destroy() end
-    		if data.attachment and data.attachment.Parent then data.attachment:Destroy() end
-    		if data.torque and data.torque.Parent then data.torque:Destroy() end
-    	end)
-    	TARGET_PARTS[part] = nil
-    end
-    local function forcePart(part)
-    	if not part:IsA("BasePart") then return end
-    	if TARGET_PARTS[part] then return end
-    	if part.Anchored then return end
-    	if part.Parent and part.Parent:FindFirstChildOfClass("Humanoid") then return end
-    	if part.Parent and part.Parent:FindFirstChild("Head") then return end
-    	if part.Name == "Handle" then return end
-    	local count = 0
-    	for _ in pairs(TARGET_PARTS) do count += 1 end
-    	if count >= CONFIG.MAX_PARTS then return end
-    	pcall(function()
-    		for _, c in ipairs(part:GetChildren()) do
-    			if c:IsA("BodyMover") or c:IsA("RocketPropulsion")
-    				or c:IsA("LinearVelocity") or c:IsA("VectorForce")
-    				or c:IsA("BodyVelocity") or c:IsA("BodyForce") then
-    				c:Destroy()
-    			end
-    		end
-    	end)
-    	part.CanCollide = true
-    	part.Massless = false
-
-    	-- fire a BodyVelocity directly at the target right now
-    	local function launchAtTarget()
-    		if not sendTarget then return end
-    		local targetChar = sendTarget.Character
-    		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    		if not targetRoot then return end
-    		pcall(function()
-    			-- remove old mover first
-    			local old = part:FindFirstChildOfClass("BodyVelocity")
-    			if old then old:Destroy() end
-    			local bv = Instance.new("BodyVelocity")
-    			bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-    			local dir = (targetRoot.Position - part.Position).Unit
-    			bv.Velocity = dir * 500
-    			bv.Parent = part
-    		end)
-    	end
-
-    	launchAtTarget()
-
-    	local conn
-    	conn = RunService.Heartbeat:Connect(function()
-    		if not part.Parent then
-    			releasePart(part)
-    			return
-    		end
-    		if not blackHoleActive then
-    			releasePart(part)
-    			return
-    		end
-    		if sendTarget then
-    			local targetChar = sendTarget.Character
-    			local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    			if targetRoot then
-    				-- constantly re-aim the velocity so it tracks them if they move
-    				local bv = part:FindFirstChildOfClass("BodyVelocity")
-    				if bv then
-    					bv.Velocity = (targetRoot.Position - part.Position).Unit * 500
-    				else
-    					launchAtTarget()
-    				end
-    			end
-    		end
-    	end)
-    	TARGET_PARTS[part] = { conn = conn }
-    end
-    local function cleanupStaleParts()
-    	for part in pairs(TARGET_PARTS) do
-    		if not part.Parent then releasePart(part) end
-    	end
-    end
-    local function blackholeLoop()
-    	local now = tick()
-    	if now - lastUpdate < CONFIG.UPDATE_INTERVAL then return end
-    	lastUpdate = now
-    	if not blackHoleActive then return end
-    	cleanupStaleParts()
-    end
-    table.insert(CONNECTIONS, RunService.Heartbeat:Connect(blackholeLoop))
-    local function getPlayer(name)
-    	local query = name:lower()
-    	for _, p in ipairs(Players:GetPlayers()) do
-    		if p ~= LocalPlayer then
-    			if p.Name:lower():find(query, 1, true)
-    				or p.DisplayName:lower():find(query, 1, true) then
-    				return p
-    			end
-    		end
-    	end
-    end
-    local function getValidPlayers()
-    	local valid = {}
-    	for _, p in ipairs(Players:GetPlayers()) do
-    		if p ~= LocalPlayer and p.Character
-    			and p.Character:FindFirstChild("HumanoidRootPart") then
-    			table.insert(valid, p)
-    		end
-    	end
-    	return valid
-    end
-    local function isTargetValid(target)
-    	return target
-    		and target.Character
-    		and target.Character:FindFirstChildOfClass("Humanoid")
-    		and target.Character.Humanoid.Health > 0
-    end
-    local function startSpectating()
-    	if not isTargetValid(sendTarget) then return end
-    	local humanoid = sendTarget.Character:FindFirstChildOfClass("Humanoid")
-    	if not humanoid then return end
-    	if not originalCameraType then
-    		originalCameraType = Camera.CameraType
-    		originalCameraSubject = Camera.CameraSubject
-    	end
-    	Camera.CameraType = Enum.CameraType.Custom
-    	Camera.CameraSubject = humanoid
-    end
-    local function stopSpectating()
-    	if originalCameraType and originalCameraSubject then
-    		Camera.CameraType = originalCameraType
-    		Camera.CameraSubject = originalCameraSubject
-    	else
-    		Camera.CameraType = Enum.CameraType.Custom
-    		Camera.CameraSubject = LocalPlayer.Character
-    			and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    	end
-    	originalCameraType = nil
-    	originalCameraSubject = nil
-    end
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "BH_Gui"
-    screenGui.ResetOnSpawn = false
-    screenGui.IgnoreGuiInset = true
-    screenGui.Parent = (pcall(function() return gethui() end) and gethui()) or LocalPlayer.PlayerGui
-    local Main = Instance.new("Frame")
-    Main.Size = UDim2.new(0, 240, 0, 160)
-    Main.Position = UDim2.new(0, 16, 0, 16)
-    Main.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
-    Main.BackgroundTransparency = 0.2
-    Main.BorderSizePixel = 0
-    Main.Active = true
-    Main.Draggable = true
-    Main.Parent = screenGui
-    local mainCorner = Instance.new("UICorner")
-    mainCorner.CornerRadius = UDim.new(0, 10)
-    mainCorner.Parent = Main
-    local mainStroke = Instance.new("UIStroke")
-    mainStroke.Color = Color3.fromRGB(50, 50, 50)
-    mainStroke.Thickness = 1
-    mainStroke.Parent = Main
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, 0, 0, 28)
-    titleLabel.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-    titleLabel.BackgroundTransparency = 0.1
-    titleLabel.BorderSizePixel = 0
-    titleLabel.Font = Enum.Font.Code
-    titleLabel.Text = "Part Flinger"
-    titleLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    titleLabel.TextSize = 12
-    titleLabel.Parent = Main
-    local titleCorner = Instance.new("UICorner")
-    titleCorner.CornerRadius = UDim.new(0, 8)
-    titleCorner.Parent = titleLabel
-    local inputBox = Instance.new("TextBox")
-    inputBox.Size = UDim2.new(0, 148, 0, 30)
-    inputBox.Position = UDim2.new(0, 8, 0, 34)
-    inputBox.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
-    inputBox.BorderSizePixel = 0
-    inputBox.PlaceholderText = "player name..."
-    inputBox.PlaceholderColor3 = Color3.fromRGB(65, 65, 65)
-    inputBox.Text = ""
-    inputBox.TextColor3 = Color3.fromRGB(210, 210, 210)
-    inputBox.TextSize = 13
-    inputBox.Font = Enum.Font.Code
-    inputBox.ClearTextOnFocus = false
-    inputBox.Parent = Main
-    local inputCorner = Instance.new("UICorner")
-    inputCorner.CornerRadius = UDim.new(0, 6)
-    inputCorner.Parent = inputBox
-    local inputStroke = Instance.new("UIStroke")
-    inputStroke.Color = Color3.fromRGB(45, 45, 45)
-    inputStroke.Thickness = 1
-    inputStroke.Parent = inputBox
-    local modeBtn = Instance.new("TextButton")
-    modeBtn.Size = UDim2.new(0, 72, 0, 30)
-    modeBtn.Position = UDim2.new(0, 162, 0, 34)
-    modeBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    modeBtn.BorderSizePixel = 0
-    modeBtn.Font = Enum.Font.Code
-    modeBtn.Text = "Players"
-    modeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    modeBtn.TextSize = 12
-    modeBtn.Parent = Main
-    local modeBtnCorner = Instance.new("UICorner")
-    modeBtnCorner.CornerRadius = UDim.new(0, 6)
-    modeBtnCorner.Parent = modeBtn
-    local bringBtn = Instance.new("TextButton")
-    bringBtn.Size = UDim2.new(0, 108, 0, 28)
-    bringBtn.Position = UDim2.new(0, 8, 0, 72)
-    bringBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    bringBtn.BorderSizePixel = 0
-    bringBtn.Font = Enum.Font.Code
-    bringBtn.Text = "Bring: Off"
-    bringBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    bringBtn.TextSize = 12
-    bringBtn.Parent = Main
-    local bringBtnCorner = Instance.new("UICorner")
-    bringBtnCorner.CornerRadius = UDim.new(0, 6)
-    bringBtnCorner.Parent = bringBtn
-    local spectateBtn = Instance.new("TextButton")
-    spectateBtn.Size = UDim2.new(0, 108, 0, 28)
-    spectateBtn.Position = UDim2.new(0, 124, 0, 72)
-    spectateBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    spectateBtn.BorderSizePixel = 0
-    spectateBtn.Font = Enum.Font.Code
-    spectateBtn.Text = "Spectate: Off"
-    spectateBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    spectateBtn.TextSize = 12
-    spectateBtn.Parent = Main
-    local spectateBtnCorner = Instance.new("UICorner")
-    spectateBtnCorner.CornerRadius = UDim.new(0, 6)
-    spectateBtnCorner.Parent = spectateBtn
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(1, -16, 0, 24)
-    statusLabel.Position = UDim2.new(0, 8, 0, 108)
-    statusLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    statusLabel.BackgroundTransparency = 0.1
-    statusLabel.BorderSizePixel = 0
-    statusLabel.Font = Enum.Font.Code
-    statusLabel.Text = "idle"
-    statusLabel.TextColor3 = Color3.fromRGB(80, 80, 80)
-    statusLabel.TextSize = 11
-    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-    statusLabel.Parent = Main
-    local statusCorner = Instance.new("UICorner")
-    statusCorner.CornerRadius = UDim.new(0, 6)
-    statusCorner.Parent = statusLabel
-    local statusPadding = Instance.new("UIPadding")
-    statusPadding.PaddingLeft = UDim.new(0, 6)
-    statusPadding.Parent = statusLabel
-    local countLabel = Instance.new("TextLabel")
-    countLabel.Size = UDim2.new(1, -16, 0, 16)
-    countLabel.Position = UDim2.new(0, 8, 0, 136)
-    countLabel.BackgroundTransparency = 1
-    countLabel.Font = Enum.Font.Code
-    countLabel.Text = ""
-    countLabel.TextColor3 = Color3.fromRGB(60, 60, 60)
-    countLabel.TextSize = 10
-    countLabel.TextXAlignment = Enum.TextXAlignment.Left
-    countLabel.Parent = Main
-    local function setStatus(msg, color)
-    	statusLabel.Text = msg
-    	statusLabel.TextColor3 = color or Color3.fromRGB(80, 80, 80)
-    end
-    local function setTarget(player)
-    	sendTarget = player
-    	if player then
-    		setStatus("→ " .. player.Name .. " (" .. player.DisplayName .. ")", Color3.fromRGB(200, 80, 80))
-    	else
-    		setStatus("idle")
-    	end
-    end
-    local function stopBlackhole()
-    	blackHoleActive = false
-    	bringBtn.Text = "Bring: Off"
-    	bringBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    	if DescendantAddedConnection then
-    		DescendantAddedConnection:Disconnect()
-    		DescendantAddedConnection = nil
-    	end
-    	if cycleConnection then
-    		cycleConnection:Disconnect()
-    		cycleConnection = nil
-    	end
-    	for part in pairs(TARGET_PARTS) do releasePart(part) end
-    end
-    local function startBlackhole()
-    	if not sendTarget then return end
-    	blackHoleActive = true
-    	bringBtn.Text = "Bring: On"
-    	bringBtn.BackgroundColor3 = Color3.fromRGB(160, 35, 35)
-    	-- update Attachment1 to target immediately
-    	local targetChar = sendTarget.Character
-    	local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    	if targetRoot then Attachment1.WorldCFrame = targetRoot.CFrame end
-    	-- grab every single descendant in workspace right now
-    	task.spawn(function()
-    		for _, v in ipairs(Workspace:GetDescendants()) do
-    			forcePart(v)
-    		end
-    	end)
-    	-- also catch anything that spawns in after
-    	DescendantAddedConnection = Workspace.DescendantAdded:Connect(function(v)
-    		if blackHoleActive then
-    			task.spawn(function() forcePart(v) end)
-    		end
-    	end)
-    	if targetMode == "All" then
-    		cycleConnection = RunService.Heartbeat:Connect(function()
-    			if tick() % 3 < 0.05 then
-    				local players = getValidPlayers()
-    				if #players > 0 then
-    					cycleIndex = (cycleIndex % #players) + 1
-    					setTarget(players[cycleIndex])
-    				end
-    			end
-    		end)
-    	end
-    end
-    local function toggleSpectate()
-    	if not sendTarget then return end
-    	spectateActive = not spectateActive
-    	spectateBtn.Text = spectateActive and "Spectate: On" or "Spectate: Off"
-    	spectateBtn.BackgroundColor3 = spectateActive
-    		and Color3.fromRGB(40, 80, 140)
-    		or Color3.fromRGB(45, 45, 45)
-    	if spectateActive then
-    		startSpectating()
-    		if spectateMonitorConnection then spectateMonitorConnection:Disconnect() end
-    		spectateMonitorConnection = RunService.Heartbeat:Connect(function()
-    			if not spectateActive then
-    				spectateMonitorConnection:Disconnect()
-    				return
-    			end
-    			if not isTargetValid(sendTarget) then
-    				stopSpectating()
-    				spectateActive = false
-    				spectateBtn.Text = "Spectate: Off"
-    				spectateBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    			elseif Camera.CameraSubject
-    				~= sendTarget.Character:FindFirstChildOfClass("Humanoid") then
-    				startSpectating()
-    			end
-    		end)
-    	else
-    		stopSpectating()
-    		if spectateMonitorConnection then
-    			spectateMonitorConnection:Disconnect()
-    			spectateMonitorConnection = nil
-    		end
-    	end
-    end
-    table.insert(CONNECTIONS, RunService.Heartbeat:Connect(function()
-    	if blackHoleActive then
-    		local count = 0
-    		for _ in pairs(TARGET_PARTS) do count += 1 end
-    		countLabel.Text = "parts claimed: " .. count
-    	else
-    		countLabel.Text = ""
-    	end
-    end))
-    bringBtn.MouseButton1Click:Connect(function()
-    	if blackHoleActive then
-    		stopBlackhole()
-    	else
-    		if targetMode == "Players" then
-    			local p = getPlayer(inputBox.Text)
-    			if not p then
-    				setStatus("not found: " .. inputBox.Text, Color3.fromRGB(200, 80, 80))
-    				return
-    			end
-    			setTarget(p)
-    		else
-    			local players = getValidPlayers()
-    			if #players == 0 then
-    				setStatus("no valid players", Color3.fromRGB(200, 80, 80))
-    				return
-    			end
-    			setTarget(players[1])
-    		end
-    		startBlackhole()
-    	end
-    end)
-    spectateBtn.MouseButton1Click:Connect(toggleSpectate)
-    modeBtn.MouseButton1Click:Connect(function()
-    	targetMode = targetMode == "Players" and "All" or "Players"
-    	modeBtn.Text = targetMode
-    	inputBox.Visible = targetMode == "Players"
-    	if blackHoleActive then
-    		stopBlackhole()
-    		if targetMode == "All" then
-    			local players = getValidPlayers()
-    			if #players > 0 then
-    				setTarget(players[1])
-    				startBlackhole()
-    			end
-    		end
-    	end
-    end)
-    inputBox.FocusLost:Connect(function(enterPressed)
-    	if not enterPressed then return end
-    	local p = getPlayer(inputBox.Text)
-    	if p then
-    		inputBox.Text = p.Name
-    		if not blackHoleActive then
-    			setTarget(p)
-    		end
-    	else
-    		setStatus("not found: " .. inputBox.Text, Color3.fromRGB(200, 80, 80))
-    	end
-    end)
-    Players.PlayerRemoving:Connect(function(p)
-    	if p == sendTarget then
-    		if spectateActive then
-    			stopSpectating()
-    			spectateActive = false
-    			spectateBtn.Text = "Spectate: Off"
-    			spectateBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    		end
-    		if blackHoleActive and targetMode == "All" then
-    			local players = getValidPlayers()
-    			if #players > 0 then
-    				setTarget(players[1])
-    			else
-    				stopBlackhole()
-    				setStatus("no players left")
-    			end
-    		elseif blackHoleActive then
-    			stopBlackhole()
-    			setStatus("target left")
-    		else
-    			setTarget(nil)
-    		end
-    	end
-    end)
-    local guiVisible = true
-    UserInputService.InputBegan:Connect(function(input, gpe)
-    	if gpe then return end
-    	if input.KeyCode == Enum.KeyCode.RightControl then
-    		guiVisible = not guiVisible
-    		local t = guiVisible and 0.05 or 1
-    		TweenService:Create(Main, TweenInfo.new(0.25), { BackgroundTransparency = t }):Play()
-    		for _, child in ipairs(Main:GetDescendants()) do
-    			if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
-    				TweenService:Create(child, TweenInfo.new(0.25), {
-    					TextTransparency = guiVisible and 0 or 1,
-    					BackgroundTransparency = guiVisible and 0.05 or 1,
-    				}):Play()
-    			end
-    		end
-    		Main.Active = guiVisible
-    		Main.Draggable = guiVisible
-    	end
-    end)
-    setStatus("idle")
-end)
 Modules.Deobfuscator = {
     State = {
         IsEnabled = false,
@@ -47102,7 +36295,1174 @@ task.spawn(function()
     task.wait(1)
     Modules.AdminOrb:Spawn()
 end)
-DoNotif("We're So back.")
+
+
+--[[task.spawn(function()
+    local Luna
+    local ok, err = pcall(function()
+        Luna = loadstring(game:HttpGet(
+            "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Luna.lua", true
+        ))()
+    end)
+    if not ok or not Luna then
+        warn("[ZukaPanel/LunaUI] Luna failed to load:", tostring(err))
+        return
+    end
+    local Window = Luna:CreateWindow({
+        Name           = "Zuka's FunBox. v2",
+        Subtitle       = "by OverZuka",
+        LogoID         = "rbxassetid://7243158473",
+        LoadingEnabled = false,
+        ConfigSettings = { ConfigFolder = "ZukaPanelLuna" },
+        KeySystem      = false,
+    })
+    -- ░░ PLAYER TAB ░░
+    local PT = Window:CreateTab({ Name = "Player", Icon = "person", ImageSource = "Material", ShowTitle = true })
+
+    PT:CreateSection("Spectate")
+    PT:CreateLabel({ Text = "Select a player then hit Spectate", Style = 3 })
+    local _spectateTarget = nil
+    local _spectatePlayerOptions = {}
+    local function _refreshSpectateOptions()
+        _spectatePlayerOptions = {}
+        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+            if p ~= LocalPlayer then
+                table.insert(_spectatePlayerOptions, p.Name)
+            end
+        end
+        return _spectatePlayerOptions
+    end
+    _refreshSpectateOptions()
+    local _spectateDropdown = PT:CreateDropdown({
+        Name = "Target Player", Description = "Choose who to spectate",
+        Options = _refreshSpectateOptions(), CurrentOption = {}, MultipleOptions = false,
+        Callback = function(v)
+            _spectateTarget = type(v) == "table" and v[1] or v
+        end
+    }, "luna_spectate_target")
+    PT:CreateButton({ Name = "Spectate", Description = "Lock camera onto selected player",
+        Callback = function()
+            if not _spectateTarget or _spectateTarget == "" then
+                return DoNotif("Select a player first.", 2)
+            end
+            local target = game:GetService("Players"):FindFirstChild(_spectateTarget)
+            if target then
+                Modules.SpectateController:Enable(target)
+            else
+                DoNotif("Player not found — they may have left.", 3)
+            end
+        end })
+    PT:CreateButton({ Name = "Stop Spectating", Description = "Return camera to your own character",
+        Callback = function()
+            Modules.SpectateController:Disable()
+        end })
+    PT:CreateButton({ Name = "Refresh Player List", Description = "Update the dropdown with current players",
+        Callback = function()
+            _refreshSpectateOptions()
+            DoNotif("Player list refreshed.", 2)
+        end })
+
+    PT:CreateDivider()
+    PT:CreateSection("Teleport to Player")
+    PT:CreateLabel({ Text = "Silently teleport behind a target", Style = 3 })
+    local _tpPlayerTarget = nil
+    local _tpPlayerDropdown = PT:CreateDropdown({
+        Name = "Target Player", Description = "Who to teleport to",
+        Options = _refreshSpectateOptions(), CurrentOption = {}, MultipleOptions = false,
+        Callback = function(v)
+            _tpPlayerTarget = type(v) == "table" and v[1] or v
+        end
+    }, "luna_tp_player_target")
+    PT:CreateButton({ Name = "  TP To Player", Description = "Teleport directly behind selected player",
+        Callback = function()
+            if not _tpPlayerTarget or _tpPlayerTarget == "" then
+                return DoNotif("Select a player first.", 2)
+            end
+            local target = game:GetService("Players"):FindFirstChild(_tpPlayerTarget)
+            if not target or not target.Character then
+                return DoNotif("Player or character not found.", 3)
+            end
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local tgtHrp = target.Character:FindFirstChild("HumanoidRootPart")
+            if hrp and tgtHrp then
+                hrp.CFrame = tgtHrp.CFrame * CFrame.new(0, 0, 3)
+                DoNotif("Teleported to " .. target.Name, 2)
+            else
+                DoNotif("Could not find character parts.", 3)
+            end
+        end })
+
+    PT:CreateDivider()
+    PT:CreateSection("Avatar Morph")
+    PT:CreateLabel({ Text = "Copy another player's avatar onto yours", Style = 3 })
+    local _morphInput = ""
+    PT:CreateInput({ Name = "Username or UserID", PlaceholderText = "e.g. Builderman or 156",
+        CurrentValue = "", Numeric = false, Enter = true,
+        Callback = function(v) _morphInput = v end }, "luna_morph_input")
+    PT:CreateButton({ Name = "Apply Morph", Description = "Load that user's avatar onto your character",
+        Callback = function()
+            if not _morphInput or _morphInput == "" then
+                return DoNotif("Enter a username or UserID first.", 2)
+            end
+            Modules.CharacterMorph:Morph(_morphInput)
+        end })
+    PT:CreateButton({ Name = "Revert Avatar", Description = "Restore your original appearance",
+        Callback = function()
+            Modules.CharacterMorph:Revert()
+        end })
+
+    -- ░░ TELEPORT TAB ░░
+    local TP = Window:CreateTab({ Name = "Teleport", Icon = "near_me", ImageSource = "Material", ShowTitle = true })
+
+    TP:CreateSection("Waypoints")
+    TP:CreateLabel({ Text = "Save up to 10 named positions and tp back to them", Style = 3 })
+    local _waypointNameInput = ""
+    TP:CreateInput({ Name = "Waypoint Name", PlaceholderText = "e.g. base, spawn, loot",
+        CurrentValue = "", Numeric = false, Enter = true,
+        Callback = function(v) _waypointNameInput = v end }, "luna_wp_name")
+    TP:CreateButton({ Name = "Save Waypoint", Description = "Save your current position under that name",
+        Callback = function()
+            if not _waypointNameInput or _waypointNameInput == "" then
+                return DoNotif("Enter a waypoint name first.", 2)
+            end
+            Modules.Waypoint:Add(_waypointNameInput)
+        end })
+    TP:CreateButton({ Name = "TP to Waypoint", Description = "Teleport to the named waypoint",
+        Callback = function()
+            if not _waypointNameInput or _waypointNameInput == "" then
+                return DoNotif("Enter a waypoint name first.", 2)
+            end
+            Modules.Waypoint:Teleport(_waypointNameInput)
+        end })
+    TP:CreateButton({ Name = "Delete Waypoint", Description = "Remove that waypoint",
+        Callback = function()
+            if not _waypointNameInput or _waypointNameInput == "" then
+                return DoNotif("Enter a waypoint name first.", 2)
+            end
+            Modules.Waypoint:Remove(_waypointNameInput)
+        end })
+    TP:CreateButton({ Name = "List Waypoints", Description = "See all saved waypoints in a notification",
+        Callback = function() Modules.Waypoint:List() end })
+    TP:CreateButton({ Name = "Clear All Waypoints", Description = "Delete every saved waypoint",
+        Callback = function() Modules.Waypoint:Clear() end })
+
+    TP:CreateDivider()
+    TP:CreateSection("Coordinate Teleport")
+    TP:CreateLabel({ Text = "Jump to exact X, Y, Z coordinates", Style = 3 })
+    local _tpX, _tpY, _tpZ = 0, 5, 0
+    TP:CreateInput({ Name = "X", PlaceholderText = "0", CurrentValue = "0", Numeric = true, Enter = true,
+        Callback = function(v) _tpX = tonumber(v) or 0 end }, "luna_tp_x")
+    TP:CreateInput({ Name = "Y", PlaceholderText = "5", CurrentValue = "5", Numeric = true, Enter = true,
+        Callback = function(v) _tpY = tonumber(v) or 5 end }, "luna_tp_y")
+    TP:CreateInput({ Name = "Z", PlaceholderText = "0", CurrentValue = "0", Numeric = true, Enter = true,
+        Callback = function(v) _tpZ = tonumber(v) or 0 end }, "luna_tp_z")
+    TP:CreateButton({ Name = "Teleport to Coords", Description = "Move your character to the entered XYZ",
+        Callback = function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return DoNotif("No character found.", 3) end
+            hrp.CFrame = CFrame.new(_tpX, _tpY, _tpZ)
+            DoNotif(string.format("Teleported to (%.1f, %.1f, %.1f)", _tpX, _tpY, _tpZ), 2)
+        end })
+    TP:CreateButton({ Name = "Copy Current Coords", Description = "Copy your XYZ to clipboard",
+        Callback = function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return DoNotif("No character found.", 3) end
+            local p = hrp.Position
+            local str = string.format("%.2f, %.2f, %.2f", p.X, p.Y, p.Z)
+            if setclipboard then setclipboard(str) DoNotif("Copied: " .. str, 2)
+            else DoNotif(str, 4) end
+        end })
+
+    TP:CreateDivider()
+    TP:CreateSection("Quick Teleports")
+    TP:CreateButton({ Name = "TP to Spawn", Description = "Teleport to the map's spawn location",
+        Callback = function()
+            local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if spawn and hrp then
+                hrp.CFrame = spawn.CFrame + Vector3.new(0, 4, 0)
+                DoNotif("Teleported to spawn.", 2)
+            else
+                DoNotif("No SpawnLocation found in workspace.", 3)
+            end
+        end })
+    TP:CreateButton({ Name = "TP to Map Center", Description = "Teleport to 0, 100, 0",
+        Callback = function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = CFrame.new(0, 100, 0) DoNotif("Teleported to map center.", 2)
+            else DoNotif("No character found.", 3) end
+        end })
+    TP:CreateButton({ Name = "TP Up (Sky)", Description = "Shoot yourself up 2000 studs",
+        Callback = function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = hrp.CFrame + Vector3.new(0, 2000, 0) DoNotif("Launched upwards.", 2)
+            else DoNotif("No character found.", 3) end
+        end })
+
+    local Anti = Window:CreateTab({ Name = "Anti+", Icon = "shield", ImageSource = "Material", ShowTitle = true })
+
+    Anti:CreateSection("Position & Physics")
+    Anti:CreateToggle({ Name = "Anti Reset",        Description = "Prevent death and void falls",         CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiReset:Enable() else Modules.AntiReset:Disable() end end }, "anti_antireset")
+    Anti:CreateToggle({ Name = "Anti Void",         Description = "Prevent falling into the void",        CurrentValue = false,
+        Callback = function() Modules.AntiVoid:Toggle() end }, "anti_antivoid")
+    Anti:CreateToggle({ Name = "Anti Force-TP",     Description = "Block server CFrame teleports",        CurrentValue = false,
+        Callback = function() Modules.AntiCFrameTeleport:Toggle() end }, "anti_anticframetp")
+    Anti:CreateToggle({ Name = "Anti Trip",         Description = "Block ragdoll / fallingdown states",   CurrentValue = false,
+        Callback = function() Modules.AntiTrip:Toggle() end }, "anti_antitrip")
+    Anti:CreateToggle({ Name = "Anti Anchor",       Description = "Prevent your character being anchored", CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiAnchor:Enable() else Modules.AntiAnchor:Disable() end end }, "anti_antianchor")
+    Anti:CreateToggle({ Name = "Anti Player Physics", Description = "Block physics manipulation by others", CurrentValue = false,
+        Callback = function() Modules.AntiPlayerPhysics:Toggle() end }, "anti_antiphysics")
+    Anti:CreateToggle({ Name = "Knockback Nullifier", Description = "Cancel velocity spikes and knockback", CurrentValue = false,
+        Callback = function() Modules.KnockbackNullifier:Toggle() end }, "anti_knockback")
+
+    Anti:CreateDivider()
+    Anti:CreateSection("Character Integrity")
+    Anti:CreateToggle({ Name = "Anti Kill",         Description = "Keep humanoid health above 0",         CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiKill:Enable() else Modules.AntiKill:Disable() end end }, "anti_antikill")
+    Anti:CreateToggle({ Name = "Anti Sit",          Description = "Prevent being force-seated",           CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiSit:Enable() else Modules.AntiSit:Disable() end end }, "anti_antisit")
+    Anti:CreateToggle({ Name = "Anti Attach",       Description = "Counter players latching onto you",    CurrentValue = false,
+        Callback = function(v) if v then Modules.AntiAttach:Enable() else Modules.AntiAttach:Disable() end end }, "anti_antiattach")
+    Anti:CreateToggle({ Name = "Anti Slap Gear",    Description = "Block slap gear from affecting you",   CurrentValue = false,
+        Callback = function() Modules.AntiSlapGear:Toggle() end }, "anti_antislapgear")
+    Anti:CreateToggle({ Name = "Humanoid Integrity", Description = "Lock humanoid stats against tampering", CurrentValue = false,
+        Callback = function() Modules.HumanoidIntegrity:Toggle() end }, "anti_humintegrity")
+
+    Anti:CreateDivider()
+    Anti:CreateSection("Session")
+    Anti:CreateToggle({ Name = "Anti AFK",          Description = "Prevent idle disconnect",              CurrentValue = false,
+        Callback = function() Modules.InternalAntiAfk:Toggle() end }, "anti_antiafk")
+    Anti:CreateToggle({ Name = "Fling Protection",  Description = "Prevent being flung by other players", CurrentValue = false,
+        Callback = function() Modules.FlingProtection:Toggle() end }, "anti_flingprot")
+
+    Anti:CreateDivider()
+    Anti:CreateButton({ Name = "✦  Enable All Anti", Description = "Turn on every toggle in this tab at once",
+        Callback = function()
+            pcall(function() Modules.AntiReset:Enable() end)
+            pcall(function() Modules.AntiVoid:Toggle() if not Modules.AntiVoid.State.IsEnabled then Modules.AntiVoid:Toggle() end end)
+            pcall(function() if not Modules.AntiCFrameTeleport.State.IsEnabled then Modules.AntiCFrameTeleport:Toggle() end end)
+            pcall(function() if not Modules.AntiTrip.State.IsEnabled then Modules.AntiTrip:Toggle() end end)
+            pcall(function() Modules.AntiAnchor:Enable() end)
+            pcall(function() if not Modules.AntiPlayerPhysics.State.IsEnabled then Modules.AntiPlayerPhysics:Toggle() end end)
+            pcall(function() if not Modules.KnockbackNullifier.State.IsEnabled then Modules.KnockbackNullifier:Toggle() end end)
+            pcall(function() Modules.AntiKill:Enable() end)
+            pcall(function() Modules.AntiSit:Enable() end)
+            pcall(function() Modules.AntiAttach:Enable() end)
+            pcall(function() if not Modules.AntiSlapGear.State.IsEnabled then Modules.AntiSlapGear:Toggle() end end)
+            pcall(function() if not Modules.HumanoidIntegrity.State.IsEnabled then Modules.HumanoidIntegrity:Toggle() end end)
+            pcall(function() if not Modules.InternalAntiAfk.State.IsEnabled then Modules.InternalAntiAfk:Toggle() end end)
+            pcall(function() if not Modules.FlingProtection.State.IsEnabled then Modules.FlingProtection:Toggle() end end)
+            DoNotif("All anti protections enabled.", 3)
+        end })
+
+    local Movement = Window:CreateTab({ Name = "Movement", Icon = "directions_run", ImageSource = "Material", ShowTitle = true })
+    Movement:CreateToggle({ Name = "Fly",           Description = "Toggle client-sided fly",       CurrentValue = false, Callback = function() Modules.Fly:Toggle() end }, "luna_fly")
+    Movement:CreateToggle({ Name = "NoClip",        Description = "Walk through walls",             CurrentValue = false, Callback = function() Modules.NoClip:Toggle() end }, "luna_noclip")
+    Movement:CreateToggle({ Name = "Infinite Jump", Description = "Jump repeatedly mid-air",        CurrentValue = false, Callback = function(v) if v then Modules.InfiniteJump:Enable() else Modules.InfiniteJump:Disable() end end }, "luna_infjump")
+    Movement:CreateToggle({ Name = "Anti Reset",    Description = "Prevent death and void falls",   CurrentValue = false, Callback = function() Modules.AntiReset:Toggle() end }, "luna_antireset")
+    Movement:CreateToggle({ Name = "Anti Sit",      Description = "Prevent being force-sat",        CurrentValue = false, Callback = function() Modules.AntiSit:Toggle() end }, "luna_antisit")
+    Movement:CreateDivider()
+    Movement:CreateSlider({ Name = "Walk Speed", Description = "Default: 16", Range = {0,500}, Increment = 1, CurrentValue = 18, Suffix = "studs/s",
+        Callback = function(v)
+            local h = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if h then h.WalkSpeed = v end
+            Modules.WalkSpeed.State.CurrentSpeed = v
+        end }, "luna_ws")
+    Movement:CreateSlider({ Name = "Fly Speed", Description = "Velocity while flying", Range = {10,500}, Increment = 5, CurrentValue = 60, Suffix = "",
+        Callback = function(v) Modules.Fly:SetSpeed(v) end }, "luna_flyspd")
+    Movement:CreateSlider({ Name = "Gravity", Description = "Default: 196  |  0 = restore", Range = {0,400}, Increment = 5, CurrentValue = 196, Suffix = "",
+        Callback = function(v) if v <= 0 then Modules.Gravity:Disable() else Modules.Gravity:Enable(v) end end }, "luna_grav")
+    local Visual = Window:CreateTab({ Name = "Visual", Icon = "visibility", ImageSource = "Material", ShowTitle = true })
+    Visual:CreateToggle({ Name = "Player ESP",     Description = "Highlight players through walls", CurrentValue = true, Callback = function() Modules.ESP:Toggle("players") end }, "luna_esp")
+    Visual:CreateToggle({ Name = "Chams",          Description = "See characters through walls",    CurrentValue = false, Callback = function() Modules.Chams:Toggle() end }, "luna_chams")
+    Visual:CreateToggle({ Name = "FullBright",     Description = "Max ambient, remove shadows",     CurrentValue = false, Callback = function(v) if v then Modules.FullBright:Enable() else Modules.FullBright:Disable() end end }, "luna_fb")
+    Visual:CreateToggle({ Name = "No Fog",         Description = "Remove client-sided fog",         CurrentValue = false, Callback = function() Modules.NoFog:Toggle() end }, "luna_nofog")
+    Visual:CreateToggle({ Name = "Lighting Lock",  Description = "Prevent game changing lighting",  CurrentValue = false, Callback = function() Modules.LightingLock:Toggle() end }, "luna_ll")
+    Visual:CreateToggle({ Name = "FPS Meter",      Description = "Show FPS counter on screen",      CurrentValue = false, Callback = function() Modules.FpsMeter:Toggle() end }, "luna_fps")
+    Visual:CreateDivider()
+    Visual:CreateSlider({ Name = "FOV Changer", Description = "Lock camera FOV  |  0 = reset", Range = {0,120}, Increment = 1, CurrentValue = 90, Suffix = "°",
+        Callback = function(v)
+            local cam = workspace.CurrentCamera
+            if not cam then return end
+            if v == 0 then
+                Modules.FovChanger.State.IsEnabled = false
+                if Modules.FovChanger.State.Connection then Modules.FovChanger.State.Connection:Disconnect() Modules.FovChanger.State.Connection = nil end
+                cam.FieldOfView = Modules.FovChanger.State.DefaultFov
+            else
+                Modules.FovChanger.State.TargetFov = v
+                if not Modules.FovChanger.State.Connection then
+                    Modules.FovChanger.State.Connection = game:GetService("RunService").RenderStepped:Connect(function()
+                        if cam and Modules.FovChanger.State.IsEnabled then cam.FieldOfView = Modules.FovChanger.State.TargetFov end
+                    end)
+                end
+                Modules.FovChanger.State.IsEnabled = true
+            end
+        end }, "luna_fov")
+        
+    local Utility = Window:CreateTab({ Name = "Utility", Icon = "build", ImageSource = "Material", ShowTitle = true })
+    Utility:CreateToggle({ Name = "Anti AFK",         Description = "Prevent idle disconnect",             CurrentValue = false, Callback = function() Modules.InternalAntiAfk:Toggle() end }, "luna_afk")
+    Utility:CreateToggle({ Name = "Fling Protection", Description = "Prevent being flung",                 CurrentValue = false, Callback = function() Modules.FlingProtection:Toggle() end }, "luna_fp")
+    Utility:CreateToggle({ Name = "Anti Attach",      Description = "Counter players latching onto you",   CurrentValue = false, Callback = function() Modules.AntiAttach:Toggle() end }, "luna_aa")
+    Utility:CreateToggle({ Name = "Anti Force-TP",    Description = "Block server CFrame teleports",       CurrentValue = false, Callback = function() Modules.AntiCFrameTeleport:Toggle() end }, "luna_atp")
+    Utility:CreateToggle({ Name = "Bypass Dev Products", Description = "Spoof purchase as completed",      CurrentValue = false, Callback = function(v) Modules.BypassDevProduct.State.Enabled = v DoNotif("Bypass DevProduct: "..(v and "ON" or "OFF"), 2) end }, "luna_bdp")
+    Utility:CreateToggle({ Name = "Bypass Gamepass",  Description = "Spoof UserOwnsGamePassAsync",         CurrentValue = false, Callback = function(v) Modules.BypassGamepass.State.Enabled = v DoNotif("Bypass Gamepass: "..(v and "ON" or "OFF"), 2) end }, "luna_bgp")
+    Utility:CreateToggle({ Name = "Respawn At Death", Description = "TP to death pos on respawn",          CurrentValue = false, Callback = function() Modules.RespawnAtDeath.Toggle() end }, "luna_rad")
+    Utility:CreateDivider()
+    Utility:CreateButton({ Name = "Open Command Bar", Description = "Toggle the Zuka command bar",  Callback = function() if Modules.CommandBar and Modules.CommandBar.Toggle then Modules.CommandBar:Toggle() end end })
+    Utility:CreateButton({ Name = "Command List",     Description = "View all available commands",  Callback = function() if Modules.CommandList and Modules.CommandList.Toggle then Modules.CommandList:Toggle() end end })
+    Utility:CreateButton({ Name = "Rejoin Server",    Description = "Rejoin current server",        Callback = function() if Modules.RejoinServer and Modules.RejoinServer.Rejoin then Modules.RejoinServer:Rejoin() end end })
+    Utility:CreateDivider()
+    Utility:CreateSection("Server")
+    Utility:CreateButton({ Name = "Server Hop — Low Pop",  Description = "Find a low population server",
+        Callback = function()
+            if Modules.ServerHopper then Modules.ServerHopper:Hop("Low")
+            else DoNotif("ServerHopper module not found.", 2) end
+        end })
+    Utility:CreateButton({ Name = "Server Hop — High Pop", Description = "Find a high population server",
+        Callback = function()
+            if Modules.ServerHopper then Modules.ServerHopper:Hop("High")
+            else DoNotif("ServerHopper module not found.", 2) end
+        end })
+    Utility:CreateButton({ Name = "Copy Place ID", Description = "Copy current game PlaceId to clipboard",
+        Callback = function()
+            local id = tostring(game.PlaceId)
+            if setclipboard then setclipboard(id) DoNotif("Copied PlaceId: " .. id, 2)
+            else DoNotif("setclipboard not supported by your executor.", 3) end
+        end })
+    Utility:CreateDivider()
+    Utility:CreateSection("Chat")
+    Utility:CreateToggle({ Name = "Chat Fix", Description = "Hook and fix chat display",
+        CurrentValue = false, Callback = function(v)
+            if Modules.ChatFix then
+                if v then Modules.ChatFix:Enable() else Modules.ChatFix:Disable() end
+            else DoNotif("ChatFix module not found.", 2) end
+        end }, "luna_chatfix")
+    local LS = Window:CreateTab({ Name = "Loadstrings", Icon = "code", ImageSource = "Material", ShowTitle = true })
+    local function ls(url, msg) pcall(loadstringCmd, url, msg) end
+    LS:CreateSection("Tools & Utilities")
+    LS:CreateButton({ Name = "Zex / Dex+",          Description = "Updated Dex Explorer",                    Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Zex.lua", "Loading Zex..") end })
+    LS:CreateButton({ Name = "Ghidra",               Description = "HEX Overseer — better than all",         Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/HEXOverseer.lua", "Loading..") end })
+    LS:CreateButton({ Name = "Rem",                  Description = "In-game exploit creation kit",           Callback = function() ls("https://e-vil.com/anbu/rem.lua", "Loading Rem.") end })
+    LS:CreateButton({ Name = "Teleporter / Game Finder", Description = "Game Universe UI",                   Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameFinder.lua", "stolen from nameless-admin") end })
+    LS:CreateButton({ Name = "Improved Btools",      Description = "Upgraded GUI for btools",                Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/buildtools.lua", "Loading Revamped Btools Gui") end })
+    LS:CreateButton({ Name = "Stats Lock",           Description = "Edit and lock your properties",          Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/statlock.lua", "Loading Stats..") end })
+    LS:CreateButton({ Name = "Copy Console",         Description = "Copy errors from the console",           Callback = function() ls("https://raw.githubusercontent.com/scriptlisenbe-stack/luaprojectse3/refs/heads/main/consolecopy.lua", "Copy Console Activated.") end })
+    LS:CreateButton({ Name = "No Anim",              Description = "Pause/remove all player animations",     Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/animationremover.lua", "Loading..") end })
+    LS:CreateButton({ Name = "Zuka Hub",             Description = "Load the Zuka Hub",                      Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/ZukaHub.lua", "Loading Zuka's Hub...") end })
+    LS:CreateButton({ Name = "ConvertR6",            Description = "R15 → R6 converter (WIP)",               Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/r15tor6.lua", "Loading, Wait a sec.") end })
+    LS:CreateButton({ Name = "Line of Sight Logger", Description = "Log players looking at you",             Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/LineOfSightLogger.lua", "Loading...") end })
+    LS:CreateButton({ Name = "Z Spy",                Description = "Simple spy rework — beta",               Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/executor_scripts/SimpleSpyRework.lua", "in beta...") end })
+    LS:CreateButton({ Name = "Creepy Anim GUI",      Description = "Uncanny animation GUI",                  Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/uncannyanim.lua", "Loaded GUI") end })
+    LS:CreateButton({ Name = "Walk Void",            Description = "Stop falling into the void",             Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/WalkVoid.lua", "You are now safe from falling into the void.") end })
+    LS:CreateButton({ Name = "Reach Fix",            Description = "Make equipped tool invisible w/ reach",  Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/InvisibleEquippedTool.lua", "Fixed") end })
+    LS:CreateButton({ Name = "Wall Walk (WIP)",      Description = "Work in progress",                       Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/WorkINPro.lua", "Anti Gay Shield Activated.") end })
+    LS:CreateButton({ Name = "Remove Forcefield",    Description = "Client-side forcefield remover",         Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/removeforcefield.txt", "Loading..") end })
+    LS:CreateButton({ Name = "Remove Adonis",        Description = "Says no to Adonis",                      Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/ByeByeAdonis.lua", "Loading..") end })
+    LS:CreateSection("Combat & Weapons")
+    LS:CreateButton({ Name = "Auto Fling",           Description = "Pwned flinger",                          Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/Ultimatefling.lua", "Loaded!") end })
+    LS:CreateButton({ Name = "Touch Fling GUI",      Description = "Simple touch fling GUI",                 Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/SimpleTouchFlingGui.lua", "Loaded") end })
+    LS:CreateButton({ Name = "Sword Bot",            Description = "Auto sword fighter — use E and R",       Callback = function() ls("https://raw.githubusercontent.com/bloxtech1/luaprojects2/refs/heads/main/swordnpc", "Bot loaded.") end })
+    LS:CreateButton({ Name = "CSGO Bhop",            Description = "Bhop movement",                          Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/phoon.lua", "Loading") end })
+    LS:CreateButton({ Name = "Doom Hammer",          Description = "For dumb bossfights",                    Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/doomshammer.lua", "Loading..") end })
+    LS:CreateButton({ Name = "TP to Swords",         Description = "Sword grabber for bossfight games",      Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/SwordGrabberBossfightGame.lua", "Loading..") end })
+    LS:CreateButton({ Name = "Lag Server",           Description = "Server payload (WIP)",                   Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/gamelagger.lua", "Loading..") end })
+    LS:CreateSection("Game Specific")
+    LS:CreateSection("► Zombie Game")
+    LS:CreateButton({ Name = "ZG — Sniper",          Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/sniperZG.lua", "Loading..") end })
+    LS:CreateButton({ Name = "Z Fucker",             Description = "ZL series",                              Callback = function() ls("https://raw.githubusercontent.com/osukfcdays/zlfucker/refs/heads/main/main.luau", "Loading, Wait a sec.") end })
+    LS:CreateButton({ Name = "ZG — Shotgun",         Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/ShotgunMinigunScriptWorking.lua", "Loading..") end })
+    LS:CreateButton({ Name = "ZG — No Acid Rain",    Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/AntiAcidRainLag.lua", "Loading...") end })
+    LS:CreateButton({ Name = "ZG — No Cooldowns",    Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/NocooldownsZombieUpd3.txt", "Loading Cooldownremover...") end })
+    LS:CreateButton({ Name = "ZG — Shovel Anim",     Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/ShovelAnimation.lua", "Loading Shovel.") end })
+    LS:CreateButton({ Name = "ZG — Box ESP",         Description = "Zombie Game basic ESP",                  Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/BasicEsp.lua", "Loading Box esp") end })
+    LS:CreateButton({ Name = "ZG — Melee x2",        Description = "Zombie Infection Game",                  Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/MeleeDamagex2.lua", "Loading..") end })
+    LS:CreateSection("► Protect The House")
+    LS:CreateButton({ Name = "PTHM — Gun Lagger",    Description = "Protect The House from Monsters",        Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/Lagger.lua", "Loading..") end })
+    LS:CreateButton({ Name = "PTHM — Gun Lagger 2",  Description = "Protect The House — machine gun",        Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/machinegun.lua", "Loading..") end })
+    LS:CreateButton({ Name = "PTHM — P-Launcher",    Description = "Protect The House — projectile lagger",  Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameLaggerPlauncher.lua", "Loading Modification") end })
+    LS:CreateButton({ Name = "PTHM — Pumpkin",       Description = "Protect The House — rapid fire pumpkin", Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/RAPIDFIREPumpkinlauncher.lua", "Loading") end })
+    LS:CreateSection("► Backrooms")
+    LS:CreateButton({ Name = "Backrooms Gun Modifier",      Description = "For Backrooms",                     Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/BackroomsWeaponEditor.lua", "Loaded") end })
+    LS:CreateButton({ Name = "God Weapons W Teamkill",      Description = "For Backrooms",                              Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/opbasckrooms.lua", "Loaded") end })
+    LS:CreateButton({ Name = "God Weapons W Semi-AUto",     Description = "Semi-Auto Version",       Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/PatchedGuns.lua", "Guns Patched.") end })
+    LS:CreateButton({ Name = "Fling Gun (Backrooms)",       Description = "For Backrooms",                             Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/flingergunspatch.lua", "Loading, Wait a sec.") end })
+    LS:CreateSection("► Other Games")
+    LS:CreateButton({ Name = "WOS — No Dash CD",     Description = "World of Stands — removes dash cooldown", Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/WOS.lua", "Loading, Wait a sec.") end })
+        local Aimbot = {
+        Enabled = false,
+        IsAiming = false,
+        CurrentTarget = nil,
+        VelocityHistory = {},
+        TargetIndex = {},
+        LastIndexUpdate = 0,
+        FOVCircle = nil,
+        ESPObjects = {},
+        ToggleKey = Enum.UserInputType.MouseButton2,
+        AimPart = "HumanoidRootPart",
+        FOVRadius = 70,
+        ShowFOVCircle = true,
+        SmoothingEnabled = true,
+        SmoothingFactor = 0.6,
+        DistanceBasedSmoothing = true,
+        WallCheckEnabled = false,
+        IgnoreTeam = false,
+        StickyTarget = true,
+        PredictionEnabled = false,
+        PredictionMultiplier = 1.0,
+        HitboxPriority = false,
+        UpdateRate = 0.5,
+        PredictionSamples = 3,
+        StickyDistanceMultiplier = 1.5,
+        UsePIDController = false,
+        UseAdvancedScoring = true,
+        AimRandomization = false,
+        RandomizationMin = 0.92,
+        RandomizationMax = 0.98,
+        HealthPriority = 0.3,
+        DistancePriority = 0.2,
+    }
+    local DeleteTool = {
+        Enabled = false,
+        DeleteMode = "Part",
+        MaxDistance = 500,
+        IgnorePlayers = true,
+        IgnoreTerrain = true,
+        ShowHighlight = false,
+        DeleteBind = Enum.KeyCode.V,
+        DeletedParts = {},
+        CurrentHighlight = nil,
+    }
+    local HITBOX_PRIORITIES = {
+        {Name = "Head"},
+        {Name = "UpperTorso"},
+        {Name = "HumanoidRootPart"},
+        {Name = "Torso"},
+        {Name = "LowerTorso"},
+    }
+    local PID = {}
+    PID.__index = PID
+    function PID:new(kp, ki, kd)
+        return setmetatable({ kp=kp or 0.5, ki=ki or 0.1, kd=kd or 0.2,
+            prev_error=0, integral=0, dt=1/60 }, PID)
+    end
+    function PID:calculate(setpoint, measurement)
+        local error = setpoint - measurement
+        self.integral = math.clamp(self.integral + error * self.dt, -10, 10)
+        local derivative = (error - self.prev_error) / self.dt
+        self.prev_error = error
+        return self.kp * error + self.ki * self.integral + self.kd * derivative
+    end
+    function PID:reset() self.prev_error = 0; self.integral = 0 end
+    local pitchPID = PID:new(0.4, 0.08, 0.15)
+    local yawPID   = PID:new(0.4, 0.08, 0.15)
+    local _RunService     = game:GetService("RunService")
+    local _UserInput      = game:GetService("UserInputService")
+    local _Camera         = workspace.CurrentCamera
+    local _Players        = game:GetService("Players")
+    local _LocalPlayer    = _Players.LocalPlayer
+    local wallParams      = RaycastParams.new()
+    wallParams.FilterType = Enum.RaycastFilterType.Exclude
+    local function updateTargetIndex(force)
+        local now = tick()
+        if not force and (now - Aimbot.LastIndexUpdate) < Aimbot.UpdateRate then return end
+        Aimbot.LastIndexUpdate = now
+        Aimbot.TargetIndex = {}
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("Model") then
+                local h = d:FindFirstChildOfClass("Humanoid")
+                if h and h.Health > 0 then table.insert(Aimbot.TargetIndex, d) end
+            end
+        end
+    end
+    local function isTeammate(player)
+        if not Aimbot.IgnoreTeam or not player then return false end
+        return (LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team)
+            or (LocalPlayer.TeamColor and player.TeamColor and LocalPlayer.TeamColor == player.TeamColor)
+    end
+    local function isVisible(part)
+        if not Aimbot.WallCheckEnabled then return true end
+        if not _LocalPlayer.Character or not part or not part.Parent then return false end
+        local tChar = part:FindFirstAncestorOfClass("Model") or part.Parent
+        wallParams.FilterDescendantsInstances = {_LocalPlayer.Character, tChar}
+        return not workspace:Raycast(_Camera.CFrame.Position, part.Position - _Camera.CFrame.Position, wallParams)
+    end
+    local function getHitbox(model)
+        if not Aimbot.HitboxPriority then return model:FindFirstChild(Aimbot.AimPart) end
+        for _, h in ipairs(HITBOX_PRIORITIES) do
+            local p = model:FindFirstChild(h.Name)
+            if p and isVisible(p) then return p end
+        end
+        for _, h in ipairs(HITBOX_PRIORITIES) do
+            local p = model:FindFirstChild(h.Name)
+            if p then return p end
+        end
+    end
+    local function getScore(model, part, screenDist)
+        if not Aimbot.UseAdvancedScoring then return screenDist end
+        local score = 1000 / (screenDist + 1)
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        if hum then score = score * (1 - (hum.Health / hum.MaxHealth) * Aimbot.HealthPriority) end
+        if _LocalPlayer.Character and _LocalPlayer.Character.PrimaryPart then
+            local dist = (_LocalPlayer.Character.PrimaryPart.Position - part.Position).Magnitude
+            score = score * (1 + (1 / (1 + dist / 1000)) * Aimbot.DistancePriority)
+        end
+        return score + math.random() * 10
+    end
+    local function getTarget()
+        local mousePos = _UserInput:GetMouseLocation()
+        local bestScore = -math.huge
+        local bestModel, bestPart = nil, nil
+        if Aimbot.StickyTarget and Aimbot.CurrentTarget and Aimbot.CurrentTarget.Parent then
+            local part = getHitbox(Aimbot.CurrentTarget)
+            if part then
+                local pos, onScreen = _Camera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+                    if dist <= Aimbot.FOVRadius * Aimbot.StickyDistanceMultiplier then
+                        local score = getScore(Aimbot.CurrentTarget, part, dist) * 1.3
+                        if score > bestScore then bestScore = score; bestModel = Aimbot.CurrentTarget; bestPart = part end
+                    end
+                end
+            end
+        end
+        for _, model in ipairs(Aimbot.TargetIndex) do
+            if model and model.Parent then
+                local player = _Players:GetPlayerFromCharacter(model)
+                if not (player and (player == _LocalPlayer or isTeammate(player))) then
+                    local part = getHitbox(model)
+                    if part then
+                        local pos, onScreen = _Camera:WorldToViewportPoint(part.Position)
+                        if onScreen then
+                            local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+                            if dist <= Aimbot.FOVRadius then
+                                local score = getScore(model, part, dist)
+                                if score > bestScore then bestScore = score; bestModel = model; bestPart = part end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        return bestModel, bestPart
+    end
+    local function predict(part)
+        if not Aimbot.PredictionEnabled then return part.Position end
+        local vel = part.AssemblyLinearVelocity or part.Velocity or Vector3.zero
+        table.insert(Aimbot.VelocityHistory, vel)
+        if #Aimbot.VelocityHistory > Aimbot.PredictionSamples then table.remove(Aimbot.VelocityHistory, 1) end
+        local avg = Vector3.zero
+        for _, v in ipairs(Aimbot.VelocityHistory) do avg = avg + v end
+        avg = avg / #Aimbot.VelocityHistory
+        local dist = (_Camera.CFrame.Position - part.Position).Magnitude
+        return part.Position + avg * (dist / 2000 * Aimbot.PredictionMultiplier)
+    end
+    local function aimAt(part, dt)
+        if not part or not part.Parent then return false end
+        local predicted = predict(part)
+        if Aimbot.UsePIDController then
+            local screenPos = _Camera:WorldToViewportPoint(predicted)
+            local mouse = _UserInput:GetMouseLocation()
+            local dx = screenPos.X - mouse.X
+            local dy = screenPos.Y - mouse.Y
+            if Aimbot.AimRandomization then
+                local r = Aimbot.RandomizationMin + math.random() * (Aimbot.RandomizationMax - Aimbot.RandomizationMin)
+                dx = dx * r; dy = dy * r
+            end
+            local pc = math.clamp(pitchPID:calculate(0, dy), -2, 2)
+            local yc = math.clamp(yawPID:calculate(0, dx), -2, 2)
+            _Camera.CFrame = _Camera.CFrame * CFrame.Angles(math.rad(-pc * 0.01), math.rad(-yc * 0.01), 0)
+        else
+            local goal = CFrame.lookAt(_Camera.CFrame.Position, predicted)
+            if Aimbot.SmoothingEnabled then
+                local dist = (_Camera.CFrame.Position - part.Position).Magnitude
+                local norm = math.clamp((dist - 10) / 290, 0, 1)
+                local smooth = Aimbot.SmoothingFactor * (1 - norm * 0.5)
+                if Aimbot.AimRandomization then
+                    smooth = smooth * (Aimbot.RandomizationMin + math.random() * (Aimbot.RandomizationMax - Aimbot.RandomizationMin))
+                end
+                _Camera.CFrame = _Camera.CFrame:Lerp(goal, math.clamp(1 - (1 - smooth)^(60 * dt), 0, 1))
+            else
+                _Camera.CFrame = goal
+            end
+        end
+        return true
+    end
+    local function setESP(part, col)
+        if not part or not part.Parent then return end
+        if Aimbot.ESPObjects[part] then Aimbot.ESPObjects[part].Color3 = col; return end
+        local box = Instance.new("BoxHandleAdornment")
+        box.Adornee = part; box.AlwaysOnTop = true; box.ZIndex = 10
+        box.Size = part.Size; box.Color3 = col; box.Transparency = 0.4
+        box.Parent = part
+        Aimbot.ESPObjects[part] = box
+    end
+    local function clearESP(part)
+        if part then
+            if Aimbot.ESPObjects[part] then pcall(function() Aimbot.ESPObjects[part]:Destroy() end) Aimbot.ESPObjects[part] = nil end
+        else
+            for _, v in pairs(Aimbot.ESPObjects) do pcall(function() v:Destroy() end) end
+            Aimbot.ESPObjects = {}
+        end
+    end
+    local function getPartUnderCursor()
+        local mouse = _UserInput:GetMouseLocation()
+        local ray = _Camera:ViewportPointToRay(mouse.X, mouse.Y)
+        local params = RaycastParams.new()
+        params.FilterType = Enum.RaycastFilterType.Blacklist
+        params.FilterDescendantsInstances = {_LocalPlayer.Character, _Camera}
+        params.IgnoreWater = true
+        local result = workspace:Raycast(ray.Origin, ray.Direction * DeleteTool.MaxDistance, params)
+        if result and result.Instance then
+            if DeleteTool.IgnorePlayers then
+                local m = result.Instance:FindFirstAncestorOfClass("Model")
+                if m and m:FindFirstChild("Humanoid") then return nil end
+            end
+            if DeleteTool.IgnoreTerrain and result.Instance:IsA("Terrain") then return nil end
+            return result.Instance
+        end
+    end
+    local function doDelete(part)
+        if not part then return DoNotif("Nothing under cursor.", 2) end
+        local target = part
+        if DeleteTool.DeleteMode == "Model" then target = part:FindFirstAncestorOfClass("Model") or part
+        elseif DeleteTool.DeleteMode == "Descendants" then target = part.Parent or part end
+        table.insert(DeleteTool.DeletedParts, { Name = target.Name })
+        pcall(function() target:Destroy() end)
+        DoNotif("Deleted: " .. target.Name, 2)
+    end
+    if Drawing and typeof(Drawing.new) == "function" then
+        Aimbot.FOVCircle = Drawing.new("Circle")
+        Aimbot.FOVCircle.Visible = false
+        Aimbot.FOVCircle.Thickness = 2
+        Aimbot.FOVCircle.NumSides = 64
+        Aimbot.FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+        Aimbot.FOVCircle.Transparency = 0.6
+        Aimbot.FOVCircle.Filled = false
+    end
+    local _aimbotConnections = {}
+    table.insert(_aimbotConnections, _RunService.RenderStepped:Connect(function(dt)
+        if Aimbot.FOVCircle then
+            Aimbot.FOVCircle.Position = _UserInput:GetMouseLocation()
+            Aimbot.FOVCircle.Radius = Aimbot.FOVRadius
+            Aimbot.FOVCircle.Visible = Aimbot.ShowFOVCircle and Aimbot.Enabled and Aimbot.IsAiming
+        end
+        updateTargetIndex()
+        if Aimbot.Enabled and Aimbot.IsAiming then
+            local model, part = getTarget()
+            if model ~= Aimbot.CurrentTarget then pitchPID:reset(); yawPID:reset() end
+            Aimbot.CurrentTarget = model
+            if model and part then
+                if aimAt(part, dt) then setESP(part, Color3.fromRGB(255, 80, 80)) else clearESP() end
+                for p in pairs(Aimbot.ESPObjects) do if p ~= part then clearESP(p) end end
+            else
+                clearESP(); Aimbot.VelocityHistory = {}; pitchPID:reset(); yawPID:reset()
+            end
+        else
+            Aimbot.CurrentTarget = nil; Aimbot.VelocityHistory = {}
+            clearESP(); pitchPID:reset(); yawPID:reset()
+        end
+        if DeleteTool.Enabled and DeleteTool.ShowHighlight then
+            local p = getPartUnderCursor()
+            if p then
+                if DeleteTool.CurrentHighlight then pcall(function() DeleteTool.CurrentHighlight:Destroy() end) end
+                local hl = Instance.new("Highlight")
+                hl.Adornee = p; hl.FillColor = Color3.fromRGB(255,0,0)
+                hl.FillTransparency = 0.5; hl.OutlineTransparency = 0
+                hl.Parent = p; DeleteTool.CurrentHighlight = hl
+            elseif DeleteTool.CurrentHighlight then
+                pcall(function() DeleteTool.CurrentHighlight:Destroy() end)
+                DeleteTool.CurrentHighlight = nil
+            end
+        end
+    end))
+    table.insert(_aimbotConnections, _UserInput.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if DeleteTool.Enabled and input.KeyCode == DeleteTool.DeleteBind then doDelete(getPartUnderCursor()) end
+        if Aimbot.Enabled and input.UserInputType == Aimbot.ToggleKey then Aimbot.IsAiming = true end
+    end))
+    table.insert(_aimbotConnections, _UserInput.InputEnded:Connect(function(input)
+        if input.UserInputType == Aimbot.ToggleKey then
+            Aimbot.IsAiming = false; clearESP(); pitchPID:reset(); yawPID:reset()
+        end
+    end))
+    updateTargetIndex(true)
+    local AB = Window:CreateTab({ Name = "Aimbot", Icon = "gps_fixed", ImageSource = "Material", ShowTitle = true })
+    AB:CreateSection("Controls")
+    AB:CreateToggle({ Name = "Enable Aimbot", Description = "Hold RMB to aim",
+        CurrentValue = true, Callback = function(v)
+            Aimbot.Enabled = v
+            if not v then Aimbot.IsAiming = false; clearESP() end
+            DoNotif("Aimbot: " .. (v and "ON" or "OFF"), 2)
+        end }, "luna_ab_enabled")
+    AB:CreateLabel({ Text = " Hold Right Mouse Button to lock on", Style = 3 })
+    AB:CreateSlider({ Name = "FOV Radius", Range = {50,500}, Increment = 5, CurrentValue = 80, Suffix = "px",
+        Callback = function(v) Aimbot.FOVRadius = v end }, "luna_ab_fov")
+    AB:CreateSlider({ Name = "Smoothness", Range = {0.05,1.0}, Increment = 0.01, CurrentValue = 0.6,
+        Callback = function(v) Aimbot.SmoothingFactor = v end }, "luna_ab_smooth")
+    AB:CreateDropdown({ Name = "Aim Part", Options = {"Head","UpperTorso","HumanoidRootPart","Torso","LowerTorso"},
+        CurrentOption = {"HumanoidRootPart"}, MultipleOptions = false,
+        Callback = function(v) Aimbot.AimPart = type(v)=="table" and v[1] or v end }, "luna_ab_part")
+    AB:CreateSection("Checks")
+    AB:CreateToggle({ Name = "Ignore Team", Description = "Skip teammates", CurrentValue = true,
+        Callback = function(v) Aimbot.IgnoreTeam = v end }, "luna_ab_team")
+    AB:CreateToggle({ Name = "Wall Check", Description = "Only target visible players", CurrentValue = false,
+        Callback = function(v) Aimbot.WallCheckEnabled = v end }, "luna_ab_wall")
+    AB:CreateSection("Advanced")
+    AB:CreateToggle({ Name = "Hitbox Priority", Description = "Auto-pick best visible hitbox", CurrentValue = true,
+        Callback = function(v) Aimbot.HitboxPriority = v end }, "luna_ab_hbp")
+    AB:CreateToggle({ Name = "Sticky Target", Description = "Maintain lock on current target", CurrentValue = true,
+        Callback = function(v) Aimbot.StickyTarget = v end }, "luna_ab_sticky")
+    AB:CreateToggle({ Name = "Prediction", Description = "Lead moving targets", CurrentValue = false,
+        Callback = function(v) Aimbot.PredictionEnabled = v end }, "luna_ab_pred")
+    AB:CreateSlider({ Name = "Prediction Multiplier", Range = {0.1,3.0}, Increment = 0.1, CurrentValue = 1.0,
+        Callback = function(v) Aimbot.PredictionMultiplier = v end }, "luna_ab_predmult")
+    AB:CreateToggle({ Name = "PID Controller", Description = "Human-like aim movement (buggy)", CurrentValue = false,
+        Callback = function(v)
+            Aimbot.UsePIDController = v
+            if v then pitchPID:reset(); yawPID:reset() end
+            DoNotif("PID: " .. (v and "ON" or "OFF"), 2)
+        end }, "luna_ab_pid")
+    AB:CreateToggle({ Name = "Advanced Scoring", Description = "Multi-factor target priority", CurrentValue = true,
+        Callback = function(v) Aimbot.UseAdvancedScoring = v end }, "luna_ab_scoring")
+    AB:CreateToggle({ Name = "Aim Randomization", Description = "Slight randomness for realism", CurrentValue = false,
+        Callback = function(v) Aimbot.AimRandomization = v end }, "luna_ab_rand")
+    AB:CreateSection("Visuals")
+    AB:CreateToggle({ Name = "Show FOV Circle", Description = "Draw FOV ring while aiming", CurrentValue = true,
+        Callback = function(v) Aimbot.ShowFOVCircle = v end }, "luna_ab_fovcircle")
+    AB:CreateColorPicker({ Name = "FOV Color", Color = Color3.fromRGB(255,255,255),
+        Callback = function(c) if Aimbot.FOVCircle then Aimbot.FOVCircle.Color = c end end }, "luna_ab_fovcol")
+    local DT = Window:CreateTab({ Name = "Delete Tool", Icon = "delete", ImageSource = "Material", ShowTitle = true })
+    DT:CreateSection("Delete Tool")
+    DT:CreateToggle({ Name = "Enable", Description = "Activate part deletion", CurrentValue = false,
+        Callback = function(v) DeleteTool.Enabled = v; DoNotif("Delete Tool: " .. (v and "ON" or "OFF"), 2) end }, "luna_dt_enabled")
+    DT:CreateLabel({ Text = " Press keybind to delete part under cursor", Style = 3 })
+    DT:CreateKeybind({ Name = "Delete Keybind", CurrentKeybind = "V", HoldToInteract = false,
+        Callback = function(k)
+            local ok, val = pcall(function() return Enum.KeyCode[k] end)
+            if ok then DeleteTool.DeleteBind = val; DoNotif("Delete key: " .. k, 2) end
+        end }, "luna_dt_bind")
+    DT:CreateDropdown({ Name = "Delete Mode", Options = {"Part","Model","Descendants"},
+        CurrentOption = {"Part"}, MultipleOptions = false,
+        Callback = function(v) DeleteTool.DeleteMode = type(v)=="table" and v[1] or v end }, "luna_dt_mode")
+    DT:CreateSection("Options")
+    DT:CreateSlider({ Name = "Max Distance", Range = {50,2000}, Increment = 10, CurrentValue = 500, Suffix = "st",
+        Callback = function(v) DeleteTool.MaxDistance = v end }, "luna_dt_dist")
+    DT:CreateToggle({ Name = "Ignore Players", CurrentValue = true,
+        Callback = function(v) DeleteTool.IgnorePlayers = v end }, "luna_dt_igplr")
+    DT:CreateToggle({ Name = "Ignore Terrain", CurrentValue = true,
+        Callback = function(v) DeleteTool.IgnoreTerrain = v end }, "luna_dt_igterr")
+    DT:CreateToggle({ Name = "Show Highlight", Description = "Red outline on target part", CurrentValue = false,
+        Callback = function(v) DeleteTool.ShowHighlight = v end }, "luna_dt_hl")
+    DT:CreateSection("History")
+    local dtHistLabel = DT:CreateLabel({ Text = "Deleted: 0 parts", Style = 1 })
+    DT:CreateButton({ Name = "Clear History", Callback = function()
+        DeleteTool.DeletedParts = {}
+        pcall(function() dtHistLabel:Set("Deleted: 0 parts") end)
+        DoNotif("History cleared.", 2)
+    end })
+    table.insert(_aimbotConnections, game:GetService("RunService").Heartbeat:Connect(function()
+        pcall(function() dtHistLabel:Set("Deleted: " .. #DeleteTool.DeletedParts .. " parts") end)
+    end))
+    local Settings = Window:CreateTab({ Name = "Settings", Icon = "settings", ImageSource = "Material", ShowTitle = true })
+    local Poison = Window:CreateTab({ Name = "Mod Poison", Icon = "bug_report", ImageSource = "Material", ShowTitle = true })
+    local Info = Window:CreateTab({ Name = "Info", Icon = "info", ImageSource = "Material", ShowTitle = true })
+    Info:CreateSection("Game")
+    local _MPS = game:GetService("MarketplaceService")
+    local _gameNameLabel    = Info:CreateLabel({ Text = "Game: fetching...", Style = 1 })
+    local _placeIdLabel     = Info:CreateLabel({ Text = "Place ID: " .. tostring(game.PlaceId), Style = 2 })
+    local _jobIdLabel       = Info:CreateLabel({ Text = "Job ID: " .. tostring(game.JobId), Style = 2 })
+    local _placeVerLabel    = Info:CreateLabel({ Text = "Version: " .. tostring(game.PlaceVersion), Style = 2 })
+    local _serverSizeLabel  = Info:CreateLabel({ Text = "Server Players: ...", Style = 2 })
+    local _pingLabel        = Info:CreateLabel({ Text = "Ping: ...", Style = 2 })
+    local _fpsInfoLabel     = Info:CreateLabel({ Text = "FPS: ...", Style = 2 })
+    task.spawn(function()
+        local ok, info = pcall(function()
+            return _MPS:GetProductInfo(game.PlaceId, Enum.InfoType.Asset)
+        end)
+        pcall(function()
+            _gameNameLabel:Set("Game: " .. (ok and info and info.Name or "Unknown"))
+        end)
+    end)
+    Info:CreateSection("You")
+    local _lpNameLabel      = Info:CreateLabel({ Text = "Name: " .. LocalPlayer.Name, Style = 1 })
+    local _lpDisplayLabel   = Info:CreateLabel({ Text = "Display: " .. LocalPlayer.DisplayName, Style = 2 })
+    local _lpIdLabel        = Info:CreateLabel({ Text = "User ID: " .. tostring(LocalPlayer.UserId), Style = 2 })
+    local _lpAccAgeLabel    = Info:CreateLabel({ Text = "Account Age: " .. tostring(LocalPlayer.AccountAge) .. " days", Style = 2 })
+    local _lpTeamLabel      = Info:CreateLabel({ Text = "Team: None", Style = 2 })
+    local _lpHealthLabel    = Info:CreateLabel({ Text = "Health: ...", Style = 2 })
+    local _lpSpeedLabel     = Info:CreateLabel({ Text = "WalkSpeed: ...", Style = 2 })
+    local _lpPosLabel       = Info:CreateLabel({ Text = "Position: ...", Style = 2 })
+    Info:CreateSection("Players In Server")
+    local _playerCountLabel = Info:CreateLabel({ Text = "Count: " .. tostring(#_Players:GetPlayers()), Style = 1 })
+    local _playerListLabel  = Info:CreateLabel({ Text = "...", Style = 2 })
+    Info:CreateSection("Copy")
+    Info:CreateButton({ Name = "Copy Place ID", Description = "Copy to clipboard",
+        Callback = function()
+            if setclipboard then setclipboard(tostring(game.PlaceId)); DoNotif("Copied Place ID", 2)
+            else DoNotif("setclipboard not supported.", 2) end
+        end })
+    Info:CreateButton({ Name = "Copy Job ID", Description = "Copy server Job ID",
+        Callback = function()
+            if setclipboard then setclipboard(tostring(game.JobId)); DoNotif("Copied Job ID", 2)
+            else DoNotif("setclipboard not supported.", 2) end
+        end })
+    Info:CreateButton({ Name = "Copy User ID", Description = "Copy your User ID",
+        Callback = function()
+            if setclipboard then setclipboard(tostring(LocalPlayer.UserId)); DoNotif("Copied User ID", 2)
+            else DoNotif("setclipboard not supported.", 2) end
+        end })
+    Info:CreateButton({ Name = "Copy Position", Description = "Copy your current XYZ",
+        Callback = function()
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp and setclipboard then
+                local p = hrp.Position
+                local str = string.format("%.2f, %.2f, %.2f", p.X, p.Y, p.Z)
+                setclipboard(str); DoNotif("Copied: " .. str, 2)
+            else DoNotif("No character / setclipboard not supported.", 2) end
+        end })
+    local _infoUpdateAccum = 0
+    table.insert(_aimbotConnections, _RunService.Heartbeat:Connect(function(dt)
+        _infoUpdateAccum = _infoUpdateAccum + dt
+        if _infoUpdateAccum < 0.5 then return end
+        _infoUpdateAccum = 0
+        pcall(function()
+            local stats = game:GetService("Stats")
+            local ping = stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+            local fps = math.floor(1 / dt)
+            _pingLabel:Set("Ping: " .. math.floor(ping) .. " ms")
+            _fpsInfoLabel:Set("FPS: " .. fps)
+            _serverSizeLabel:Set("Server Players: " .. tostring(#_Players:GetPlayers()) .. " / " .. tostring(_Players.MaxPlayers))
+        end)
+        pcall(function()
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hum then
+                _lpHealthLabel:Set(string.format("Health: %.1f / %.1f", hum.Health, hum.MaxHealth))
+                _lpSpeedLabel:Set("WalkSpeed: " .. tostring(hum.WalkSpeed))
+            end
+            if hrp then
+                local p = hrp.Position
+                _lpPosLabel:Set(string.format("Position: %.1f, %.1f, %.1f", p.X, p.Y, p.Z))
+            end
+            _lpTeamLabel:Set("Team: " .. (LocalPlayer.Team and LocalPlayer.Team.Name or "None"))
+        end)
+        pcall(function()
+            local plrs = _Players:GetPlayers()
+            _playerCountLabel:Set("Count: " .. tostring(#plrs))
+            local names = {}
+            for _, p in ipairs(plrs) do
+                local char = p.Character
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                local hp = hum and string.format("%.0f hp", hum.Health) or "dead"
+                table.insert(names, p.Name .. " [" .. hp .. "]")
+            end
+            _playerListLabel:Set(table.concat(names, "\n"))
+        end)
+    end))
+    Poison:CreateSection("require() Hooks")
+    Poison:CreateToggle({ Name = "Hook require()", Description = "Log all require() calls to console",
+        CurrentValue = false, Callback = function(v)
+            if v then
+                if getgenv().__PoisonHook then
+                    return DoNotif("Hook already active.", 2)
+                end
+                local oldRequire = require
+                getgenv().__PoisonHook = oldRequire
+                getgenv().require = function(mod)
+                    local ok, result = pcall(oldRequire, mod)
+                    local name = pcall(function() return mod.Name end) and mod.Name or tostring(mod)
+                    if ok then
+                        print("[Poison] require -> " .. tostring(name))
+                        return result
+                    else
+                        warn("[Poison] require FAILED -> " .. tostring(name))
+                        return {}
+                    end
+                end
+                DoNotif("require() hook active. Check F9.", 2)
+            else
+                if getgenv().__PoisonHook then
+                    getgenv().require = getgenv().__PoisonHook
+                    getgenv().__PoisonHook = nil
+                    DoNotif("require() restored.", 2)
+                end
+            end
+        end }, "luna_reqhook")
+    Poison:CreateDivider()
+    Poison:CreateSection("Module Patching")
+    Poison:CreateInput({ Name = "Target Module Name", Description = "Exact name of the ModuleScript to poison",
+        PlaceholderText = "e.g. DataStore2, RoundManager",
+        CurrentValue = "", Numeric = false, MaxCharacters = 64, Enter = true,
+        Callback = function(text)
+            getgenv().__PoisonTarget = text
+            DoNotif("Target set: " .. text, 2)
+        end }, "luna_poisontarget")
+    Poison:CreateButton({ Name = "Poison Target Module", Description = "Make require() return empty table for target",
+        Callback = function()
+            local target = getgenv().__PoisonTarget
+            if not target or target == "" then
+                return DoNotif("Set a target module name first.", 3)
+            end
+            if not getgenv().__PoisonHook then
+                -- hook if not already active
+                local oldRequire = require
+                getgenv().__PoisonHook = oldRequire
+                getgenv().require = function(mod)
+                    local name = ""
+                    pcall(function() name = mod.Name end)
+                    if name == getgenv().__PoisonTarget then
+                        warn("[Poison] Blocked: " .. name)
+                        return setmetatable({}, {
+                            __index    = function() return function() end end,
+                            __newindex = function() end,
+                            __call     = function() return {} end
+                        })
+                    end
+                    return oldRequire(mod)
+                end
+            end
+            DoNotif("Poisoned: " .. target .. " — returns blank proxy.", 3)
+        end })
+    Poison:CreateButton({ Name = "Restore require()", Description = "Unhook and restore original require",
+        Callback = function()
+            if getgenv().__PoisonHook then
+                getgenv().require = getgenv().__PoisonHook
+                getgenv().__PoisonHook = nil
+                getgenv().__PoisonTarget = nil
+                DoNotif("require() fully restored.", 2)
+            else
+                DoNotif("No hook active.", 2)
+            end
+        end })
+    Poison:CreateDivider()
+    Poison:CreateSection("Presets")
+    Poison:CreateButton({ Name = "Poison AntiCheat Modules", Description = "Blank common AC module names",
+        Callback = function()
+            local targets = {"AntiCheat", "Anticheat", "AC", "SecurityManager", "KickManager", "DetectionService"}
+            local oldRequire = getgenv().__PoisonHook or require
+            if not getgenv().__PoisonHook then getgenv().__PoisonHook = require end
+            local proxy = setmetatable({}, {
+                __index    = function() return function() end end,
+                __newindex = function() end,
+                __call     = function() return {} end
+            })
+            getgenv().require = function(mod)
+                local name = ""
+                pcall(function() name = mod.Name end)
+                for _, t in ipairs(targets) do
+                    if name == t then
+                        warn("[Poison] AC module blocked: " .. name)
+                        return proxy
+                    end
+                end
+                return oldRequire(mod)
+            end
+            DoNotif("AC preset active — " .. #targets .. " targets poisoned.", 3)
+        end })
+        
+    Settings:CreateInput({ Name = "Command Prefix", Description = "Change your prefix  (default: ;)",
+        PlaceholderText = "Single char e.g.  ;  !  .", CurrentValue = Prefix or ";",
+        Numeric = false, MaxCharacters = 1, Enter = true,
+        Callback = function(Text)
+            if Text and #Text == 1 then getgenv().Prefix = Text DoNotif("Prefix changed to: "..Text, 2)
+            else DoNotif("Prefix must be exactly one character.", 3) end
+        end }, "luna_prefix")
+        Settings:CreateDivider()
+    Settings:CreateDivider()
+    Settings:CreateSection("Appearance")
+    local THEME_COLORS = {
+        ["Cyan Classic"]  = Color3.fromRGB(0, 255, 255),
+        ["Purple Dream"]  = Color3.fromRGB(200, 100, 255),
+        ["Neon Pink"]     = Color3.fromRGB(255, 50, 150),
+        ["Toxic Green"]   = Color3.fromRGB(50, 255, 50),
+        ["Blood Red"]     = Color3.fromRGB(255, 40, 40),
+        ["Ocean Blue"]    = Color3.fromRGB(50, 150, 255),
+        ["Golden Sunset"] = Color3.fromRGB(255, 180, 50),
+        ["Midnight"]      = Color3.fromRGB(100, 100, 150),
+        ["Monochrome"]    = Color3.fromRGB(200, 200, 200),
+    }
+    local themeNames = {}
+    for name in pairs(THEME_COLORS) do table.insert(themeNames, name) end
+    table.sort(themeNames)
+    local savedTheme = "Cyan Classic"
+    pcall(function()
+        if readfile and isfile("ZukaPanel_Theme.txt") then
+            local v = readfile("ZukaPanel_Theme.txt")
+            if THEME_COLORS[v] then savedTheme = v end
+        end
+    end)
+    Settings:CreateDropdown({ Name = "Theme Preset", Description = "Takes effect on next load",
+        Options = themeNames,
+        CurrentOption = {savedTheme},
+        MultipleOptions = false,
+        Callback = function(selected)
+            local choice = type(selected) == "table" and selected[1] or selected
+            if not THEME_COLORS[choice] then return DoNotif("Unknown theme.", 2) end
+            pcall(function()
+                if writefile then
+                    writefile("ZukaPanel_Theme.txt", choice)
+                end
+            end)
+            DoNotif("Theme saved: " .. choice .. " — takes effect next load.", 3)
+        end }, "luna_theme")
+    Settings:CreateDivider()
+    Settings:CreateSection("UI")
+    Settings:CreateKeybind({ Name = "Toggle UI Keybind", Description = "Keybind to show/hide the panel",
+        CurrentKeybind = "RightShift", HoldToInteract = false,
+        Callback = function(keybind)
+            DoNotif("UI toggle key set to: " .. tostring(keybind), 2)
+        end }, "luna_togglekey")
+    Settings:CreateButton({ Name = "Clear Saved Settings", Description = "Wipe all saved Luna flags",
+        Callback = function()
+            if Window and Window.ClearFlags then
+                Window:ClearFlags()
+                DoNotif("Saved flags cleared. Rejoin to reset UI state.", 3)
+            else
+                -- fallback: manually nil known flags
+                local flags = {"luna_fly","luna_noclip","luna_infjump","luna_antireset","luna_antisit",
+                    "luna_ws","luna_flyspd","luna_grav","luna_esp","luna_chams","luna_fb",
+                    "luna_nofog","luna_ll","luna_fps","luna_fov","luna_afk","luna_fp",
+                    "luna_aa","luna_atp","luna_bdp","luna_bgp","luna_rad","luna_chatfix"}
+                DoNotif("Flags reset (" .. #flags .. " entries). Rejoin to apply.", 3)
+            end
+        end })
+    Settings:CreateButton({ Name = "Credits", Description = "By @OverZuka",
+        Callback = function() DoNotif("We're so back!'", 3) end })
+    -- ░░ SCRIPTS TAB ░░
+    local Scripts = Window:CreateTab({ Name = "Scripts", Icon = "code", ImageSource = "Material", ShowTitle = true })
+    Scripts:CreateSection("Extras")
+    Scripts:CreateLabel({ Text = "These will change the most.", Style = 3 })
+    Scripts:CreateDivider()
+
+    local function RunScript(url)
+        if not url or url == "" then DoNotif("No URL set for this slot.", 2) return end
+        local ok, err = pcall(function() loadstring(game:HttpGet(url, true))() end)
+        if not ok then DoNotif("Script error: " .. tostring(err), 3) end
+    end
+
+    Scripts:CreateSection("Adonis Counter v2")
+    local Script1_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/counter.lua"
+    Scripts:CreateInput({ Name = "1", PlaceholderText = "OverZuka", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script1_URL = v end }, "luna_script1_url")
+    Scripts:CreateButton({ Name = "Execute", Description = "Executes an anticheat counter for adonis", Callback = function() RunScript(Script1_URL) end })
+
+    Scripts:CreateSection("WRD Deobfuscator WIP")
+    local Script2_URL = "https://pastebin.com/raw/7Yw5BCnQ"
+    Scripts:CreateInput({ Name = "Deobfuscator", PlaceholderText = "Can Cause Crashes", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script2_URL = v end }, "luna_script2_url")
+    Scripts:CreateButton({ Name = "Execute", Description = "Loads Zuka's Lifter.'", Callback = function() RunScript(Script2_URL) end })
+
+    Scripts:CreateSection("Updated SimpleSpy")
+    local Script3_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/executor_scripts/SimpleSpyRework.lua"
+    Scripts:CreateInput({ Name = "Remote Spy", PlaceholderText = "Everyones favorite", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script3_URL = v end }, "luna_script3_url")
+    Scripts:CreateButton({ Name = "Execute", Description = "Working as of now", Callback = function() RunScript(Script3_URL) end })
+
+    Scripts:CreateSection("Cframe Spoofer")
+    local Script4_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Cframe.lua"
+    Scripts:CreateInput({ Name = "Position/Hitbox Changer", PlaceholderText = "A better Desync", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script4_URL = v end }, "luna_script4_url")
+    Scripts:CreateButton({ Name = "Execute", Description = "Pretty fun to use.", Callback = function() RunScript(Script4_URL) end })
+
+    Scripts:CreateSection("Part Flinger V2 FE")
+    local Script5_URL = "https://pastebin.com/raw/QHKAksQz"
+    Scripts:CreateInput({ Name = "Ultimate Fling WIP", PlaceholderText = "Might be buggy", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script5_URL = v end }, "luna_script5_url")
+    Scripts:CreateButton({ Name = " Execute", Description = "Really FUN to use", Callback = function() RunScript(Script5_URL) end })
+
+    Scripts:CreateSection("Placeholder")
+    local Script6_URL = ""
+    Scripts:CreateInput({ Name = "Script 6 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script6_URL = v end }, "luna_script6_url")
+    Scripts:CreateButton({ Name = "  Run Script 6", Description = "Executes loadstring on Script 6 URL", Callback = function() RunScript(Script6_URL) end })
+
+    Scripts:CreateSection("Placeholder")
+    local Script7_URL = ""
+    Scripts:CreateInput({ Name = "Script 7 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script7_URL = v end }, "luna_script7_url")
+    Scripts:CreateButton({ Name = "  Run Script 7", Description = "Executes loadstring on Script 7 URL", Callback = function() RunScript(Script7_URL) end })
+
+    Scripts:CreateDivider()
+    Scripts:CreateButton({ Name = "Run All? Will crash your game", Description = "Runs every slot that has a URL set",
+        Callback = function()
+            local urls = {Script1_URL,Script2_URL,Script3_URL,Script4_URL,Script5_URL,
+                          Script6_URL,Script7_URL,Script8_URL,Script9_URL,Script10_URL,
+                          Script11_URL,Script12_URL,Script13_URL,Script14_URL,Script15_URL,
+                          Script16_URL,Script17_URL,Script18_URL,Script19_URL,Script20_URL}
+            local ran = 0
+            for _, url in ipairs(urls) do
+                if url and url ~= "" then RunScript(url) ran = ran + 1 end
+            end
+            DoNotif("Ran " .. ran .. " script(s).", 2)
+        end })
+
+        local RC = Window:CreateTab({ Name = "Reach", Icon = "open_with", ImageSource = "Material", ShowTitle = true })
+    RC:CreateSection("Tool Reach")
+    RC:CreateLabel({ Text = " Equip a tool first, then apply reach", Style = 3 })
+    RC:CreateToggle({ Name = "Reach GUI", Description = "Open the part selector GUI",
+        CurrentValue = false, Callback = function(v)
+            if Modules.ReachController then
+                if v then Modules.ReachController:Enable()
+                else Modules.ReachController:Disable() end
+            else DoNotif("ReachController not found.", 2) end
+        end }, "luna_reach_gui")
+    RC:CreateDivider()
+    RC:CreateSection("Quick Apply")
+    RC:CreateSlider({ Name = "Reach Size", Description = "Size to apply on next set",
+        Range = {1, 200}, Increment = 1, CurrentValue = 20, Suffix = " st",
+        Callback = function(v)
+            getgenv().__ReachSize = v
+        end }, "luna_reach_size")
+    RC:CreateDropdown({ Name = "Reach Type", Description = "Directional = length only, Box = all axes",
+        Options = {"directional", "box"}, CurrentOption = {"directional"}, MultipleOptions = false,
+        Callback = function(v)
+            getgenv().__ReachType = type(v) == "table" and v[1] or v
+        end }, "luna_reach_type")
+    RC:CreateButton({ Name = "Apply to Equipped Tool", Description = "Opens part selector with current settings",
+        Callback = function()
+            local char = LocalPlayer.Character
+            if not char then return DoNotif("No character.", 2) end
+            local tool = char:FindFirstChildOfClass("Tool")
+            if not tool then return DoNotif("No tool equipped.", 2) end
+            local size = getgenv().__ReachSize or 20
+            local rtype = getgenv().__ReachType or "directional"
+            if Modules.Reach and Modules.Reach.Apply then
+                Modules.Reach:Apply(rtype, size)
+            elseif Modules.ReachController then
+                Modules.ReachController:Enable()
+                DoNotif("Using legacy ReachController — set size in the GUI.", 2)
+            else
+                DoNotif("No reach module found.", 2)
+            end
+        end })
+    RC:CreateButton({ Name = "Reset Reach", Description = "Restore tool to original size",
+        Callback = function()
+            if Modules.Reach and Modules.Reach.Reset then
+                Modules.Reach:Reset()
+            elseif Modules.ReachController then
+                Modules.ReachController:Disable()
+            else
+                DoNotif("No reach module found.", 2)
+            end
+        end })
+    RC:CreateDivider()
+    RC:CreateSection("Status")
+    local _reachStatusLabel = RC:CreateLabel({ Text = "Active: No", Style = 2 })
+    local _reachToolLabel   = RC:CreateLabel({ Text = "Tool: None", Style = 2 })
+    local _reachPartLabel   = RC:CreateLabel({ Text = "Part: None", Style = 2 })
+    table.insert(_aimbotConnections, _RunService.Heartbeat:Connect(function()
+        pcall(function()
+            if Modules.Reach and Modules.Reach.State then
+                local s = Modules.Reach.State
+                _reachStatusLabel:Set("Active: " .. (s.IsEnabled and "Yes" or "No"))
+                _reachToolLabel:Set("Tool: " .. (s.PersistentToolName or "None"))
+                _reachPartLabel:Set("Part: " .. (s.PersistentPartName or "None"))
+            elseif Modules.ReachController then
+                _reachStatusLabel:Set("Active: " .. (Modules.ReachController.State and Modules.ReachController.State.IsEnabled and "Yes" or "Unknown"))
+                _reachToolLabel:Set("Tool: via ReachController GUI")
+                _reachPartLabel:Set("Part: via ReachController GUI")
+            end
+        end)
+    end))
+    DoNotif("Revamp soon!", 2)
+end)
 loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/notifier.lua"))()
 
-print("I update this pretty often, expect many things to change or be removed.")
+print("I update this pretty often, expect many things to change or be removed.")]]
