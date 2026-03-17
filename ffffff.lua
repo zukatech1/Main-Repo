@@ -599,22 +599,32 @@ end)
 
 -- resolve Adonis internals from every available source
 local function TryResolveAdonis()
-    -- _G.Adonis proxy
+
+    -- ── 1. _G.Adonis proxy ──────────────────────────────────
     local gapi = rawget(_G,"Adonis")
     if gapi then AC.gAPI = gapi end
 
-    -- getfenv scan over PlayerScripts modules
-    local ps = lp:FindFirstChild("PlayerScripts")
-    if ps then
-        for _,desc in ipairs(ps:GetDescendants()) do
-            if desc:IsA("ModuleScript") and not AC.Core then
+    -- ── 2. getfenv on already-required functions ─────────────
+    -- getfenv(fn) returns the environment a function was compiled in.
+    -- Adonis client modules run inside a custom env where "client"
+    -- and "service" are top-level keys.
+    if not AC.Core then
+        for _,m in ipairs(ScannedModules) do
+            if AC.Core then break end
+            for _,fn in pairs(m.functions) do
+                if AC.Core then break end
                 pcall(function()
-                    local env = getfenv and getfenv(require(desc))
-                    if env and env.client and env.client.Core then
-                        local c = env.client
-                        AC.Core=c.Core AC.Remote=c.Remote AC.Anti=c.Anti
-                        AC.Functions=c.Functions AC.Variables=c.Variables
-                        AC.Service=env.service
+                    local env = getfenv(fn)
+                    if type(env) ~= "table" then return end
+                    local c = rawget(env,"client")
+                    if type(c) == "table" and type(c.Core) == "table" then
+                        AC.Core      = c.Core
+                        AC.Remote    = c.Remote
+                        AC.Anti      = c.Anti
+                        AC.Functions = c.Functions
+                        AC.Variables = c.Variables
+                        local svc = rawget(env,"service")
+                        if type(svc)=="table" then AC.Service=svc end
                         if AC.Anti then AC.DetectedFn=AC.Anti.Detected end
                     end
                 end)
@@ -622,79 +632,107 @@ local function TryResolveAdonis()
         end
     end
 
-    -- upvalue walk across all scanned modules
+    -- ── 3. Upvalue walk (2 levels deep) ─────────────────────
+    local function CheckTable(t)
+        if not AC.Core
+            and type(t.GetEvent)=="function"
+            and (t.ScriptCache~=nil or t.RemoteEvent~=nil or type(t.LoadPlugin)=="function")
+        then AC.Core=t end
+        if not AC.Remote
+            and type(t.Send)=="function"
+            and type(t.Get)=="function"
+            and type(t.Fire)=="function"
+        then AC.Remote=t end
+        if not AC.Anti
+            and type(t.Detected)=="function"
+            and type(t.AddDetector)=="function"
+        then AC.Anti=t AC.DetectedFn=t.Detected end
+        if not AC.Service
+            and type(t.Wrap)=="function"
+            and type(t.UnWrap)=="function"
+            and type(t.TrackTask)=="function"
+        then AC.Service=t end
+        if not AC.Variables
+            and rawget(t,"G_Access_Key")~=nil
+        then AC.Variables=t end
+    end
+
     for _,m in ipairs(ScannedModules) do
+        if AC.Core and AC.Remote and AC.Anti and AC.Service then break end
         for _,fn in pairs(m.functions) do
-            if AC.Core and AC.Remote and AC.Anti and AC.Service then break end
             local uvs={} pcall(function() uvs=getupvalues(fn) end)
             for _,uv in ipairs(uvs) do
                 if type(uv)=="table" then
-                    if not AC.Core and uv.GetEvent and uv.StartAPI then AC.Core=uv end
-                    if not AC.Remote and uv.Send and uv.Get then AC.Remote=uv end
-                    if not AC.Anti and uv.Detected and uv.AddDetector then
-                        AC.Anti=uv AC.DetectedFn=uv.Detected
+                    CheckTable(uv)
+                elseif type(uv)=="function" then
+                    local uvs2={} pcall(function() uvs2=getupvalues(uv) end)
+                    for _,uv2 in ipairs(uvs2) do
+                        if type(uv2)=="table" then CheckTable(uv2) end
                     end
-                    if not AC.Service and uv.Wrap and uv.UnWrap and uv.ReadOnly then AC.Service=uv end
-                    if not AC.Variables and uv.G_Access_Key~=nil then AC.Variables=uv end
                 end
             end
         end
     end
 
-    -- grab remote object from Core
-    if AC.Core and AC.Core.RemoteEvent and not AC.remoteObj then
+    -- ── 4. RemoteEvent ───────────────────────────────────────
+    if AC.Core and not AC.remoteObj then
         pcall(function()
-            local re=AC.Core.RemoteEvent
-            AC.remoteObj = re.Object or re
+            local re = rawget(AC.Core,"RemoteEvent")
+            if re then AC.remoteObj = rawget(re,"Object") or re end
+        end)
+    end
+    if not AC.remoteObj then
+        pcall(function()
+            for _,desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                if desc:IsA("RemoteEvent") and desc:FindFirstChild("__FUNCTION") then
+                    AC.remoteObj=desc break
+                end
+            end
         end)
     end
 
-    -- fallback: scan RepStorage for RemoteEvent with __FUNCTION child
-    if not AC.remoteObj then
-        for _,desc in ipairs(ReplicatedStorage:GetDescendants()) do
-            if desc:IsA("RemoteEvent") and desc:FindFirstChild("__FUNCTION") then
-                AC.remoteObj=desc break
-            end
-        end
-    end
-
-    -- ── ACLI (ClientLoader) resolution ──────────────────────
-    -- Look for the ClientMover script via game:GetService("Folder")
-    -- It lives as a LocalScript named "ClientMover" inside a Folder service
-    pcall(function()
-        local folder = game:GetService("Folder")
-        if folder then
-            local mover = folder:FindFirstChild("ClientMover")
-            if mover and mover:IsA("LocalScript") then
-                AC.acliLoader = mover
-            end
-        end
-    end)
-
-    -- Walk upvalues of scanned functions to find ACLI internals:
-    -- v_u_36 = acliLogs (table of strings), v_u_16/v_u_48 = kick fns, v_u_14 = integrity bool
-    for _,m in ipairs(ScannedModules) do
-        for _,fn in pairs(m.functions) do
-            if AC.acliLogs then break end
-            local uvs={} pcall(function() uvs=getupvalues(fn) end)
-            for _,uv in ipairs(uvs) do
-                -- acliLogs: a plain table of strings (log accumulator)
-                if not AC.acliLogs and type(uv)=="table" then
-                    local isLogTable=true local strCount=0
-                    for _,v in pairs(uv) do
-                        if type(v)~="string" then isLogTable=false break end
-                        strCount=strCount+1
+    -- ── 5. ACLI via getgc ────────────────────────────────────
+    -- getgc(true) includes tables; we look for the acliLogs table
+    -- (v_u_36: array of strings starting with "ACLI:") and the
+    -- loader kick fn (v_u_48: Lua closure with a boolean upvalue
+    -- and a C-function upvalue whose name is "Kick").
+    if getgc then
+        pcall(function()
+            local gc = getgc(true)
+            for _,obj in ipairs(gc) do
+                -- acliLogs: sequential table of strings, some containing "ACLI:"
+                if not AC.acliLogs and type(obj)=="table" then
+                    local ok,hasACLI,allStr,n = true,false,true,0
+                    for k,v in pairs(obj) do
+                        n=n+1
+                        if type(k)~="number" or type(v)~="string" then allStr=false break end
+                        if v:find("ACLI:",1,true) then hasACLI=true end
+                        if n>300 then allStr=false break end
                     end
-                    if isLogTable and strCount>0 then
-                        -- check if any entry contains "ACLI:"
-                        for _,v in pairs(uv) do
-                            if type(v)=="string" and v:find("ACLI") then
-                                AC.acliLogs=uv break
-                            end
-                        end
-                    end
+                    if allStr and hasACLI then AC.acliLogs=obj end
                 end
             end
+        end)
+
+        -- separate pass for functions (getgc(false) = functions only)
+        if not AC.acliKickFn then
+            pcall(function()
+                local gc = getgc(false)
+                for _,obj in ipairs(gc) do
+                    if type(obj)=="function" and islclosure(obj) then
+                        local uvs={} pcall(function() uvs=getupvalues(obj) end)
+                        local hasBool,hasKick=false,false
+                        for _,uv in ipairs(uvs) do
+                            if type(uv)=="boolean" then hasBool=true end
+                            if type(uv)=="function" and not islclosure(uv) then
+                                local ok2,name=pcall(debug.info,uv,"n")
+                                if ok2 and name=="Kick" then hasKick=true end
+                            end
+                        end
+                        if hasBool and hasKick then AC.acliKickFn=obj break end
+                    end
+                end
+            end)
         end
     end
 
@@ -1258,67 +1296,119 @@ SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
 end)
 
 -- ── SCANNER ─────────────────────────────────────────────────
-local function ScanContainer(container,sourceName)
-    local found={}
-    for _,desc in ipairs(container:GetDescendants()) do
-        if desc:IsA("ModuleScript") then
-            local ok,result=pcall(require,desc)
-            if ok and type(result)=="table" then
-                local fns={}
-                for k,v in pairs(result) do
-                    if type(v)=="function" then fns[tostring(k)]=v end
-                end
-                for k,v in pairs(result) do
-                    if type(v)=="table" then
-                        for k2,v2 in pairs(v) do
-                            if type(v2)=="function" then fns[tostring(k).."."..tostring(k2)]=v2 end
-                        end
-                    end
-                end
-                if next(fns) then
-                    table.insert(found,{name=desc.Name,path=desc:GetFullName(),module=result,source=sourceName,functions=fns})
-                end
+-- Each module is required inside its own thread with a hard timeout.
+-- This prevents any hanging require (obfuscated init loops, yielding
+-- modules, CoreGui scripts) from blocking the entire scan.
+
+local REQUIRE_TIMEOUT = 2  -- seconds per module before we skip it
+
+local function ExtractFunctions(tbl, prefix, depth)
+    -- walks up to 2 levels deep collecting functions
+    depth = depth or 0
+    local fns = {}
+    local ok, err = pcall(function()
+        for k, v in pairs(tbl) do
+            local key = prefix and (prefix.."."..tostring(k)) or tostring(k)
+            if type(v) == "function" then
+                fns[key] = v
+            elseif type(v) == "table" and depth < 1 then
+                -- one level deeper
+                local inner = ExtractFunctions(v, key, depth+1)
+                for ik, iv in pairs(inner) do fns[ik] = iv end
             end
         end
-    end
-    return found
+    end)
+    return fns
 end
 
-local function RunScan()
-    SetStatus("scanning...",Color3.fromRGB(255,180,0))
-    ScannedModules={}
-    if not AdonisOpen then Placeholder.Visible=true DetailFrame.Visible=false end
-
+local function SafeRequire(moduleScript)
+    -- returns ok, result — result is the module table or error string
+    -- runs in a separate thread; we join with a timeout
+    local done, result, success = false, nil, false
     task.spawn(function()
-        local total=0
-        for _,m in ipairs(ScanContainer(ReplicatedStorage,"ReplicatedStorage")) do
-            table.insert(ScannedModules,m) total=total+1
-        end
-        for _,c in ipairs({
-            lp:FindFirstChild("Backpack"),lp.Character,
-            lp:FindFirstChild("PlayerScripts"),lp:FindFirstChild("PlayerGui")
-        }) do
-            if c then
-                for _,m in ipairs(ScanContainer(c,"LocalPlayer."..c.Name)) do
-                    table.insert(ScannedModules,m) total=total+1
+        local ok, res = pcall(require, moduleScript)
+        success = ok
+        result  = res
+        done    = true
+    end)
+    local t = 0
+    while not done and t < REQUIRE_TIMEOUT do
+        task.wait(0.05)
+        t = t + 0.05
+    end
+    if not done then
+        return false, "timeout"
+    end
+    return success, result
+end
+
+local function ScanContainer(container, sourceName, outList)
+    -- collects ModuleScript descendants, requires each with a timeout,
+    -- extracts functions, appends results to outList
+    local descs = {}
+    pcall(function() descs = container:GetDescendants() end)
+    for _, desc in ipairs(descs) do
+        if desc:IsA("ModuleScript") then
+            local ok, result = SafeRequire(desc)
+            if ok and type(result) == "table" then
+                local fns = ExtractFunctions(result)
+                if next(fns) then
+                    table.insert(outList, {
+                        name      = desc.Name,
+                        path      = desc:GetFullName(),
+                        module    = result,
+                        source    = sourceName,
+                        functions = fns,
+                    })
                 end
             end
         end
-        local cg={CoreGui}
-        local rg=CoreGui:FindFirstChild("RobloxGui")
-        if rg then table.insert(cg,rg) end
-        for _,c in ipairs(cg) do
-            pcall(function()
-                for _,m in ipairs(ScanContainer(c,c.Name)) do
-                    table.insert(ScannedModules,m) total=total+1
-                end
-            end)
+        -- yield every 5 modules so the UI stays responsive
+        if _ % 5 == 0 then task.wait() end
+    end
+end
+
+local scanRunning = false
+local function RunScan()
+    if scanRunning then return end
+    scanRunning = true
+    SetStatus("scanning...", Color3.fromRGB(255,180,0))
+    ScannedModules = {}
+    if not AdonisOpen then
+        Placeholder.Visible = true
+        DetailFrame.Visible = false
+    end
+
+    task.spawn(function()
+        -- ReplicatedStorage
+        ScanContainer(ReplicatedStorage, "ReplicatedStorage", ScannedModules)
+        SetStatus("scanning LocalPlayer...", Color3.fromRGB(255,180,0))
+
+        -- LocalPlayer containers
+        for _, cname in ipairs({"Backpack","PlayerScripts","PlayerGui"}) do
+            local c = lp:FindFirstChild(cname)
+            if c then ScanContainer(c, "LocalPlayer."..cname, ScannedModules) end
         end
+        -- Character separately (may be nil on load)
+        if lp.Character then
+            ScanContainer(lp.Character, "LocalPlayer.Character", ScannedModules)
+        end
+
+        SetStatus("scanning CoreGui...", Color3.fromRGB(255,180,0))
+        -- CoreGui — pcall the whole thing, RobloxGui children can error on GetDescendants
+        pcall(function() ScanContainer(CoreGui, "CoreGui", ScannedModules) end)
+        local rg = CoreGui:FindFirstChild("RobloxGui")
+        if rg then
+            pcall(function() ScanContainer(rg, "RobloxGui", ScannedModules) end)
+        end
+
+        local total = #ScannedModules
+        SetStatus("resolving Adonis...", Color3.fromRGB(255,180,0))
         TryResolveAdonis()
         BuildTree()
-        SetStatus(total.." modules found",Color3.fromRGB(0,255,150))
-        -- refresh panel if open
+        SetStatus(total.." modules found", Color3.fromRGB(0,255,150))
         if AdonisOpen then BuildAdonisPanel() end
+        scanRunning = false
     end)
 end
 
