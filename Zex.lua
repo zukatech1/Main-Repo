@@ -3858,8 +3858,6 @@ end
 		elseif n == "CriticalDamageEnabled" then return 999999
     elseif n == "SilenceEffect" then return true
     elseif n == "HoldDownEnabled" then return false
-    elseif n == "BulletType" then return Normal
-	  elseif n == "ProjectileType" then return Pumpkin          
     elseif n == "RicochetAmount" then return 15
     elseif n == "SuperRicochet" then return true
     elseif n == "BulletLifetime" then return 10
