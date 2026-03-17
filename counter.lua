@@ -527,33 +527,87 @@ local gpOffBtn = Btn(gpCard,"■ remove proxy",  Color3.fromRGB(55,20,20),4)
 local gpLbl    = Lbl(gpCard,"",Color3.fromRGB(140,200,140),5)
 local _realAPI = nil
 
+-- _G.Adonis is set via rawset inside StartAPI, but _G itself has a custom
+-- __index metatable in Adonis's sandboxed env. We need multiple strategies:
+local function FindGlobalAPI()
+    -- 1. direct index (works in executor's _G, not Adonis's sandboxed _G)
+    local v = _G["Adonis"]
+    if v ~= nil then return v, "direct _G index" end
+
+    -- 2. rawget (works if set with rawset on the real _G table)
+    local v2 = rawget(_G, "Adonis")
+    if v2 ~= nil then return v2, "rawget _G" end
+
+    -- 3. getgc scan — the API proxy is a userdata with __metatable == "API"
+    --    created by newproxy(true) inside StartAPI
+    local v3 = nil
+    pcall(function()
+        for _, obj in ipairs(getgc(true)) do
+            if type(obj) == "userdata" then
+                local ok, mt = pcall(getmetatable, obj)
+                if ok and mt == "API" then
+                    -- verify it has an __index that returns something for "Scripts"
+                    local ok2, val = pcall(function() return obj.Scripts end)
+                    if ok2 and val ~= nil then
+                        v3 = obj break
+                    end
+                end
+            end
+        end
+    end)
+    if v3 then return v3, "getgc userdata scan" end
+
+    -- 4. if adonis is linked, try reading it through the client table's
+    --    G_API reference which StartAPI stores in v_u_55
+    if adonis then
+        local v4 = rawget(adonis, "G_API")
+        if v4 ~= nil then return v4, "adonis.G_API" end
+    end
+
+    return nil, "not found"
+end
+
 gpOnBtn.MouseButton1Click:Connect(function()
     if State.globalProxied then gpLbl.Text="already proxied" return end
-    local api = rawget(_G,"Adonis")
-    if not api then gpLbl.Text="_G.Adonis not set yet — try after Adonis loads" gpLbl.TextColor3=Color3.fromRGB(255,150,80) return end
+
+    local api, source = FindGlobalAPI()
+    if not api then
+        gpLbl.Text="could not find _G.Adonis — is Adonis fully loaded?"
+        gpLbl.TextColor3=Color3.fromRGB(255,150,80) return
+    end
+
+    gpAppend("found via: "..source, Color3.fromRGB(130,150,255))
     _realAPI = api
+
     local fakeAPI = newproxy(true)
     local mt = getmetatable(fakeAPI)
     mt.__index = function(_, index)
         local line = "[G-API] accessed: "..tostring(index)
         gpAppend(line, Color3.fromRGB(195,165,255))
         print("[AdonisTools] "..line)
-        return _realAPI[index]
+        local ok, val = pcall(function() return _realAPI[index] end)
+        return ok and val or nil
     end
     mt.__newindex = function(_, index, value)
-        gpAppend("[G-API] write attempt: "..tostring(index).." = "..tostring(value), Color3.fromRGB(255,170,100))
+        gpAppend("[G-API] write: "..tostring(index).." = "..tostring(value), Color3.fromRGB(255,170,100))
     end
     mt.__metatable = "API"
-    rawset(_G, "Adonis", fakeAPI)
+
+    -- write back to _G using both rawset and direct assignment
+    -- to cover both the real _G and any sandboxed env
+    pcall(function() rawset(_G, "Adonis", fakeAPI) end)
+    pcall(function() _G["Adonis"] = fakeAPI end)
+
     State.globalProxied=true
-    gpLbl.Text="✓ proxy installed — all _G.Adonis accesses logged"
+    gpLbl.Text="✓ proxy installed (src: "..source..")"
     gpLbl.TextColor3=Color3.fromRGB(90,235,130)
     UpdateStatus()
 end)
 
 gpOffBtn.MouseButton1Click:Connect(function()
     if State.globalProxied and _realAPI then
-        rawset(_G,"Adonis",_realAPI)
+        pcall(function() rawset(_G,"Adonis",_realAPI) end)
+        pcall(function() _G["Adonis"] = _realAPI end)
         State.globalProxied=false
         gpLbl.Text="removed" gpLbl.TextColor3=Color3.fromRGB(200,200,200)
         UpdateStatus()
@@ -1131,13 +1185,13 @@ end
 
 -- attempt _G.Adonis.Access(inputKey, tableName)
 local function TryAccess(inputKey, tableName)
-    local api = rawget(_G,"Adonis")
-    if not api then return nil, "_G.Adonis not set" end
+    local api, source = FindGlobalAPI()
+    if not api then return nil, "_G.Adonis not found ("..source..")" end
     local ok, result = pcall(function()
         return api.Access(inputKey, tableName or "Service")
     end)
     if ok and result ~= nil then
-        return result, "success"
+        return result, "success (found via "..source..")"
     end
     return nil, ok and "returned nil (key rejected)" or tostring(result)
 end
