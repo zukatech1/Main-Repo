@@ -1,261 +1,5 @@
 --[[Made By Zuka]]
-local TweenService    = game:GetService("TweenService")
-local CoreGui         = game:GetService("CoreGui")
-local ContentProvider = game:GetService("ContentProvider")
-do
-    local THEME = {
-        Title        = " ",
-        Subtitle     = "Made by @OverZuka — We're so back...",
-        IconAssetId  = "rbxassetid://7243158473",
-        BackgroundColor = Color3.fromRGB(8, 8, 12),
-        AccentColor     = Color3.fromRGB(0, 220, 255),
-        TextColor       = Color3.fromRGB(230, 230, 240),
-        SubtitleColor   = Color3.fromRGB(130, 130, 150),
-        FadeInTime  = 0.2,
-        HoldTime    = 0.2,
-        FadeOutTime = 0.2,
-        TypingSpeed    = 0.045,
-        ScanlineCount  = 28,
-        ScanlineAlpha  = 0.06,
-        ParticleCount  = 18,
-    }
-    local splashGui = Instance.new("ScreenGui")
-    splashGui.Name            = "SplashScreen_" .. math.random(1000, 9999)
-    splashGui.IgnoreGuiInset  = true
-    splashGui.ResetOnSpawn    = false
-    splashGui.ZIndexBehavior  = Enum.ZIndexBehavior.Global
-    splashGui.DisplayOrder    = 999
-    splashGui.Parent          = CoreGui
-    local background = Instance.new("Frame")
-    background.Size                 = UDim2.fromScale(1, 1)
-    background.BackgroundColor3     = THEME.BackgroundColor
-    background.BackgroundTransparency = 0.4
-    background.BorderSizePixel      = 0
-    background.ZIndex               = 1
-    background.Parent               = splashGui
-    local scanContainer = Instance.new("Frame")
-    scanContainer.Size                 = UDim2.fromScale(1, 1)
-    scanContainer.BackgroundTransparency = 1
-    scanContainer.BorderSizePixel      = 0
-    scanContainer.ZIndex               = 2
-    scanContainer.ClipsDescendants     = true
-    scanContainer.Parent               = background
-    local lineSpacing = math.ceil(1080 / THEME.ScanlineCount)
-    for i = 0, THEME.ScanlineCount - 1 do
-        local line = Instance.new("Frame")
-        line.Size                 = UDim2.new(1, 0, 0, 1)
-        line.Position             = UDim2.new(0, 0, 0, i * lineSpacing)
-        line.BackgroundColor3     = Color3.new(1, 1, 1)
-        line.BackgroundTransparency = 1 - THEME.ScanlineAlpha
-        line.BorderSizePixel      = 0
-        line.ZIndex               = 2
-        line.Parent               = scanContainer
-    end
-    local sweepLine = Instance.new("Frame")
-    sweepLine.Size                 = UDim2.new(1, 0, 0, 2)
-    sweepLine.Position             = UDim2.fromScale(0, -0.01)
-    sweepLine.BackgroundColor3     = THEME.AccentColor
-    sweepLine.BackgroundTransparency = 1
-    sweepLine.BorderSizePixel      = 0
-    sweepLine.ZIndex               = 3
-    sweepLine.Parent               = scanContainer
-    local particleContainer = Instance.new("Frame")
-    particleContainer.Size                 = UDim2.fromScale(1, 1)
-    particleContainer.BackgroundTransparency = 1
-    particleContainer.BorderSizePixel      = 0
-    particleContainer.ZIndex               = 3
-    particleContainer.ClipsDescendants     = true
-    particleContainer.Parent               = background
-    local particles = {}
-    for i = 1, THEME.ParticleCount do
-        local p = Instance.new("Frame")
-        local sz = math.random(1, 3)
-        p.Size                 = UDim2.fromOffset(sz, sz)
-        p.Position             = UDim2.fromScale(math.random(), math.random())
-        p.BackgroundColor3     = THEME.AccentColor
-        p.BackgroundTransparency = math.random(40, 80) / 100
-        p.BorderSizePixel      = 0
-        p.ZIndex               = 3
-        Instance.new("UICorner", p).CornerRadius = UDim.new(1, 0)
-        p.Parent               = particleContainer
-        table.insert(particles, p)
-    end
-    local card = Instance.new("Frame")
-    card.Size                 = UDim2.fromOffset(300, 220)
-    card.Position             = UDim2.fromScale(0.5, 0.5)
-    card.AnchorPoint          = Vector2.new(0.5, 0.5)
-    card.BackgroundColor3     = Color3.fromRGB(13, 13, 18)
-    card.BackgroundTransparency = 1
-    card.BorderSizePixel      = 0
-    card.ZIndex               = 5
-    card.Parent               = background
-    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 14)
-    local cardStroke = Instance.new("UIStroke", card)
-    cardStroke.Thickness    = 1
-    cardStroke.Color        = THEME.AccentColor
-    cardStroke.Transparency = 1
-    local gradient = Instance.new("UIGradient", card)
-    gradient.Color    = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 28)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 14)),
-    })
-    gradient.Rotation = 135
-    local topBar = Instance.new("Frame")
-    topBar.Size             = UDim2.new(0, 40, 0, 2)
-    topBar.Position         = UDim2.new(0.5, 0, 0, 0)
-    topBar.AnchorPoint      = Vector2.new(0.5, 0)
-    topBar.BackgroundColor3 = THEME.AccentColor
-    topBar.BorderSizePixel  = 0
-    topBar.ZIndex           = 6
-    Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 2)
-    topBar.Parent = card
-    local iconWrap = Instance.new("Frame")
-    iconWrap.Size                 = UDim2.fromOffset(64, 64)
-    iconWrap.Position             = UDim2.new(0.5, 0, 0, 28)
-    iconWrap.AnchorPoint          = Vector2.new(0.5, 0)
-    iconWrap.BackgroundColor3     = Color3.fromRGB(20, 20, 28)
-    iconWrap.BackgroundTransparency = 1
-    iconWrap.BorderSizePixel      = 0
-    iconWrap.ZIndex               = 6
-    Instance.new("UICorner", iconWrap).CornerRadius = UDim.new(0, 12)
-    local iconStroke = Instance.new("UIStroke", iconWrap)
-    iconStroke.Thickness    = 1
-    iconStroke.Color        = THEME.AccentColor
-    iconStroke.Transparency = 0.7
-    iconWrap.Parent = card
-    local icon = Instance.new("ImageLabel")
-    icon.Size                 = UDim2.fromOffset(36, 36)
-    icon.Position             = UDim2.fromScale(0.5, 0.5)
-    icon.AnchorPoint          = Vector2.new(0.5, 0.5)
-    icon.BackgroundTransparency = 1
-    icon.ImageColor3          = THEME.AccentColor
-    icon.ImageTransparency    = 0.8
-    icon.Image                = THEME.IconAssetId
-    icon.ZIndex               = 7
-    icon.Parent               = iconWrap
-    pcall(function() ContentProvider:PreloadAsync({ icon }) end)
-    local title = Instance.new("TextLabel")
-    title.Size               = UDim2.new(1, -40, 0, 28)
-    title.Position           = UDim2.new(0.5, 0, 0, 104)
-    title.AnchorPoint        = Vector2.new(0.5, 0)
-    title.BackgroundTransparency = 1
-    title.Font               = Enum.Font.GothamBold
-    title.Text               = "Loading..."
-    title.TextSize           = 20
-    title.TextColor3         = THEME.TextColor
-    title.TextXAlignment     = Enum.TextXAlignment.Center
-    title.ZIndex             = 6
-    title.Parent             = card
-    local cursor = Instance.new("TextLabel")
-    cursor.Size               = UDim2.fromOffset(10, 22)
-    cursor.BackgroundTransparency = 1
-    cursor.Font               = Enum.Font.GothamBold
-    cursor.Text               = "|"
-    cursor.TextSize           = 20
-    cursor.TextColor3         = THEME.AccentColor
-    cursor.TextTransparency   = 0
-    cursor.ZIndex             = 6
-    cursor.Parent             = card
-    local divider = Instance.new("Frame")
-    divider.Size             = UDim2.new(0, 0, 0, 1)
-    divider.Position         = UDim2.new(0.5, 0, 0, 140)
-    divider.AnchorPoint      = Vector2.new(0.5, 0)
-    divider.BackgroundColor3 = THEME.AccentColor
-    divider.BackgroundTransparency = 1
-    divider.BorderSizePixel  = 0
-    divider.ZIndex           = 6
-    divider.Parent           = card
-    local subtitle = Instance.new("TextLabel")
-    subtitle.Size               = UDim2.new(1, -40, 0, 20)
-    subtitle.Position           = UDim2.new(0.5, 0, 0, 152)
-    subtitle.AnchorPoint        = Vector2.new(0.5, 0)
-    subtitle.BackgroundTransparency = 1
-    subtitle.Font               = Enum.Font.Gotham
-    subtitle.Text               = THEME.Subtitle
-    subtitle.TextSize           = 11
-    subtitle.TextColor3         = THEME.SubtitleColor
-    subtitle.TextTransparency   = 1
-    subtitle.TextXAlignment     = Enum.TextXAlignment.Center
-    subtitle.ZIndex             = 6
-    subtitle.Parent             = card
-    local eOut  = TweenInfo.new(THEME.FadeInTime,  Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-    local eIn   = TweenInfo.new(THEME.FadeOutTime, Enum.EasingStyle.Quad,  Enum.EasingDirection.In)
-    local eFast = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-    card.Position = UDim2.new(0.5, 0, 0.54, 0)
-    TweenService:Create(card, eOut, {
-        Position = UDim2.fromScale(0.5, 0.5)
-    }):Play()
-    task.delay(0.1, function()
-        TweenService:Create(topBar, eFast, { Size = UDim2.new(0.6, 0, 0, 2) }):Play()
-    end)
-    task.delay(0.15, function()
-        TweenService:Create(iconStroke, eFast, { Transparency = 0.7 }):Play()
-        task.wait(0.25)
-        TweenService:Create(iconStroke, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-            { Transparency = 0.7 }):Play()
-    end)
-    task.delay(0.2, function()
-        TweenService:Create(divider, eFast, { Size = UDim2.new(0.55, 0, 0, 1) }):Play()
-    end)
-    task.spawn(function()
-        while splashGui.Parent do
-            TweenService:Create(sweepLine, TweenInfo.new(2.2, Enum.EasingStyle.Linear),
-                { Position = UDim2.fromScale(0, 1.02) }):Play()
-            task.wait(2.2)
-            sweepLine.Position = UDim2.fromScale(0, -0.01)
-        end
-    end)
-    task.spawn(function()
-        while splashGui.Parent do
-            for _, p in ipairs(particles) do
-                local dur  = math.random(30, 70) / 10
-                local newY = p.Position.Y.Scale - math.random(5, 15) / 100
-                TweenService:Create(p, TweenInfo.new(dur, Enum.EasingStyle.Linear),
-                    { Position = UDim2.new(p.Position.X.Scale, 0, newY, 0) }):Play()
-                task.wait(math.random(1, 4) / 10)
-            end
-            task.wait(3)
-        end
-    end)
-    task.delay(THEME.FadeInTime * 0.3, function()
-        local fullText = THEME.Title
-        for i = 1, #fullText do
-            title.Text = string.sub(fullText, 1, i)
-            local approxW = i * (title.TextSize * 0.58)
-            cursor.Position = UDim2.new(0.5, math.min(approxW / 2, card.AbsoluteSize.X / 2 - 24), 0, 104)
-            task.wait(THEME.TypingSpeed)
-        end
-        for _ = 1, 3 do
-            TweenService:Create(cursor, TweenInfo.new(0.22), { TextTransparency = 1 }):Play()
-            task.wait(0.25)
-            TweenService:Create(cursor, TweenInfo.new(0.22), { TextTransparency = 0 }):Play()
-            task.wait(0.25)
-        end
-        TweenService:Create(cursor, TweenInfo.new(0.2), { TextTransparency = 1 }):Play()
-    end)
-    local typingDuration = THEME.FadeInTime * 0.6 + #THEME.Title * THEME.TypingSpeed + 1.8
-    task.delay(typingDuration, function()
-        TweenService:Create(subtitle, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { TextTransparency = 0 }):Play()
-    end)
-    task.wait(THEME.FadeInTime + THEME.HoldTime + #THEME.Title * THEME.TypingSpeed + 1.5)
-    TweenService:Create(card, eIn, {
-        Position             = UDim2.new(0.5, 0, 0.46, 0),
-        BackgroundTransparency = 1
-    }):Play()
-    TweenService:Create(cardStroke, eIn, { Transparency = 1 }):Play()
-    TweenService:Create(topBar,  eIn, { BackgroundTransparency = 1 }):Play()
-    TweenService:Create(divider, eIn, { BackgroundTransparency = 1 }):Play()
-    TweenService:Create(icon,    eIn, { ImageTransparency = 1 }):Play()
-    TweenService:Create(title,   eIn, { TextTransparency  = 1 }):Play()
-    TweenService:Create(subtitle,eIn, { TextTransparency  = 1 }):Play()
-    TweenService:Create(background, eIn, { BackgroundTransparency = 1 }):Play()
-    TweenService:Create(sweepLine,  eIn, { BackgroundTransparency = 1 }):Play()
-    for _, p in ipairs(particles) do
-        TweenService:Create(p, eIn, { BackgroundTransparency = 1 }):Play()
-    end
-    task.wait(THEME.FadeOutTime + 0.05)
-    splashGui:Destroy()
-end
+
 local function detectEnvironment()
     local env = {
         executor = identifyexecutor and identifyexecutor() or "Unknown",
@@ -344,9 +88,10 @@ local Services = setmetatable({}, {
         return s
     end
 })
+local Workspace = game:GetService("Workspace")
+local ContentProvider = game:GetService("ContentProvider")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
@@ -362,6 +107,7 @@ local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerMouse = LocalPlayer:GetMouse()
 local CurrentCamera = Workspace.CurrentCamera
+
 local Utilities = {}
 function Utilities.findPlayer(inputName)
     local input = tostring(inputName):lower()
@@ -384,6 +130,7 @@ function Utilities.findPlayer(inputName)
             end
             return exactMatch or partialMatch
         end
+
 function Utilities.calculateLevenshteinDistance(s1: string, s2: string): number
     local len1, len2 = #s1, #s2
     if len1 == 0 then return len2 end
@@ -502,6 +249,7 @@ function RegisterCommandDual(info, func)
         end
     end
 end
+
 getgenv().Prefix          = Prefix
 getgenv().Commands        = Commands
 getgenv().Modules         = Modules
@@ -514,6 +262,7 @@ getgenv().TweenService    = TweenService
 getgenv().RunService      = RunService
 getgenv().Workspace       = Workspace
 getgenv().addcmd = function(name, aliases, func)
+	
     if not name or not func then
         warn("[addcmd] Registration failed: missing name or function.")
         return
@@ -5400,66 +5149,6 @@ function Modules.NoclipStabilizer:Disable()
     Modules.NoclipStabilizer:Enable()
 end
 end)
-Modules.AntiReset = {
-    State = {
-        IsEnabled = false,
-        CharacterConnections = {}
-    }
-}
-function Modules.AntiReset:Enable()
-    if self.State.IsEnabled then return end
-    self.State.IsEnabled = true
-    local function applyAntiReset(character)
-        if not character then return end
-        local humanoid = character:WaitForChild("Humanoid", 2)
-        local hrp = character:WaitForChild("HumanoidRootPart", 2)
-        if not (humanoid and hrp) then return end
-        for _, connection in pairs(self.State.CharacterConnections) do
-            if connection then connection:Disconnect() end
-        end
-        table.clear(self.State.CharacterConnections)
-        local isResetting = false
-        self.State.CharacterConnections.HealthChanged = humanoid:GetPropertyChangedSignal("Health"):Connect(function()
-            if humanoid.Health <= 0 and not isResetting then
-                isResetting = true
-                humanoid.Health = humanoid.MaxHealth
-                isResetting = false
-            end
-        end)
-        local lastSafePosition = hrp.Position
-        local fallenPartsHeight = Workspace.FallenPartsDestroyHeight
-        self.State.CharacterConnections.Heartbeat = RunService.Heartbeat:Connect(function()
-            if not hrp or not hrp.Parent then return end
-            if hrp.Position.Y < fallenPartsHeight then
-                hrp.CFrame = CFrame.new(lastSafePosition)
-                hrp.Velocity = Vector3.new(0, 0, 0)
-            elseif humanoid.FloorMaterial ~= Enum.Material.Air then
-                lastSafePosition = hrp.Position
-            end
-        end)
-    end
-    if LocalPlayer.Character then
-        applyAntiReset(LocalPlayer.Character)
-    end
-    self.State.CharacterConnections.Added = LocalPlayer.CharacterAdded:Connect(applyAntiReset)
-    DoNotif("Anti-Reset: ENABLED.", 2)
-end
-function Modules.AntiReset:Disable()
-    if not self.State.IsEnabled then return end
-    self.State.IsEnabled = false
-    for _, connection in pairs(self.State.CharacterConnections) do
-        if connection then connection:Disconnect() end
-    end
-    table.clear(self.State.CharacterConnections)
-    DoNotif("Anti-Reset: DISABLED.", 2)
-end
-function Modules.AntiReset:Toggle()
-    if self.State.IsEnabled then
-        self:Disable()
-    else
-        self:Enable()
-    end
-end
 Modules.NetCommander = {
     State = {
         PinnedRemote = nil,
@@ -6635,63 +6324,6 @@ function Modules.TriggerRemoteTouch:Initialize()
         end
         module.Config.HoldDuration = math.max(0.1, duration)
         DoNotif("Hold duration set to: " .. module.Config.HoldDuration .. "s", 2)
-    end)
-end
-Modules.ScriptHunter = {
-    State = {
-        IsScanning = false
-    }
-}
-function Modules.ScriptHunter:Execute(keywords)
-    local self = Modules.ScriptHunter
-    if self.State.IsScanning then return DoNotif("A script scan is already in progress.", 2) end
-    if not keywords or #keywords == 0 then return DoNotif("Usage: ;huntscript <keyword1> [keyword2] ...", 3) end
-    self.State.IsScanning = true
-    DoNotif("Beginning script hunt for keywords: " .. table.concat(keywords, ", "), 3)
-    task.spawn(function()
-        local findings = {}
-        local scriptsScanned = 0
-        for _, script in ipairs(game:GetDescendants()) do
-            if script:IsA("LuaSourceContainer") then
-                local success, source = pcall(function() return script.Source end)
-                if success and source then
-                    scriptsScanned = scriptsScanned + 1
-                    local lowerSource = source:lower()
-                    local allKeywordsFound = true
-                    for _, keyword in ipairs(keywords) do
-                        if not lowerSource:find(keyword:lower(), 1, true) then
-                            allKeywordsFound = false
-                            break
-                        end
-                    end
-                    if allKeywordsFound then
-                        table.insert(findings, script:GetFullName())
-                    end
-                end
-            end
-            if scriptsScanned % 100 == 0 then task.wait() end
-        end
-        if #findings > 0 then
-            DoNotif("Scan complete. Found " .. #findings .. " matching script(s). Results printed to console (F9).", 4)
-            print("--- [Zuka's ScriptHunter Report] ---")
-            for _, path in ipairs(findings) do
-                print("  [!] Match Found: " .. path)
-            end
-            print("--------------------------------------")
-        else
-            DoNotif("Scan complete. No scripts found containing all specified keywords.", 3)
-        end
-        self.State.IsScanning = false
-    end)
-end
-function Modules.ScriptHunter:Initialize()
-    local module = self
-    RegisterCommand({
-        Name = "huntscript",
-        Aliases = {"findscript", "scripthunt"},
-        Description = "Scans all client scripts for keywords."
-    }, function(args)
-        module:Execute(args)
     end)
 end
 local ContextActionService = game:GetService("ContextActionService")
