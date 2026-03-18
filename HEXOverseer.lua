@@ -1,5 +1,5 @@
 --[[ 
-
+ 
              ++     ++-+++              
           ++×≠×++  ++≈≈≈=+              
           +-≈≈≈≠++++≠≈≈≈≠++  +++++      
@@ -22,7 +22,40 @@
           +=≈≈≈×++++=≈≈≈=+    ++++      
           +-÷=++   ++=≈≈÷+              
             ++      ++×-++              
+
+
+Fuck 
+scriptblox
+ and all
+ you 
+retarded 
+niggas 
+on
+it
+ for
+ claiming 
+this
+ was 
+pasted
+ you 
+are
+ all 
+SKIDS
+
+Scriptblox 
+doesn't 
+deserve 
+to 
+have 
+any 
+of 
+mine 
+uploaded 
+to 
+it.
 ]]
+
+
 
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
@@ -93,19 +126,19 @@ Modules.OverseerCE = {
         BG_DARK = Color3.fromRGB(212, 208, 200),
         BG_WHITE = Color3.fromRGB(255, 255, 255),
         BORDER_DARK = Color3.fromRGB(128, 128, 128),
-        BORDER_LIGHT = Color3.fromRGB(255, 255, 255),
+        BORDER_LIGHT = Color3.fromRGB(128, 128, 128),
         TEXT_BLACK = Color3.fromRGB(0, 0, 0),
         TEXT_GRAY = Color3.fromRGB(128, 128, 128),
-        ACCENT_BLUE = Color3.fromRGB(49, 106, 197),
+        ACCENT_BLUE = Color3.fromRGB(111, 0, 0),
         HIGHLIGHT = Color3.fromRGB(51, 153, 255),
         FROZEN_RED = Color3.fromRGB(255, 0, 0),
         SUCCESS_GREEN = Color3.fromRGB(0, 180, 0),
         WARNING_ORANGE = Color3.fromRGB(255, 165, 0),
 		POISON_PURPLE = Color3.fromRGB(138, 43, 226),
-        HEADER_HEIGHT = 24,
+        HEADER_HEIGHT = 28,
         ROW_HEIGHT = 22,
         BUTTON_HEIGHT = 25,
-        PADDING = 4,
+        PADDING = 2,
         ANIM_SPEED = 0.15,
         HOVER_BRIGHTNESS = 1.1
     }
@@ -172,8 +205,6 @@ function Modules.OverseerCE:SetupAntiTamper()
     end)
     self.State.AntiTamperActive = true
 end
--- Note: DisableHeartbeatAntiTamper is the legacy simple version.
--- The full DisableAntiTamper (which restores hooked globals) is defined below.
 function Modules.OverseerCE:DisableHeartbeatAntiTamper()
     if self.AntiTamperConnection then
         self.AntiTamperConnection:Disconnect()
@@ -3057,9 +3088,6 @@ function Modules.OverseerCE:CreateUI()
     screenGui.Name = "OverseerCE"
     screenGui.ResetOnSpawn = false
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-    -- ── Taskbar (always visible, bottom of screen) ──────────────
-    -- This is how the window reopens after minimize/close.
     local taskbar = Instance.new("Frame", screenGui)
     taskbar.Name = "Taskbar"
     taskbar.Size = UDim2.fromOffset(280, 28)
@@ -3067,7 +3095,6 @@ function Modules.OverseerCE:CreateUI()
     taskbar.BackgroundColor3 = Color3.fromRGB(192, 192, 192)
     taskbar.BorderSizePixel = 0
     taskbar.ZIndex = 200
-    -- Win95 raised border on taskbar
     local function tbEdge(sz, pos, col)
         local f = Instance.new("Frame", taskbar)
         f.Size=sz; f.Position=pos; f.BackgroundColor3=col
@@ -3077,20 +3104,18 @@ function Modules.OverseerCE:CreateUI()
     tbEdge(UDim2.new(0,2,1,0), UDim2.new(0,0,0,0),   Color3.fromRGB(255,255,255))
     tbEdge(UDim2.new(1,0,0,2), UDim2.new(0,0,1,-2),  Color3.fromRGB(128,128,128))
     tbEdge(UDim2.new(0,2,1,0), UDim2.new(1,-2,0,0),  Color3.fromRGB(128,128,128))
-
     local taskbarBtn = Instance.new("TextButton", taskbar)
     taskbarBtn.Size = UDim2.new(1, -8, 1, -6)
     taskbarBtn.Position = UDim2.fromOffset(4, 3)
     taskbarBtn.BackgroundColor3 = Color3.fromRGB(192, 192, 192)
     taskbarBtn.BorderSizePixel = 0
     taskbarBtn.Font = Enum.Font.SourceSansBold
-    taskbarBtn.Text = "🔧  Overseer CE 7.5"
+    taskbarBtn.Text = "Open Book"
     taskbarBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
     taskbarBtn.TextSize = 12
     taskbarBtn.TextXAlignment = Enum.TextXAlignment.Left
     taskbarBtn.ZIndex = 202
     taskbarBtn.AutoButtonColor = false
-    -- Raised border on the button itself
     local function tbBtnEdge(sz, pos, col)
         local f = Instance.new("Frame", taskbarBtn)
         f.Size=sz; f.Position=pos; f.BackgroundColor3=col
@@ -3100,46 +3125,38 @@ function Modules.OverseerCE:CreateUI()
     tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(0,0,0,0),  Color3.fromRGB(255,255,255))
     tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,1,-1), Color3.fromRGB(128,128,128))
     tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(1,-1,0,0), Color3.fromRGB(128,128,128))
-
     local main = Instance.new("Frame", screenGui)
-    main.Size = UDim2.fromOffset(1100, 600)
-    main.Position = UDim2.new(0.5, -550, 0.5, -300)
+    main.Size = UDim2.fromOffset(1280, 720)
+    main.Position = UDim2.new(0.5, -640, 0.5, -360)
     main.BackgroundColor3 = self.Config.BG_PANEL
     main.BorderSizePixel = 0
     main.ClipsDescendants = false
     self:_createBorder(main, false)
-
-    -- Taskbar button toggles window visibility
     local minimized = false
     taskbarBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
         main.Visible = not minimized
-        -- Sunken effect when window is open
         for _, c in ipairs(taskbarBtn:GetChildren()) do
             if c:IsA("Frame") then c:Destroy() end
         end
         if minimized then
-            -- Raised (window hidden)
             tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,0,0),  Color3.fromRGB(255,255,255))
             tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(0,0,0,0),  Color3.fromRGB(255,255,255))
             tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,1,-1), Color3.fromRGB(128,128,128))
             tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(1,-1,0,0), Color3.fromRGB(128,128,128))
         else
-            -- Sunken (window visible)
             tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,0,0),  Color3.fromRGB(128,128,128))
             tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(0,0,0,0),  Color3.fromRGB(128,128,128))
             tbBtnEdge(UDim2.new(1,0,0,1), UDim2.new(0,0,1,-1), Color3.fromRGB(255,255,255))
             tbBtnEdge(UDim2.new(0,1,1,0), UDim2.new(1,-1,0,0), Color3.fromRGB(255,255,255))
         end
     end)
-
-    -- ── Title bar ───────────────────────────────────────────────
     local titleBar = Instance.new("Frame", main)
     titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, -2, 0, 24)
     titleBar.Position = UDim2.fromOffset(1, 1)
     titleBar.BackgroundColor3 = self.Config.ACCENT_BLUE
-    titleBar.BorderSizePixel = 0
+    titleBar.BorderSizePixel = 3
     titleBar.ZIndex = 2
     local titleGradient = Instance.new("UIGradient", titleBar)
     titleGradient.Color = ColorSequence.new{
@@ -3151,7 +3168,7 @@ function Modules.OverseerCE:CreateUI()
     titleIcon.Size = UDim2.fromOffset(20, 20)
     titleIcon.Position = UDim2.fromOffset(4, 2)
     titleIcon.BackgroundTransparency = 1
-    titleIcon.Text = "🔧"
+    titleIcon.Text = "~@"
     titleIcon.TextColor3 = self.Config.BG_WHITE
     titleIcon.Font = Enum.Font.SourceSansBold
     titleIcon.TextSize = 14
@@ -3159,19 +3176,16 @@ function Modules.OverseerCE:CreateUI()
     local title = Instance.new("TextLabel", titleBar)
     title.Size = UDim2.new(1, -110, 1, 0)
     title.Position = UDim2.fromOffset(26, 0)
-    title.Text = "Overseer CE 7.5  —  Module Inspector & Patcher"
+    title.Text = "The Overseer - Revamped"
     title.TextColor3 = self.Config.BG_WHITE
     title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 13
+    title.TextSize = 15
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.BackgroundTransparency = 1
     title.ZIndex = 3
-
-    -- Close button (hides window, taskbar still visible to reopen)
     local closeBtn = self:_createButton(titleBar, "×", UDim2.fromOffset(20, 20), UDim2.new(1, -22, 0, 2), function()
         main.Visible = false
         minimized = true
-        -- Flip taskbar to raised
         for _, c in ipairs(taskbarBtn:GetChildren()) do
             if c:IsA("Frame") then c:Destroy() end
         end
@@ -3184,8 +3198,6 @@ function Modules.OverseerCE:CreateUI()
     closeBtn.TextSize = 16
     closeBtn.Font = Enum.Font.SourceSansBold
     closeBtn.BackgroundColor3 = self.Config.BG_LIGHT
-
-    -- Minimize button (same as close, taskbar reopens it)
     local minBtn = self:_createButton(titleBar, "_", UDim2.fromOffset(20, 20), UDim2.new(1, -44, 0, 2), function()
         main.Visible = false
         minimized = true
@@ -3200,53 +3212,29 @@ function Modules.OverseerCE:CreateUI()
     minBtn.ZIndex = 4
     minBtn.TextYAlignment = Enum.TextYAlignment.Top
     minBtn.BackgroundColor3 = self.Config.BG_LIGHT
-    local resizeHandle = Instance.new("Frame", main)
-    resizeHandle.Name = "ResizeHandle"
-    resizeHandle.Size = UDim2.fromOffset(16, 16)
-    resizeHandle.Position = UDim2.new(1, -16, 1, -16)
-    resizeHandle.BackgroundColor3 = self.Config.BG_DARK
-    resizeHandle.BorderSizePixel = 0
-    resizeHandle.ZIndex = 10
-    local resizeLine1 = Instance.new("Frame", resizeHandle)
-    resizeLine1.Size = UDim2.fromOffset(2, 12)
-    resizeLine1.Position = UDim2.fromOffset(10, 2)
-    resizeLine1.BackgroundColor3 = self.Config.BORDER_LIGHT
-    resizeLine1.BorderSizePixel = 0
-    resizeLine1.Rotation = 45
-    local resizeLine2 = Instance.new("Frame", resizeHandle)
-    resizeLine2.Size = UDim2.fromOffset(2, 12)
-    resizeLine2.Position = UDim2.fromOffset(6, 2)
-    resizeLine2.BackgroundColor3 = self.Config.BORDER_LIGHT
-    resizeLine2.BorderSizePixel = 0
-    resizeLine2.Rotation = 45
-    local resizeLine3 = Instance.new("Frame", resizeHandle)
-    resizeLine3.Size = UDim2.fromOffset(2, 8)
-    resizeLine3.Position = UDim2.fromOffset(2, 4)
-    resizeLine3.BackgroundColor3 = self.Config.BORDER_LIGHT
-    resizeLine3.BorderSizePixel = 0
-    resizeLine3.Rotation = 45
+
     local content = Instance.new("Frame", main)
     content.Size = UDim2.new(1, -4, 1, -28)
     content.Position = UDim2.fromOffset(2, 26)
     content.BackgroundColor3 = self.Config.BG_PANEL
-    content.BorderSizePixel = 0
+    content.BorderSizePixel = 2
     local menuBar = Instance.new("Frame", content)
     menuBar.Size = UDim2.new(1, 0, 0, 22)
     menuBar.Position = UDim2.fromOffset(0, 0)
     menuBar.BackgroundColor3 = self.Config.BG_PANEL
-    menuBar.BorderSizePixel = 0
+    menuBar.BorderSizePixel = 1
     self:_createBorder(menuBar, false)
-    local menuItems = {"Tools", "Scanner", "Dumper", "Injector", "Anti-Tamper", "Hooks", "Decompiler", "Poisons", "Proto Tree", "Str Grep", "Arg Log", "Bytecode", "UV Diff", "MT Mon", "Env Dump", "Notepad"}
+    local menuItems = {"Tools", "Scanner", "Dumper", "Injector", "Anti-Skid", "Hooks", "Decompiler", "Poisons", "Proto Tree", "Str Grep", "Arg Log", "Bytecode", "UV Diff", "MT Mon", "Env Dump", "Sig Mon", "Req Hook", "Notepad"}
     local menuX = 4
     for _, menuName in ipairs(menuItems) do
         local menuBtn = self:_createButton(menuBar, menuName, UDim2.fromOffset(75, 18), UDim2.fromOffset(menuX, 2), function()
             self:OpenToolWindow(menuName)
         end)
-        menuBtn.TextSize = 12
-        menuBtn.Size = UDim2.fromOffset(82, 20)
-        menuX = menuX + 84
+        menuBtn.TextSize = 11
+        menuBtn.Size = UDim2.fromOffset(69, 20)
+        menuX = menuX + 70
     end
-    local modulePanel = self:_createPanel(content, UDim2.fromOffset(4, 26), UDim2.new(0, 280, 1, -30), "Module List")
+    local modulePanel = self:_createPanel(content, UDim2.fromOffset(4, 26), UDim2.fromOffset(280, 660), "Module List")
     local moduleSearch = Instance.new("TextBox", modulePanel)
     moduleSearch.Size = UDim2.new(1, -8, 0, 22)
     moduleSearch.Position = UDim2.fromOffset(4, 24)
@@ -3257,7 +3245,7 @@ function Modules.OverseerCE:CreateUI()
     moduleSearch.Font = Enum.Font.SourceSans
     moduleSearch.TextSize = 13
     moduleSearch.TextXAlignment = Enum.TextXAlignment.Left
-    moduleSearch.BorderSizePixel = 0
+    moduleSearch.BorderSizePixel = 1
     moduleSearch.ClearTextOnFocus = false
     local searchPadding = Instance.new("UIPadding", moduleSearch)
     searchPadding.PaddingLeft = UDim.new(0, 4)
@@ -3266,7 +3254,7 @@ function Modules.OverseerCE:CreateUI()
     moduleScroll.Size = UDim2.new(1, -8, 1, -54)
     moduleScroll.Position = UDim2.fromOffset(4, 50)
     moduleScroll.BackgroundColor3 = self.Config.BG_WHITE
-    moduleScroll.BorderSizePixel = 0
+    moduleScroll.BorderSizePixel = 1
     moduleScroll.ScrollBarThickness = 12
     moduleScroll.ScrollBarImageColor3 = self.Config.BG_DARK
     moduleScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -3274,12 +3262,12 @@ function Modules.OverseerCE:CreateUI()
     self:_createBorder(moduleScroll, true)
     local moduleList = Instance.new("UIListLayout", moduleScroll)
     moduleList.Padding = UDim.new(0, 1)
-    local inspectorPanel = self:_createPanel(content, UDim2.fromOffset(292, 26), UDim2.new(1, -836, 1, -30), "Table Inspector")
+    local inspectorPanel = self:_createPanel(content, UDim2.fromOffset(292, 26), UDim2.fromOffset(764, 660), "Table Inspector")
     local toolbar = Instance.new("Frame", inspectorPanel)
     toolbar.Size = UDim2.new(1, -8, 0, 28)
     toolbar.Position = UDim2.fromOffset(4, 24)
     toolbar.BackgroundColor3 = self.Config.BG_DARK
-    toolbar.BorderSizePixel = 0
+    toolbar.BorderSizePixel = 1
     self:_createBorder(toolbar, true)
     local backBtn = self:_createButton(toolbar, "< Back", UDim2.fromOffset(60, 22), UDim2.fromOffset(2, 2), function()
         self:GoBack()
@@ -3301,7 +3289,7 @@ function Modules.OverseerCE:CreateUI()
     headerFrame.Size = UDim2.new(1, -8, 0, self.Config.ROW_HEIGHT)
     headerFrame.Position = UDim2.fromOffset(4, 56)
     headerFrame.BackgroundColor3 = self.Config.BG_DARK
-    headerFrame.BorderSizePixel = 0
+    headerFrame.BorderSizePixel = 1
     self:_createBorder(headerFrame, true)
     local headers = {"Active", "Key", "Type", "Value", "Actions"}
     local headerWidths = {0.08, 0.25, 0.12, 0.35, 0.2}
@@ -3324,7 +3312,7 @@ function Modules.OverseerCE:CreateUI()
     inspectorScroll.Size = UDim2.new(1, -8, 1, -84)
     inspectorScroll.Position = UDim2.fromOffset(4, 76)
     inspectorScroll.BackgroundColor3 = self.Config.BG_WHITE
-    inspectorScroll.BorderSizePixel = 0
+    inspectorScroll.BorderSizePixel = 1
     inspectorScroll.ScrollBarThickness = 12
     inspectorScroll.ScrollBarImageColor3 = self.Config.BG_DARK
     inspectorScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -3332,12 +3320,12 @@ function Modules.OverseerCE:CreateUI()
     self:_createBorder(inspectorScroll, true)
     local inspectorList = Instance.new("UIListLayout", inspectorScroll)
     inspectorList.Padding = UDim.new(0, 0)
-    local patchPanel = self:_createPanel(content, UDim2.new(1, -540, 0, 26), UDim2.new(0, 200, 1, -30), "Active Patches")
+    local patchPanel = self:_createPanel(content, UDim2.fromOffset(1064, 26), UDim2.fromOffset(200, 660), "Active Patches")
     local patchControls = Instance.new("Frame", patchPanel)
     patchControls.Size = UDim2.new(1, -8, 0, 28)
     patchControls.Position = UDim2.fromOffset(4, 24)
     patchControls.BackgroundColor3 = self.Config.BG_DARK
-    patchControls.BorderSizePixel = 0
+    patchControls.BorderSizePixel = 1
     self:_createBorder(patchControls, true)
     local clearAllBtn = self:_createButton(patchControls, "Clear All", UDim2.fromOffset(70, 22), UDim2.fromOffset(2, 2), function()
         for patchId in pairs(self.State.ActivePatches) do
@@ -3383,7 +3371,7 @@ function Modules.OverseerCE:CreateUI()
     patchScroll.Size = UDim2.new(1, -8, 1, -84)
     patchScroll.Position = UDim2.fromOffset(4, 76)
     patchScroll.BackgroundColor3 = self.Config.BG_WHITE
-    patchScroll.BorderSizePixel = 0
+    patchScroll.BorderSizePixel = 1
     patchScroll.ScrollBarThickness = 12
     patchScroll.ScrollBarImageColor3 = self.Config.BG_DARK
     patchScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -3400,163 +3388,8 @@ function Modules.OverseerCE:CreateUI()
         PathLabel = pathLabel,
         PatchScroll = patchScroll,
         PatchCount = patchCount,
-        ResizeHandle = resizeHandle,
         HookScroll = nil
     }
-
-    -- ============================================================
-    -- EXPLORER PANEL (Dex-style game tree, right of patch panel)
-    -- ============================================================
-    local explorerPanel = self:_createPanel(content,
-        UDim2.new(1, -336, 0, 26),
-        UDim2.new(0, 180, 1, -30),
-        "Explorer")
-    explorerPanel.Size = UDim2.new(0, 180, 1, -30)
-    explorerPanel.Position = UDim2.new(1, -336, 0, 26)
-    explorerPanel.ZIndex = 10
-
-    -- Properties panel sits directly to the right of explorer
-    local propsPanel = self:_createPanel(content,
-        UDim2.new(1, -152, 0, 26),
-        UDim2.new(0, 148, 1, -30),
-        "Properties")
-    propsPanel.Size = UDim2.new(0, 148, 1, -30)
-    propsPanel.Position = UDim2.new(1, -152, 0, 26)
-    propsPanel.ZIndex = 10
-
-    -- Properties instance label
-    local propsInstanceLbl = Instance.new("TextLabel", propsPanel)
-    propsInstanceLbl.Name = "PropsInstanceLabel"
-    propsInstanceLbl.Size = UDim2.new(1, -8, 0, 20)
-    propsInstanceLbl.Position = UDim2.fromOffset(4, 24)
-    propsInstanceLbl.BackgroundColor3 = self.Config.BG_DARK
-    propsInstanceLbl.BorderSizePixel = 0
-    propsInstanceLbl.Font = Enum.Font.SourceSansBold
-    propsInstanceLbl.TextSize = 12
-    propsInstanceLbl.TextColor3 = self.Config.TEXT_BLACK
-    propsInstanceLbl.Text = "  Select an instance"
-    propsInstanceLbl.TextXAlignment = Enum.TextXAlignment.Left
-    propsInstanceLbl.ZIndex = 11
-    self:_createBorder(propsInstanceLbl, true)
-
-    -- Column headers
-    local propsHeader = Instance.new("Frame", propsPanel)
-    propsHeader.Size = UDim2.new(1, -8, 0, 18)
-    propsHeader.Position = UDim2.fromOffset(4, 46)
-    propsHeader.BackgroundColor3 = self.Config.BG_DARK
-    propsHeader.BorderSizePixel = 0
-    propsHeader.ZIndex = 11
-    self:_createBorder(propsHeader, true)
-    local function propsHdrLbl(txt, xScale, wScale)
-        local l = Instance.new("TextLabel", propsHeader)
-        l.Size = UDim2.new(wScale, -2, 1, 0)
-        l.Position = UDim2.new(xScale, 2, 0, 0)
-        l.BackgroundTransparency = 1
-        l.Font = Enum.Font.SourceSansBold
-        l.TextSize = 12
-        l.TextColor3 = self.Config.TEXT_BLACK
-        l.Text = txt
-        l.TextXAlignment = Enum.TextXAlignment.Left
-        l.ZIndex = 12
-        local p = Instance.new("UIPadding", l); p.PaddingLeft = UDim.new(0, 3)
-    end
-    propsHdrLbl("Property", 0, 0.5)
-    propsHdrLbl("Value", 0.5, 0.5)
-
-    -- Scrollable property list
-    local propsScroll = Instance.new("ScrollingFrame", propsPanel)
-    propsScroll.Name = "PropsScroll"
-    propsScroll.Size = UDim2.new(1, -8, 1, -70)
-    propsScroll.Position = UDim2.fromOffset(4, 66)
-    propsScroll.BackgroundColor3 = self.Config.BG_WHITE
-    propsScroll.BorderSizePixel = 0
-    propsScroll.ScrollBarThickness = 8
-    propsScroll.ScrollBarImageColor3 = self.Config.BG_DARK
-    propsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    propsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    propsScroll.ZIndex = 11
-    self:_createBorder(propsScroll, true)
-    local propsLayout = Instance.new("UIListLayout", propsScroll)
-    propsLayout.Padding = UDim.new(0, 0)
-    propsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    self.State.UI.PropsPanel        = propsPanel
-    self.State.UI.PropsScroll       = propsScroll
-    self.State.UI.PropsInstanceLbl  = propsInstanceLbl
-
-    local explorerSearch = Instance.new("TextBox", explorerPanel)
-    explorerSearch.Name = "ExplorerSearch"
-    explorerSearch.Size = UDim2.new(1, -26, 0, 20)
-    explorerSearch.Position = UDim2.fromOffset(4, 24)
-    explorerSearch.BackgroundColor3 = self.Config.BG_WHITE
-    explorerSearch.Text = ""
-    explorerSearch.PlaceholderText = "Search workspace..."
-    explorerSearch.TextColor3 = self.Config.TEXT_BLACK
-    explorerSearch.Font = Enum.Font.SourceSans
-    explorerSearch.TextSize = 10
-    explorerSearch.BorderSizePixel = 0
-    explorerSearch.ClearTextOnFocus = false
-    explorerSearch.ZIndex = 11
-    self:_createBorder(explorerSearch, true)
-    local explorerSearchPad = Instance.new("UIPadding", explorerSearch)
-    explorerSearchPad.PaddingLeft = UDim.new(0, 3)
-
-    local refreshExplorerBtn = Instance.new("TextButton", explorerPanel)
-    refreshExplorerBtn.Size = UDim2.fromOffset(20, 20)
-    refreshExplorerBtn.Position = UDim2.new(1, -24, 0, 24)
-    refreshExplorerBtn.BackgroundColor3 = self.Config.BG_DARK
-    refreshExplorerBtn.Text = "⟳"
-    refreshExplorerBtn.TextColor3 = self.Config.TEXT_BLACK
-    refreshExplorerBtn.Font = Enum.Font.SourceSansBold
-    refreshExplorerBtn.TextSize = 12
-    refreshExplorerBtn.BorderSizePixel = 0
-    refreshExplorerBtn.ZIndex = 11
-    self:_createBorder(refreshExplorerBtn, true)
-
-    local explorerScroll = Instance.new("ScrollingFrame", explorerPanel)
-    explorerScroll.Name = "ExplorerScroll"
-    explorerScroll.Size = UDim2.new(1, -8, 1, -52)
-    explorerScroll.Position = UDim2.fromOffset(4, 48)
-    explorerScroll.BackgroundColor3 = self.Config.BG_WHITE
-    explorerScroll.BorderSizePixel = 0
-    explorerScroll.ScrollBarThickness = 8
-    explorerScroll.ScrollBarImageColor3 = self.Config.BG_DARK
-    explorerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    explorerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    explorerScroll.ZIndex = 11
-    self:_createBorder(explorerScroll, true)
-    local explorerList = Instance.new("UIListLayout", explorerScroll)
-    explorerList.Padding = UDim.new(0, 0)
-    explorerList.SortOrder = Enum.SortOrder.LayoutOrder
-
-    self.State.UI.ExplorerScroll = explorerScroll
-    self.State.UI.ExplorerSearch = explorerSearch
-    self.State.UI.ExplorerPanel = explorerPanel
-    self.State._ExplorerExpanded = {}
-    -- shift notepad placeholder (already removed) — props registered above
-
-    -- ============================================================
-    -- NOTEPAD PANEL (source viewer / executor, far right)
-    -- ============================================================
-    -- Notepad is now a menu tab — opened via OpenToolWindow("Notepad")
-    -- State.UI.NotepadSource / NotepadGutter are populated when the window opens
-
-    -- Wire refresh button for explorer
-    refreshExplorerBtn.MouseButton1Click:Connect(function()
-        self:_ExplorerPopulate(explorerScroll, explorerSearch.Text)
-    end)
-    explorerSearch.Changed:Connect(function(prop)
-        if prop == "Text" then
-            task.delay(0.25, function()
-                self:_ExplorerPopulate(explorerScroll, explorerSearch.Text)
-            end)
-        end
-    end)
-
-    -- Initial populate
-    task.delay(0.5, function()
-        self:_ExplorerPopulate(explorerScroll, "")
-    end)
     local dragging, dragStart, startPos
     titleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -3576,29 +3409,9 @@ function Modules.OverseerCE:CreateUI()
             dragging = false
         end
     end)
-    local resizing = false
-    local resizeStart = nil
-    local startSize = nil
-    resizeHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            resizing = true
-            resizeStart = input.Position
-            startSize = main.Size
-        end
-    end)
-    resizeHandle.MouseEnter:Connect(function()
-        resizeHandle.BackgroundColor3 = self.Config.BORDER_DARK
-    end)
-    resizeHandle.MouseLeave:Connect(function()
-        resizeHandle.BackgroundColor3 = self.Config.BG_DARK
-    end)
+
     UserInputService.InputChanged:Connect(function(input)
-        if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - resizeStart
-            local newWidth = math.max(1100, startSize.X.Offset + delta.X)
-            local newHeight = math.max(450, startSize.Y.Offset + delta.Y)
-            main.Size = UDim2.fromOffset(newWidth, newHeight)
-        end
+
     end)
     UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -3790,8 +3603,6 @@ end
 function Modules.OverseerCE:AddModuleToList(moduleScript)
     if not moduleScript or not moduleScript.Parent then return end
     if not self.State.UI then return end
-
-    -- Blacklisted base Roblox modules — hide from list
     local ROBLOX_BLACKLIST = {
         ["BaseCamera"]               = true,
         ["MouseLockController"]      = true,
@@ -3815,7 +3626,6 @@ function Modules.OverseerCE:AddModuleToList(moduleScript)
         ["CameraWrapper"]            = true,
         ["CameraWrapper.spec"]       = true,
         ["AtomicBinding"]            = true,
-        -- camera system modules
         ["CameraModule"]              = true,
         ["ClassicCamera"]             = true,
         ["VRBaseCamera"]              = true,
@@ -3828,7 +3638,6 @@ function Modules.OverseerCE:AddModuleToList(moduleScript)
         ["CameraUI"]                  = true,
         ["LegacyCamera"]              = true,
         ["CameraToggleStateController"] = true,
-        -- common additional Roblox internals
         ["CameraInput"]              = true,
         ["CameraUtils"]              = true,
         ["ZoomController"]           = true,
@@ -4147,7 +3956,6 @@ function Modules.OverseerCE:CreateInspectorRow(key, value, parentTable, isMetata
     end)
     row.MouseLeave:Connect(function()
         if isPatched then
-            -- Re-check patch state at time of leave (patch may have changed)
             local currentPatch = nil
             for _, p in pairs(self.State.ActivePatches) do
                 if p.Table == parentTable and p.Key == key then
@@ -4361,7 +4169,6 @@ function Modules.OverseerCE:OpenToolWindow(toolName)
     title.BackgroundTransparency = 1
     title.ZIndex = 102
     local closeBtn = self:_createButton(titleBar, "×", UDim2.fromOffset(20, 20), UDim2.new(1, -22, 0, 2), function()
-        -- Clear notepad state refs if the notepad window is being closed
         if toolName == "Notepad" and self.State.UI then
             self.State.UI.NotepadSource = nil
             self.State.UI.NotepadGutter = nil
@@ -4410,8 +4217,15 @@ function Modules.OverseerCE:OpenToolWindow(toolName)
         self:CreateMTMonitorUI(contentArea)
     elseif toolName == "Env Dump" then
         self:CreateEnvDumpUI(contentArea)
+    elseif toolName == "Sig Mon" then
+        popup.Size = UDim2.fromOffset(620, 480)
+        popup.Position = UDim2.new(0.5, -310, 0.5, -240)
+        self:CreateSignalMonitorUI(contentArea)
+    elseif toolName == "Req Hook" then
+        popup.Size = UDim2.fromOffset(560, 440)
+        popup.Position = UDim2.new(0.5, -280, 0.5, -220)
+        self:CreateRequireHookUI(contentArea)
     elseif toolName == "Notepad" then
-        -- Bigger window for the notepad
         popup.Size = UDim2.fromOffset(860, 620)
         popup.Position = UDim2.new(0.5, -430, 0.5, -310)
         self:CreateNotepadUI(contentArea)
@@ -5128,349 +4942,433 @@ function Modules.OverseerCE:ExportPatches()
     end
 end
 
--- ============================================================
--- EXPLORER METHODS
--- ============================================================
-local EXPLORER_ICONS = {
-    ModuleScript = "📄", Script = "📜", LocalScript = "📝",
-    Folder = "📁", Model = "🧊", Part = "🟦",
-    ReplicatedStorage = "🗄", Players = "👤", Workspace = "🌐",
-    StarterGui = "🖥", ServerScriptService = "⚙", default = "▸",
-}
+function Modules.OverseerCE:CreateSignalMonitorUI(parent)
+    local C = self.Config
+    local log = {}
+    local activeConnections = {}
+    local eventCount = 0
+    local maxEntries = 300
+    local paused = false
 
-function Modules.OverseerCE:_ExplorerIcon(inst)
-    if not inst then return "▸" end
-    return EXPLORER_ICONS[inst.ClassName] or EXPLORER_ICONS.default
-end
+    -- Controls row 1
+    local instancePathBox = Instance.new("TextBox", parent)
+    instancePathBox.Size = UDim2.fromOffset(280, 22)
+    instancePathBox.Position = UDim2.fromOffset(4, 4)
+    instancePathBox.BackgroundColor3 = C.BG_WHITE
+    instancePathBox.PlaceholderText = "Instance path e.g. workspace.Part or leave blank = selected module"
+    instancePathBox.Text = ""
+    instancePathBox.TextColor3 = C.TEXT_BLACK
+    instancePathBox.Font = Enum.Font.Code
+    instancePathBox.TextSize = 10
+    instancePathBox.ClearTextOnFocus = false
+    instancePathBox.BorderSizePixel = 0
+    self:_createBorder(instancePathBox, true)
+    local ipp = Instance.new("UIPadding", instancePathBox)
+    ipp.PaddingLeft = UDim.new(0, 4)
 
-function Modules.OverseerCE:_PropertiesPopulate(instance)
-    if not self.State.UI or not self.State.UI.PropsScroll then return end
-    local scroll = self.State.UI.PropsScroll
-    local instLbl = self.State.UI.PropsInstanceLbl
+    local statusLbl = Instance.new("TextLabel", parent)
+    statusLbl.Size = UDim2.fromOffset(220, 22)
+    statusLbl.Position = UDim2.fromOffset(290, 4)
+    statusLbl.BackgroundTransparency = 1
+    statusLbl.Text = "Signals: 0  |  Fired: 0"
+    statusLbl.TextColor3 = C.TEXT_GRAY
+    statusLbl.Font = Enum.Font.SourceSans
+    statusLbl.TextSize = 10
+    statusLbl.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- Clear existing rows
-    for _, c in ipairs(scroll:GetChildren()) do
-        if not c:IsA("UIListLayout") then c:Destroy() end
-    end
+    -- Controls row 2
+    local scroll = Instance.new("ScrollingFrame", parent)
+    scroll.Size = UDim2.new(1, -8, 1, -56)
+    scroll.Position = UDim2.fromOffset(4, 52)
+    scroll.BackgroundColor3 = Color3.fromRGB(14, 14, 24)
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 10
+    scroll.ScrollBarImageColor3 = C.ACCENT_BLUE
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    self:_createBorder(scroll, true)
+    Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 1)
 
-    if not instance then
-        if instLbl then instLbl.Text = "  Select an instance" end
-        return
-    end
-
-    local className = instance.ClassName
-    local fullName  = instance:GetFullName()
-    if instLbl then
-        instLbl.Text = "  " .. className .. "  —  " .. instance.Name
-    end
-
-    -- Properties to read — try all known readable props via pcall
-    local COMMON_PROPS = {
-        "Name","ClassName","Parent","Archivable",
-        -- BasePart
-        "Position","Rotation","Size","CFrame","Anchored","CanCollide",
-        "CanTouch","CanQuery","Transparency","Color","BrickColor",
-        "Material","CastShadow","Locked","Massless",
-        -- Humanoid
-        "Health","MaxHealth","WalkSpeed","JumpPower","DisplayName",
-        "AutoRotate","AutoJumpEnabled","RigType",
-        -- Model
-        "LevelOfDetail","ModelLod",
-        -- Script/Module
-        "Disabled","LinkedSource",
-        -- GUI
-        "Visible","ZIndex","BackgroundColor3","BackgroundTransparency",
-        "BorderSizePixel","TextColor3","Text","Font","TextSize",
-        -- Light
-        "Brightness","Range","Enabled","Color",
-        -- Sound
-        "SoundId","Volume","Looped","Playing","TimePosition",
-        -- General
-        "Value",
-    }
-
-    local seen = {}
-    local rowCount = 0
-
-    local function addPropRow(propName, value)
-        if seen[propName] then return end
-        seen[propName] = true
-        rowCount = rowCount + 1
-
+    local function addLogRow(signalName, argsStr, source)
+        if paused then return end
+        eventCount = eventCount + 1
+        statusLbl.Text = "Signals: " .. #activeConnections .. "  |  Fired: " .. eventCount
+        if #log >= maxEntries then
+            local oldest = scroll:FindFirstChildWhichIsA("Frame")
+            if oldest then oldest:Destroy() end
+            table.remove(log, 1)
+        end
+        local entry = {n=eventCount, signal=signalName, args=argsStr, source=source}
+        table.insert(log, entry)
         local row = Instance.new("Frame", scroll)
-        row.Size = UDim2.new(1, -2, 0, 18)
-        row.BackgroundColor3 = rowCount % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245, 245, 252)
+        row.Size = UDim2.new(1, 0, 0, 18)
+        row.BackgroundColor3 = eventCount % 2 == 0 and Color3.fromRGB(18, 18, 32) or Color3.fromRGB(22, 22, 40)
         row.BorderSizePixel = 0
-        row.LayoutOrder = rowCount
-        row.ZIndex = 12
+        local lbl = Instance.new("TextLabel", row)
+        lbl.Size = UDim2.new(1, -36, 1, 0)
+        lbl.Position = UDim2.fromOffset(4, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = string.format("[#%d][%s] %s  →  %s", eventCount, source or "?", signalName, argsStr)
+        lbl.TextColor3 = Color3.fromRGB(130, 200, 255)
+        lbl.Font = Enum.Font.Code
+        lbl.TextSize = 10
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.TextTruncate = Enum.TextTruncate.AtEnd
+        local cpb = self:_createButton(row, "CP", UDim2.fromOffset(28, 16), UDim2.new(1, -32, 0, 1), function()
+            self:_setClipboard(lbl.Text)
+        end)
+        cpb.TextSize = 9
+        scroll.CanvasPosition = Vector2.new(0, scroll.AbsoluteCanvasSize.Y)
+    end
 
-        local keyLbl = Instance.new("TextLabel", row)
-        keyLbl.Size = UDim2.new(0.48, -1, 1, 0)
-        keyLbl.BackgroundTransparency = 1
-        keyLbl.Font = Enum.Font.SourceSans
-        keyLbl.TextSize = 11
-        keyLbl.TextColor3 = self.Config.TEXT_BLACK
-        keyLbl.Text = propName
-        keyLbl.TextXAlignment = Enum.TextXAlignment.Left
-        keyLbl.TextTruncate = Enum.TextTruncate.AtEnd
-        keyLbl.ZIndex = 13
-        local kp = Instance.new("UIPadding", keyLbl); kp.PaddingLeft = UDim.new(0, 3)
-
-        -- Divider
-        local div = Instance.new("Frame", row)
-        div.Size = UDim2.new(0, 1, 1, 0)
-        div.Position = UDim2.new(0.48, 0, 0, 0)
-        div.BackgroundColor3 = self.Config.BG_DARK
-        div.BorderSizePixel = 0
-        div.ZIndex = 13
-
-        local valLbl = Instance.new("TextLabel", row)
-        valLbl.Size = UDim2.new(0.52, -2, 1, 0)
-        valLbl.Position = UDim2.new(0.48, 2, 0, 0)
-        valLbl.BackgroundTransparency = 1
-        valLbl.Font = Enum.Font.Code
-        valLbl.TextSize = 11
-        valLbl.TextXAlignment = Enum.TextXAlignment.Left
-        valLbl.TextTruncate = Enum.TextTruncate.AtEnd
-        valLbl.ZIndex = 13
-
-        -- Format value nicely
-        local t = type(value)
-        local displayVal, color
-        if t == "boolean" then
-            displayVal = tostring(value)
-            color = value and self.Config.SUCCESS_GREEN or self.Config.FROZEN_RED
-        elseif t == "number" then
-            displayVal = string.format("%.4g", value)
-            color = Color3.fromRGB(0, 100, 200)
-        elseif t == "string" then
-            displayVal = '"' .. value:sub(1, 40) .. (value:len() > 40 and '…"' or '"')
-            color = Color3.fromRGB(180, 80, 0)
-        elseif t == "userdata" then
-            local s = tostring(value)
-            -- Prettify common Roblox types
-            if value and typeof then
-                local vtype = typeof(value)
-                if vtype == "Vector3" then
-                    displayVal = string.format("(%.2f, %.2f, %.2f)", value.X, value.Y, value.Z)
-                elseif vtype == "Color3" then
-                    displayVal = string.format("rgb(%d,%d,%d)", value.R*255, value.G*255, value.B*255)
-                elseif vtype == "CFrame" then
-                    displayVal = string.format("(%.1f, %.1f, %.1f)", value.X, value.Y, value.Z)
-                elseif vtype == "UDim2" then
-                    displayVal = string.format("{%.0f,%.0f}", value.X.Offset, value.Y.Offset)
-                elseif vtype == "Enum" or vtype == "EnumItem" then
-                    displayVal = tostring(value)
-                elseif vtype == "BrickColor" then
-                    displayVal = value.Name
-                else
-                    displayVal = s:sub(1, 35)
-                end
-            else
-                displayVal = s:sub(1, 35)
+    local function hookSignalsOnInstance(inst, label)
+        if not inst or not inst:IsA("Instance") then
+            self:_showNotification("Not a valid Instance", "error") return
+        end
+        local hooked = 0
+        -- Hook all RBXScriptSignal properties via getconnections if available
+        local signalNames = {}
+        -- Try to enumerate signals via instance class descriptor
+        pcall(function()
+            for _, desc in ipairs(game:GetService("ReflectionService"):GetClassMemberNames(inst.ClassName)) do
+                table.insert(signalNames, desc)
             end
-            color = Color3.fromRGB(100, 60, 160)
-        elseif value == nil then
-            displayVal = "nil"
-            color = self.Config.TEXT_GRAY
+        end)
+        -- Fallback: known common signals
+        local commonSignals = {
+            "Changed", "AncestryChanged", "ChildAdded", "ChildRemoved",
+            "DescendantAdded", "DescendantRemoving", "AttributeChanged",
+            "Touched", "TouchEnded", "MouseClick", "MouseButton1Click",
+            "MouseButton2Click", "MouseEnter", "MouseLeave",
+            "OnServerEvent", "OnClientEvent", "OnServerInvoke",
+            "Heartbeat", "Stepped", "RenderStepped",
+            "CharacterAdded", "CharacterRemoving", "PlayerAdded", "PlayerRemoving",
+            "EquipTool", "UnequipTool", "Activated", "Deactivated",
+        }
+        for _, sigName in ipairs(commonSignals) do
+            local ok, sig = pcall(function() return inst[sigName] end)
+            if ok and sig and typeof(sig) == "RBXScriptSignal" then
+                local conn = sig:Connect(function(...)
+                    local args = {...}
+                    local parts = {}
+                    for _, a in ipairs(args) do
+                        table.insert(parts, self:PrettyArg(a))
+                    end
+                    addLogRow(sigName, table.concat(parts, ", "), label)
+                end)
+                table.insert(activeConnections, {Name=sigName, Source=label, Conn=conn})
+                hooked = hooked + 1
+            end
+        end
+        statusLbl.Text = "Signals: " .. #activeConnections .. "  |  Fired: " .. eventCount
+        if hooked > 0 then
+            self:_showNotification("Hooked " .. hooked .. " signals on " .. label, "success")
         else
-            displayVal = tostring(value):sub(1, 35)
-            color = self.Config.TEXT_BLACK
-        end
-
-        valLbl.Text = displayVal
-        valLbl.TextColor3 = color or self.Config.TEXT_BLACK
-    end
-
-    -- Read known common properties
-    for _, prop in ipairs(COMMON_PROPS) do
-        local ok, val = pcall(function() return (instance :: any)[prop] end)
-        if ok then
-            addPropRow(prop, val)
+            self:_showNotification("No hookable signals found on " .. label, "warning")
         end
     end
 
-    -- Also try to read all properties via __index if getproperties is available
-    if getproperties then
-        local ok2, props = pcall(getproperties, instance)
-        if ok2 and type(props) == "table" then
-            for propName, val in pairs(props) do
-                addPropRow(tostring(propName), val)
+    local function resolveInstance(path)
+        if path == "" then return nil end
+        local parts = {}
+        for p in path:gmatch("[^%.]+") do table.insert(parts, p) end
+        local current = game
+        for _, p in ipairs(parts) do
+            local ok, child = pcall(function()
+                return current:FindFirstChild(p) or current[p]
+            end)
+            if not ok or not child then
+                self:_showNotification("Could not find: " .. p, "error")
+                return nil
             end
+            current = child
         end
+        return current
     end
 
-    -- Fallback: iterate via game descriptor if nothing worked
-    if rowCount == 0 then
-        addPropRow("Name",      instance.Name)
-        addPropRow("ClassName", instance.ClassName)
-        pcall(function() addPropRow("Parent", tostring(instance.Parent)) end)
-    end
+    local monBtn = self:_createButton(parent, "Hook Instance", UDim2.fromOffset(90, 22), UDim2.fromOffset(4, 28), function()
+        local path = instancePathBox.Text
+        local inst
+        if path == "" then
+            if self.State.SelectedModule then
+                inst = self.State.SelectedModule
+            else
+                self:_showNotification("Enter an instance path or select a module", "warning") return
+            end
+        else
+            inst = resolveInstance(path)
+        end
+        if inst then
+            hookSignalsOnInstance(inst, path ~= "" and path or inst.Name)
+        end
+    end)
+
+    local pauseBtn = self:_createButton(parent, "Pause", UDim2.fromOffset(55, 22), UDim2.fromOffset(98, 28), function()
+        paused = not paused
+        pauseBtn.Text = paused and "Resume" or "Pause"
+        pauseBtn.BackgroundColor3 = paused and C.WARNING_ORANGE or C.BG_DARK
+    end)
+
+    local clearBtn = self:_createButton(parent, "Clear Log", UDim2.fromOffset(65, 22), UDim2.fromOffset(157, 28), function()
+        for _, c in ipairs(scroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+        log = {}
+        eventCount = 0
+        statusLbl.Text = "Signals: " .. #activeConnections .. "  |  Fired: 0"
+    end)
+
+    local disconnectBtn = self:_createButton(parent, "Disconnect All", UDim2.fromOffset(100, 22), UDim2.fromOffset(226, 28), function()
+        for _, c in ipairs(activeConnections) do
+            pcall(function() c.Conn:Disconnect() end)
+        end
+        activeConnections = {}
+        statusLbl.Text = "Signals: 0  |  Fired: " .. eventCount
+        self:_showNotification("All signal hooks disconnected", "success")
+    end)
+
+    local copyBtn = self:_createButton(parent, "Copy Log", UDim2.fromOffset(65, 22), UDim2.fromOffset(330, 28), function()
+        if #log == 0 then return end
+        local lines = {}
+        for _, e in ipairs(log) do
+            table.insert(lines, string.format("[#%d][%s] %s  ->  %s", e.n, e.source or "?", e.signal, e.args))
+        end
+        self:_setClipboard(table.concat(lines, "\n"))
+        self:_showNotification("Log copied!", "success")
+    end)
 end
 
-function Modules.OverseerCE:_ExplorerPopulate(scroll, filter)
-    for _, c in ipairs(scroll:GetChildren()) do
-        if not c:IsA("UIListLayout") then c:Destroy() end
-    end
-    self.State._ExplorerExpanded = self.State._ExplorerExpanded or {}
-    filter = filter and filter:lower() or ""
+function Modules.OverseerCE:CreateRequireHookUI(parent)
+    local C = self.Config
+    local log = {}
+    local hookConn = nil
+    local reqCount = 0
+    local maxEntries = 300
+    local paused = false
+    local originalRequire = require
 
-    local roots = {}
-    local rootNames = {
-        "ReplicatedStorage","Players","StarterGui","ServerScriptService",
-        "StarterPack","Teams","SoundService","Chat","TextChatService",
-        "VoiceChatService","LocalizationService","TestService","VRService",
-        "AchievementService","AdService","AnalyticsService","AnimationClipProvider",
-        "AppLifecycleService","AppStorageService","AssetService",
-        "AudioFocusService","AvatarChatService","AvatarCreationService",
-    }
-    for _, n in ipairs(rootNames) do
-        pcall(function() table.insert(roots, game:GetService(n)) end)
-    end
-    table.insert(roots, workspace)
+    local statusLbl = Instance.new("TextLabel", parent)
+    statusLbl.Size = UDim2.fromOffset(300, 22)
+    statusLbl.Position = UDim2.fromOffset(4, 4)
+    statusLbl.BackgroundTransparency = 1
+    statusLbl.Text = "Status: Inactive  |  Requires caught: 0"
+    statusLbl.TextColor3 = C.TEXT_GRAY
+    statusLbl.Font = Enum.Font.SourceSans
+    statusLbl.TextSize = 10
+    statusLbl.TextXAlignment = Enum.TextXAlignment.Left
 
-    local order = 0
-    local function addRow(instance, depth)
-        if not instance then return end
-        local ok, kids = pcall(function() return instance:GetChildren() end)
-        local hasKids = ok and #kids > 0
-        local name = instance.Name
-        local className = instance.ClassName
-        local fullId = tostring(instance)
-        local isExpanded = self.State._ExplorerExpanded[fullId] == true
+    local filterBox = Instance.new("TextBox", parent)
+    filterBox.Size = UDim2.fromOffset(180, 22)
+    filterBox.Position = UDim2.fromOffset(4, 28)
+    filterBox.BackgroundColor3 = C.BG_WHITE
+    filterBox.PlaceholderText = "Filter by name..."
+    filterBox.Text = ""
+    filterBox.TextColor3 = C.TEXT_BLACK
+    filterBox.Font = Enum.Font.Code
+    filterBox.TextSize = 10
+    filterBox.ClearTextOnFocus = false
+    filterBox.BorderSizePixel = 0
+    self:_createBorder(filterBox, true)
+    local fp = Instance.new("UIPadding", filterBox)
+    fp.PaddingLeft = UDim.new(0, 4)
 
-        -- Filter check
-        local visible = filter == ""
-            or name:lower():find(filter, 1, true)
-            or className:lower():find(filter, 1, true)
-        if not visible then
-            -- Still recurse children so matches deeper in tree show
-            if hasKids then
-                for _, child in ipairs(kids) do
-                    addRow(child, depth + 1)
-                end
-            end
+    local scroll = Instance.new("ScrollingFrame", parent)
+    scroll.Size = UDim2.new(1, -8, 1, -56)
+    scroll.Position = UDim2.fromOffset(4, 52)
+    scroll.BackgroundColor3 = Color3.fromRGB(14, 24, 14)
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 10
+    scroll.ScrollBarImageColor3 = C.SUCCESS_GREEN
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    self:_createBorder(scroll, true)
+    Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 1)
+
+    local function addRow(modName, modPath, resultType, timestamp)
+        if paused then return end
+        reqCount = reqCount + 1
+        statusLbl.Text = "Status: Active  |  Requires caught: " .. reqCount
+        if #log >= maxEntries then
+            local oldest = scroll:FindFirstChildWhichIsA("Frame")
+            if oldest then oldest:Destroy() end
+            table.remove(log, 1)
+        end
+        local filter = filterBox.Text:lower()
+        local entry = {n=reqCount, name=modName, path=modPath, rtype=resultType, time=timestamp}
+        table.insert(log, entry)
+        if filter ~= "" and not modName:lower():find(filter, 1, true) and not modPath:lower():find(filter, 1, true) then
             return
         end
-
-        order = order + 1
-        local row = Instance.new("TextButton", scroll)
-        row.Size = UDim2.new(1, -2, 0, 18)
-        row.BackgroundColor3 = order % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245,245,250)
-        row.Text = ""
+        local row = Instance.new("Frame", scroll)
+        row.Size = UDim2.new(1, 0, 0, 18)
+        row.BackgroundColor3 = reqCount % 2 == 0 and Color3.fromRGB(16, 28, 16) or Color3.fromRGB(20, 34, 20)
         row.BorderSizePixel = 0
-        row.AutoButtonColor = false
-        row.LayoutOrder = order
-        row.ZIndex = 11
-
-        local arrow = Instance.new("TextLabel", row)
-        arrow.Size = UDim2.fromOffset(14, 18)
-        arrow.Position = UDim2.fromOffset(depth * 10, 0)
-        arrow.BackgroundTransparency = 1
-        arrow.Text = hasKids and (isExpanded and "▾" or "▸") or " "
-        arrow.TextColor3 = self.Config.ACCENT_BLUE
-        arrow.Font = Enum.Font.SourceSansBold
-        arrow.TextSize = 10
-        arrow.ZIndex = 12
-
-        local iconL = Instance.new("TextLabel", row)
-        iconL.Size = UDim2.fromOffset(16, 18)
-        iconL.Position = UDim2.fromOffset(depth * 10 + 14, 0)
-        iconL.BackgroundTransparency = 1
-        iconL.Text = self:_ExplorerIcon(instance)
-        iconL.Font = Enum.Font.SourceSans
-        iconL.TextSize = 11
-        iconL.ZIndex = 12
-
-        local nameLabel = Instance.new("TextLabel", row)
-        nameLabel.Size = UDim2.new(1, -(depth * 10 + 32), 1, 0)
-        nameLabel.Position = UDim2.fromOffset(depth * 10 + 30, 0)
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.Text = name
-        nameLabel.TextColor3 = className == "ModuleScript" and self.Config.ACCENT_BLUE or self.Config.TEXT_BLACK
-        nameLabel.Font = className == "ModuleScript" and Enum.Font.SourceSansBold or Enum.Font.SourceSans
-        nameLabel.TextSize = 10
-        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-        nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-        nameLabel.ZIndex = 12
-
-        local capturedOrder = order
-        row.MouseButton1Click:Connect(function()
-            -- Always highlight the clicked row
-            for _, c in ipairs(scroll:GetChildren()) do
-                if c:IsA("TextButton") then
-                    c.BackgroundColor3 = c.LayoutOrder % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245,245,250)
-                    for _, lbl in ipairs(c:GetChildren()) do
-                        if lbl:IsA("TextLabel") and lbl.Name == "" then
-                            lbl.TextColor3 = lbl.Font == Enum.Font.SourceSansBold
-                                and self.Config.ACCENT_BLUE or self.Config.TEXT_BLACK
-                        end
-                    end
-                end
-            end
-            row.BackgroundColor3 = self.Config.HIGHLIGHT
-            nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-            -- Always populate properties panel for any selected instance
-            self:_PropertiesPopulate(instance)
-
-            if className == "ModuleScript" then
-                -- Load module into inspector
-                self:LoadModule(instance)
-                -- Decompile + push to notepad
-                self:_showNotification("Decompiling " .. name .. "...", "info")
-                task.spawn(function()
-                    local decomp = self:DecompileModuleScript(instance)
-                    if decomp then
-                        self.State.CurrentModuleDecompiled = decomp
-                        self:_NotepadDisplay(decomp.SourceCode, decomp.Name)
-                        self:_showNotification("Loaded: " .. name, "success")
-                    else
-                        self:_showNotification("Could not decompile " .. name, "warning")
-                    end
-                end)
-            elseif hasKids then
-                self.State._ExplorerExpanded[fullId] = not isExpanded
-                self:_ExplorerPopulate(scroll, filter)
-            end
+        local timeLbl = Instance.new("TextLabel", row)
+        timeLbl.Size = UDim2.fromOffset(50, 18)
+        timeLbl.Position = UDim2.fromOffset(4, 0)
+        timeLbl.BackgroundTransparency = 1
+        timeLbl.Text = timestamp
+        timeLbl.TextColor3 = C.TEXT_GRAY
+        timeLbl.Font = Enum.Font.Code
+        timeLbl.TextSize = 9
+        timeLbl.TextXAlignment = Enum.TextXAlignment.Left
+        local nameLbl = Instance.new("TextLabel", row)
+        nameLbl.Size = UDim2.new(0.35, -58, 1, 0)
+        nameLbl.Position = UDim2.fromOffset(56, 0)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Text = modName
+        nameLbl.TextColor3 = Color3.fromRGB(100, 230, 120)
+        nameLbl.Font = Enum.Font.SourceSansBold
+        nameLbl.TextSize = 10
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+        nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        local pathLbl = Instance.new("TextLabel", row)
+        pathLbl.Size = UDim2.new(0.45, 0, 1, 0)
+        pathLbl.Position = UDim2.new(0.35, 0, 0, 0)
+        pathLbl.BackgroundTransparency = 1
+        pathLbl.Text = modPath
+        pathLbl.TextColor3 = Color3.fromRGB(160, 200, 160)
+        pathLbl.Font = Enum.Font.Code
+        pathLbl.TextSize = 9
+        pathLbl.TextXAlignment = Enum.TextXAlignment.Left
+        pathLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        local typeLbl = Instance.new("TextLabel", row)
+        typeLbl.Size = UDim2.new(0.15, -36, 1, 0)
+        typeLbl.Position = UDim2.new(0.8, 0, 0, 0)
+        typeLbl.BackgroundTransparency = 1
+        typeLbl.Text = "[" .. resultType .. "]"
+        typeLbl.TextColor3 = resultType == "table" and C.SUCCESS_GREEN
+            or resultType == "function" and C.ACCENT_BLUE
+            or C.TEXT_GRAY
+        typeLbl.Font = Enum.Font.Code
+        typeLbl.TextSize = 9
+        typeLbl.TextXAlignment = Enum.TextXAlignment.Left
+        local cpb = self:_createButton(row, "CP", UDim2.fromOffset(28, 16), UDim2.new(1, -32, 0, 1), function()
+            self:_setClipboard(string.format("[#%d] %s  (%s)  [%s]", reqCount, modName, modPath, resultType))
         end)
-        row.MouseEnter:Connect(function()
-            if row.BackgroundColor3 ~= self.Config.HIGHLIGHT then
-                row.BackgroundColor3 = self.Config.BG_LIGHT
-            end
-        end)
-        row.MouseLeave:Connect(function()
-            if row.BackgroundColor3 ~= self.Config.HIGHLIGHT then
-                row.BackgroundColor3 = capturedOrder % 2 == 0 and self.Config.BG_WHITE or Color3.fromRGB(245,245,250)
-            end
-        end)
+        cpb.TextSize = 9
+        scroll.CanvasPosition = Vector2.new(0, scroll.AbsoluteCanvasSize.Y)
+    end
 
-        if isExpanded and hasKids then
-            local sortedKids = {}
-            for _, k in ipairs(kids) do table.insert(sortedKids, k) end
-            table.sort(sortedKids, function(a, b)
-                local aS = a:IsA("ModuleScript") or a:IsA("Script") or a:IsA("LocalScript")
-                local bS = b:IsA("ModuleScript") or b:IsA("Script") or b:IsA("LocalScript")
-                if aS ~= bS then return aS end
-                return a.Name < b.Name
+    local function installHook()
+        if not hookfunction then
+            self:_showNotification("hookfunction not available", "error") return false
+        end
+        local self2 = self
+        local ok, orig = pcall(hookfunction, require, newcclosure and newcclosure(function(mod)
+            local name = "?"
+            local path = "?"
+            pcall(function()
+                name = mod.Name or tostring(mod)
+                path = mod:GetFullName()
             end)
-            for _, child in ipairs(sortedKids) do
-                addRow(child, depth + 1)
+            local result = {pcall(orig, mod)}
+            local success = table.remove(result, 1)
+            local rtype = success and type(result[1]) or "error"
+            local ts = string.format("%02d:%02d:%02d", math.floor(tick()/3600)%24, math.floor(tick()/60)%60, math.floor(tick())%60)
+            task.defer(function()
+                addRow(name, path, rtype, ts)
+            end)
+            if success then
+                return table.unpack(result)
+            else
+                error(result[1], 2)
             end
+        end) or function(mod)
+            local name = "?"
+            local path = "?"
+            pcall(function()
+                name = mod.Name or tostring(mod)
+                path = mod:GetFullName()
+            end)
+            local result = {pcall(orig, mod)}
+            local success = table.remove(result, 1)
+            local rtype = success and type(result[1]) or "error"
+            local ts = string.format("%02d:%02d:%02d", math.floor(tick()/3600)%24, math.floor(tick()/60)%60, math.floor(tick())%60)
+            task.defer(function()
+                addRow(name, path, rtype, ts)
+            end)
+            if success then
+                return table.unpack(result)
+            else
+                error(result[1], 2)
+            end
+        end)
+        if ok then
+            originalRequire = orig
+            statusLbl.Text = "Status: Active  |  Requires caught: 0"
+            self:_showNotification("require() hook installed", "success")
+            return true
+        else
+            self:_showNotification("Hook failed: " .. tostring(orig), "error")
+            return false
         end
     end
 
-    for _, root in ipairs(roots) do
-        pcall(addRow, root, 0)
+    local function removeHook()
+        if originalRequire then
+            pcall(hookfunction, require, originalRequire)
+            statusLbl.Text = "Status: Inactive  |  Requires caught: " .. reqCount
+            self:_showNotification("require() hook removed", "success")
+        end
     end
+
+    local startBtn = self:_createButton(parent, "Start Hook", UDim2.fromOffset(75, 22), UDim2.fromOffset(190, 28), function()
+        installHook()
+    end)
+
+    local stopBtn = self:_createButton(parent, "Stop Hook", UDim2.fromOffset(70, 22), UDim2.fromOffset(269, 28), function()
+        removeHook()
+    end)
+
+    local pauseBtn = self:_createButton(parent, "Pause", UDim2.fromOffset(50, 22), UDim2.fromOffset(343, 28), function()
+        paused = not paused
+        pauseBtn.Text = paused and "Resume" or "Pause"
+        pauseBtn.BackgroundColor3 = paused and C.WARNING_ORANGE or C.BG_DARK
+    end)
+
+    local clearBtn = self:_createButton(parent, "Clear", UDim2.fromOffset(44, 22), UDim2.fromOffset(397, 28), function()
+        for _, c in ipairs(scroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+        log = {}
+        reqCount = 0
+        statusLbl.Text = "Status: Active  |  Requires caught: 0"
+    end)
+
+    local copyBtn = self:_createButton(parent, "Copy Log", UDim2.fromOffset(60, 22), UDim2.fromOffset(445, 28), function()
+        if #log == 0 then return end
+        local lines = {}
+        for _, e in ipairs(log) do
+            table.insert(lines, string.format("[%s][#%d] %s  (%s)  [%s]", e.time, e.n, e.name, e.path, e.rtype))
+        end
+        self:_setClipboard(table.concat(lines, "\n"))
+        self:_showNotification("Log copied!", "success")
+    end)
+
+    -- Column headers
+    local headers = Instance.new("Frame", parent)
+    headers.Size = UDim2.new(1, -8, 0, 16)
+    headers.Position = UDim2.fromOffset(4, 52)
+    headers.BackgroundColor3 = C.BG_DARK
+    headers.BorderSizePixel = 0
+    local function hdr(txt, xScale, wScale)
+        local l = Instance.new("TextLabel", headers)
+        l.Size = UDim2.new(wScale, -2, 1, 0)
+        l.Position = UDim2.new(xScale, 2, 0, 0)
+        l.BackgroundTransparency = 1
+        l.Text = txt
+        l.TextColor3 = C.TEXT_BLACK
+        l.Font = Enum.Font.SourceSansBold
+        l.TextSize = 10
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        local p = Instance.new("UIPadding", l); p.PaddingLeft = UDim.new(0, 3)
+    end
+    hdr("Time", 0, 0.08)
+    hdr("Module Name", 0.08, 0.27)
+    hdr("Full Path", 0.35, 0.45)
+    hdr("Return Type", 0.8, 0.2)
+    -- shift scroll down to account for header
+    scroll.Position = UDim2.fromOffset(4, 70)
+    scroll.Size = UDim2.new(1, -8, 1, -74)
 end
-
--- ============================================================
--- NOTEPAD METHODS
--- ============================================================
-
 function Modules.OverseerCE:CreateNotepadUI(parent)
-    -- Top toolbar
     local npToolbar = Instance.new("Frame", parent)
     npToolbar.Size = UDim2.new(1, -8, 0, 28)
     npToolbar.Position = UDim2.fromOffset(4, 4)
@@ -5478,7 +5376,6 @@ function Modules.OverseerCE:CreateNotepadUI(parent)
     npToolbar.BorderSizePixel = 0
     npToolbar.ZIndex = 101
     self:_createBorder(npToolbar, true)
-
     local npCopyBtn = self:_createButton(npToolbar, "Copy to Clipboard",
         UDim2.fromOffset(120, 22), UDim2.fromOffset(2, 3), function()
         local txt = self.State.UI.NotepadSource and self.State.UI.NotepadSource.Text or ""
@@ -5490,7 +5387,6 @@ function Modules.OverseerCE:CreateNotepadUI(parent)
         end
     end)
     npCopyBtn.ZIndex = 102; npCopyBtn.TextSize = 11
-
     local npSaveBtn = self:_createButton(npToolbar, "Save to File",
         UDim2.fromOffset(90, 22), UDim2.fromOffset(124, 3), function()
         local txt = self.State.UI.NotepadSource and self.State.UI.NotepadSource.Text or ""
@@ -5503,7 +5399,6 @@ function Modules.OverseerCE:CreateNotepadUI(parent)
         end
     end)
     npSaveBtn.ZIndex = 102; npSaveBtn.TextSize = 11
-
     local npDumpBtn = self:_createButton(npToolbar, "Dump Functions",
         UDim2.fromOffset(100, 22), UDim2.fromOffset(216, 3), function()
         if not self.State.SelectedModule then
@@ -5523,8 +5418,6 @@ function Modules.OverseerCE:CreateNotepadUI(parent)
         end)
     end)
     npDumpBtn.ZIndex = 102; npDumpBtn.TextSize = 11
-
-    -- Module name label on the right of toolbar
     local npModLabel = Instance.new("TextLabel", npToolbar)
     npModLabel.Name = "NotepadModLabel"
     npModLabel.Size = UDim2.new(1, -330, 1, 0)
@@ -5537,8 +5430,6 @@ function Modules.OverseerCE:CreateNotepadUI(parent)
     npModLabel.TextXAlignment = Enum.TextXAlignment.Left
     npModLabel.ZIndex = 102
     self.State.UI.NotepadModLabel = npModLabel
-
-    -- Editor body: gutter + source
     local npBody = Instance.new("Frame", parent)
     npBody.Name = "NotepadBody"
     npBody.Size = UDim2.new(1, -8, 1, -72)
@@ -5548,7 +5439,6 @@ function Modules.OverseerCE:CreateNotepadUI(parent)
     npBody.ClipsDescendants = true
     npBody.ZIndex = 101
     self:_createBorder(npBody, true)
-
     local npGutter = Instance.new("ScrollingFrame", npBody)
     npGutter.Name = "NotepadGutter"
     npGutter.Size = UDim2.new(0, 40, 1, 0)
@@ -5559,7 +5449,6 @@ function Modules.OverseerCE:CreateNotepadUI(parent)
     npGutter.CanvasSize = UDim2.new(0, 0, 0, 0)
     npGutter.ScrollingEnabled = false
     npGutter.ZIndex = 102
-
     local npSource = Instance.new("TextBox", npBody)
     npSource.Name = "NotepadSource"
     npSource.Size = UDim2.new(1, -42, 1, 0)
@@ -5581,7 +5470,6 @@ function Modules.OverseerCE:CreateNotepadUI(parent)
     local npSourcePad = Instance.new("UIPadding", npSource)
     npSourcePad.PaddingLeft = UDim.new(0, 6)
     npSourcePad.PaddingTop = UDim.new(0, 4)
-
     npSource:GetPropertyChangedSignal("CursorPosition"):Connect(function()
         task.defer(function()
             local lines = 0
@@ -5589,8 +5477,6 @@ function Modules.OverseerCE:CreateNotepadUI(parent)
             npGutter.CanvasSize = UDim2.fromOffset(0, (lines + 2) * 16)
         end)
     end)
-
-    -- Bottom bar: Execute | Clear
     local npExecBar = Instance.new("Frame", parent)
     npExecBar.Size = UDim2.new(1, -8, 0, 28)
     npExecBar.Position = UDim2.new(0, 4, 1, -32)
@@ -5598,7 +5484,6 @@ function Modules.OverseerCE:CreateNotepadUI(parent)
     npExecBar.BorderSizePixel = 0
     npExecBar.ZIndex = 101
     self:_createBorder(npExecBar, true)
-
     local npExecBtn = self:_createButton(npExecBar, "Execute",
         UDim2.fromOffset(90, 22), UDim2.new(0.5, -45, 0, 3), function()
         local code = self.State.UI.NotepadSource and self.State.UI.NotepadSource.Text or ""
@@ -5612,7 +5497,6 @@ function Modules.OverseerCE:CreateNotepadUI(parent)
         self:_showNotification(ok and "Executed successfully" or ("Runtime error: " .. tostring(result)), ok and "success" or "error")
     end)
     npExecBtn.ZIndex = 102; npExecBtn.TextSize = 12
-
     local npClearBtn = self:_createButton(npExecBar, "Clear",
         UDim2.fromOffset(70, 22), UDim2.new(1, -74, 0, 3), function()
         if self.State.UI.NotepadSource then self.State.UI.NotepadSource.Text = "" end
@@ -5625,15 +5509,11 @@ function Modules.OverseerCE:CreateNotepadUI(parent)
         self:_showNotification("Notepad cleared", "info")
     end)
     npClearBtn.ZIndex = 102; npClearBtn.TextSize = 12
-
-    -- Register into State.UI so _NotepadDisplay can find them
     self.State.UI.NotepadSource = npSource
     self.State.UI.NotepadGutter = npGutter
     self.State.UI.NotepadPanel  = parent
 end
-
 function Modules.OverseerCE:_NotepadDisplay(source, moduleName)
-    -- Auto-open the notepad tool window if it isn't already open
     if not self.State.UI or not self.State.UI.NotepadSource then
         self:OpenToolWindow("Notepad")
         task.defer(function()
@@ -5643,27 +5523,22 @@ function Modules.OverseerCE:_NotepadDisplay(source, moduleName)
     end
     source = source or ("-- No source available for: " .. tostring(moduleName))
     self.State.UI.NotepadSource.Text = source
-    -- Update the module name label in the toolbar
     if self.State.UI.NotepadModLabel then
         self.State.UI.NotepadModLabel.Text = "  " .. tostring(moduleName or "unknown")
     end
-
     local gutter = self.State.UI.NotepadGutter
     if not gutter then return end
     for _, c in ipairs(gutter:GetChildren()) do
         if c:IsA("TextLabel") then c:Destroy() end
     end
-
     local lineH = 14
     local lines = 1
     for _ in source:gmatch("\n") do lines = lines + 1 end
-
     if not gutter:FindFirstChildOfClass("UIListLayout") then
         local gl = Instance.new("UIListLayout", gutter)
         gl.Padding = UDim.new(0, 0)
         gl.SortOrder = Enum.SortOrder.LayoutOrder
     end
-
     local function addBatch(s, e)
         for i = s, e do
             local n = Instance.new("TextLabel", gutter)
@@ -5680,7 +5555,6 @@ function Modules.OverseerCE:_NotepadDisplay(source, moduleName)
             p.PaddingRight = UDim.new(0, 3)
         end
     end
-
     local batch = 100
     local first = math.min(batch, lines)
     addBatch(1, first)
@@ -5695,11 +5569,6 @@ function Modules.OverseerCE:_NotepadDisplay(source, moduleName)
         end)
     end
 end
-
-
--- ══════════════════════════════════════════════════════════════════════════════
--- [GHIDRA] 1. PROTO TREE — recursive closure/proto walker
--- ══════════════════════════════════════════════════════════════════════════════
 function Modules.OverseerCE:WalkProtoTree(func, depth, visited, results)
     depth   = depth   or 0
     visited = visited or {}
@@ -5708,7 +5577,6 @@ function Modules.OverseerCE:WalkProtoTree(func, depth, visited, results)
     local faddr = tostring(func)
     if visited[faddr] then return results end
     visited[faddr] = true
-
     local entry = {
         Depth    = depth,
         Address  = faddr,
@@ -5717,8 +5585,6 @@ function Modules.OverseerCE:WalkProtoTree(func, depth, visited, results)
         Info      = {},
         Children  = {}
     }
-
-    -- info
     pcall(function()
         local fn = (debug and debug.getinfo) or getinfo
         if fn then
@@ -5732,8 +5598,6 @@ function Modules.OverseerCE:WalkProtoTree(func, depth, visited, results)
             }
         end
     end)
-
-    -- constants
     pcall(function()
         local fn = getconstants or (debug and debug.getconstants)
         if fn then
@@ -5745,8 +5609,6 @@ function Modules.OverseerCE:WalkProtoTree(func, depth, visited, results)
             end
         end
     end)
-
-    -- upvalues
     pcall(function()
         local fn = getupvalues or (debug and debug.getupvalues)
         if fn then
@@ -5758,8 +5620,6 @@ function Modules.OverseerCE:WalkProtoTree(func, depth, visited, results)
             end
         end
     end)
-
-    -- recurse into protos
     pcall(function()
         local fn = getprotos or (debug and debug.getprotos)
         if fn then
@@ -5776,15 +5636,12 @@ function Modules.OverseerCE:WalkProtoTree(func, depth, visited, results)
             end
         end
     end)
-
     table.insert(results, entry)
     return results
 end
-
 function Modules.OverseerCE:CreateProtoTreeUI(parent)
     local C = self.Config
     local results = {}
-
     local pathLabel = Instance.new("TextLabel", parent)
     pathLabel.Size = UDim2.new(1, -8, 0, 18)
     pathLabel.Position = UDim2.fromOffset(4, 4)
@@ -5794,7 +5651,6 @@ function Modules.OverseerCE:CreateProtoTreeUI(parent)
     pathLabel.Font = Enum.Font.SourceSans
     pathLabel.TextSize = 10
     pathLabel.TextXAlignment = Enum.TextXAlignment.Left
-
     local walkBtn = self:_createButton(parent, "Walk Selected Module", UDim2.fromOffset(160, 22), UDim2.fromOffset(4, 24), function()
         if not self.State.SelectedModule then
             self:_showNotification("Select a module first", "warning")
@@ -5823,7 +5679,6 @@ function Modules.OverseerCE:CreateProtoTreeUI(parent)
             walkTable(mod, 0)
         end
         pathLabel.Text = "Found " .. #results .. " proto entries in: " .. self.State.SelectedModule.Name
-        -- rebuild scroll
         for _, c in ipairs(parent:GetChildren()) do
             if c.Name == "ProtoScroll" then c:Destroy() end
         end
@@ -5838,7 +5693,6 @@ function Modules.OverseerCE:CreateProtoTreeUI(parent)
         scroll.CanvasSize = UDim2.new(0,0,0,0)
         self:_createBorder(scroll, true)
         Instance.new("UIListLayout", scroll).Padding = UDim.new(0,1)
-
         local function addRow(text, depth, clr)
             local row = Instance.new("Frame", scroll)
             row.Size = UDim2.new(1,0,0,18)
@@ -5855,27 +5709,22 @@ function Modules.OverseerCE:CreateProtoTreeUI(parent)
             lbl.TextXAlignment = Enum.TextXAlignment.Left
             lbl.TextTruncate = Enum.TextTruncate.AtEnd
         end
-
         local function renderEntry(e)
             local indent = e.Depth
             local label = e._label and ("[fn: "..e._label.."]") or "[proto]"
             addRow(string.rep("  ",indent)..label.."  @"..e.Address:sub(-8).."  L"..e.Info.LineDefined.."  params:"..e.Info.NumParams.."  upvals:"..e.Info.NumUpvalues, indent, C.BG_DARK)
-            -- constants
             for _, c in ipairs(e.Constants) do
                 addRow(string.rep("  ",indent+1).."K["..c.Index.."] ("..c.Type..") "..c.Value, indent+1, C.BG_WHITE)
             end
-            -- upvalues
             for _, u in ipairs(e.Upvalues) do
                 addRow(string.rep("  ",indent+1).."UV["..u.Index.."] ("..u.Type..") "..u.Value, indent+1, C.BG_LIGHT)
             end
-            -- children
             for _, child in ipairs(e.Children) do
                 renderEntry(child)
             end
         end
         for _, e in ipairs(results) do renderEntry(e) end
     end)
-
     local copyBtn = self:_createButton(parent, "Copy All", UDim2.fromOffset(80, 22), UDim2.fromOffset(168, 24), function()
         if #results == 0 then return end
         local lines = {}
@@ -5894,10 +5743,6 @@ function Modules.OverseerCE:CreateProtoTreeUI(parent)
         self:_showNotification("Proto tree copied!", "success")
     end)
 end
-
--- ══════════════════════════════════════════════════════════════════════════════
--- [GHIDRA] 2. STRING CONSTANT GREP — scan every constant in every function
--- ══════════════════════════════════════════════════════════════════════════════
 function Modules.OverseerCE:GrepStringConstants(mod, pattern, results, visited, path)
     results = results or {}
     visited = visited or {}
@@ -5921,7 +5766,6 @@ function Modules.OverseerCE:GrepStringConstants(mod, pattern, results, visited, 
                 end
             end
         end)
-        -- recurse into protos
         pcall(function()
             local fn = getprotos or (debug and debug.getprotos)
             if not fn then return end
@@ -5946,11 +5790,9 @@ function Modules.OverseerCE:GrepStringConstants(mod, pattern, results, visited, 
     end
     return results
 end
-
 function Modules.OverseerCE:CreateStrGrepUI(parent)
     local C = self.Config
     local grepResults = {}
-
     local searchBox = Instance.new("TextBox", parent)
     searchBox.Size = UDim2.fromOffset(260, 22)
     searchBox.Position = UDim2.fromOffset(4, 4)
@@ -5966,7 +5808,6 @@ function Modules.OverseerCE:CreateStrGrepUI(parent)
     self:_createBorder(searchBox, true)
     local sp = Instance.new("UIPadding", searchBox)
     sp.PaddingLeft = UDim.new(0,4)
-
     local countLabel = Instance.new("TextLabel", parent)
     countLabel.Size = UDim2.fromOffset(120, 22)
     countLabel.Position = UDim2.fromOffset(270, 4)
@@ -5976,7 +5817,6 @@ function Modules.OverseerCE:CreateStrGrepUI(parent)
     countLabel.Font = Enum.Font.SourceSans
     countLabel.TextSize = 10
     countLabel.TextXAlignment = Enum.TextXAlignment.Left
-
     local scroll = Instance.new("ScrollingFrame", parent)
     scroll.Size = UDim2.new(1,-8,1,-56)
     scroll.Position = UDim2.fromOffset(4, 52)
@@ -5987,7 +5827,6 @@ function Modules.OverseerCE:CreateStrGrepUI(parent)
     scroll.CanvasSize = UDim2.new(0,0,0,0)
     self:_createBorder(scroll, true)
     Instance.new("UIListLayout", scroll).Padding = UDim.new(0,1)
-
     local function populateScroll()
         for _, c in ipairs(scroll:GetChildren()) do
             if c:IsA("Frame") then c:Destroy() end
@@ -6015,7 +5854,6 @@ function Modules.OverseerCE:CreateStrGrepUI(parent)
             cpBtn.TextSize = 9
         end
     end
-
     local grepBtn = self:_createButton(parent, "Grep Module", UDim2.fromOffset(90,22), UDim2.fromOffset(4,28), function()
         if not self.State.SelectedModule then
             self:_showNotification("Select a module first", "warning") return
@@ -6028,7 +5866,6 @@ function Modules.OverseerCE:CreateStrGrepUI(parent)
         populateScroll()
         self:_showNotification("Found "..#grepResults.." strings", "success")
     end)
-
     local grepAllBtn = self:_createButton(parent, "Grep All Modules", UDim2.fromOffset(110,22), UDim2.fromOffset(98,28), function()
         local pat = searchBox.Text
         grepResults = {}
@@ -6043,7 +5880,6 @@ function Modules.OverseerCE:CreateStrGrepUI(parent)
         populateScroll()
         self:_showNotification("Grepped "..#self.State.ModuleList.." modules — "..#grepResults.." hits", "success")
     end)
-
     local copyAllBtn = self:_createButton(parent, "Copy All", UDim2.fromOffset(70,22), UDim2.fromOffset(212,28), function()
         if #grepResults == 0 then return end
         local lines = {}
@@ -6054,10 +5890,6 @@ function Modules.OverseerCE:CreateStrGrepUI(parent)
         self:_showNotification("All strings copied!", "success")
     end)
 end
-
--- ══════════════════════════════════════════════════════════════════════════════
--- [GHIDRA] 3. ARG LOG — live call recorder with pretty-printed args
--- ══════════════════════════════════════════════════════════════════════════════
 function Modules.OverseerCE:PrettyArg(v, depth)
     depth = depth or 0
     if depth > 3 then return "..." end
@@ -6076,7 +5908,6 @@ function Modules.OverseerCE:PrettyArg(v, depth)
         end
         return "{"..table.concat(parts,", ").."}"
     else
-        -- Roblox types
         local s = tostring(v)
         if typeof then
             local ty = typeof(v)
@@ -6090,13 +5921,11 @@ function Modules.OverseerCE:PrettyArg(v, depth)
         return s:sub(1,40)
     end
 end
-
 function Modules.OverseerCE:CreateArgLogUI(parent)
     local C = self.Config
     local log = {}
     local activeHooks = {}
     local maxEntries = 200
-
     local pathBox = Instance.new("TextBox", parent)
     pathBox.Size = UDim2.fromOffset(260,22)
     pathBox.Position = UDim2.fromOffset(4,4)
@@ -6111,7 +5940,6 @@ function Modules.OverseerCE:CreateArgLogUI(parent)
     self:_createBorder(pathBox, true)
     local pp = Instance.new("UIPadding",pathBox)
     pp.PaddingLeft=UDim.new(0,4)
-
     local statusLbl = Instance.new("TextLabel", parent)
     statusLbl.Size = UDim2.fromOffset(200,22)
     statusLbl.Position = UDim2.fromOffset(270,4)
@@ -6121,7 +5949,6 @@ function Modules.OverseerCE:CreateArgLogUI(parent)
     statusLbl.Font = Enum.Font.SourceSans
     statusLbl.TextSize = 10
     statusLbl.TextXAlignment = Enum.TextXAlignment.Left
-
     local scroll = Instance.new("ScrollingFrame", parent)
     scroll.Name = "ArgLogScroll"
     scroll.Size = UDim2.new(1,-8,1,-56)
@@ -6134,7 +5961,6 @@ function Modules.OverseerCE:CreateArgLogUI(parent)
     scroll.CanvasSize = UDim2.new(0,0,0,0)
     self:_createBorder(scroll, true)
     Instance.new("UIListLayout", scroll).Padding = UDim.new(0,1)
-
     local function addLogRow(entry)
         if #log >= maxEntries then
             local oldest = scroll:FindFirstChildWhichIsA("Frame")
@@ -6165,16 +5991,13 @@ function Modules.OverseerCE:CreateArgLogUI(parent)
             self:_setClipboard(lbl.Text)
         end)
         cpb.TextSize = 9
-        -- auto-scroll to bottom
         scroll.CanvasPosition = Vector2.new(0, scroll.AbsoluteCanvasSize.Y)
     end
-
     local callCount = 0
     local function hookFunc(path, name)
         if not hookfunction then
             self:_showNotification("hookfunction not available","error") return
         end
-        -- resolve path
         local parts = {}
         for p in path:gmatch("[^%.]+") do table.insert(parts,p) end
         local tbl = _G
@@ -6231,11 +6054,9 @@ function Modules.OverseerCE:CreateArgLogUI(parent)
             self:_showNotification("Hook failed: "..tostring(orig), "error")
         end
     end
-
     local hookBtn = self:_createButton(parent,"Hook Path",UDim2.fromOffset(80,22),UDim2.fromOffset(4,28),function()
         hookFunc(pathBox.Text, nil)
     end)
-
     local clearBtn = self:_createButton(parent,"Clear Log",UDim2.fromOffset(70,22),UDim2.fromOffset(88,28),function()
         for _, c in ipairs(scroll:GetChildren()) do
             if c:IsA("Frame") then c:Destroy() end
@@ -6243,7 +6064,6 @@ function Modules.OverseerCE:CreateArgLogUI(parent)
         log = {}
         callCount = 0
     end)
-
     local unhookBtn = self:_createButton(parent,"Unhook All",UDim2.fromOffset(80,22),UDim2.fromOffset(162,28),function()
         for _, h in ipairs(activeHooks) do
             pcall(function() h.Table[h.Key] = h.Original end)
@@ -6252,7 +6072,6 @@ function Modules.OverseerCE:CreateArgLogUI(parent)
         statusLbl.Text = "Hooks active: 0"
         self:_showNotification("All hooks removed", "success")
     end)
-
     local copyBtn = self:_createButton(parent,"Copy Log",UDim2.fromOffset(70,22),UDim2.fromOffset(246,28),function()
         local lines = {}
         for _, e in ipairs(log) do
@@ -6262,13 +6081,8 @@ function Modules.OverseerCE:CreateArgLogUI(parent)
         self:_showNotification("Log copied!", "success")
     end)
 end
-
--- ══════════════════════════════════════════════════════════════════════════════
--- [GHIDRA] 4. BYTECODE VIEWER — hex + ASCII dump of script bytecode
--- ══════════════════════════════════════════════════════════════════════════════
 function Modules.OverseerCE:CreateBytecodeUI(parent)
     local C = self.Config
-
     local infoLbl = Instance.new("TextLabel", parent)
     infoLbl.Size = UDim2.new(1,-8,0,18)
     infoLbl.Position = UDim2.fromOffset(4,4)
@@ -6278,7 +6092,6 @@ function Modules.OverseerCE:CreateBytecodeUI(parent)
     infoLbl.Font = Enum.Font.SourceSans
     infoLbl.TextSize = 10
     infoLbl.TextXAlignment = Enum.TextXAlignment.Left
-
     local filterBox = Instance.new("TextBox", parent)
     filterBox.Size = UDim2.fromOffset(160,22)
     filterBox.Position = UDim2.fromOffset(4,26)
@@ -6293,7 +6106,6 @@ function Modules.OverseerCE:CreateBytecodeUI(parent)
     self:_createBorder(filterBox, true)
     local fp = Instance.new("UIPadding",filterBox)
     fp.PaddingLeft=UDim.new(0,4)
-
     local scroll = Instance.new("ScrollingFrame", parent)
     scroll.Size = UDim2.new(1,-8,1,-58)
     scroll.Position = UDim2.fromOffset(4,54)
@@ -6305,7 +6117,6 @@ function Modules.OverseerCE:CreateBytecodeUI(parent)
     scroll.CanvasSize = UDim2.new(0,0,0,0)
     self:_createBorder(scroll, true)
     Instance.new("UIListLayout", scroll).Padding = UDim.new(0,0)
-
     local function addHexRow(offset, bytes, ascii)
         local row = Instance.new("Frame", scroll)
         row.Size = UDim2.new(1,0,0,14)
@@ -6321,9 +6132,7 @@ function Modules.OverseerCE:CreateBytecodeUI(parent)
         lbl.TextSize = 10
         lbl.TextXAlignment = Enum.TextXAlignment.Left
     end
-
     local rawBytecode = nil
-
     local dumpBtn = self:_createButton(parent,"Dump Bytecode",UDim2.fromOffset(100,22),UDim2.fromOffset(168,26),function()
         if not getscriptbytecode then
             self:_showNotification("getscriptbytecode not available","error") return
@@ -6358,7 +6167,6 @@ function Modules.OverseerCE:CreateBytecodeUI(parent)
         end
         self:_showNotification("Bytecode: "..#bc.." bytes", "success")
     end)
-
     local copyRawBtn = self:_createButton(parent,"Copy Hex",UDim2.fromOffset(70,22),UDim2.fromOffset(272,26),function()
         if not rawBytecode then return end
         local parts = {}
@@ -6366,8 +6174,6 @@ function Modules.OverseerCE:CreateBytecodeUI(parent)
         self:_setClipboard(table.concat(parts," "))
         self:_showNotification("Hex copied!", "success")
     end)
-
-    -- string extractor button
     local strBtn = self:_createButton(parent,"Extract Strings",UDim2.fromOffset(100,22),UDim2.fromOffset(346,26),function()
         if not rawBytecode then
             self:_showNotification("Dump bytecode first","warning") return
@@ -6394,10 +6200,6 @@ function Modules.OverseerCE:CreateBytecodeUI(parent)
         self:_showNotification("Extracted "..#strings.." strings, copied!", "success")
     end)
 end
-
--- ══════════════════════════════════════════════════════════════════════════════
--- [GHIDRA] 5. UPVALUE DIFF — snapshot then compare to detect mutations
--- ══════════════════════════════════════════════════════════════════════════════
 function Modules.OverseerCE:SnapshotUpvalues(func, path)
     local snapshot = {}
     local fn = getupvalues or (debug and debug.getupvalues)
@@ -6407,7 +6209,6 @@ function Modules.OverseerCE:SnapshotUpvalues(func, path)
     for i, v in pairs(uvs) do
         snapshot[i] = {Value=v, Type=type(v), Str=tostring(v):sub(1,80), Path=path, Index=i}
     end
-    -- also recurse into protos
     local pfn = getprotos or (debug and debug.getprotos)
     if pfn then
         local pok, protos = pcall(pfn, func)
@@ -6424,12 +6225,10 @@ function Modules.OverseerCE:SnapshotUpvalues(func, path)
     end
     return snapshot
 end
-
 function Modules.OverseerCE:CreateUVDiffUI(parent)
     local C = self.Config
-    local snapshots = {}  -- {label, data}
+    local snapshots = {}
     local diffs = {}
-
     local snapLabel = Instance.new("TextLabel", parent)
     snapLabel.Size = UDim2.new(1,-8,0,18)
     snapLabel.Position = UDim2.fromOffset(4,4)
@@ -6439,7 +6238,6 @@ function Modules.OverseerCE:CreateUVDiffUI(parent)
     snapLabel.Font = Enum.Font.SourceSans
     snapLabel.TextSize = 10
     snapLabel.TextXAlignment = Enum.TextXAlignment.Left
-
     local scroll = Instance.new("ScrollingFrame", parent)
     scroll.Size = UDim2.new(1,-8,1,-56)
     scroll.Position = UDim2.fromOffset(4,52)
@@ -6450,7 +6248,6 @@ function Modules.OverseerCE:CreateUVDiffUI(parent)
     scroll.CanvasSize = UDim2.new(0,0,0,0)
     self:_createBorder(scroll, true)
     Instance.new("UIListLayout", scroll).Padding = UDim.new(0,1)
-
     local function addRow(text, clr)
         local row = Instance.new("Frame", scroll)
         row.Size = UDim2.new(1,0,0,18)
@@ -6467,7 +6264,6 @@ function Modules.OverseerCE:CreateUVDiffUI(parent)
         lbl.TextXAlignment = Enum.TextXAlignment.Left
         lbl.TextTruncate = Enum.TextTruncate.AtEnd
     end
-
     local function collectSnap(label)
         if not self.State.SelectedModule then
             self:_showNotification("Select a module first","warning") return
@@ -6492,7 +6288,6 @@ function Modules.OverseerCE:CreateUVDiffUI(parent)
         snapLabel.Text = "Snapshots: "..#snapshots.."  —  last: "..label
         self:_showNotification("Snapshot "..label.." captured ("..self:_tableLen(combined).." upvalues)", "success")
     end
-
     local snapABtn = self:_createButton(parent,"Snap A",UDim2.fromOffset(65,22),UDim2.fromOffset(4,28),function()
         collectSnap("A")
     end)
@@ -6506,7 +6301,6 @@ function Modules.OverseerCE:CreateUVDiffUI(parent)
         local A = snapshots[#snapshots-1].Data
         local B = snapshots[#snapshots].Data
         diffs = {}
-        -- changed / new
         for k, bEntry in pairs(B) do
             local aEntry = A[k]
             if not aEntry then
@@ -6515,13 +6309,11 @@ function Modules.OverseerCE:CreateUVDiffUI(parent)
                 table.insert(diffs, {Key=k, Kind="CHANGED", OldVal=aEntry.Str, NewVal=bEntry.Str, Type=bEntry.Type})
             end
         end
-        -- removed
         for k, aEntry in pairs(A) do
             if not B[k] then
                 table.insert(diffs, {Key=k, Kind="REMOVED", OldVal=aEntry.Str, NewVal="(nil)", Type=aEntry.Type})
             end
         end
-        -- render
         for _, c in ipairs(scroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
         if #diffs == 0 then
             addRow("No upvalue changes detected between snapshots.", C.BG_LIGHT)
@@ -6536,14 +6328,12 @@ function Modules.OverseerCE:CreateUVDiffUI(parent)
         end
         self:_showNotification("Diff complete: "..#diffs.." change(s)", "success")
     end)
-
     local clearBtn = self:_createButton(parent,"Clear",UDim2.fromOffset(55,22),UDim2.fromOffset(214,28),function()
         snapshots = {}
         diffs = {}
         for _, c in ipairs(scroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
         snapLabel.Text = "Snapshots: 0"
     end)
-
     local copyBtn = self:_createButton(parent,"Copy Diffs",UDim2.fromOffset(75,22),UDim2.fromOffset(272,28),function()
         if #diffs == 0 then return end
         local lines = {}
@@ -6554,22 +6344,15 @@ function Modules.OverseerCE:CreateUVDiffUI(parent)
         self:_showNotification("Diffs copied!", "success")
     end)
 end
-
--- helper used by UV Diff
 function Modules.OverseerCE:_tableLen(t)
     local n = 0
     for _ in pairs(t) do n = n + 1 end
     return n
 end
-
--- ══════════════════════════════════════════════════════════════════════════════
--- [GHIDRA] 6. METATABLE MONITOR — hook __index / __newindex on a table
--- ══════════════════════════════════════════════════════════════════════════════
 function Modules.OverseerCE:CreateMTMonitorUI(parent)
     local C = self.Config
     local log = {}
     local activeMonitors = {}
-
     local pathBox = Instance.new("TextBox", parent)
     pathBox.Size = UDim2.fromOffset(260,22)
     pathBox.Position = UDim2.fromOffset(4,4)
@@ -6584,7 +6367,6 @@ function Modules.OverseerCE:CreateMTMonitorUI(parent)
     self:_createBorder(pathBox, true)
     local mpp = Instance.new("UIPadding",pathBox)
     mpp.PaddingLeft=UDim.new(0,4)
-
     local statusLbl = Instance.new("TextLabel", parent)
     statusLbl.Size = UDim2.fromOffset(160,22)
     statusLbl.Position = UDim2.fromOffset(270,4)
@@ -6594,7 +6376,6 @@ function Modules.OverseerCE:CreateMTMonitorUI(parent)
     statusLbl.Font = Enum.Font.SourceSans
     statusLbl.TextSize = 10
     statusLbl.TextXAlignment = Enum.TextXAlignment.Left
-
     local scroll = Instance.new("ScrollingFrame", parent)
     scroll.Size = UDim2.new(1,-8,1,-56)
     scroll.Position = UDim2.fromOffset(4,52)
@@ -6606,7 +6387,6 @@ function Modules.OverseerCE:CreateMTMonitorUI(parent)
     scroll.CanvasSize = UDim2.new(0,0,0,0)
     self:_createBorder(scroll, true)
     Instance.new("UIListLayout", scroll).Padding = UDim.new(0,1)
-
     local evCount = 0
     local function addEvent(kind, key, val, extra)
         evCount = evCount + 1
@@ -6628,14 +6408,12 @@ function Modules.OverseerCE:CreateMTMonitorUI(parent)
         lbl.TextTruncate = Enum.TextTruncate.AtEnd
         scroll.CanvasPosition = Vector2.new(0, scroll.AbsoluteCanvasSize.Y)
     end
-
     local function installMonitor(tbl, label)
         if not rawequal then rawequal = function(a,b) return a==b end end
         local mt, method = self:GetRawMetatable(tbl)
         local existingIndex    = mt and mt.__index
         local existingNewindex = mt and mt.__newindex
         local newMt = mt or {}
-
         newMt.__index = function(t, k)
             local v = existingIndex and (type(existingIndex)=="function" and existingIndex(t,k) or existingIndex[k]) or rawget(t,k)
             addEvent("__index", k, v, label)
@@ -6651,7 +6429,6 @@ function Modules.OverseerCE:CreateMTMonitorUI(parent)
         end
         local ok = pcall(setmetatable, tbl, newMt)
         if not ok then
-            -- try rawsetmetatable
             if rawsetmetatable then
                 rawsetmetatable(tbl, newMt)
                 ok = true
@@ -6665,11 +6442,9 @@ function Modules.OverseerCE:CreateMTMonitorUI(parent)
             self:_showNotification("Could not set metatable on: "..label, "error")
         end
     end
-
     local monBtn = self:_createButton(parent,"Monitor Path",UDim2.fromOffset(90,22),UDim2.fromOffset(4,28),function()
         local path = pathBox.Text
         if path == "" then
-            -- use selected module
             if not self.State.SelectedModule then
                 self:_showNotification("Enter a path or select a module","warning") return
             end
@@ -6679,7 +6454,6 @@ function Modules.OverseerCE:CreateMTMonitorUI(parent)
             end
             installMonitor(mod, self.State.SelectedModule.Name)
         else
-            -- resolve path
             local parts = {}
             for p in path:gmatch("[^%.]+") do table.insert(parts,p) end
             local tbl = _G
@@ -6695,14 +6469,12 @@ function Modules.OverseerCE:CreateMTMonitorUI(parent)
             installMonitor(tbl, path)
         end
     end)
-
     local clearBtn = self:_createButton(parent,"Clear Log",UDim2.fromOffset(70,22),UDim2.fromOffset(98,28),function()
         for _, c in ipairs(scroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
         log = {}
         evCount = 0
         statusLbl.Text = "Monitors: "..#activeMonitors.."  |  Events: 0"
     end)
-
     local removeBtn = self:_createButton(parent,"Remove All Monitors",UDim2.fromOffset(130,22),UDim2.fromOffset(172,28),function()
         for _, m in ipairs(activeMonitors) do
             pcall(setmetatable, m.Table, m.OldMt)
@@ -6711,7 +6483,6 @@ function Modules.OverseerCE:CreateMTMonitorUI(parent)
         statusLbl.Text = "Monitors: 0  |  Events: "..evCount
         self:_showNotification("All monitors removed", "success")
     end)
-
     local copyBtn = self:_createButton(parent,"Copy Log",UDim2.fromOffset(65,22),UDim2.fromOffset(306,28),function()
         if #log == 0 then return end
         local lines = {}
@@ -6722,14 +6493,9 @@ function Modules.OverseerCE:CreateMTMonitorUI(parent)
         self:_showNotification("Log copied!", "success")
     end)
 end
-
--- ══════════════════════════════════════════════════════════════════════════════
--- [GHIDRA] 7. ENV DUMP — getfenv / getreg / getsenv sweep
--- ══════════════════════════════════════════════════════════════════════════════
 function Modules.OverseerCE:CreateEnvDumpUI(parent)
     local C = self.Config
     local dumpData = {}
-
     local modeLbl = Instance.new("TextLabel", parent)
     modeLbl.Size = UDim2.new(1,-8,0,18)
     modeLbl.Position = UDim2.fromOffset(4,4)
@@ -6739,7 +6505,6 @@ function Modules.OverseerCE:CreateEnvDumpUI(parent)
     modeLbl.Font = Enum.Font.SourceSans
     modeLbl.TextSize = 10
     modeLbl.TextXAlignment = Enum.TextXAlignment.Left
-
     local filterBox = Instance.new("TextBox", parent)
     filterBox.Size = UDim2.fromOffset(180,22)
     filterBox.Position = UDim2.fromOffset(4,26)
@@ -6754,7 +6519,6 @@ function Modules.OverseerCE:CreateEnvDumpUI(parent)
     self:_createBorder(filterBox, true)
     local efp = Instance.new("UIPadding",filterBox)
     efp.PaddingLeft=UDim.new(0,4)
-
     local countLbl = Instance.new("TextLabel", parent)
     countLbl.Size = UDim2.fromOffset(100,22)
     countLbl.Position = UDim2.fromOffset(188,26)
@@ -6764,7 +6528,6 @@ function Modules.OverseerCE:CreateEnvDumpUI(parent)
     countLbl.Font = Enum.Font.SourceSans
     countLbl.TextSize = 10
     countLbl.TextXAlignment = Enum.TextXAlignment.Left
-
     local scroll = Instance.new("ScrollingFrame", parent)
     scroll.Size = UDim2.new(1,-8,1,-60)
     scroll.Position = UDim2.fromOffset(4,56)
@@ -6775,7 +6538,6 @@ function Modules.OverseerCE:CreateEnvDumpUI(parent)
     scroll.CanvasSize = UDim2.new(0,0,0,0)
     self:_createBorder(scroll, true)
     Instance.new("UIListLayout", scroll).Padding = UDim.new(0,1)
-
     local function renderDump(data)
         for _, c in ipairs(scroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
         local filter = filterBox.Text:lower()
@@ -6821,7 +6583,6 @@ function Modules.OverseerCE:CreateEnvDumpUI(parent)
         end
         countLbl.Text = "Keys: "..shown
     end
-
     local function doFenvDump()
         if not self.State.SelectedModule then
             self:_showNotification("Select a script first","warning") return
@@ -6839,7 +6600,6 @@ function Modules.OverseerCE:CreateEnvDumpUI(parent)
         renderDump(env)
         self:_showNotification("Script env dumped", "success")
     end
-
     local function doRegDump()
         if not getreg then
             self:_showNotification("getreg not available","error") return
@@ -6848,7 +6608,6 @@ function Modules.OverseerCE:CreateEnvDumpUI(parent)
         if not ok or type(reg) ~= "table" then
             self:_showNotification("getreg failed","error") return
         end
-        -- flatten: getreg returns a list of values; we want the table entries
         local flat = {}
         for i, v in ipairs(reg) do
             if type(v) == "table" then
@@ -6864,7 +6623,6 @@ function Modules.OverseerCE:CreateEnvDumpUI(parent)
         renderDump(flat)
         self:_showNotification("Registry dumped", "success")
     end
-
     local function doGEnvDump()
         dumpData = getgenv and getgenv() or getfenv and getfenv(0) or _G
         modeLld = "Global env dump"
@@ -6872,11 +6630,9 @@ function Modules.OverseerCE:CreateEnvDumpUI(parent)
         renderDump(dumpData)
         self:_showNotification("Global env dumped", "success")
     end
-
     local fenvBtn  = self:_createButton(parent,"Script Env",UDim2.fromOffset(80,22),UDim2.fromOffset(290,26),function() doFenvDump() end)
     local regBtn   = self:_createButton(parent,"Registry",UDim2.fromOffset(70,22),UDim2.fromOffset(374,26),function() doRegDump() end)
     local genvBtn  = self:_createButton(parent,"Global Env",UDim2.fromOffset(80,22),UDim2.fromOffset(448,26),function() doGEnvDump() end)
-
     local copyBtn = self:_createButton(parent,"Copy All",UDim2.fromOffset(65,22),UDim2.fromOffset(532,26),function()
         if not dumpData or self:_tableLen(dumpData)==0 then return end
         local lines = {}
@@ -6891,25 +6647,20 @@ function Modules.OverseerCE:CreateEnvDumpUI(parent)
         self:_setClipboard(table.concat(lines,"\n"))
         self:_showNotification("Env dump copied!", "success")
     end)
-
     filterBox:GetPropertyChangedSignal("Text"):Connect(function()
         if dumpData and next(dumpData) then
             renderDump(dumpData)
         end
     end)
 end
-
 function Modules.OverseerCE:Initialize()
     local module = self
-    -- Base64 decoder setup (was in the old stub Initialize)
     if self.State.Base64DecoderEnabled then
         self:InitializeBase64Decoder()
     end
-    -- Auto refresh setup (was in the old stub Initialize)
     if self.State.AutoRefresh then
         self:SetupAutoRefresh()
     end
-    -- Freeze heartbeat loop
     RunService.Heartbeat:Connect(function()
         for patchId, patch in pairs(module.State.FreezeList) do
             pcall(function()
@@ -7281,5 +7032,261 @@ Modules.OverseerCE.PoisonTemplates = {
         return self:PoisonTableHijack(unlockModule, unlockPoisons)
     end
 }
+do
+    local _require = require
+    getgenv().__OverseerRequireCache = getgenv().__OverseerRequireCache or {}
+    require = newcclosure and newcclosure(function(module, ...)
+        local result = { _require(module, ...) }
+        if typeof(module) == "Instance" and module:IsA("ModuleScript") then
+            local cache = getgenv().__OverseerRequireCache
+            if not cache[module] then
+                cache[module] = {
+                    Name      = module.Name,
+                    FullName  = (pcall(function() return module:GetFullName() end)) and module:GetFullName() or module.Name,
+                    Result    = result[1],
+                    Timestamp = os.time(),
+                    Script    = module,
+                }
+            end
+        end
+        return table.unpack(result)
+    end) or function(module, ...)
+        local result = { _require(module, ...) }
+        if typeof(module) == "Instance" and module:IsA("ModuleScript") then
+            local cache = getgenv().__OverseerRequireCache
+            if not cache[module] then
+                cache[module] = {
+                    Name      = module.Name,
+                    FullName  = (pcall(function() return module:GetFullName() end)) and module:GetFullName() or module.Name,
+                    Result    = result[1],
+                    Timestamp = os.time(),
+                    Script    = module,
+                }
+            end
+        end
+        return table.unpack(result)
+    end
+end
+local _originalScanModules = Modules.OverseerCE.ScanModules
+function Modules.OverseerCE:ScanModules()
+    _originalScanModules(self)
+    task.spawn(function()
+        task.wait(0.5)
+        local cache = getgenv().__OverseerRequireCache or {}
+        local destroyedFound = 0
+        local listed = {}
+        for _, md in ipairs(self.State.ModuleList) do
+            listed[md.Script] = true
+        end
+        local anyDestroyed = false
+        for module, data in pairs(cache) do
+            local isDestroyed = not module.Parent
+            if isDestroyed and not listed[module] then
+                anyDestroyed = true
+                break
+            end
+        end
+        if not anyDestroyed then return end
+        if self.State.UI and self.State.UI.ModuleScroll then
+            local sep = Instance.new("Frame", self.State.UI.ModuleScroll)
+            sep.Size = UDim2.new(1, -2, 0, 20)
+            sep.BackgroundColor3 = Color3.fromRGB(60, 20, 20)
+            sep.BorderSizePixel = 0
+            local sepLabel = Instance.new("TextLabel", sep)
+            sepLabel.Size = UDim2.new(1, -8, 1, 0)
+            sepLabel.Position = UDim2.fromOffset(4, 0)
+            sepLabel.BackgroundTransparency = 1
+            sepLabel.Text = "⚠ DESTROYED / CACHED MODULES"
+            sepLabel.TextColor3 = Color3.fromRGB(255, 120, 120)
+            sepLabel.Font = Enum.Font.SourceSansBold
+            sepLabel.TextSize = 11
+            sepLabel.TextXAlignment = Enum.TextXAlignment.Left
+            for module, data in pairs(cache) do
+                local isDestroyed = not module.Parent
+                if isDestroyed and not listed[module] then
+                    destroyedFound += 1
+                    self:_AddDestroyedModuleRow(module, data)
+                    listed[module] = true
+                end
+            end
+            self:_showNotification(
+                string.format("Found %d destroyed/cached module(s)", destroyedFound),
+                destroyedFound > 0 and "warning" or "info"
+            )
+        end
+    end)
+end
+function Modules.OverseerCE:_AddDestroyedModuleRow(moduleScript, cacheData)
+    if not self.State.UI or not self.State.UI.ModuleScroll then return end
+    local row = Instance.new("TextButton", self.State.UI.ModuleScroll)
+    row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
+    row.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
+    row.Text = ""
+    row.BorderSizePixel = 0
+    row.AutoButtonColor = false
+    local nameLabel = Instance.new("TextLabel", row)
+    nameLabel.Size = UDim2.new(1, -8, 1, 0)
+    nameLabel.Position = UDim2.fromOffset(4, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = "💀 " .. cacheData.Name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 120, 120)
+    nameLabel.Font = Enum.Font.SourceSansItalic
+    nameLabel.TextSize = 11
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    local tooltipLabel = Instance.new("TextLabel", row)
+    tooltipLabel.Size = UDim2.new(1, -8, 0, 14)
+    tooltipLabel.Position = UDim2.fromOffset(4, self.Config.ROW_HEIGHT)
+    tooltipLabel.BackgroundTransparency = 1
+    tooltipLabel.Text = cacheData.FullName
+    tooltipLabel.TextColor3 = Color3.fromRGB(180, 80, 80)
+    tooltipLabel.Font = Enum.Font.Code
+    tooltipLabel.TextSize = 9
+    tooltipLabel.TextXAlignment = Enum.TextXAlignment.Left
+    tooltipLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    tooltipLabel.Visible = false
+    row.MouseEnter:Connect(function()
+        row.BackgroundColor3 = Color3.fromRGB(60, 25, 25)
+        tooltipLabel.Visible = true
+        row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT + 14)
+    end)
+    row.MouseLeave:Connect(function()
+        if row.BackgroundColor3 ~= Color3.fromRGB(80, 30, 30) then
+            row.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
+        end
+        tooltipLabel.Visible = false
+        row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
+    end)
+    row.MouseButton1Click:Connect(function()
+        for _, child in ipairs(self.State.UI.ModuleScroll:GetChildren()) do
+            if child:IsA("TextButton") then
+                child.BackgroundColor3 = child.BackgroundColor3 == Color3.fromRGB(80, 30, 30)
+                    and Color3.fromRGB(40, 20, 20)
+                    or child.BackgroundColor3
+            end
+        end
+        row.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+        nameLabel.TextColor3 = Color3.fromRGB(255, 180, 180)
+        local cachedResult = cacheData.Result
+        local moduleContent
+        if type(cachedResult) == "table" then
+            moduleContent = cachedResult
+        elseif cachedResult ~= nil then
+            moduleContent = {
+                ["[Value]"]       = tostring(cachedResult),
+                ["[Type]"]        = type(cachedResult),
+                ["[Cached Name]"] = cacheData.Name,
+                ["[Status]"]      = "Destroyed - non-table return cached",
+                ["[Cached At]"]   = os.date("%H:%M:%S", cacheData.Timestamp),
+            }
+        else
+            moduleContent = {
+                ["[Cached Name]"] = cacheData.Name,
+                ["[Cached Path]"] = cacheData.FullName,
+                ["[Status]"]      = "Destroyed - returned nil or uncacheable",
+                ["[Cached At]"]   = os.date("%H:%M:%S", cacheData.Timestamp),
+            }
+        end
+        self.State.SelectedModule = nil
+        self.State.CurrentTable   = moduleContent
+        self.State.PathStack      = {}
+        self.State.VisitedTables  = {}
+        if self.State.UI and self.State.UI.InspectorScroll then
+            for _, child in ipairs(self.State.UI.InspectorScroll:GetChildren()) do
+                if not child:IsA("UIListLayout") then child:Destroy() end
+            end
+            self.State.UI.PathLabel.Text = "Cached: " .. cacheData.Name
+            self:PopulateTable(moduleContent)
+        end
+        self:_showNotification(
+            string.format("Viewing cached: %s (required at %s)",
+                cacheData.Name,
+                os.date("%H:%M:%S", cacheData.Timestamp)
+            ),
+            "warning"
+        )
+    end)
+    table.insert(self.State.ModuleList, {
+        Script     = moduleScript,
+        Row        = row,
+        Name       = cacheData.Name,
+        Path       = cacheData.FullName,
+        Destroyed  = true,
+    })
+end
+local _originalCreateUI = Modules.OverseerCE.CreateUI
+function Modules.OverseerCE:CreateUI()
+    _originalCreateUI(self)
+    task.defer(function()
+        if not self.State.UI or not self.State.UI.ModuleScroll then return end
+        local scroll = self.State.UI.ModuleScroll
+        local panel  = scroll.Parent
+        local rescanBtn = self:_createButton(
+            panel,
+            "Show Destroyed",
+            UDim2.new(1, -8, 0, 20),
+            UDim2.new(0, 4, 0, 46),
+            function()
+                self:_RescanDestroyed()
+            end
+        )
+        rescanBtn.TextSize = 10
+        rescanBtn.BackgroundColor3 = Color3.fromRGB(50, 22, 22)
+        rescanBtn.TextColor3 = Color3.fromRGB(255, 120, 120)
+        scroll.Position = UDim2.fromOffset(4, 70)
+        scroll.Size = UDim2.new(1, -8, 1, -74)
+    end)
+end
+function Modules.OverseerCE:_RescanDestroyed()
+    local cache   = getgenv().__OverseerRequireCache or {}
+    local listed  = {}
+    for _, md in ipairs(self.State.ModuleList) do
+        listed[md.Script] = true
+    end
+    local found = 0
+    local anyNew = false
+    local hasSep = false
+    if self.State.UI and self.State.UI.ModuleScroll then
+        for _, child in ipairs(self.State.UI.ModuleScroll:GetChildren()) do
+            if child:IsA("Frame") and not child:IsA("TextButton") then
+                hasSep = true
+                break
+            end
+        end
+    end
+    for module, data in pairs(cache) do
+        local isDestroyed = not module.Parent
+        if isDestroyed and not listed[module] then
+            anyNew = true
+            found += 1
+        end
+    end
+    if not anyNew then
+        self:_showNotification("No new destroyed modules found", "info")
+        return
+    end
+    if not hasSep and self.State.UI and self.State.UI.ModuleScroll then
+        local sep = Instance.new("Frame", self.State.UI.ModuleScroll)
+        sep.Size = UDim2.new(1, -2, 0, 20)
+        sep.BackgroundColor3 = Color3.fromRGB(60, 20, 20)
+        sep.BorderSizePixel = 0
+        local sepLabel = Instance.new("TextLabel", sep)
+        sepLabel.Size = UDim2.new(1, -8, 1, 0)
+        sepLabel.Position = UDim2.fromOffset(4, 0)
+        sepLabel.BackgroundTransparency = 1
+        sepLabel.Text = "⚠ DESTROYED / CACHED MODULES"
+        sepLabel.TextColor3 = Color3.fromRGB(255, 120, 120)
+        sepLabel.Font = Enum.Font.SourceSansBold
+        sepLabel.TextSize = 11
+        sepLabel.TextXAlignment = Enum.TextXAlignment.Left
+    end
+    for module, data in pairs(cache) do
+        if not module.Parent and not listed[module] then
+            self:_AddDestroyedModuleRow(module, data)
+            listed[module] = true
+        end
+    end
+    self:_showNotification(string.format("Found %d destroyed module(s)", found), "warning")
+end
 Modules.OverseerCE:Initialize()
 return Modules.OverseerCE
