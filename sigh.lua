@@ -35,7 +35,6 @@ targetModule.Lifetime = 9999
 targetModule.BulletSize = 10
 targetModule.ReloadTime = 0 
 targetModule.SwitchTime = 0 
-targetModule.BulletPerShot = 1000 
 targetModule.SilenceEffect = true 
 targetModule.Accuracy = 0 
 
