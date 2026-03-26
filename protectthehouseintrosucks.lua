@@ -1,0 +1,6 @@
+game:GetService("StarterGui").Loading:Destroy()
+game:GetService("StarterGui").GameOver:Destroy()
+game:GetService("StarterGui").World2NotYetUnlockedError:Destroy()
+game:GetService("Players").LocalPlayer.PlayerGui.World2NotYetUnlockedError:Destroy()
+game:GetService("StarterGui").GameOver.LocalScript:Destroy()
+warn("removed shitty intro and world2 gui")
