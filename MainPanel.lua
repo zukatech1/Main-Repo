@@ -1,6 +1,8 @@
 --[[Made By Zuka]]
 loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatech1/forked33/refs/heads/main/Loader.lua"))()
 
+
+
 if getgenv().ZukaTech_Loaded then
     return
 end
@@ -17,7 +19,11 @@ local function getLocalPlayer()
     end
     return lp
 end
+
+
 local Workspace = game:GetService("Workspace")
+
+
 local ContentProvider = game:GetService("ContentProvider")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -36,7 +42,6 @@ local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerMouse = LocalPlayer:GetMouse()
 local CurrentCamera = Workspace.CurrentCamera
-
 local Utilities = {}
 function Utilities.findPlayer(inputName)
     local input = tostring(inputName):lower()
