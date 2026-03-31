@@ -1,0 +1,7 @@
+print("loading...... 1")
+print("loading...... 2")
+print("loading...... 3")
+print("loading...... 4")
+print("loading...... 5")
+warn("loading done!")
+print("made by zuka")
